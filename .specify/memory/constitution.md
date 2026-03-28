@@ -1,7 +1,8 @@
 <!--
 Sync Impact Report — Launcher / GitHub Spec Kit
-- Version: (unversioned template) → 1.1.0
-- Principles: Replaced generic [PRINCIPLE_N] placeholders with Articles I–XVII and supporting sections
+- Version: 1.1.0 → 1.2.0
+- Principles: Added Article XVIII (version control: logical commits and pushes); Article XV §13 cross-reference for AI agents
+- Previous: Replaced generic [PRINCIPLE_N] placeholders with Articles I–XVII and supporting sections
 - Added: Preamble, Normative Levels, Articles I–XVII, Delivery Rules for Spec Kit Artifacts,
   Project-Specific Architectural Direction, Quality Bar, Reference Patterns, Amendment History
 - Removed: Template "Core Principles" / SECTION_2 / SECTION_3 / Governance placeholders
@@ -12,7 +13,7 @@ Sync Impact Report — Launcher / GitHub Spec Kit
 
 # Launcher — Constitution for GitHub Spec Kit
 
-**Status**: Adopted Draft 1.1  
+**Status**: Adopted Draft 1.2  
 **Project**: Android Launcher / accessibility-first configurable launcher platform  
 **Scope**: Governs all future `spec`, `plan`, `tasks`, code generation, code review, refactoring, test design, release preparation, and architectural decisions.  
 **Audience**: Human maintainers and AI agents working through GitHub Spec Kit.
@@ -326,6 +327,7 @@ When an AI agent works inside this repository through Spec Kit, it MUST behave a
 12. If a requested change conflicts with the constitution, the AI MUST either:
     - propose a compliant alternative, or
     - flag that the constitution must be amended or an exception must be approved.
+13. Align **Git** practice with **Article XVIII**: **commit** and **push** at **logical**, **validated** breakpoints (for example after a coherent task group or passing build), not as undifferentiated bulk dumps.
 
 ---
 
@@ -393,6 +395,18 @@ A plan that does not pass these gates is incomplete.
 4. Repeated exceptions indicate the constitution should be revised.
 5. Architectural choices that do not change constitutional rules SHOULD go into ADRs rather than expanding this document.
 6. This constitution defines the guardrails, not every implementation detail.
+
+---
+
+## Article XVIII. Version Control and Integration Rhythm
+
+1. **Commits** SHOULD represent **coherent logical units** of change (one reviewable concern per commit when practical), not unrelated mixed edits that are hard to revert or bisect.
+2. **Commit messages** SHOULD state **what** changed and **why** in enough detail for a reviewer or future maintainer without reading the entire diff.
+3. **Pushes** to the shared remote SHOULD occur when a **logical slice** of work is **complete and validated** (for example: builds/tests expected for that slice pass), so that history is **backed up**, **visible for review**, and **eligible for CI**—rather than accumulating large unpushed batches without a reason.
+4. Work tracked in Spec Kit SHOULD align **commits** with **natural breakpoints** (for example: completed task phase, spec/plan/tasks update, or a self-contained implementation chunk), keeping branches **reviewable** and **traceable** to artifacts.
+5. Secrets, credentials, signing keys, and **machine-local-only** configuration (for example paths in `local.properties`) MUST NOT be committed. Such files MUST remain excluded via `.gitignore` or equivalent policy.
+
+**Rationale**: Predictable Git rhythm reduces lost work, eases code review, and keeps continuous integration meaningful for a long-lived product.
 
 ---
 
@@ -497,6 +511,10 @@ These sources informed the constitution and are recommended reference material w
 
 ## Amendment History
 
+### 1.2 — 2026-03-28
+
+- Added **Article XVIII. Version Control and Integration Rhythm** (logical commits, clear messages, pushes at validated breakpoints, alignment with Spec Kit task phases, prohibition on committing secrets and local-only config).
+
 ### 1.1 — 2026-03-28
 
 Revision based on constitution review:
@@ -521,4 +539,4 @@ Initial project constitution created for Launcher based on:
 
 ---
 
-**Version**: 1.1.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-03-28
+**Version**: 1.2.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-03-28
