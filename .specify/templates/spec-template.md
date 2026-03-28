@@ -5,6 +5,8 @@
 **Status**: Draft  
 **Input**: User description: "$ARGUMENTS"
 
+**Constitution**: `.specify/memory/constitution.md` is binding. Keep this spec product-facing and technology-agnostic except where a technical constraint is itself a requirement (Article XII).
+
 ## User Scenarios & Testing *(mandatory)*
 
 <!--
