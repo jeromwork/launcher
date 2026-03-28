@@ -48,21 +48,21 @@ description: "Task list for Launcher Core Foundation (001)"
 
 **⚠️ CRITICAL**: До завершения этой фазы задачи US1–US3 не начинать.
 
-- [ ] T009 [P] Добавить sealed-модель проектных событий по [contracts/project-events.md](./contracts/project-events.md) в `c:\work\launcher\core\src\main\java\com\launcher\api\ProjectEvent.kt`
-- [ ] T010 [P] Добавить модели профиля/снимка по [data-model.md](./data-model.md) в `c:\work\launcher\core\src\main\java\com\launcher\api\ProfileModels.kt`
-- [ ] T011 [P] Добавить `CatalogEntry` / `CatalogSnapshot` в `c:\work\launcher\core\src\main\java\com\launcher\api\CatalogModels.kt`
-- [ ] T012 [P] Добавить `ActionRequest` / `DispatchResult` в `c:\work\launcher\core\src\main\java\com\launcher\api\ActionModels.kt`
-- [ ] T013 [P] Добавить `ModuleDescriptor` в `c:\work\launcher\core\src\main\java\com\launcher\api\ModuleDescriptor.kt`
-- [ ] T014 Реализовать `EventRouter` (Flow/коллектор; debounce серии `PackageSetChanged` **≤ 200 ms** по [contracts/project-events.md](./contracts/project-events.md), без polling) в `c:\work\launcher\core\src\main\java\com\launcher\core\events\EventRouter.kt`
-- [ ] T015 Добавить `c:\work\launcher\core\src\main\assets\default_profile.json` с `schemaVersion` и флагами модулей по [contracts/profile-bootstrap.md](./contracts/profile-bootstrap.md)
-- [ ] T016 Реализовать `ProfileEngine` (парсинг, валидация, safe fallback на default) в `c:\work\launcher\core\src\main\java\com\launcher\core\profile\ProfileEngine.kt`
-- [ ] T017 Реализовать порядок разрешения конфликтов из [data-model.md](./data-model.md) в `c:\work\launcher\core\src\main\java\com\launcher\core\profile\CompositionResolver.kt`
-- [ ] T018 Реализовать `ModuleRegistry` по [contracts/module-registration.md](./contracts/module-registration.md) в `c:\work\launcher\core\src\main\java\com\launcher\core\modules\ModuleRegistry.kt`
-- [ ] T019 Реализовать `AppIndex` (запрос установленных приложений через `PackageManager`, фоновый refresh, снимок для UI) в `c:\work\launcher\core\src\main\java\com\launcher\core\catalog\AppIndex.kt`
-- [ ] T020 Реализовать `ActionDispatcher` по [contracts/actions.md](./contracts/actions.md) в `c:\work\launcher\core\src\main\java\com\launcher\core\actions\ActionDispatcher.kt`
-- [ ] T021 Реализовать `SystemEventBridge` (регистрация package broadcasts → нормализация → `EventRouter`) в `c:\work\launcher\core\src\main\java\com\launcher\core\bridge\SystemEventBridge.kt`
-- [ ] T022 Собрать фасад `LauncherCore` (все сервисы, явный lifecycle start/stop для bridge) в `c:\work\launcher\core\src\main\java\com\launcher\core\LauncherCore.kt`
-- [ ] T023 JVM (Robolectric): smoke-тест — `LauncherCore` создаётся, `start()` / `stop()` не бросают; без Activity в `c:\work\launcher\core\src\test\java\com\launcher\core\LauncherCoreTest.kt`
+- [X] T009 [P] Добавить sealed-модель проектных событий по [contracts/project-events.md](./contracts/project-events.md) в `c:\work\launcher\core\src\main\java\com\launcher\api\ProjectEvent.kt`
+- [X] T010 [P] Добавить модели профиля/снимка по [data-model.md](./data-model.md) в `c:\work\launcher\core\src\main\java\com\launcher\api\ProfileModels.kt`
+- [X] T011 [P] Добавить `CatalogEntry` / `CatalogSnapshot` в `c:\work\launcher\core\src\main\java\com\launcher\api\CatalogModels.kt`
+- [X] T012 [P] Добавить `ActionRequest` / `DispatchResult` в `c:\work\launcher\core\src\main\java\com\launcher\api\ActionModels.kt`
+- [X] T013 [P] Добавить `ModuleDescriptor` в `c:\work\launcher\core\src\main\java\com\launcher\api\ModuleDescriptor.kt`
+- [X] T014 Реализовать `EventRouter` (Flow/коллектор; debounce серии `PackageSetChanged` **≤ 200 ms** по [contracts/project-events.md](./contracts/project-events.md), без polling) в `c:\work\launcher\core\src\main\java\com\launcher\core\events\EventRouter.kt`
+- [X] T015 Добавить `c:\work\launcher\core\src\main\assets\default_profile.json` с `schemaVersion` и флагами модулей по [contracts/profile-bootstrap.md](./contracts/profile-bootstrap.md)
+- [X] T016 Реализовать `ProfileEngine` (парсинг, валидация, safe fallback на default) в `c:\work\launcher\core\src\main\java\com\launcher\core\profile\ProfileEngine.kt`
+- [X] T017 Реализовать порядок разрешения конфликтов из [data-model.md](./data-model.md) в `c:\work\launcher\core\src\main\java\com\launcher\core\profile\CompositionResolver.kt`
+- [X] T018 Реализовать `ModuleRegistry` по [contracts/module-registration.md](./contracts/module-registration.md) в `c:\work\launcher\core\src\main\java\com\launcher\core\modules\ModuleRegistry.kt`
+- [X] T019 Реализовать `AppIndex` (запрос установленных приложений через `PackageManager`, фоновый refresh, снимок для UI) в `c:\work\launcher\core\src\main\java\com\launcher\core\catalog\AppIndex.kt`
+- [X] T020 Реализовать `ActionDispatcher` по [contracts/actions.md](./contracts/actions.md) в `c:\work\launcher\core\src\main\java\com\launcher\core\actions\ActionDispatcher.kt`
+- [X] T021 Реализовать `SystemEventBridge` (регистрация package broadcasts → нормализация → `EventRouter`) в `c:\work\launcher\core\src\main\java\com\launcher\core\bridge\SystemEventBridge.kt`
+- [X] T022 Собрать фасад `LauncherCore` (все сервисы, явный lifecycle start/stop для bridge) в `c:\work\launcher\core\src\main\java\com\launcher\core\LauncherCore.kt`
+- [X] T023 JVM (Robolectric): smoke-тест — `LauncherCore` создаётся, `start()` / `stop()` не бросают; без Activity в `c:\work\launcher\core\src\test\java\com\launcher\core\LauncherCoreTest.kt`
 
 **Checkpoint**: выполнена задача **T023** (`LauncherCore` подтверждён тестом без Activity).
 
