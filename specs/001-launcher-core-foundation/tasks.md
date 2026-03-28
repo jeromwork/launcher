@@ -76,15 +76,15 @@ description: "Task list for Launcher Core Foundation (001)"
 
 ### Tests for User Story 1
 
-- [ ] T024 [P] [US1] Unit: fallback профиля при невалидном JSON в `c:\work\launcher\core\src\test\java\com\launcher\core\profile\ProfileEngineTest.kt`
-- [ ] T025 [P] [US1] Unit: порядок precedence CompositionResolver в `c:\work\launcher\core\src\test\java\com\launcher\core\profile\CompositionResolverTest.kt`
+- [X] T024 [P] [US1] Unit: fallback профиля при невалидном JSON в `c:\work\launcher\core\src\test\java\com\launcher\core\profile\ProfileEngineTest.kt`
+- [X] T025 [P] [US1] Unit: порядок precedence CompositionResolver в `c:\work\launcher\core\src\test\java\com\launcher\core\profile\CompositionResolverTest.kt`
 
 ### Implementation for User Story 1
 
-- [ ] T026 [US1] Создать `c:\work\launcher\app\src\main\java\com\launcher\app\LauncherApplication.kt` — инициализация `LauncherCore`, регистрация/старт `SystemEventBridge` в жизненном цикле процесса
-- [ ] T027 [US1] Создать `c:\work\launcher\app\src\main\java\com\launcher\app\HomeActivity.kt` — тонкий shell: подписка на снимки каталога/профиля, без бизнес-логики каталога
-- [ ] T028 [US1] Создать `c:\work\launcher\app\src\main\res\layout\activity_home.xml` — крупные таргеты, `contentDescription`, контрастный базовый layout (View/XML); ручная сверка с [plan.md](./plan.md) § Test matrix (строка Accessibility)
-- [ ] T029 [US1] Настроить `c:\work\launcher\app\src\main\AndroidManifest.xml` — `application`, `HomeActivity`, `MAIN`/`LAUNCHER`; элемент `<queries>` или политика видимости пакетов согласно targetSdk 35 и [spec.md](./spec.md) FR-032
+- [X] T026 [US1] Создать `c:\work\launcher\app\src\main\java\com\launcher\app\LauncherApplication.kt` — инициализация `LauncherCore`, регистрация/старт `SystemEventBridge` в жизненном цикле процесса
+- [X] T027 [US1] Создать `c:\work\launcher\app\src\main\java\com\launcher\app\HomeActivity.kt` — тонкий shell: подписка на снимки каталога/профиля, без бизнес-логики каталога
+- [X] T028 [US1] Создать `c:\work\launcher\app\src\main\res\layout\activity_home.xml` — крупные таргеты, `contentDescription`, контрастный базовый layout (View/XML); ручная сверка с [plan.md](./plan.md) § Test matrix (строка Accessibility)
+- [X] T029 [US1] Настроить `c:\work\launcher\app\src\main\AndroidManifest.xml` — `application`, `HomeActivity`, `MAIN`/`LAUNCHER`; элемент `<queries>` или политика видимости пакетов согласно targetSdk 35 и [spec.md](./spec.md) FR-032
 
 **Checkpoint**: Эмуляторы **API 26** и **API 35** (как **targetSdk** в Gradle): приложение стартует, home не пустой/не падает при испорченном профиле (подмена assets или тестовый flavor — по усмотрению).
 
