@@ -1,7 +1,8 @@
 <!--
 Sync Impact Report — Launcher / GitHub Spec Kit
-- Version: 1.1.0 → 1.2.0
-- Principles: Added Article XVIII (version control: logical commits and pushes); Article XV §13 cross-reference for AI agents
+- Version: 1.2.0 → 1.3.0
+- Principles: Article XVIII strengthened — MUST commit and push after each significant step (with exceptions); Article XV §13 aligned
+- Previous: 1.1.0 → 1.2.0 — Added Article XVIII; Article XV §13 cross-reference for AI agents
 - Previous: Replaced generic [PRINCIPLE_N] placeholders with Articles I–XVII and supporting sections
 - Added: Preamble, Normative Levels, Articles I–XVII, Delivery Rules for Spec Kit Artifacts,
   Project-Specific Architectural Direction, Quality Bar, Reference Patterns, Amendment History
@@ -13,7 +14,7 @@ Sync Impact Report — Launcher / GitHub Spec Kit
 
 # Launcher — Constitution for GitHub Spec Kit
 
-**Status**: Adopted Draft 1.2  
+**Status**: Adopted Draft 1.3  
 **Project**: Android Launcher / accessibility-first configurable launcher platform  
 **Scope**: Governs all future `spec`, `plan`, `tasks`, code generation, code review, refactoring, test design, release preparation, and architectural decisions.  
 **Audience**: Human maintainers and AI agents working through GitHub Spec Kit.
@@ -327,7 +328,7 @@ When an AI agent works inside this repository through Spec Kit, it MUST behave a
 12. If a requested change conflicts with the constitution, the AI MUST either:
     - propose a compliant alternative, or
     - flag that the constitution must be amended or an exception must be approved.
-13. Align **Git** practice with **Article XVIII**: **commit** and **push** at **logical**, **validated** breakpoints (for example after a coherent task group or passing build), not as undifferentiated bulk dumps.
+13. Align **Git** practice with **Article XVIII**: after each **significant** step, **commit** and **push** to the remote (see Article XVIII for what counts as significant and for exceptions).
 
 ---
 
@@ -402,11 +403,11 @@ A plan that does not pass these gates is incomplete.
 
 1. **Commits** SHOULD represent **coherent logical units** of change (one reviewable concern per commit when practical), not unrelated mixed edits that are hard to revert or bisect.
 2. **Commit messages** SHOULD state **what** changed and **why** in enough detail for a reviewer or future maintainer without reading the entire diff.
-3. **Pushes** to the shared remote SHOULD occur when a **logical slice** of work is **complete and validated** (for example: builds/tests expected for that slice pass), so that history is **backed up**, **visible for review**, and **eligible for CI**—rather than accumulating large unpushed batches without a reason.
+3. **After each significant step**, once that step is in a **consistent state** (expected build and tests for that step pass where they apply), contributors **MUST** record the work in Git with at least one **logical commit** and **MUST** **push** that commit (or a small batch of related commits for the same step) to the **remote tracking branch**. A **significant step** includes, non-exhaustively: completion of a **`tasks.md` phase** or Speckit checkpoint, a coherent **spec / plan / tasks** update, or a **self-contained implementation slice**. Letting multiple such steps pile up **only locally** without push **MUST** be avoided unless a **documented exception** applies (for example maintainer direction, embargo, or a short-lived air-gapped session, followed by catch-up push as soon as connectivity and policy allow).
 4. Work tracked in Spec Kit SHOULD align **commits** with **natural breakpoints** (for example: completed task phase, spec/plan/tasks update, or a self-contained implementation chunk), keeping branches **reviewable** and **traceable** to artifacts.
 5. Secrets, credentials, signing keys, and **machine-local-only** configuration (for example paths in `local.properties`) MUST NOT be committed. Such files MUST remain excluded via `.gitignore` or equivalent policy.
 
-**Rationale**: Predictable Git rhythm reduces lost work, eases code review, and keeps continuous integration meaningful for a long-lived product.
+**Rationale**: Predictable Git rhythm reduces lost work, eases code review, and keeps continuous integration meaningful for a long-lived product. Requiring push after significant steps prevents silent drift between machines and keeps CI and review truthful.
 
 ---
 
@@ -511,6 +512,11 @@ These sources informed the constitution and are recommended reference material w
 
 ## Amendment History
 
+### 1.3 — 2026-03-28
+
+- **Article XVIII**: strengthened rule **§3** — after each **significant** step, **MUST** commit and **MUST** push to remote when work is consistent (with narrow exceptions); clarified what counts as a significant step and rationale.
+- **Article XV §13**: aligned wording with the strengthened Article XVIII.
+
 ### 1.2 — 2026-03-28
 
 - Added **Article XVIII. Version Control and Integration Rhythm** (logical commits, clear messages, pushes at validated breakpoints, alignment with Spec Kit task phases, prohibition on committing secrets and local-only config).
@@ -539,4 +545,4 @@ Initial project constitution created for Launcher based on:
 
 ---
 
-**Version**: 1.2.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-03-28
+**Version**: 1.3.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-03-28
