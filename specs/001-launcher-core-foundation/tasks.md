@@ -29,14 +29,14 @@ description: "Task list for Launcher Core Foundation (001)"
 
 **Purpose**: Gradle multi-module skeleton, версии из [research.md](./research.md) §1 и [plan.md](./plan.md) Technical Context.
 
-- [ ] T001 Создать `c:\work\launcher\settings.gradle.kts` с `include(":app", ":core")` и комментарием-шаблоном для будущих `:feature-*`
-- [ ] T002 Создать корневой `c:\work\launcher\build.gradle.kts` (или convention через plugins) с совместимостью AGP 8.7+ и Kotlin 2.0.x
-- [ ] T003 Создать `c:\work\launcher\gradle\libs.versions.toml` с версиями: compileSdk 35, minSdk 26, targetSdk 35, AndroidX AppCompat/Lifecycle/Activity, coroutines (без Compose BOM)
-- [ ] T004 [P] Добавить `c:\work\launcher\gradle.properties` (AndroidX, JVM 17)
-- [ ] T005 [P] Добавить `c:\work\launcher\.gitignore` для Android/Gradle/IDE
-- [ ] T006 Сгенерировать Gradle Wrapper в корне `c:\work\launcher\` (gradlew, gradlew.bat, `gradle/wrapper/*`)
-- [ ] T007 Создать `c:\work\launcher\core\build.gradle.kts` как Android Library с зависимостями тестов: JUnit, MockK, Robolectric (по [plan.md](./plan.md))
-- [ ] T008 Создать `c:\work\launcher\app\build.gradle.kts` с `implementation(project(":core"))` и зависимостями UI (AppCompat, View/XML)
+- [X] T001 Создать `c:\work\launcher\settings.gradle.kts` с `include(":app", ":core")` и комментарием-шаблоном для будущих `:feature-*`
+- [X] T002 Создать корневой `c:\work\launcher\build.gradle.kts` (или convention через plugins) с совместимостью AGP 8.7+ и Kotlin 2.0.x
+- [X] T003 Создать `c:\work\launcher\gradle\libs.versions.toml` с версиями: compileSdk 35, minSdk 26, targetSdk 35, AndroidX AppCompat/Lifecycle/Activity, coroutines (без Compose BOM)
+- [X] T004 [P] Добавить `c:\work\launcher\gradle.properties` (AndroidX, JVM 17)
+- [X] T005 [P] Добавить `c:\work\launcher\.gitignore` для Android/Gradle/IDE
+- [X] T006 Сгенерировать Gradle Wrapper в корне `c:\work\launcher\` (gradlew, gradlew.bat, `gradle/wrapper/*`)
+- [X] T007 Создать `c:\work\launcher\core\build.gradle.kts` как Android Library с зависимостями тестов: JUnit, MockK, Robolectric (по [plan.md](./plan.md))
+- [X] T008 Создать `c:\work\launcher\app\build.gradle.kts` с `implementation(project(":core"))` и зависимостями UI (AppCompat, View/XML)
 
 **Checkpoint**: `./gradlew :app:assembleDebug` синхруется без ошибок (после заполнения исходников в Phase 2).
 
