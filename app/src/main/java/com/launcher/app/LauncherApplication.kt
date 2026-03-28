@@ -13,7 +13,7 @@ class LauncherApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        core = LauncherCore(this)
+        core = LauncherCore(this, moduleDescriptors = AppModuleDescriptors.all)
         core.start()
     }
 

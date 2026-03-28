@@ -98,12 +98,12 @@ description: "Task list for Launcher Core Foundation (001)"
 
 ### Tests for User Story 2
 
-- [ ] T030 [P] [US2] Unit: `ModuleRegistry` отключает модуль при несовместимом `requiredContracts` в `c:\work\launcher\core\src\test\java\com\launcher\core\modules\ModuleRegistryTest.kt`
+- [X] T030 [P] [US2] Unit: `ModuleRegistry` отключает модуль при несовместимом `requiredContracts` в `c:\work\launcher\core\src\test\java\com\launcher\core\modules\ModuleRegistryTest.kt`
 
 ### Implementation for User Story 2
 
-- [ ] T031 [US2] Подключить в `LauncherApplication.kt` список дескрипторов (пока пустой или один no-op тестовый модуль-заглушка в том же модуле `app`, не нарушая запрет feature receivers)
-- [ ] T032 [US2] Написать `c:\work\launcher\specs\001-launcher-core-foundation\EXTENSION_GUIDE.md` — шаги по образцу [spec.md](./spec.md) FR-026 и [contracts/module-registration.md](./contracts/module-registration.md)
+- [X] T031 [US2] Подключить в `LauncherApplication.kt` список дескрипторов (пока пустой или один no-op тестовый модуль-заглушка в том же модуле `app`, не нарушая запрет feature receivers)
+- [X] T032 [US2] Написать `c:\work\launcher\specs\001-launcher-core-foundation\EXTENSION_GUIDE.md` — шаги по образцу [spec.md](./spec.md) FR-026 и [contracts/module-registration.md](./contracts/module-registration.md)
 
 **Checkpoint**: Новый разработчик может пройти EXTENSION_GUIDE без чтения исходников Core целиком.
 
