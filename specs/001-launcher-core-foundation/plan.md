@@ -29,6 +29,7 @@ Deliver a **minimal, production-minded Core** in a **`core`** Gradle module with
 
 | Область | Contract / JVM (Robolectric) | Integration (JVM/Android) | E2E / instrumented |
 |--------|------------------------------|----------------------------|----------------------|
+| LauncherCore — smoke start/stop | Robolectric (`LauncherCoreTest`) | — | — |
 | ProfileEngine — fallback, invalid JSON | Unit (`ProfileEngineTest`) | — | Опционально: подмена assets на устройстве |
 | CompositionResolver — порядок precedence | Unit (`CompositionResolverTest`) | — | — |
 | ModuleRegistry — деградация контрактов | Unit (`ModuleRegistryTest`) | — | — |
@@ -112,6 +113,8 @@ specs/001-launcher-core-foundation/
 ├── research.md
 ├── data-model.md
 ├── quickstart.md
+├── EXTENSION_GUIDE.md
+├── PLATFORM_EVENTS.md
 ├── contracts/
 │   ├── README.md
 │   ├── profile-bootstrap.md

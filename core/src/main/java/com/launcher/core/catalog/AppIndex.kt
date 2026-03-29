@@ -27,8 +27,9 @@ class AppIndex(
      * When true, skips [PackageManager] scans (Robolectric smoke tests; avoids blocking PM on some hosts).
      */
     private val skipPackageScan: Boolean = false,
+    private val packageManager: PackageManager = context.packageManager,
 ) {
-    private val pm = context.packageManager
+    private val pm = packageManager
     private val generation = AtomicLong(0L)
     private val _snapshot = MutableStateFlow(CatalogSnapshot(0L, emptyList()))
     val snapshot: StateFlow<CatalogSnapshot> = _snapshot.asStateFlow()

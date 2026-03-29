@@ -132,12 +132,12 @@ description: "Task list for Launcher Core Foundation (001)"
 
 **Purpose**: Каталог под моки, CI-команда, синхронизация quickstart.
 
-- [ ] T036 [P] Robolectric/JVM: `AppIndex` с подставным `PackageManager` в `c:\work\launcher\core\src\test\java\com\launcher\core\catalog\AppIndexTest.kt`
-- [ ] T037 [P] Unit: `ActionDispatcher` возвращает `BlockedByPolicy` при невалидном запросе в `c:\work\launcher\core\src\test\java\com\launcher\core\actions\ActionDispatcherTest.kt`
-- [ ] T038 Выполнить `c:\work\launcher\gradlew.bat :core:testDebugUnitTest` и устранить падения
-- [ ] T039 Сверить фактические тесты и ручные проверки с таблицей [plan.md](./plan.md) § **Test matrix (FR-028)**; при расхождении обновить план или добавить тесты
-- [ ] T040 Проверить соответствие `c:\work\launcher\specs\001-launcher-core-foundation\quickstart.md` фактическим путям и командам после сборки
-- [ ] T041 Пройти grep: отсутствие `registerReceiver` в `c:\work\launcher\app\src\` (кроме сгенерированного/оправданного) — только `core` владеет bridge
+- [X] T036 [P] Robolectric/JVM: `AppIndex` с подставным `PackageManager` в `c:\work\launcher\core\src\test\java\com\launcher\core\catalog\AppIndexTest.kt`
+- [X] T037 [P] Unit: `ActionDispatcher` возвращает `BlockedByPolicy` при невалидном запросе в `c:\work\launcher\core\src\test\java\com\launcher\core\actions\ActionDispatcherTest.kt`
+- [X] T038 Выполнить `c:\work\launcher\gradlew.bat :core:testDebugUnitTest` и устранить падения
+- [X] T039 Сверить фактические тесты и ручные проверки с таблицей [plan.md](./plan.md) § **Test matrix (FR-028)**; при расхождении обновить план или добавить тесты
+- [X] T040 Проверить соответствие `c:\work\launcher\specs\001-launcher-core-foundation\quickstart.md` фактическим путям и командам после сборки
+- [X] T041 Пройти grep: отсутствие `registerReceiver` в `c:\work\launcher\app\src\` (кроме сгенерированного/оправданного) — только `core` владеет bridge
 - [ ] T042 *(отложено, не блокирует MVP)* Instrumented: сценарий `AppIndex` при ограниченной видимости пакетов — в `c:\work\launcher\app\src\androidTest\java\` когда Robolectric недостаточен ([plan.md](./plan.md) матрица, строка AppIndex)
 
 ---
