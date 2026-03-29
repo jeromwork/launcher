@@ -117,12 +117,12 @@ description: "Task list for Launcher Core Foundation (001)"
 
 ### Tests for User Story 3
 
-- [ ] T033 [P] [US3] Unit: `EventRouter` дедуп/порядок для серии `PackageSetChanged` в `c:\work\launcher\core\src\test\java\com\launcher\core\events\EventRouterTest.kt`
+- [X] T033 [P] [US3] Unit: `EventRouter` дедуп/порядок для серии `PackageSetChanged` в `c:\work\launcher\core\src\test\java\com\launcher\core\events\EventRouterTest.kt`
 
 ### Implementation for User Story 3
 
-- [ ] T034 [US3] Добавить `c:\work\launcher\specs\001-launcher-core-foundation\PLATFORM_EVENTS.md` — таблица MVP listeners (**источник правды** [research.md](./research.md) §6; изменения сначала в research, затем здесь)
-- [ ] T035 [US3] Дополнить KDoc у `c:\work\launcher\core\src\main\java\com\launcher\core\bridge\SystemEventBridge.kt` и `c:\work\launcher\core\src\main\java\com\launcher\core\events\EventRouter.kt` ссылкой на `PLATFORM_EVENTS.md`
+- [X] T034 [US3] Добавить `c:\work\launcher\specs\001-launcher-core-foundation\PLATFORM_EVENTS.md` — таблица MVP listeners (**источник правды** [research.md](./research.md) §6; изменения сначала в research, затем здесь)
+- [X] T035 [US3] Дополнить KDoc у `c:\work\launcher\core\src\main\java\com\launcher\core\bridge\SystemEventBridge.kt` и `c:\work\launcher\core\src\main\java\com\launcher\core\events\EventRouter.kt` ссылкой на `PLATFORM_EVENTS.md`
 
 **Checkpoint**: Ревьюер находит владельца intake/normalize/route без чтения feature-кода.
 

@@ -10,7 +10,10 @@ import com.launcher.api.ProjectEvent
 import com.launcher.core.events.EventRouter
 
 /**
- * Registers package broadcasts and forwards normalized events to [EventRouter] (research.md §6).
+ * Registers package broadcasts and forwards normalized events to [EventRouter].
+ *
+ * MVP listener source, thread, frequency, and fallback: [PLATFORM_EVENTS.md](../../../../../../../../specs/001-launcher-core-foundation/PLATFORM_EVENTS.md)
+ * (repo root `specs/001-launcher-core-foundation/PLATFORM_EVENTS.md`; research §6 is the normative source — update research first, then that doc).
  */
 class SystemEventBridge(
     private val context: Context,

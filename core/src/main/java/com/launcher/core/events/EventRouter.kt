@@ -12,6 +12,9 @@ import kotlinx.coroutines.launch
 /**
  * Fan-out for project events. Coalesces burst [ProjectEvent.PackageSetChanged] within [packageSetDebounceMs]
  * (contracts/project-events.md — ≤ 200 ms, no polling).
+ *
+ * Reviewer-oriented intake/route table: [PLATFORM_EVENTS.md](../../../../../../../../specs/001-launcher-core-foundation/PLATFORM_EVENTS.md)
+ * (repo root `specs/001-launcher-core-foundation/PLATFORM_EVENTS.md`).
  */
 @OptIn(FlowPreview::class)
 class EventRouter(
