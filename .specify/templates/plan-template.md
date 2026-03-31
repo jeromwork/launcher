@@ -31,7 +31,43 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+Complete per `.specify/memory/constitution.md` Article XVI. A plan missing any gate is incomplete.
+
+### Architecture Gate
+
+- Does the feature fit the layered architecture (UI / data-domain / data-sources) or clearly justify deviation?
+- Is any new Gradle module justified (ownership, build isolation, feature flags, stable API, testability)?
+- Are boundaries explicit and minimal?
+
+### Core / System Integration Gate
+
+- Does the feature require system events (broadcasts, package/boot/permission flows)?
+- If yes, are they centralized in Core (or another approved boundary) with typed, documented contracts?
+- For each listener: source, frequency, threading, battery cost, fallback if delayed or absent?
+
+### Configuration Gate
+
+- Does this change affect profiles, schema, defaults, or migrations?
+- Are validation, backward compatibility, and migration covered?
+
+### Accessibility Gate
+
+- How does this behave for elderly and accessibility-sensitive users?
+- What acceptance criteria verify legibility, targets, contrast, navigation, cognitive load, and a11y semantics?
+
+### Battery / Performance Gate
+
+- What is background and runtime cost? Is polling avoided or justified?
+- Is startup impact controlled? Are triggers documented for boot, package, and widget refresh paths?
+
+### Testing Gate
+
+- What contract or schema, integration, regression, and UI tests apply (constitution Article X)?
+- Which failure modes are covered?
+
+### Simplicity Gate
+
+- Is any abstraction speculative? Can the design be reduced without losing correctness?
 
 ## Project Structure
 

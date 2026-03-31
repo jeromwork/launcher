@@ -1,0 +1,30 @@
+# Gradle
+.gradle/
+build/
+out/
+local.properties
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Kotlin / JVM (wrapper JAR is versioned — do not ignore)
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+*.log
+*.tmp
+*.swp
+
+# Env
+.env
+.env.*
