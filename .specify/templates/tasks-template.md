@@ -12,6 +12,9 @@ description: "Task list template for feature implementation"
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
+**Governed docs updates**: If the approved plan changes architecture policy, platform assumptions, monetization rules, compliance assumptions, partner distribution strategy, localization approach, support operations, or resource budgets, include explicit tasks to update the impacted files under `docs/**`.
+
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies)
@@ -150,7 +153,7 @@ Examples of foundational tasks (adjust based on your project):
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] TXXX [P] Documentation updates in docs/
+- [ ] TXXX [P] Documentation updates in docs/ (include all impacted governed files from `docs/**` named in plan.md)
 - [ ] TXXX Code cleanup and refactoring
 - [ ] TXXX Performance optimization across all stories
 - [ ] TXXX [P] Additional unit or instrumented tests per plan risk list (paths per module layout)

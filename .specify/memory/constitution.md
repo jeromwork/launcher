@@ -14,7 +14,7 @@ Sync Impact Report — Launcher / GitHub Spec Kit
 
 # Launcher — Constitution for GitHub Spec Kit
 
-**Status**: Adopted Draft 1.3  
+**Status**: Adopted Draft 1.4  
 **Project**: Android Launcher / accessibility-first configurable launcher platform  
 **Scope**: Governs all future `spec`, `plan`, `tasks`, code generation, code review, refactoring, test design, release preparation, and architectural decisions.  
 **Audience**: Human maintainers and AI agents working through GitHub Spec Kit.
@@ -280,6 +280,16 @@ Additional defaults:
 5. Code comments MUST explain intent or non-obvious constraints, not paraphrase the code.
 6. README and module docs MUST be kept accurate when architecture changes.
 
+7. The following repository documents are part of the required project context and MUST be consulted when relevant to the affected feature domain:
+   - `docs/governance/document-map.md`
+   - `docs/adr/*.md`
+   - `docs/product/*.md`
+   - `docs/compliance/*.md`
+   - `docs/research/*.md`
+   - `docs/operations/*.md`
+8. If a feature touches a governed domain, the corresponding `spec.md` and `plan.md` MUST link the relevant context documents explicitly rather than assuming they will be discovered implicitly.
+
+
 ---
 
 ## Article XIII. Dependency and Technology Governance
@@ -353,6 +363,12 @@ Every implementation plan MUST include a compliance gate covering at least the f
 - Does this change affect profiles, schema, defaults, or migrations?
 - Are validation and compatibility covered?
 
+### Required Context Review Gate
+
+- Which files from `docs/governance`, `docs/adr`, `docs/product`, `docs/compliance`, `docs/research`, and `docs/operations` are relevant?
+- Are they explicitly linked in this plan?
+- For each normally relevant document omitted, is the omission explained?
+
 ### Accessibility Gate
 
 - How does this feature behave for elderly users and accessibility-sensitive users?
@@ -424,6 +440,8 @@ The following rules are binding for future Spec Kit usage in this project:
 
 - Focus on user value, problems, acceptance criteria, and constraints.
 - Do not smuggle architecture into the spec unless it is a true constraint.
+- Add a `Related Project Context` section that links the relevant files from `docs/**`.
+- When a governed domain is relevant, cite the exact file paths rather than generic folder names.
 
 ### For `/speckit.plan`
 
@@ -431,11 +449,14 @@ The following rules are binding for future Spec Kit usage in this project:
 - Define module impact, event impact, config impact, accessibility impact, and test strategy.
 - Identify risks for OEM behavior, permissions, lifecycle recreation, and battery.
 - Clearly mark any exception or deviation from architectural defaults.
+- Add a mandatory `Required Context Review` section linking all relevant `docs/**` files reviewed for the plan.
+- If a normally relevant governed document is not used, state why.
 
 ### For `/speckit.tasks`
 
 - Keep tasks concrete, ordered, and traceable to plan and spec.
 - Include tasks for tests, docs, schema updates, migrations, and instrumentation where required.
+- Include tasks for updating impacted `docs/**` files when the plan changes governed project context, policy assumptions, ADR decisions, or operational procedures.
 
 ---
 
@@ -512,6 +533,12 @@ These sources informed the constitution and are recommended reference material w
 
 ## Amendment History
 
+### 1.4 — 2026-04-01
+
+- Added explicit required-project-context rules for `docs/**`.
+- Added `Required Context Review Gate` to the mandatory Constitution Check for every `plan.md`.
+- Updated Spec Kit delivery rules so `spec.md`, `plan.md`, and `tasks.md` must link or update relevant `docs/**` files when applicable.
+
 ### 1.3 — 2026-03-28
 
 - **Article XVIII**: strengthened rule **§3** — after each **significant** step, **MUST** commit and **MUST** push to remote when work is consistent (with narrow exceptions); clarified what counts as a significant step and rationale.
@@ -545,4 +572,4 @@ Initial project constitution created for Launcher based on:
 
 ---
 
-**Version**: 1.3.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-03-28
+**Version**: 1.4.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-04-01

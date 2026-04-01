@@ -7,6 +7,22 @@
 
 **Constitution**: `.specify/memory/constitution.md` is binding. Keep this spec product-facing and technology-agnostic except where a technical constraint is itself a requirement (Article XII).
 
+
+## Related Project Context *(mandatory)*
+
+List the project context documents reviewed for this feature. Link exact file paths.
+
+**Required baseline**:
+- `docs/governance/document-map.md`
+- `.specify/memory/constitution.md`
+
+**Relevant ADRs / product / compliance / research / operations docs**:
+- [path/to/doc.md] — [why it matters for this feature]
+- [path/to/doc.md] — [why it matters for this feature]
+
+**Not applicable but considered**:
+- [path/to/doc.md] — [why it is not relevant]
+
 ## User Scenarios & Testing *(mandatory)*
 
 <!--
