@@ -27,6 +27,22 @@
 **Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
 **Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
+
+## Required Context Review
+
+List all project context files reviewed for this plan. Use exact repository paths.
+
+**Required baseline**:
+- `docs/governance/document-map.md`
+- `.specify/memory/constitution.md`
+
+**Reviewed context documents**:
+- [path/to/doc.md] — [constraint or decision taken from this document]
+- [path/to/doc.md] — [constraint or decision taken from this document]
+
+**Documents considered but not applicable**:
+- [path/to/doc.md] — [reason not applicable]
+
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
@@ -49,6 +65,12 @@ Complete per `.specify/memory/constitution.md` Article XVI. A plan missing any g
 
 - Does this change affect profiles, schema, defaults, or migrations?
 - Are validation, backward compatibility, and migration covered?
+
+### Required Context Review Gate
+
+- Which files from `docs/governance`, `docs/adr`, `docs/product`, `docs/compliance`, `docs/research`, and `docs/operations` apply?
+- Are they explicitly linked above?
+- For each normally relevant document omitted, is the omission explained?
 
 ### Accessibility Gate
 
