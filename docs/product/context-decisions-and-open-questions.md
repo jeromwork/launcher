@@ -132,6 +132,17 @@
 - `docs/product/feature-priorities.md`,
 - будущий feature spec.
 
+### 13. Parity disclosure for WhatsApp tile return feature (002-whatsapp-tile-return)
+Решение:
+- текущая реализация поддерживает только Android handoff/return;
+- iPhone не реализован в этом релизе и не должен описываться как доступный;
+- parity обещание относится к launcher-owned product semantics (confirmation, warning, return continuity), а не к идентичной платформенной механике.
+
+Хранение:
+- `specs/002-whatsapp-tile-return/spec.md`,
+- `specs/002-whatsapp-tile-return/plan.md`,
+- release notes соответствующего релиза.
+
 ## Что дальше должен делать ИИ в проекте
 
 Когда появляется новая задача, ИИ должен:

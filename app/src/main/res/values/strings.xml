@@ -1,15 +1,35 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Launcher</string>
     <string name="home_profile_line">Profile: %1$s (gen %2$d). Degradation: %3$s</string>
     <string name="home_catalog_line">Apps indexed: %2$d (catalog gen %1$d)</string>
     <string name="home_profile_line_a11y">Active profile and degradation summary</string>
     <string name="home_catalog_line_a11y">Application catalog summary</string>
+
     <string name="contact_name_value">Жена Аленушка</string>
     <string name="contact_number_value">+79651122520</string>
     <string name="contact_call_button">Open WhatsApp chat</string>
     <string name="status_invalid_contact">Error: contact number must start with +79 and be 12 chars long.</string>
     <string name="status_whatsapp_not_found">Error: WhatsApp is unavailable or this contact cannot be opened.</string>
     <string name="status_opening_whatsapp">Opening WhatsApp chat...</string>
-</resources>
 
+    <string name="comm_action_call">Call</string>
+    <string name="comm_action_video">Video</string>
+    <string name="comm_confirmation_title">Confirm action</string>
+    <string name="comm_confirmation_body">Start %1$s with %2$s in WhatsApp?</string>
+    <string name="comm_confirmation_success_cue">Preparing WhatsApp handoff...</string>
+    <string name="comm_confirm">Confirm</string>
+    <string name="comm_cancel">Cancel</string>
+    <string name="comm_warning_unavailable_title">WhatsApp is unavailable</string>
+    <string name="comm_warning_unavailable_body">Please check WhatsApp installation and try again.</string>
+    <string name="comm_warning_action_title">Action is unavailable</string>
+    <string name="comm_warning_action_body">This contact does not support the selected action now.</string>
+    <string name="comm_warning_launch_title">Could not start action</string>
+    <string name="comm_warning_launch_body">Launcher stayed on Home. Please try again.</string>
+    <string name="comm_warning_restore_title">Home restored to nearest stable state</string>
+    <string name="comm_warning_restore_body">Some items changed while you were away. You can continue from Home.</string>
+    <string name="comm_warning_dismiss">Back to Home</string>
+    <string name="comm_contact_anna">Anna</string>
+    <string name="comm_contact_oleg">Oleg</string>
+    <string name="comm_contact_photo_a11y">Contact photo</string>
+</resources>

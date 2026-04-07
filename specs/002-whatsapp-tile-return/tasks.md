@@ -16,10 +16,10 @@
 
 **Purpose**: Prepare minimal scaffolding for communication flow implementation.
 
-- [ ] T001 Add core test dependencies (`junit4`, `mockk`, `robolectric`) required for communication feature tests in `core/build.gradle.kts`
-- [ ] T002 [P] Add app test dependencies (`junit4`, `mockk`, `robolectric`, `androidx.test`) required for communication UI/flow tests in `app/build.gradle.kts`
-- [ ] T003 [P] Add mock WhatsApp tile configuration asset in `core/src/main/assets/whatsapp_tiles_mock.json`
-- [ ] T004 [P] Add base localization keys for communication flow in `app/src/main/res/values/strings.xml`
+- [X] T001 Add core test dependencies (`junit4`, `mockk`, `robolectric`) required for communication feature tests in `core/build.gradle.kts`
+- [X] T002 [P] Add app test dependencies (`junit4`, `mockk`, `robolectric`, `androidx.test`) required for communication UI/flow tests in `app/build.gradle.kts`
+- [X] T003 [P] Add mock WhatsApp tile configuration asset in `core/src/main/assets/whatsapp_tiles_mock.json`
+- [X] T004 [P] Add base localization keys for communication flow in `app/src/main/res/values/strings.xml`
 
 ---
 
@@ -29,13 +29,13 @@
 
 **⚠️ CRITICAL**: No user story work starts before this phase is complete.
 
-- [ ] T005 Create communication domain models (`ActionType`, handoff request/result, return context) in `core/src/main/java/com/launcher/api/CommunicationModels.kt`
-- [ ] T006 [P] Add communication diagnostic event types in `core/src/main/java/com/launcher/api/ProjectEvent.kt`
-- [ ] T007 Implement single-record return-context persistence (`SharedPreferences` JSON) in `core/src/main/java/com/launcher/core/actions/ReturnContextStore.kt`
-- [ ] T008 [P] Implement per-cycle duplicate launch guard in `core/src/main/java/com/launcher/core/actions/ActionCycleGuard.kt`
-- [ ] T009 Implement communication diagnostics emitter and reason-code mapping in `core/src/main/java/com/launcher/core/events/CommunicationDiagnostics.kt`
-- [ ] T010 Implement setup-time mock configuration validator that rejects known unsupported contact/action pairs in `core/src/main/java/com/launcher/core/actions/CommunicationConfigValidator.kt`
-- [ ] T011 Integrate foundational communication pipeline entry points in `core/src/main/java/com/launcher/core/actions/ActionDispatcher.kt`
+- [X] T005 Create communication domain models (`ActionType`, handoff request/result, return context) in `core/src/main/java/com/launcher/api/CommunicationModels.kt`
+- [X] T006 [P] Add communication diagnostic event types in `core/src/main/java/com/launcher/api/ProjectEvent.kt`
+- [X] T007 Implement single-record return-context persistence (`SharedPreferences` JSON) in `core/src/main/java/com/launcher/core/actions/ReturnContextStore.kt`
+- [X] T008 [P] Implement per-cycle duplicate launch guard in `core/src/main/java/com/launcher/core/actions/ActionCycleGuard.kt`
+- [X] T009 Implement communication diagnostics emitter and reason-code mapping in `core/src/main/java/com/launcher/core/events/CommunicationDiagnostics.kt`
+- [X] T010 Implement setup-time mock configuration validator that rejects known unsupported contact/action pairs in `core/src/main/java/com/launcher/core/actions/CommunicationConfigValidator.kt`
+- [X] T011 Integrate foundational communication pipeline entry points in `core/src/main/java/com/launcher/core/actions/ActionDispatcher.kt`
 
 **Checkpoint**: Foundation complete; user stories can proceed.
 
@@ -49,18 +49,18 @@
 
 ### Tests for User Story 1
 
-- [ ] T012 [P] [US1] Add handoff contract tests for launch-start and duplicate-cycle outcomes in `core/src/test/java/com/launcher/core/actions/WhatsAppHandoffContractTest.kt`
-- [ ] T013 [P] [US1] Add launcher flow test for tile tap -> confirmation -> confirm in `app/src/test/java/com/launcher/app/HomeWhatsAppLaunchFlowTest.kt`
-- [ ] T014 [P] [US1] Add setup-time configuration validation test that rejects unsupported pairs before tile render in `core/src/test/java/com/launcher/core/actions/CommunicationConfigValidatorTest.kt`
+- [X] T012 [P] [US1] Add handoff contract tests for launch-start and duplicate-cycle outcomes in `core/src/test/java/com/launcher/core/actions/WhatsAppHandoffContractTest.kt`
+- [X] T013 [P] [US1] Add launcher flow test for tile tap -> confirmation -> confirm in `app/src/test/java/com/launcher/app/HomeWhatsAppLaunchFlowTest.kt`
+- [X] T014 [P] [US1] Add setup-time configuration validation test that rejects unsupported pairs before tile render in `core/src/test/java/com/launcher/core/actions/CommunicationConfigValidatorTest.kt`
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Implement WhatsApp launchability resolver in `core/src/main/java/com/launcher/core/actions/WhatsAppLaunchabilityResolver.kt`
-- [ ] T016 [US1] Implement handoff execution path (confirm-only launch) in `core/src/main/java/com/launcher/core/actions/ActionDispatcher.kt`
-- [ ] T017 [P] [US1] Add communication UI model and mapping in `app/src/main/java/com/launcher/app/communication/CommunicationTileUiModel.kt`
-- [ ] T018 [US1] Add contact tile layout with photo/name and two large buttons in `app/src/main/res/layout/view_contact_tile.xml`
-- [ ] T019 [US1] Add confirmation UI layout with explicit confirm/cancel actions and launcher-owned success cue before handoff in `app/src/main/res/layout/view_whatsapp_confirmation.xml`
-- [ ] T020 [US1] Wire tile and confirmation flow into home screen in `app/src/main/java/com/launcher/app/HomeActivity.kt`
+- [X] T015 [US1] Implement WhatsApp launchability resolver in `core/src/main/java/com/launcher/core/actions/WhatsAppLaunchabilityResolver.kt`
+- [X] T016 [US1] Implement handoff execution path (confirm-only launch) in `core/src/main/java/com/launcher/core/actions/ActionDispatcher.kt`
+- [X] T017 [P] [US1] Add communication UI model and mapping in `app/src/main/java/com/launcher/app/communication/CommunicationTileUiModel.kt`
+- [X] T018 [US1] Add contact tile layout with photo/name and two large buttons in `app/src/main/res/layout/view_contact_tile.xml`
+- [X] T019 [US1] Add confirmation UI layout with explicit confirm/cancel actions and launcher-owned success cue before handoff in `app/src/main/res/layout/view_whatsapp_confirmation.xml`
+- [X] T020 [US1] Wire tile and confirmation flow into home screen in `app/src/main/java/com/launcher/app/HomeActivity.kt`
 
 **Checkpoint**: User Story 1 is independently functional and testable.
 
@@ -74,15 +74,15 @@
 
 ### Tests for User Story 4
 
-- [ ] T021 [P] [US4] Add warning-path integration tests for unavailable app and unsupported action in `app/src/test/java/com/launcher/app/HomeWhatsAppWarningFlowTest.kt`
-- [ ] T022 [P] [US4] Add diagnostics tests for failure reason-code emission in `core/src/test/java/com/launcher/core/events/CommunicationDiagnosticsTest.kt`
+- [X] T021 [P] [US4] Add warning-path integration tests for unavailable app and unsupported action in `app/src/test/java/com/launcher/app/HomeWhatsAppWarningFlowTest.kt`
+- [X] T022 [P] [US4] Add diagnostics tests for failure reason-code emission in `core/src/test/java/com/launcher/core/events/CommunicationDiagnosticsTest.kt`
 
 ### Implementation for User Story 4
 
-- [ ] T023 [US4] Implement warning-state model and launcher-owned reason mapping in `app/src/main/java/com/launcher/app/communication/WarningState.kt`
-- [ ] T024 [US4] Add large readable warning layout in `app/src/main/res/layout/view_whatsapp_warning.xml`
-- [ ] T025 [US4] Add non-technical warning and dismiss localized copy in `app/src/main/res/values/strings.xml`
-- [ ] T026 [US4] Connect handoff failures to warning rendering in `app/src/main/java/com/launcher/app/HomeActivity.kt`
+- [X] T023 [US4] Implement warning-state model and launcher-owned reason mapping in `app/src/main/java/com/launcher/app/communication/WarningState.kt`
+- [X] T024 [US4] Add large readable warning layout in `app/src/main/res/layout/view_whatsapp_warning.xml`
+- [X] T025 [US4] Add non-technical warning and dismiss localized copy in `app/src/main/res/values/strings.xml`
+- [X] T026 [US4] Connect handoff failures to warning rendering in `app/src/main/java/com/launcher/app/HomeActivity.kt`
 
 **Checkpoint**: User Story 4 is independently functional and testable.
 
@@ -96,15 +96,15 @@
 
 ### Tests for User Story 2
 
-- [ ] T027 [P] [US2] Add return-context lifecycle tests (save/replace/clear/stale) in `core/src/test/java/com/launcher/core/actions/ReturnContextStoreTest.kt`
-- [ ] T028 [P] [US2] Add return restore integration tests for exact and fallback outcomes in `app/src/test/java/com/launcher/app/HomeReturnRestoreFlowTest.kt`
+- [X] T027 [P] [US2] Add return-context lifecycle tests (save/replace/clear/stale) in `core/src/test/java/com/launcher/core/actions/ReturnContextStoreTest.kt`
+- [X] T028 [P] [US2] Add return restore integration tests for exact and fallback outcomes in `app/src/test/java/com/launcher/app/HomeReturnRestoreFlowTest.kt`
 
 ### Implementation for User Story 2
 
-- [ ] T029 [US2] Save minimal return context on confirmed handoff in `core/src/main/java/com/launcher/core/actions/ReturnContextStore.kt`
-- [ ] T030 [US2] Implement restore outcome evaluator (`RESTORED_EXACT_HOME`, `RESTORED_NEAREST_STABLE_HOME`, `NO_VALID_CONTEXT`) in `core/src/main/java/com/launcher/core/actions/RestoreOutcomeEvaluator.kt`
-- [ ] T031 [US2] Apply return restore handling on launcher resume/entry in `app/src/main/java/com/launcher/app/HomeActivity.kt`
-- [ ] T032 [US2] Emit restore success/fallback diagnostics events in `core/src/main/java/com/launcher/core/events/CommunicationDiagnostics.kt`
+- [X] T029 [US2] Save minimal return context on confirmed handoff in `core/src/main/java/com/launcher/core/actions/ReturnContextStore.kt`
+- [X] T030 [US2] Implement restore outcome evaluator (`RESTORED_EXACT_HOME`, `RESTORED_NEAREST_STABLE_HOME`, `NO_VALID_CONTEXT`) in `core/src/main/java/com/launcher/core/actions/RestoreOutcomeEvaluator.kt`
+- [X] T031 [US2] Apply return restore handling on launcher resume/entry in `app/src/main/java/com/launcher/app/HomeActivity.kt`
+- [X] T032 [US2] Emit restore success/fallback diagnostics events in `core/src/main/java/com/launcher/core/events/CommunicationDiagnostics.kt`
 
 **Checkpoint**: User Story 2 is independently functional and testable.
 
@@ -118,12 +118,12 @@
 
 ### Tests for User Story 3
 
-- [ ] T033 [P] [US3] Add cancel-flow regression test in `app/src/test/java/com/launcher/app/HomeCancelFlowTest.kt`
+- [X] T033 [P] [US3] Add cancel-flow regression test in `app/src/test/java/com/launcher/app/HomeCancelFlowTest.kt`
 
 ### Implementation for User Story 3
 
-- [ ] T034 [US3] Implement explicit cancel transition handling in `app/src/main/java/com/launcher/app/HomeActivity.kt`
-- [ ] T035 [US3] Clear transient in-flight cycle state on cancel path in `core/src/main/java/com/launcher/core/actions/ActionCycleGuard.kt`
+- [X] T034 [US3] Implement explicit cancel transition handling in `app/src/main/java/com/launcher/app/HomeActivity.kt`
+- [X] T035 [US3] Clear transient in-flight cycle state on cancel path in `core/src/main/java/com/launcher/core/actions/ActionCycleGuard.kt`
 
 **Checkpoint**: User Story 3 is independently functional and testable.
 
@@ -133,15 +133,15 @@
 
 **Purpose**: Final hardening across all user stories.
 
-- [ ] T036 [P] Add accessibility semantics/content descriptions for tile, confirmation, and warning in `app/src/main/java/com/launcher/app/HomeActivity.kt`
-- [ ] T037 [P] Add long-localization regression test data in `app/src/test/resources/localization/whatsapp_long_strings.properties`
-- [ ] T038 Add permission regression check for communication feature in `specs/002-whatsapp-tile-return/checklists/security.md`
-- [ ] T039 Validate no new broad permissions in app manifest for this feature in `app/src/main/AndroidManifest.xml`
-- [ ] T040 [P] Validate no new broad permissions in core manifest for this feature in `core/src/main/AndroidManifest.xml`
-- [ ] T041 Update communication contract version references in `core/src/main/java/com/launcher/core/contracts/CoreContractVersions.kt`
-- [ ] T042 Add explicit Android-now/iPhone-later parity disclosure note in `docs/product/context-decisions-and-open-questions.md`
-- [ ] T043 Execute quickstart verification updates in `specs/002-whatsapp-tile-return/quickstart.md`
-- [ ] T044 Record verification evidence and unresolved risks in `specs/002-whatsapp-tile-return/checklists/verification-report.md`
+- [X] T036 [P] Add accessibility semantics/content descriptions for tile, confirmation, and warning in `app/src/main/java/com/launcher/app/HomeActivity.kt`
+- [X] T037 [P] Add long-localization regression test data in `app/src/test/resources/localization/whatsapp_long_strings.properties`
+- [X] T038 Add permission regression check for communication feature in `specs/002-whatsapp-tile-return/checklists/security.md`
+- [X] T039 Validate no new broad permissions in app manifest for this feature in `app/src/main/AndroidManifest.xml`
+- [X] T040 [P] Validate no new broad permissions in core manifest for this feature in `core/src/main/AndroidManifest.xml`
+- [X] T041 Update communication contract version references in `core/src/main/java/com/launcher/core/contracts/CoreContractVersions.kt`
+- [X] T042 Add explicit Android-now/iPhone-later parity disclosure note in `docs/product/context-decisions-and-open-questions.md`
+- [X] T043 Execute quickstart verification updates in `specs/002-whatsapp-tile-return/quickstart.md`
+- [X] T044 Record verification evidence and unresolved risks in `specs/002-whatsapp-tile-return/checklists/verification-report.md`
 
 ---
 
