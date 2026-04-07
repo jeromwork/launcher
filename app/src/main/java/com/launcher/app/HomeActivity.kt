@@ -1,5 +1,7 @@
 package com.launcher.app
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
@@ -29,6 +31,9 @@ class HomeActivity : AppCompatActivity() {
     private var activeTile: CommunicationTileUiModel? = null
     private var selectedAction: CommunicationActionType? = null
 
+    private val telegramContactName: String by lazy { getString(R.string.telegram_contact_name_value) }
+    private val telegramUsernameRaw: String by lazy { getString(R.string.telegram_contact_username_value) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
@@ -36,6 +41,7 @@ class HomeActivity : AppCompatActivity() {
         val profileLine = findViewById<TextView>(R.id.profile_line)
         val catalogLine = findViewById<TextView>(R.id.catalog_line)
         setupCommunicationUi()
+        setupTelegramUi()
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -172,6 +178,19 @@ class HomeActivity : AppCompatActivity() {
         )
     }
 
+    private fun setupTelegramUi() {
+        val telegramContactNameView = findViewById<TextView>(R.id.telegram_contact_name)
+        val telegramContactUsernameView = findViewById<TextView>(R.id.telegram_contact_username)
+        val telegramButton = findViewById<Button>(R.id.telegram_button)
+        val handoffStatus = findViewById<TextView>(R.id.handoff_status)
+
+        telegramContactNameView.text = telegramContactName
+        telegramContactUsernameView.text = telegramUsernameRaw
+        telegramButton.setOnClickListener {
+            handoffStatus.text = openTelegramChat(rawUsername = telegramUsernameRaw)
+        }
+    }
+
     private fun openConfirmation(action: CommunicationActionType) {
         val tile = activeTile ?: return
         selectedAction = action
@@ -200,7 +219,51 @@ class HomeActivity : AppCompatActivity() {
         findViewById<View>(R.id.warning_root).visibility = View.GONE
     }
 
+    private fun openTelegramChat(rawUsername: String): String {
+        val username = normalizeTelegramUsername(rawUsername)
+        if (!isValidTelegramUsername(username)) {
+            return getString(R.string.status_invalid_telegram_contact)
+        }
+
+        val tgIntent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("tg://resolve?domain=$username"),
+        ).apply { setPackage(TELEGRAM_PACKAGE) }
+        val webIntent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("https://t.me/$username"),
+        ).apply { setPackage(TELEGRAM_PACKAGE) }
+
+        val intentToLaunch = when {
+            tgIntent.resolveActivity(packageManager) != null -> tgIntent
+            webIntent.resolveActivity(packageManager) != null -> webIntent
+            else -> return getString(R.string.status_telegram_not_found)
+        }
+
+        return runCatching {
+            startActivity(intentToLaunch)
+            getString(R.string.status_opening_telegram)
+        }.getOrElse {
+            getString(R.string.status_telegram_not_found)
+        }
+    }
+
+    private fun normalizeTelegramUsername(rawUsername: String): String =
+        rawUsername
+            .trim()
+            .removePrefix("@")
+
+    private fun isValidTelegramUsername(username: String): Boolean {
+        if (username.length !in TELEGRAM_USERNAME_MIN_LENGTH..TELEGRAM_USERNAME_MAX_LENGTH) {
+            return false
+        }
+        return username.all { it.isLetterOrDigit() || it == '_' }
+    }
+
     companion object {
         private const val HOME_SURFACE_REF = "home_main"
+        private const val TELEGRAM_PACKAGE = "org.telegram.messenger"
+        private const val TELEGRAM_USERNAME_MIN_LENGTH = 5
+        private const val TELEGRAM_USERNAME_MAX_LENGTH = 32
     }
 }

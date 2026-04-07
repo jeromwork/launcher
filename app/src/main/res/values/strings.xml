@@ -9,9 +9,15 @@
     <string name="contact_name_value">Жена Аленушка</string>
     <string name="contact_number_value">+79651122520</string>
     <string name="contact_call_button">Open WhatsApp chat</string>
+    <string name="telegram_contact_name_value">Жена Аленушка</string>
+    <string name="telegram_contact_username_value">@roman_e_72</string>
+    <string name="telegram_contact_button">Open Telegram chat</string>
     <string name="status_invalid_contact">Error: contact number must start with +79 and be 12 chars long.</string>
     <string name="status_whatsapp_not_found">Error: WhatsApp is unavailable or this contact cannot be opened.</string>
     <string name="status_opening_whatsapp">Opening WhatsApp chat...</string>
+    <string name="status_invalid_telegram_contact">Error: Telegram username is empty or invalid.</string>
+    <string name="status_telegram_not_found">Error: Telegram is unavailable or this contact cannot be opened.</string>
+    <string name="status_opening_telegram">Opening Telegram chat...</string>
 
     <string name="comm_action_call">Call</string>
     <string name="comm_action_video">Video</string>
