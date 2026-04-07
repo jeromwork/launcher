@@ -1,0 +1,17 @@
+[
+  {
+    "tileId": "tile_anna",
+    "contactRef": "contact_anna",
+    "displayNameKey": "comm_contact_anna",
+    "photoRef": "",
+    "capability": ["CALL", "VIDEO"]
+  },
+  {
+    "tileId": "tile_oleg",
+    "contactRef": "contact_oleg",
+    "displayNameKey": "comm_contact_oleg",
+    "photoRef": "",
+    "capability": ["CALL"]
+  }
+]
+

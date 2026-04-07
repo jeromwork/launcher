@@ -47,3 +47,4 @@
 ## Notes
 
 - Все пункты закрыты текущей версией спецификации.
+- Manifest permission regression check выполнен: `app/src/main/AndroidManifest.xml` и `core/src/main/AndroidManifest.xml` не содержат новых broad runtime permissions для этой фичи.

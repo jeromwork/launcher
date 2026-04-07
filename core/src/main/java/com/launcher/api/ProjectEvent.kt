@@ -19,6 +19,14 @@ sealed class ProjectEvent {
     data class ModuleGraphChanged(
         val affectedModuleIds: List<String>,
     ) : ProjectEvent()
+
+    data class CommunicationDiagnostic(
+        val eventType: CommunicationDiagnosticEventType,
+        val actionCycleRef: String? = null,
+        val tileRef: String? = null,
+        val actionType: CommunicationActionType? = null,
+        val reasonCode: String? = null,
+    ) : ProjectEvent()
 }
 
 enum class PackageChangeReason {

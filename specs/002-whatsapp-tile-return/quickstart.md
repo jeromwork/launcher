@@ -67,6 +67,17 @@ Run app on API 26+ device/emulator:
 2. Verify action labels/warnings remain understandable and readable.
 3. Verify large tap targets and assistive navigation semantics on launcher-owned screens.
 
+### 8. Permission regression checks
+
+1. Inspect `app/src/main/AndroidManifest.xml`.
+2. Inspect `core/src/main/AndroidManifest.xml`.
+3. Verify no new broad runtime permissions were added for this feature.
+
+### 9. Parity messaging checks
+
+1. Review product-facing note in `docs/product/context-decisions-and-open-questions.md`.
+2. Verify wording clearly states Android implementation now and iPhone parity as future product intent.
+
 ## Artifact links
 
 - [research.md](./research.md)

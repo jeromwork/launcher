@@ -13,6 +13,10 @@ sealed class ActionRequest {
         val target: SystemSettingsTarget = SystemSettingsTarget.General,
         val sourceModuleId: String? = null,
     ) : ActionRequest()
+
+    data class WhatsAppHandoff(
+        val request: WhatsAppHandoffRequest,
+    ) : ActionRequest()
 }
 
 enum class SystemSettingsTarget {
@@ -28,6 +32,10 @@ sealed class DispatchResult {
 
     data class Failure(
         val reason: String,
+    ) : DispatchResult()
+
+    data class WhatsApp(
+        val outcome: WhatsAppHandoffResult,
     ) : DispatchResult()
 }
 
