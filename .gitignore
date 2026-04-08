@@ -28,7 +28,3 @@ Thumbs.db
 # Env
 .env
 .env.*
-
-# Langflow MCP automation
-tools/langflow-mcp/node_modules/
-tools/langflow-mcp/artifacts/
