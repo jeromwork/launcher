@@ -4,8 +4,11 @@ import android.view.View
 import android.widget.Button
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
 import org.robolectric.Robolectric
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class HomeCancelFlowTest {
 
     @Test
@@ -18,4 +21,3 @@ class HomeCancelFlowTest {
         assertEquals(View.GONE, confirmation.visibility)
     }
 }
-

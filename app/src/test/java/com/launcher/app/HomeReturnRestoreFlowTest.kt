@@ -5,8 +5,11 @@ import com.launcher.api.ReturnContextRecord
 import com.launcher.core.actions.ReturnContextStore
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
 import org.robolectric.Robolectric
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class HomeReturnRestoreFlowTest {
 
     @Test
@@ -27,4 +30,3 @@ class HomeReturnRestoreFlowTest {
         assertEquals(View.VISIBLE, warning.visibility)
     }
 }
-

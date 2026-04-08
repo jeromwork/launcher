@@ -4,12 +4,18 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import android.widget.EditText
 import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.launcher.api.ControlMode
+import com.launcher.api.EscapeVector
 import com.launcher.api.CatalogSnapshot
 import com.launcher.api.CommunicationActionType
 import com.launcher.api.CommunicationWarningCode
@@ -20,6 +26,8 @@ import com.launcher.api.WhatsAppHandoffRequest
 import com.launcher.app.communication.CommunicationTileUiModel
 import com.launcher.app.communication.WarningState
 import com.launcher.app.communication.toUiModel
+import com.launcher.app.safety.CaregiverSessionStore
+import com.launcher.app.safety.PermissionHubActivity
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -33,6 +41,7 @@ class HomeActivity : AppCompatActivity() {
 
     private val telegramContactName: String by lazy { getString(R.string.telegram_contact_name_value) }
     private val telegramUsernameRaw: String by lazy { getString(R.string.telegram_contact_username_value) }
+    private val caregiverSessionStore: CaregiverSessionStore by lazy { CaregiverSessionStore(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,6 +51,8 @@ class HomeActivity : AppCompatActivity() {
         val catalogLine = findViewById<TextView>(R.id.catalog_line)
         setupCommunicationUi()
         setupTelegramUi()
+        setupSafetyUi()
+        setupBackIntercept()
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -61,6 +72,7 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        updateControlModeBadge()
         when (core.actionDispatcher.restoreOnHomeEntry(HOME_SURFACE_REF)) {
             ReturnRestoreOutcome.RESTORED_NEAREST_STABLE_HOME -> {
                 showWarning(
@@ -191,6 +203,77 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupSafetyUi() {
+        findViewById<Button>(R.id.caregiver_settings_button).setOnClickListener {
+            requestCaregiverPin()
+        }
+        updateControlModeBadge()
+    }
+
+    private fun setupBackIntercept() {
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    val mode = core.controlModeStore.get()
+                    core.safetyDiagnostics.escapeAttempt(
+                        vector = EscapeVector.BACK,
+                        mode = mode,
+                        reasonCode = "home_back_pressed",
+                    )
+                    core.safetyDiagnostics.escapeBlocked(
+                        vector = EscapeVector.BACK,
+                        mode = mode,
+                        reasonCode = "back_blocked_at_home",
+                    )
+                    Toast.makeText(
+                        this@HomeActivity,
+                        getString(R.string.safety_back_blocked),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            },
+        )
+    }
+
+    private fun requestCaregiverPin() {
+        if (caregiverSessionStore.isSessionActive()) {
+            startActivity(Intent(this, PermissionHubActivity::class.java))
+            return
+        }
+        val pinInput = EditText(this).apply {
+            hint = getString(R.string.caregiver_pin_hint)
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.caregiver_pin_title)
+            .setView(pinInput)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val expectedPin = core.safeControlConfigStore.load().caregiverPin
+                if (pinInput.text.toString() == expectedPin) {
+                    caregiverSessionStore.grantSession(minutes = CAREGIVER_SESSION_MINUTES)
+                    startActivity(Intent(this, PermissionHubActivity::class.java))
+                } else {
+                    Toast.makeText(this, getString(R.string.caregiver_pin_invalid), Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun updateControlModeBadge() {
+        val mode = core.controlModeStore.get()
+        val modeText = when (mode) {
+            ControlMode.STRICT -> getString(R.string.home_control_mode_strict)
+            ControlMode.STANDARD -> getString(R.string.home_control_mode_standard)
+        }
+        findViewById<TextView>(R.id.control_mode_badge).text = getString(
+            R.string.home_control_mode,
+            modeText,
+        )
+    }
+
     private fun openConfirmation(action: CommunicationActionType) {
         val tile = activeTile ?: return
         selectedAction = action
@@ -220,6 +303,15 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun openTelegramChat(rawUsername: String): String {
+        val allowed = core.safeControlConfigStore.load().allowedMessengerPackages
+        if (TELEGRAM_PACKAGE !in allowed) {
+            core.safetyDiagnostics.escapeBlocked(
+                vector = EscapeVector.UNKNOWN,
+                mode = core.controlModeStore.get(),
+                reasonCode = "telegram_not_in_whitelist",
+            )
+            return getString(R.string.safety_app_blocked)
+        }
         val username = normalizeTelegramUsername(rawUsername)
         if (!isValidTelegramUsername(username)) {
             return getString(R.string.status_invalid_telegram_contact)
@@ -242,6 +334,11 @@ class HomeActivity : AppCompatActivity() {
 
         return runCatching {
             startActivity(intentToLaunch)
+            core.safetyDiagnostics.escapeAttempt(
+                vector = EscapeVector.UNKNOWN,
+                mode = core.controlModeStore.get(),
+                reasonCode = "allowed_messenger_handoff",
+            )
             getString(R.string.status_opening_telegram)
         }.getOrElse {
             getString(R.string.status_telegram_not_found)
@@ -265,5 +362,6 @@ class HomeActivity : AppCompatActivity() {
         private const val TELEGRAM_PACKAGE = "org.telegram.messenger"
         private const val TELEGRAM_USERNAME_MIN_LENGTH = 5
         private const val TELEGRAM_USERNAME_MAX_LENGTH = 32
+        private const val CAREGIVER_SESSION_MINUTES = 15
     }
 }

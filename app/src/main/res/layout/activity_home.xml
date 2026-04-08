@@ -24,17 +24,28 @@
         android:textAppearance="?android:attr/textAppearanceMedium"
         android:contentDescription="@string/home_catalog_line_a11y" />
 
-    <include
-        android:id="@+id/include_contact_tile"
-        layout="@layout/view_contact_tile" />
+    <TextView
+        android:id="@+id/control_mode_badge"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="#FFF4E5"
+        android:padding="10dp"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:textStyle="bold" />
 
-    <include
-        android:id="@+id/include_confirmation"
-        layout="@layout/view_whatsapp_confirmation" />
+    <Button
+        android:id="@+id/caregiver_settings_button"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="10dp"
+        android:text="@string/caregiver_open_hub" />
 
-    <include
-        android:id="@+id/include_warning"
-        layout="@layout/view_whatsapp_warning" />
+    <include layout="@layout/view_contact_tile" />
+
+    <include layout="@layout/view_whatsapp_confirmation" />
+
+    <include layout="@layout/view_whatsapp_warning" />
 
     <LinearLayout
         android:id="@+id/telegram_contact_card"

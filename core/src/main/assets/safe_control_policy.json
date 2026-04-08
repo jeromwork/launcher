@@ -1,0 +1,9 @@
+{
+  "defaultControlMode": "STANDARD",
+  "allowedMessengerPackages": [
+    "com.whatsapp",
+    "org.telegram.messenger"
+  ],
+  "caregiverPin": "2580"
+}
+

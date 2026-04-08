@@ -27,6 +27,14 @@ sealed class ProjectEvent {
         val actionType: CommunicationActionType? = null,
         val reasonCode: String? = null,
     ) : ProjectEvent()
+
+    data class SafetyDiagnostic(
+        val eventType: SafetyDiagnosticEventType,
+        val vector: EscapeVector? = null,
+        val controlMode: ControlMode? = null,
+        val capability: SafetyCapability? = null,
+        val reasonCode: String? = null,
+    ) : ProjectEvent()
 }
 
 enum class PackageChangeReason {

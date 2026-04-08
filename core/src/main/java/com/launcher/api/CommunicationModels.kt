@@ -18,6 +18,7 @@ enum class WhatsAppHandoffResult {
     REJECTED_DUPLICATE_CYCLE,
     WHATSAPP_UNAVAILABLE,
     ACTION_NOT_SUPPORTED,
+    LAUNCH_BLOCKED_BY_POLICY,
     LAUNCH_FAILED,
 }
 
@@ -57,4 +58,3 @@ data class MockCommunicationEntry(
     val photoRef: String?,
     val capability: Set<CommunicationActionType>,
 )
-

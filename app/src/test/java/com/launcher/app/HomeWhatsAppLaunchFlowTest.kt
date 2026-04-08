@@ -2,12 +2,14 @@ package com.launcher.app
 
 import android.view.View
 import android.widget.Button
-import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.android.controller.ActivityController
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class HomeWhatsAppLaunchFlowTest {
 
     @Test
@@ -22,4 +24,3 @@ class HomeWhatsAppLaunchFlowTest {
         assertEquals(View.VISIBLE, confirmation.visibility)
     }
 }
-

@@ -5,6 +5,15 @@
     <string name="home_catalog_line">Apps indexed: %2$d (catalog gen %1$d)</string>
     <string name="home_profile_line_a11y">Active profile and degradation summary</string>
     <string name="home_catalog_line_a11y">Application catalog summary</string>
+    <string name="home_control_mode">Safety mode: %1$s</string>
+    <string name="home_control_mode_strict">STRICT (managed kiosk target)</string>
+    <string name="home_control_mode_standard">STANDARD (best effort)</string>
+    <string name="caregiver_open_hub">Caregiver settings</string>
+    <string name="caregiver_pin_title">Enter caregiver PIN</string>
+    <string name="caregiver_pin_hint">PIN</string>
+    <string name="caregiver_pin_invalid">Wrong PIN</string>
+    <string name="safety_back_blocked">You are already on Home.</string>
+    <string name="safety_app_blocked">This app is blocked by Safe Launcher policy.</string>
 
     <string name="contact_name_value">Жена Аленушка</string>
     <string name="contact_number_value">+79651122520</string>
@@ -38,4 +47,27 @@
     <string name="comm_contact_anna">Anna</string>
     <string name="comm_contact_oleg">Oleg</string>
     <string name="comm_contact_photo_a11y">Contact photo</string>
+
+    <string name="permission_hub_title">Safe Launcher Permission Hub</string>
+    <string name="permission_hub_mode">Control mode: %1$s</string>
+    <string name="permission_hub_mode_strict">Strict mode needs managed setup (Device Owner/MDM) for maximum restrictions.</string>
+    <string name="permission_hub_mode_standard">Standard mode is best effort on regular phones. Some system gestures cannot be fully blocked.</string>
+    <string name="permission_hub_toggle_mode">Switch mode</string>
+    <string name="permission_hub_refresh">Refresh status</string>
+    <string name="permission_hub_open_next">Open next missing setting</string>
+    <string name="permission_hub_open_settings">Open settings</string>
+    <string name="permission_hub_all_done">All key settings are already granted.</string>
+    <string name="permission_hub_oem_note">On Xiaomi/MIUI some screens still require selecting Launcher in a list. This is an OS restriction.</string>
+    <string name="cap_state_granted">Granted</string>
+    <string name="cap_state_missing">Missing</string>
+    <string name="cap_state_limited">Limited</string>
+    <string name="cap_state_ok">ok</string>
+    <string name="cap_default_home">Default launcher role</string>
+    <string name="cap_accessibility">Accessibility service</string>
+    <string name="cap_usage_access">Usage access</string>
+    <string name="cap_overlay">Overlay</string>
+    <string name="cap_battery">Battery optimization exemption</string>
+    <string name="cap_device_owner">Managed mode / Device Owner</string>
+    <string name="cap_lock_task">Lock task (kiosk)</string>
+    <string name="cap_status_bar">Status bar restriction</string>
 </resources>

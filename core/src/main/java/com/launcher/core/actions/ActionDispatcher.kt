@@ -25,6 +25,7 @@ class ActionDispatcher(
     private val returnContextStore: ReturnContextStore = ReturnContextStore(context),
     private val configValidator: CommunicationConfigValidator = CommunicationConfigValidator(context),
     private val diagnostics: CommunicationDiagnostics = CommunicationDiagnostics(),
+    private val allowedAppsGate: AllowedAppsGate = AllowedAppsGate { com.launcher.api.AllowedAppsPolicy.permissive() },
     private val launchabilityResolver: WhatsAppLaunchabilityResolver = WhatsAppLaunchabilityResolver(
         context = context,
         configValidator = configValidator,
@@ -70,6 +71,9 @@ class ActionDispatcher(
             ?: return DispatchResult.BlockedByPolicy(BlockReason.NOT_IN_CATALOG)
         if (!entry.isLaunchable) {
             return DispatchResult.BlockedByPolicy(BlockReason.NOT_LAUNCHABLE)
+        }
+        if (!allowedAppsGate.isAllowed(stableKey)) {
+            return DispatchResult.BlockedByPolicy(BlockReason.PERMISSION_OR_POLICY)
         }
         val pm = context.packageManager
         val launch = pm.getLaunchIntentForPackage(stableKey)
@@ -141,6 +145,16 @@ class ActionDispatcher(
                 return DispatchResult.WhatsApp(WhatsAppHandoffResult.ACTION_NOT_SUPPORTED)
             }
             WhatsAppLaunchability.AVAILABLE -> Unit
+        }
+        if (!allowedAppsGate.isAllowed(WHATSAPP_PACKAGE)) {
+            actionCycleGuard.clearByCycle(request.actionCycleId)
+            diagnostics.launchFailed(
+                tileRef = request.tileId,
+                actionType = request.actionType,
+                cycleRef = request.actionCycleId,
+                reasonCode = "blocked_by_policy",
+            )
+            return DispatchResult.WhatsApp(WhatsAppHandoffResult.LAUNCH_BLOCKED_BY_POLICY)
         }
 
         returnContextStore.save(

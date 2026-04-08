@@ -6,7 +6,10 @@ import com.launcher.api.ReturnContextRecord
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class ReturnContextStoreTest {
 
     @Test
@@ -33,4 +36,3 @@ class ReturnContextStoreTest {
         assertNull(store.load())
     }
 }
-
