@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "flows": [
+    {
+      "id": "flow_family",
+      "name": "Семья",
+      "templateId": "contacts",
+      "slots": [
+        {
+          "id": "slot_anna_call",
+          "label": "Аня — Позвонить",
+          "iconRef": "",
+          "action": {
+            "type": "whatsapp_call",
+            "contactRef": "contact_anna",
+            "actionType": "CALL"
+          }
+        },
+        {
+          "id": "slot_oleg_call",
+          "label": "Олег — Позвонить",
+          "iconRef": "",
+          "action": {
+            "type": "whatsapp_call",
+            "contactRef": "contact_oleg",
+            "actionType": "CALL"
+          }
+        }
+      ]
+    }
+  ]
+}

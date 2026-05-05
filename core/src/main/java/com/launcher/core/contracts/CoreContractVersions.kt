@@ -12,6 +12,7 @@ object CoreContractVersions {
     const val LAUNCHER_COMMUNICATION_WHATSAPP_HANDOFF = "launcher.communication.whatsapp.handoff"
     const val LAUNCHER_COMMUNICATION_RETURN_CONTEXT = "launcher.communication.return-context"
     const val LAUNCHER_COMMUNICATION_DIAGNOSTICS = "launcher.communication.diagnostics"
+    const val LAUNCHER_FLOWS = "launcher.flows"
 
     private val majors: Map<String, Int> = mapOf(
         LAUNCHER_EVENTS to 1,
@@ -22,6 +23,7 @@ object CoreContractVersions {
         LAUNCHER_COMMUNICATION_WHATSAPP_HANDOFF to 1,
         LAUNCHER_COMMUNICATION_RETURN_CONTEXT to 1,
         LAUNCHER_COMMUNICATION_DIAGNOSTICS to 1,
+        LAUNCHER_FLOWS to 1,
     )
 
     fun providedMajor(contractId: String): Int? = majors[contractId]

@@ -1,6 +1,7 @@
 package com.launcher.core
 
 import android.content.Context
+import com.launcher.api.FlowRepository
 import com.launcher.api.ModuleDescriptor
 import com.launcher.core.actions.ActionCycleGuard
 import com.launcher.core.actions.ActionDispatcher
@@ -11,6 +12,7 @@ import com.launcher.core.bridge.SystemEventBridge
 import com.launcher.core.catalog.AppIndex
 import com.launcher.core.events.CommunicationDiagnostics
 import com.launcher.core.events.EventRouter
+import com.launcher.core.flows.MockFlowRepository
 import com.launcher.core.modules.ModuleRegistry
 import com.launcher.core.profile.ProfileEngine
 import kotlinx.coroutines.CoroutineScope
@@ -26,11 +28,13 @@ class LauncherCore(
     context: Context,
     moduleDescriptors: List<ModuleDescriptor> = emptyList(),
     skipPackageScan: Boolean = false,
+    flowRepository: FlowRepository? = null,
 ) {
     private val appContext = context.applicationContext
     private val job = SupervisorJob()
     private val scope = CoroutineScope(job + Dispatchers.Main.immediate)
 
+    val flowRepository: FlowRepository = flowRepository ?: MockFlowRepository(appContext)
     val eventRouter = EventRouter(scope)
     val moduleRegistry = ModuleRegistry(moduleDescriptors)
     val profileEngine = ProfileEngine(appContext, moduleRegistry, eventRouter)
