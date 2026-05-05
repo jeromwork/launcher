@@ -17,6 +17,7 @@ object AppModuleDescriptors {
                 ContractRequirement(CoreContractVersions.LAUNCHER_EVENTS, 1),
                 ContractRequirement(CoreContractVersions.LAUNCHER_APPINDEX, 1),
                 ContractRequirement(CoreContractVersions.LAUNCHER_ACTIONS, 1),
+                ContractRequirement(CoreContractVersions.LAUNCHER_FLOWS, 1),
             ),
             publishedSurfaces = emptySet(),
         ),

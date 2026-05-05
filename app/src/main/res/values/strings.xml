@@ -6,30 +6,28 @@
     <string name="home_profile_line_a11y">Active profile and degradation summary</string>
     <string name="home_catalog_line_a11y">Application catalog summary</string>
 
-    <string name="contact_name_value">Жена Аленушка</string>
-    <string name="contact_number_value">+79651122520</string>
-    <string name="contact_call_button">Open WhatsApp chat</string>
-    <string name="telegram_contact_name_value">Жена Аленушка</string>
-    <string name="telegram_contact_username_value">@roman_e_72</string>
-    <string name="telegram_contact_button">Open Telegram chat</string>
-    <string name="status_invalid_contact">Error: contact number must start with +79 and be 12 chars long.</string>
-    <string name="status_whatsapp_not_found">Error: WhatsApp is unavailable or this contact cannot be opened.</string>
-    <string name="status_opening_whatsapp">Opening WhatsApp chat...</string>
-    <string name="status_invalid_telegram_contact">Error: Telegram username is empty or invalid.</string>
-    <string name="status_telegram_not_found">Error: Telegram is unavailable or this contact cannot be opened.</string>
-    <string name="status_opening_telegram">Opening Telegram chat...</string>
+    <!-- Navigation -->
+    <string name="settings_button_label">Settings</string>
+    <string name="settings_button_description">Open settings</string>
+    <string name="flow_tab_content_description">Section: %1$s</string>
+    <string name="flow_tab_add">+</string>
+    <string name="flow_tab_add_description">Add a new section</string>
 
+    <!-- Slot -->
+    <string name="slot_content_description">Action: %1$s</string>
+
+    <!-- Communication actions -->
     <string name="comm_action_call">Call</string>
     <string name="comm_action_video">Video</string>
     <string name="comm_confirmation_title">Confirm action</string>
     <string name="comm_confirmation_body">Start %1$s with %2$s in WhatsApp?</string>
-    <string name="comm_confirmation_success_cue">Preparing WhatsApp handoff...</string>
+    <string name="comm_confirmation_success_cue">Preparing WhatsApp handoff…</string>
     <string name="comm_confirm">Confirm</string>
     <string name="comm_cancel">Cancel</string>
     <string name="comm_warning_unavailable_title">WhatsApp is unavailable</string>
     <string name="comm_warning_unavailable_body">Please check WhatsApp installation and try again.</string>
     <string name="comm_warning_action_title">Action is unavailable</string>
-    <string name="comm_warning_action_body">This contact does not support the selected action now.</string>
+    <string name="comm_warning_action_body">This contact does not support the selected action.</string>
     <string name="comm_warning_launch_title">Could not start action</string>
     <string name="comm_warning_launch_body">Launcher stayed on Home. Please try again.</string>
     <string name="comm_warning_restore_title">Home restored to nearest stable state</string>
@@ -38,4 +36,42 @@
     <string name="comm_contact_anna">Anna</string>
     <string name="comm_contact_oleg">Oleg</string>
     <string name="comm_contact_photo_a11y">Contact photo</string>
+
+    <!-- Settings screen -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_language_label">Language</string>
+    <string name="settings_language_placeholder">Russian (placeholder)</string>
+    <string name="settings_preset_label">Active preset</string>
+    <string name="settings_preset_value">senior-launcher</string>
+    <string name="settings_remote_control_label">Allow remote control of this phone</string>
+    <string name="settings_show_qr_button">Show QR code</string>
+    <string name="settings_qr_placeholder_message">QR code pairing will be available in a future update.</string>
+    <string name="settings_reset_data_button">Reset all data</string>
+    <string name="settings_reset_data_confirm_title">Reset all data?</string>
+    <string name="settings_reset_data_confirm_message">All settings will be cleared. This cannot be undone.</string>
+    <string name="settings_reset_data_confirm_yes">Reset</string>
+    <string name="settings_reset_data_confirm_no">Cancel</string>
+
+    <!-- Add-flow wizard -->
+    <string name="wizard_add_flow_title">Add a new section</string>
+    <string name="wizard_add_flow_template_contacts">Contacts</string>
+    <string name="wizard_add_flow_template_admin_devices">Manage devices</string>
+    <string name="wizard_add_flow_button_add">Add</string>
+
+    <!-- Add-slot wizard -->
+    <string name="wizard_add_slot_title">Add an action</string>
+    <string name="wizard_add_slot_action_call">Make a call</string>
+    <string name="wizard_add_slot_action_video">Video call</string>
+    <string name="wizard_add_slot_action_app">Open an app</string>
+    <string name="wizard_add_slot_button_done">Done</string>
+
+    <!-- Admin devices -->
+    <string name="admin_devices_title">Device management</string>
+    <string name="admin_devices_empty_state">No paired devices</string>
+    <string name="admin_devices_add_button">+</string>
+    <string name="admin_devices_add_description">Pair a new device</string>
+
+    <!-- Flow templates (used in mock data strings resolution) -->
+    <string name="flow_template_contacts">Contacts</string>
+    <string name="flow_template_admin_devices">Manage devices</string>
 </resources>

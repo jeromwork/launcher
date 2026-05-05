@@ -1,77 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp">
-
-    <TextView
-        android:id="@+id/profile_line"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="48dp"
-        android:gravity="center_vertical"
-        android:textAppearance="?android:attr/textAppearanceMedium"
-        android:contentDescription="@string/home_profile_line_a11y" />
-
-    <TextView
-        android:id="@+id/catalog_line"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:minHeight="48dp"
-        android:gravity="center_vertical"
-        android:textAppearance="?android:attr/textAppearanceMedium"
-        android:contentDescription="@string/home_catalog_line_a11y" />
-
-    <include
-        android:id="@+id/include_contact_tile"
-        layout="@layout/view_contact_tile" />
-
-    <include
-        android:id="@+id/include_confirmation"
-        layout="@layout/view_whatsapp_confirmation" />
-
-    <include
-        android:id="@+id/include_warning"
-        layout="@layout/view_whatsapp_warning" />
+    android:layout_height="match_parent">
 
     <LinearLayout
-        android:id="@+id/telegram_contact_card"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:background="#E8F3FF"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/telegram_contact_name"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textAppearance="?android:attr/textAppearanceLarge"
-            android:textStyle="bold" />
+            android:background="#F0F0F0"
+            android:orientation="horizontal"
+            android:padding="8dp">
 
-        <TextView
-            android:id="@+id/telegram_contact_username"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textAppearance="?android:attr/textAppearanceMedium" />
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
 
-        <Button
-            android:id="@+id/telegram_button"
+                <TextView
+                    android:id="@+id/profile_line"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="11sp"
+                    android:contentDescription="@string/home_profile_line_a11y" />
+
+                <TextView
+                    android:id="@+id/catalog_line"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="11sp"
+                    android:contentDescription="@string/home_catalog_line_a11y" />
+
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/settings_button"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_gravity="center_vertical"
+                android:text="@string/settings_button_label"
+                android:textSize="12sp"
+                android:contentDescription="@string/settings_button_description" />
+
+        </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/flow_container"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="16dp"
-            android:text="@string/telegram_contact_button" />
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <include layout="@layout/view_bottom_flow_bar" />
+
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/handoff_status"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:textColor="#B00020"
-        android:textSize="16sp" />
-</LinearLayout>
+    <include layout="@layout/view_whatsapp_warning" />
+
+</FrameLayout>
