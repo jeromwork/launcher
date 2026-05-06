@@ -52,10 +52,17 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="8dp"
             android:text="@string/settings_preset_value"
             android:textAppearance="?android:attr/textAppearanceMedium"
             android:textColor="#555555" />
+
+        <Button
+            android:id="@+id/settings_change_preset_button"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginBottom="16dp"
+            android:text="@string/settings_preset_change_button" />
 
         <View
             android:layout_width="match_parent"

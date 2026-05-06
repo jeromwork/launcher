@@ -96,13 +96,51 @@ interface FlowRepository {
 }
 ```
 
+## FlowPreset (Phase 9)
+
+```kotlin
+enum class FlowPreset(
+    val slug: String,            // wire-format identifier, never rename without migration
+    val titleResKey: String,
+    val descriptionResKey: String,
+    val iconResKey: String,
+) {
+    WORKSPACE("workspace", ...),
+    LAUNCHER("launcher", ...),
+    SIMPLE_LAUNCHER("simple-launcher", ...),
+}
+```
+
+## PresetRepository (Phase 9)
+
+```kotlin
+interface PresetRepository {
+    suspend fun getActivePreset(): FlowPreset?     // null until first-launch picker is completed
+    suspend fun setActivePreset(preset: FlowPreset)
+    suspend fun clear()
+    fun observeActivePreset(): Flow<FlowPreset?>
+}
+```
+
+Adapters:
+- `InMemoryPresetRepository` (in `:core`) — for tests and Core's default before app wires DataStore
+- `DataStorePresetRepository` (in `:app`) — production adapter on Preferences DataStore (key `active_preset_slug` in `launcher_preset` store)
+
+Mock JSON files split by preset (under `core/src/main/assets/`):
+- `flows_mock_workspace.json` — 2 flows (Контакты, Приложения)
+- `flows_mock_launcher.json` — 1 flow (Главное)
+- `flows_mock_simple-launcher.json` — 1 flow (Семья)
+
+`MockFlowRepository.loadFlows()` resolves filename from `presetRepository.getActivePreset()?.slug ?? "simple-launcher"`.
+
 ## Contract
 
 | Contract ID | Major Version | Published in |
 |-------------|--------------|--------------|
 | LAUNCHER_FLOWS | 1 | CoreContractVersions |
+| LAUNCHER_PRESETS | 1 | CoreContractVersions |
 
-Контракт публикует: `FlowDescriptor`, `SlotDescriptor`, `SlotAction`, `FlowRepository`.
+Контракт публикует: `FlowDescriptor`, `SlotDescriptor`, `SlotAction`, `FlowRepository`, `FlowPreset`, `PresetRepository`.
 
 ## Миграция из 002
 

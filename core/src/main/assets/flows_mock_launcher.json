@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "flows": [
+    {
+      "id": "flow_main",
+      "name": "Главное",
+      "templateId": "contacts",
+      "slots": [
+        {
+          "id": "slot_call",
+          "label": "Позвонить",
+          "iconRef": "",
+          "action": { "type": "placeholder" }
+        },
+        {
+          "id": "slot_message",
+          "label": "Сообщение",
+          "iconRef": "",
+          "action": { "type": "placeholder" }
+        },
+        {
+          "id": "slot_browser",
+          "label": "Браузер",
+          "iconRef": "",
+          "action": { "type": "open_app", "packageName": "com.android.chrome" }
+        },
+        {
+          "id": "slot_contacts",
+          "label": "Контакты",
+          "iconRef": "",
+          "action": { "type": "placeholder" }
+        }
+      ]
+    }
+  ]
+}

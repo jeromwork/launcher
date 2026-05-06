@@ -13,12 +13,14 @@ import com.launcher.api.CatalogSnapshot
 import com.launcher.api.CommunicationWarningCode
 import com.launcher.api.EffectiveProfile
 import com.launcher.api.FlowDescriptor
+import com.launcher.api.FlowPreset
 import com.launcher.api.ReturnRestoreOutcome
 import com.launcher.app.flow.FlowFragment
 import com.launcher.app.settings.SettingsFragment
 import com.launcher.app.wizard.AddFlowWizardFragment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 class HomeActivity : AppCompatActivity() {
@@ -27,9 +29,10 @@ class HomeActivity : AppCompatActivity() {
     private var flows: List<FlowDescriptor> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        core = (application as LauncherApplication).core
+        applyPresetTheme()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
-        core = (application as LauncherApplication).core
 
         val profileLine = findViewById<TextView>(R.id.profile_line)
         val catalogLine = findViewById<TextView>(R.id.catalog_line)
@@ -142,6 +145,16 @@ class HomeActivity : AppCompatActivity() {
 
     private fun dpToPx(dp: Int): Int =
         (dp * resources.displayMetrics.density).toInt()
+
+    private fun applyPresetTheme() {
+        val preset = runBlocking { core.presetRepository.getActivePreset() } ?: FlowPreset.WORKSPACE
+        val themeRes = when (preset) {
+            FlowPreset.WORKSPACE -> R.style.Theme_Launcher_Workspace
+            FlowPreset.LAUNCHER -> R.style.Theme_Launcher_LauncherPreset
+            FlowPreset.SIMPLE_LAUNCHER -> R.style.Theme_Launcher_SimpleLauncher
+        }
+        setTheme(themeRes)
+    }
 
     companion object {
         private const val HOME_SURFACE_REF = "home_main"

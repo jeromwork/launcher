@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="launcherFlowTabHeight" format="dimension" />
+    <attr name="launcherSlotMinSize" format="dimension" />
+    <attr name="launcherSlotLabelTextSize" format="dimension" />
+</resources>

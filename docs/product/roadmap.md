@@ -24,6 +24,8 @@
 
 ### Spec 003 — `ui-skeleton`
 
+**Phase 9 (расширение):** добавлен first-launch preset picker. Три универсальных пресета — `workspace`, `launcher`, `simple-launcher`. Выбор сохраняется в DataStore, переключается через Settings, debug-обход через intent extra `--es preset <slug>`. См. `tasks.md` Phase 9.
+
 **Статус:** частично выполнен. 5 коммитов на ветке `003-ui-skeleton`:
 - `65a957e` — docs: add spec 003 ui-skeleton
 - `32ee98d` — feat(core): add flow/slot domain models and mock repository

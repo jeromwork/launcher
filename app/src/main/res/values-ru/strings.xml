@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="first_launch_title">Как вы хотите использовать приложение?</string>
+    <string name="preset_workspace_title">Workspace</string>
+    <string name="preset_workspace_description">Контакты, приложения и ярлыки под рукой</string>
+    <string name="preset_launcher_title">Лаунчер</string>
+    <string name="preset_launcher_description">Заменяет главный экран. Простой и быстрый</string>
+    <string name="preset_simple_launcher_title">Лаунчер для пожилого</string>
+    <string name="preset_simple_launcher_description">Крупные кнопки, защита от случайных тапов</string>
+
+    <string name="settings_preset_change_button">Сменить пресет</string>
+    <string name="settings_preset_dialog_title">Выбор пресета</string>
+</resources>

@@ -3,36 +3,45 @@ package com.launcher.core.flows
 import android.content.Context
 import com.launcher.api.CommunicationActionType
 import com.launcher.api.FlowDescriptor
+import com.launcher.api.FlowPreset
 import com.launcher.api.FlowRepository
 import com.launcher.api.FlowTemplate
+import com.launcher.api.PresetRepository
 import com.launcher.api.SlotAction
 import com.launcher.api.SlotDescriptor
 import org.json.JSONObject
 
+/**
+ * Reads a mock JSON per active preset (asset filename: flows_mock_<slug>.json).
+ * Falls back to simple-launcher if preset is unset.
+ */
 class MockFlowRepository(
     private val context: Context,
-    private val assetFileName: String = "flows_mock.json",
+    private val presetRepository: PresetRepository,
 ) : FlowRepository {
 
     private val allTemplates = listOf(
         FlowTemplate(
             id = "contacts",
             labelResKey = "flow_template_contacts",
-            availableInPresets = setOf("senior-launcher", "flow-light"),
+            availableInPresets = setOf("simple-launcher", "workspace", "launcher"),
         ),
         FlowTemplate(
             id = "admin_devices",
             labelResKey = "flow_template_admin_devices",
-            availableInPresets = setOf("flow-light"),
+            availableInPresets = setOf("workspace"),
         ),
     )
 
-    override suspend fun loadFlows(): List<FlowDescriptor> = parseFlows()
+    override suspend fun loadFlows(): List<FlowDescriptor> {
+        val preset = presetRepository.getActivePreset() ?: FlowPreset.SIMPLE_LAUNCHER
+        return parseFlows("flows_mock_${preset.slug}.json")
+    }
 
     override fun availableTemplates(presetId: String): List<FlowTemplate> =
         allTemplates.filter { presetId in it.availableInPresets }
 
-    private fun parseFlows(): List<FlowDescriptor> {
+    private fun parseFlows(assetFileName: String): List<FlowDescriptor> {
         val raw = runCatching {
             context.assets.open(assetFileName).bufferedReader().use { it.readText() }
         }.getOrElse { return emptyList() }

@@ -74,4 +74,17 @@
     <!-- Flow templates (used in mock data strings resolution) -->
     <string name="flow_template_contacts">Contacts</string>
     <string name="flow_template_admin_devices">Manage devices</string>
+
+    <!-- First-launch preset picker -->
+    <string name="first_launch_title">How do you want to use the app?</string>
+    <string name="preset_workspace_title">Workspace</string>
+    <string name="preset_workspace_description">Contacts, apps, and shortcuts at hand. Like a workspace.</string>
+    <string name="preset_launcher_title">Launcher</string>
+    <string name="preset_launcher_description">Replaces the home screen. Simple and fast.</string>
+    <string name="preset_simple_launcher_title">Simple launcher</string>
+    <string name="preset_simple_launcher_description">Large buttons, protection from accidental taps.</string>
+
+    <!-- Settings preset switcher -->
+    <string name="settings_preset_change_button">Change preset</string>
+    <string name="settings_preset_dialog_title">Switch preset</string>
 </resources>

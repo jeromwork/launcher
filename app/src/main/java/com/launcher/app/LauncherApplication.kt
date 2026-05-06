@@ -1,6 +1,7 @@
 package com.launcher.app
 
 import android.app.Application
+import com.launcher.app.preset.DataStorePresetRepository
 import com.launcher.core.LauncherCore
 
 /**
@@ -13,7 +14,11 @@ class LauncherApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        core = LauncherCore(this, moduleDescriptors = AppModuleDescriptors.all)
+        core = LauncherCore(
+            context = this,
+            moduleDescriptors = AppModuleDescriptors.all,
+            presetRepository = DataStorePresetRepository(this),
+        )
         core.start()
     }
 
