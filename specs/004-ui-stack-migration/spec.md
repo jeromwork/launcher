@@ -72,7 +72,7 @@ ADR-005 (2026-05-07) принят как ответ на эти проблемы
 - `docs/adr/ADR-005-ui-stack-compose-multiplatform.md` — обязательный UI и domain stack; constitutional exceptions; mandatory gates; performance targets.
 - `docs/adr/ADR-004-localization-and-global-readiness.md` — все строки локализуемы.
 - `docs/dev/design-system.md` — создаётся в этом spec'е.
-- `docs/dev/emulators.md` — процедура запуска двух эмуляторов для smoke-check.
+- `.claude/skills/android-emulator/SKILL.md` — единственный источник процедур запуска эмуляторов, install/screenshot/T072.
 - `docs/product/roadmap.md` — этот spec — позиция 004; specs 005–010 после него зависят от завершения 004.
 - `docs/product/senior-safe-launcher-plan.md` — целевая аудитория (определяет senior-safe override).
 - `docs/compliance/permissions-and-resource-budget.md` — этот spec не добавляет новых разрешений; ресурсный delta фиксируется в `plan.md`.

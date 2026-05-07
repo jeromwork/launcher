@@ -34,7 +34,7 @@ Reviewed:
 - `docs/adr/ADR-001-cross-platform-strategy.md` — partially superseded by ADR-005; reaffirmed parts (Decision §3, §4, §5) учтены.
 - `docs/adr/ADR-005-ui-stack-compose-multiplatform.md` — основа этого spec'а; все mandatory gates ниже выполняются.
 - `docs/adr/ADR-004-localization-and-global-readiness.md` — strings локализуемы из commonMain.
-- `docs/dev/emulators.md` — процедура двух эмуляторов для T072.
+- `.claude/skills/android-emulator/SKILL.md` — единственный источник процедур запуска эмуляторов и T072.
 - `docs/product/roadmap.md` — этот spec встаёт в позицию 004, разблокирует 005–010.
 - `docs/product/senior-safe-launcher-plan.md` — accessibility/UX target определяет senior-safe override темы.
 - `specs/001-launcher-core-foundation/plan.md` — контрактная модель CoreContractVersions сохраняется.
@@ -58,7 +58,7 @@ Not directly impacted: ADR-002 (entitlement), ADR-003 (monetization), `docs/comp
 - **Contract**: `MockFlowRepositoryTest` остаётся, переезжает в `:core/commonTest`.
 - **Integration**: `PresetRepositoryTest` (multiplatform-settings backend) — новый, в commonTest.
 - **UI tests**: Compose UI tests для каждого экрана через `createComposeRule` (FirstLaunchScreen, HomeScreen, FlowScreen, SettingsScreen, wizard'ы) — `:core/androidUnitTest`.
-- **Smoke E2E**: T072 — full-path manual run на двух эмуляторах per `docs/dev/emulators.md`.
+- **Smoke E2E**: T072 — full-path manual run на двух эмуляторах через skill `.claude/skills/android-emulator/SKILL.md`.
 - Old Robolectric Activity tests из `:app` удаляются (Activities становятся тонкими wrappers без логики для теста).
 
 ### Simplicity Gate — PASS
