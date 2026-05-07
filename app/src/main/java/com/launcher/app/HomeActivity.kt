@@ -7,6 +7,7 @@ import com.arkivanov.decompose.defaultComponentContext
 import com.launcher.api.FlowPreset
 import com.launcher.api.FlowRepository
 import com.launcher.api.PresetRepository
+import com.launcher.app.firstlaunch.FirstLaunchActivity
 import com.launcher.core.actions.ActionDispatcher
 import com.launcher.ui.RootContent
 import com.launcher.ui.navigation.RootComponent
@@ -39,6 +40,16 @@ class HomeActivity : ComponentActivity() {
             presetRepository = presetRepository,
             flowRepository = flowRepository,
             dispatchAction = { request -> actionDispatcher.dispatch(request) },
+            onPresetChanged = { recreate() },
+            onResetData = {
+                val intent = android.content.Intent(this, FirstLaunchActivity::class.java)
+                    .addFlags(
+                        android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                            or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK,
+                    )
+                startActivity(intent)
+                finish()
+            },
             initialPresetSlug = activePreset?.slug,
         )
 
