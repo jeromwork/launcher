@@ -31,6 +31,7 @@ class RootComponent(
     componentContext: ComponentContext,
     private val presetRepository: PresetRepository,
     private val flowRepository: FlowRepository,
+    private val dispatchAction: (com.launcher.api.ActionRequest) -> com.launcher.api.DispatchResult,
     initialPresetSlug: String?,
 ) : ComponentContext by componentContext {
 
@@ -61,6 +62,7 @@ class RootComponent(
                 HomeComponent(
                     componentContext = context,
                     flowRepository = flowRepository,
+                    dispatchAction = dispatchAction,
                     onSettingsClick = { nav.push(RootConfig.Settings) },
                     onAddFlowClick = { nav.push(RootConfig.AddFlowWizard) },
                     onAdminDevicesClick = { nav.push(RootConfig.AdminDevices) },

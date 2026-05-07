@@ -7,6 +7,7 @@ import com.arkivanov.decompose.defaultComponentContext
 import com.launcher.api.FlowPreset
 import com.launcher.api.FlowRepository
 import com.launcher.api.PresetRepository
+import com.launcher.core.actions.ActionDispatcher
 import com.launcher.ui.RootContent
 import com.launcher.ui.navigation.RootComponent
 import com.launcher.ui.screens.PresetUiModel
@@ -23,6 +24,7 @@ class HomeActivity : ComponentActivity() {
 
     private val presetRepository: PresetRepository by inject()
     private val flowRepository: FlowRepository by inject()
+    private val actionDispatcher: ActionDispatcher by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,6 +38,7 @@ class HomeActivity : ComponentActivity() {
             componentContext = defaultComponentContext(),
             presetRepository = presetRepository,
             flowRepository = flowRepository,
+            dispatchAction = { request -> actionDispatcher.dispatch(request) },
             initialPresetSlug = activePreset?.slug,
         )
 
