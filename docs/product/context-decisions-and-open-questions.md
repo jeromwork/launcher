@@ -4,24 +4,29 @@
 
 ## Зафиксированные направления
 
-### 1. Базовая платформа — Android, но архитектура не должна блокировать iOS
+### 1. Базовая платформа — Android, iOS как обязательный второй таргет через KMP/CMP
 Решение:
-- Android — primary platform.
-- Cross-platform parity не предполагается автоматически, но каждый `plan.md` обязан заранее указывать parity gap.
-- Доменные модели, конфигурация, entitlement-модель, localization и high-value user flows не должны без необходимости привязываться к Android-only деталям.
+- Android — primary launch platform.
+- iOS — обязательный второй таргет: продукт планируется к выпуску на обеих платформах под общим product brand.
+- Реализация — единая кодовая база на Kotlin Multiplatform для domain слоя и Compose Multiplatform + Material 3 для UI (см. ADR-005). Дублирование кода на Swift/SwiftUI отвергнуто из-за behavioral drift и двойной стоимости каждой фичи.
+- Платформенно-специфичные интеграции (HOME, AccessibilityService, Apple-only API и т.п.) изолированы в `androidMain` / `iosMain` через `expect`/`actual`.
+- Launcher-mode остаётся Android-only по природе платформы (iOS не позволяет заменять home screen) — это Documented Platform Asymmetry, не блокирующая остальной функционал.
 
 Хранение:
 - конституция,
-- `docs/adr/ADR-001-cross-platform-strategy.md`.
+- `docs/adr/ADR-001-cross-platform-strategy.md` (partially superseded by ADR-005),
+- `docs/adr/ADR-005-ui-stack-compose-multiplatform.md`.
 
 ### 2. Если фича невозможна на одной платформе — предупреждать заранее
 Решение:
-- добавлен обязательный Platform Parity Gate в конституцию;
+- сохранён обязательный Platform Parity Gate (ADR-001 §5, ADR-005);
+- ADR-005 добавил два новых обязательных gate в каждый `plan.md`: Cross-Platform Implementation Gate (где живёт код по source-set) и Documented Platform Asymmetry (если фича не переносится — причина, fallback, видимость для пользователя);
 - каждый `plan.md` обязан фиксировать ограничения, временный/постоянный характер, fallback, влияние на упаковку и ценообразование.
 
 Хранение:
 - конституция,
-- `docs/adr/ADR-001-cross-platform-strategy.md`.
+- `docs/adr/ADR-001-cross-platform-strategy.md` (partially superseded by ADR-005),
+- `docs/adr/ADR-005-ui-stack-compose-multiplatform.md`.
 
 ### 3. Защита от взлома и копирования должна закладываться рано
 Решение:
