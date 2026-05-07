@@ -28,6 +28,9 @@ kotlin {
             implementation(compose.material3)
             implementation(compose.ui)
             implementation(compose.components.resources)
+
+            // Koin — DI (per ADR-005 Amendment 2026-05-07a)
+            implementation(libs.koin.core)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -35,6 +38,7 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.androidx.core.ktx)
             implementation(libs.kotlinx.coroutines.android)
+            implementation(libs.koin.android)
         }
         getByName("androidUnitTest").dependencies {
             implementation(libs.kotlinx.coroutines.test)
