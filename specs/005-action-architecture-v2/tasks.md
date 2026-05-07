@@ -21,10 +21,10 @@
 
 **Purpose**: Manifest entries and build-script scaffolding required before any code.
 
-- [ ] T501 Add `<queries>` entries in `app/src/main/AndroidManifest.xml` for known target packages: `com.whatsapp`, `com.whatsapp.w4b`, `org.telegram.messenger`, `org.telegram.plus`, `com.google.android.youtube`, plus `<intent>` queries for `tel:`, `smsto:`, `https:` schemes. *(plan §Risks row 2; permissions-platform CHK-008)*
-- [ ] T502 [P] Add `MIGRATE_LEGACY_ACTION_DEADLINE_SPEC = "006"` constant in `core/build.gradle.kts` for fitness function 4. *(spec §8.4; Clarification C5)*
-- [ ] T503 [P] Add Konsist test dependency `com.lemonappdev:konsist:0.16.x` to `core/build.gradle.kts` (already added in spec 004 — confirm + version pin). *(plan §Test strategy fitness functions)*
-- [ ] T504 Add new string resource file `core/src/commonMain/composeResources/values/strings_actions.xml` with keys per ADR-004: `provider_name_app`, `provider_name_whatsapp`, `provider_name_telegram`, `provider_name_phone`, `provider_name_sms`, `provider_name_browser`, `provider_name_youtube`, `unavailable_missing_install_to_use`, `unavailable_not_applicable`, `unavailable_unknown_in_version`, `dispatch_failure_snackbar`, `dispatch_failure_retry_action`. *(localization checklist; ux-quality CHK-008)*
+- [X] T501 Add `<queries>` entries in `app/src/main/AndroidManifest.xml` for known target packages: `com.whatsapp`, `com.whatsapp.w4b`, `org.telegram.messenger`, `org.telegram.plus`, `com.google.android.youtube`, plus `<intent>` queries for `tel:`, `smsto:`, `https:` schemes. *(plan §Risks row 2; permissions-platform CHK-008)*
+- [X] T502 [P] Add `migrateLegacyActionDeadlineSpec = "006"` constant in `core/build.gradle.kts` for fitness function 4. *(spec §8.4; Clarification C5)*
+- [X] T503 [P] Add Konsist test dependency to `androidUnitTest` in `core/build.gradle.kts` (`com.lemonappdev:konsist:0.17.3` via `libs.konsist`). *(plan §Test strategy fitness functions)*
+- [X] T504 Add new string resource file `core/src/commonMain/composeResources/values/strings_actions.xml` with keys per ADR-004: `provider_name_app`, `provider_name_whatsapp`, `provider_name_telegram`, `provider_name_phone`, `provider_name_sms`, `provider_name_browser`, `provider_name_youtube`, `provider_name_system_settings`, `unavailable_missing_install_to_use`, `unavailable_not_applicable`, `unavailable_unknown_in_version`, `dispatch_failure_snackbar`, `dispatch_failure_retry_action`. *(localization checklist; ux-quality CHK-008)*
 
 ---
 

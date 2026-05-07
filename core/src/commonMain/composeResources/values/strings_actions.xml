@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Localised strings for action-architecture-v2 (spec 005, T504).
+
+  Naming convention per ADR-004 + ux-quality CHK-008:
+    provider_name_<id>           — display label for each provider
+    unavailable_<reason>         — message shown in wizard when provider not usable
+    dispatch_failure_<role>      — feedback shown after a failed dispatch
+
+  Russian-first per project audience. Translator notes (description="...") added
+  for terms that may translate ambiguously.
+-->
+<resources>
+
+    <!-- Provider display names -->
+    <string name="provider_name_app" description="Generic 'open an app' provider">Открыть приложение</string>
+    <string name="provider_name_whatsapp">WhatsApp</string>
+    <string name="provider_name_telegram">Telegram</string>
+    <string name="provider_name_phone" description="Voice call via system dialer">Позвонить</string>
+    <string name="provider_name_sms" description="Text message">SMS</string>
+    <string name="provider_name_browser" description="Web browser">Открыть в браузере</string>
+    <string name="provider_name_youtube">YouTube</string>
+    <string name="provider_name_system_settings">Настройки устройства</string>
+
+    <!-- Provider-availability messages (shown in AddSlotWizardScreen) -->
+    <string name="unavailable_missing_install_to_use" description="Shown when target app is not installed; offers Play Store install">Не установлено. Установить?</string>
+    <string name="unavailable_not_applicable" description="Shown when device cannot perform action (no SIM, no telephony, no browser)">Недоступно на этом устройстве</string>
+    <string name="unavailable_unknown_in_version" description="Shown when config references provider that this app version does not know yet">Эта функция недоступна в твоей версии приложения</string>
+
+    <!-- Dispatch failure feedback (FlowScreen snackbar, US-508) -->
+    <string name="dispatch_failure_snackbar" description="Generic snackbar text after action failed; keep neutral, no blame">Не получилось выполнить действие</string>
+    <string name="dispatch_failure_retry_action" description="Snackbar action button to retry the dispatch">Повторить</string>
+
+</resources>
