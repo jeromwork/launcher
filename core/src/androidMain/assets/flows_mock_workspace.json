@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "flows": [
+    {
+      "id": "flow_contacts",
+      "name": "Контакты",
+      "templateId": "contacts",
+      "slots": [
+        {
+          "id": "slot_anna",
+          "label": "Аня",
+          "iconRef": "",
+          "action": { "type": "whatsapp_call", "contactRef": "contact_anna", "actionType": "CALL" }
+        },
+        {
+          "id": "slot_oleg",
+          "label": "Олег",
+          "iconRef": "",
+          "action": { "type": "whatsapp_call", "contactRef": "contact_oleg", "actionType": "CALL" }
+        },
+        {
+          "id": "slot_contact_3",
+          "label": "Контакт 3",
+          "iconRef": "",
+          "action": { "type": "placeholder" }
+        },
+        {
+          "id": "slot_contact_4",
+          "label": "Контакт 4",
+          "iconRef": "",
+          "action": { "type": "placeholder" }
+        }
+      ]
+    },
+    {
+      "id": "flow_apps",
+      "name": "Приложения",
+      "templateId": "contacts",
+      "slots": [
+        {
+          "id": "slot_app_1",
+          "label": "Браузер",
+          "iconRef": "",
+          "action": { "type": "open_app", "packageName": "com.android.chrome" }
+        },
+        {
+          "id": "slot_app_2",
+          "label": "Карты",
+          "iconRef": "",
+          "action": { "type": "open_app", "packageName": "com.google.android.apps.maps" }
+        },
+        {
+          "id": "slot_app_3",
+          "label": "Почта",
+          "iconRef": "",
+          "action": { "type": "placeholder" }
+        },
+        {
+          "id": "slot_app_4",
+          "label": "Календарь",
+          "iconRef": "",
+          "action": { "type": "placeholder" }
+        }
+      ]
+    }
+  ]
+}

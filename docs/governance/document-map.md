@@ -27,10 +27,11 @@
 ### `docs/adr/`
 Сюда кладутся архитектурные решения, которые важны, но не должны раздувать конституцию.
 Рекомендуемые ADR:
-- `ADR-001-cross-platform-strategy.md`
+- `ADR-001-cross-platform-strategy.md` (partially superseded by ADR-005)
 - `ADR-002-licensing-and-anti-abuse.md`
 - `ADR-003-monetization-entitlements.md`
 - `ADR-004-localization-and-global-readiness.md`
+- `ADR-005-ui-stack-compose-multiplatform.md` — обязательный UI и domain stack: Compose Multiplatform + Material 3, Kotlin Multiplatform для core; обязательные performance targets и Cross-Platform Implementation Gate
 
 ### `docs/compliance/`
 Сюда кладутся живые реестры ограничений и проверок:

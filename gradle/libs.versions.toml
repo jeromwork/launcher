@@ -1,32 +1,106 @@
 [versions]
+# Build tooling
 agp = "8.7.3"
 kotlin = "2.0.21"
 compileSdk = "35"
 minSdk = "26"
 targetSdk = "35"
+
+# Existing AndroidX (kept; some replaced by KMP equivalents during migration)
 coreKtx = "1.15.0"
 appcompat = "1.7.0"
 lifecycle = "2.8.7"
 activity = "1.9.3"
+datastore = "1.1.1"
+
+# Coroutines / serialization (multiplatform)
 coroutines = "1.9.0"
+serialization = "1.7.3"
+
+# Tests (existing)
 junit = "4.13.2"
 mockk = "1.13.13"
 robolectric = "4.14.1"
 androidxTestCore = "1.6.1"
 
+# --- New stack (per ADR-005) -------------------------------------------------
+
+# Compose Multiplatform — UI runtime
+composeMultiplatform = "1.7.3"
+# Material 3 expressive components ship inside Compose Multiplatform itself.
+
+# Decompose — navigation (per ADR-005 Amendment 2026-05-07a)
+decompose = "3.2.2"
+
+# Koin — DI (per ADR-005 Amendment 2026-05-07a)
+koin = "4.0.0"
+
+# SQLDelight — KMP persistence (used from spec 008 onwards; declared now to fix version once)
+sqldelight = "2.0.2"
+
+# multiplatform-settings — KMP key-value preferences (replaces DataStore in commonMain)
+multiplatformSettings = "1.2.0"
+
+# Coil 3 — KMP image loading
+coil3 = "3.0.4"
+
+# Compose UI test — for createComposeRule in androidUnitTest
+composeUiTest = "1.7.5"
+
 [libraries]
+# Existing
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
 androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activity" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity" }
+androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
+
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
 
+# --- New stack (per ADR-005) -------------------------------------------------
+
+# Decompose — navigation
+decompose = { group = "com.arkivanov.decompose", name = "decompose", version.ref = "decompose" }
+decompose-extensions-compose = { group = "com.arkivanov.decompose", name = "extensions-compose", version.ref = "decompose" }
+
+# Koin — DI
+koin-core = { group = "io.insert-koin", name = "koin-core", version.ref = "koin" }
+koin-android = { group = "io.insert-koin", name = "koin-android", version.ref = "koin" }
+koin-compose = { group = "io.insert-koin", name = "koin-compose", version.ref = "koin" }
+
+# SQLDelight (KMP)
+sqldelight-runtime = { group = "app.cash.sqldelight", name = "runtime", version.ref = "sqldelight" }
+sqldelight-coroutines-extensions = { group = "app.cash.sqldelight", name = "coroutines-extensions", version.ref = "sqldelight" }
+sqldelight-android-driver = { group = "app.cash.sqldelight", name = "android-driver", version.ref = "sqldelight" }
+sqldelight-native-driver = { group = "app.cash.sqldelight", name = "native-driver", version.ref = "sqldelight" }
+
+# multiplatform-settings
+multiplatform-settings = { group = "com.russhwolf", name = "multiplatform-settings", version.ref = "multiplatformSettings" }
+multiplatform-settings-coroutines = { group = "com.russhwolf", name = "multiplatform-settings-coroutines", version.ref = "multiplatformSettings" }
+
+# Coil 3
+coil3-core = { group = "io.coil-kt.coil3", name = "coil", version.ref = "coil3" }
+coil3-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil3" }
+
+# Compose UI test (Android target)
+androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4", version.ref = "composeUiTest" }
+androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version.ref = "composeUiTest" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
+sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }

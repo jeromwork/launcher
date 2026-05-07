@@ -26,4 +26,10 @@ Kotlin 2.0.21, JDK 17, Android Gradle Plugin 8.7.3: Follow standard conventions
 - 002-whatsapp-tile-return: Added Kotlin 2.0.21, JDK 17, Android Gradle Plugin 8.7.3 + AndroidX Core/AppCompat/Activity/Lifecycle, Kotlin coroutines/Flow, existing `:core` launcher contracts
 
 <!-- MANUAL ADDITIONS START -->
+## Project Identity Override
+
+This project MUST be treated as a universal Android application with launcher capabilities,
+not as a launcher-only product. Launcher behavior is one supported use case and operating
+mode; future specs, plans, and tasks must leave room for non-launcher app features.
+
 <!-- MANUAL ADDITIONS END -->

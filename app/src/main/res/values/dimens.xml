@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- default (workspace preset) -->
+    <dimen name="flow_tab_height">56dp</dimen>
+    <dimen name="slot_min_size">72dp</dimen>
+    <dimen name="slot_label_text_size">16sp</dimen>
+
+    <!-- launcher preset -->
+    <dimen name="flow_tab_height_launcher">72dp</dimen>
+    <dimen name="slot_min_size_launcher">96dp</dimen>
+    <dimen name="slot_label_text_size_launcher">20sp</dimen>
+
+    <!-- simple-launcher preset -->
+    <dimen name="flow_tab_height_simple">88dp</dimen>
+    <dimen name="slot_min_size_simple">120dp</dimen>
+    <dimen name="slot_label_text_size_simple">24sp</dimen>
+</resources>

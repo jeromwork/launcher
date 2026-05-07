@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
@@ -25,7 +26,8 @@ android {
     }
 
     buildFeatures {
-        viewBinding = false
+        compose = true
+        buildConfig = true
     }
 
     testOptions {
@@ -41,7 +43,16 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.ktx)
+    implementation(libs.androidx.activity.compose)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.datastore.preferences)
+
+    implementation(libs.koin.android)
+    implementation(libs.koin.compose)
+
+    // Decompose used by HomeActivity entry point (defaultComponentContext + ComponentContext).
+    implementation(libs.decompose)
+    implementation(libs.decompose.extensions.compose)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
