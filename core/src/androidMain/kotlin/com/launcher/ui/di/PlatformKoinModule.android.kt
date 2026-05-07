@@ -32,7 +32,13 @@ val androidPlatformModule = module {
             presetRepository = getOrNull<PresetRepository>(named(PRESET_REPOSITORY_OVERRIDE_QUALIFIER)),
         )
     }
-    single<PresetRepository> { get<LauncherCore>().presetRepository }
+    // PresetRepository: prefer the app-supplied override (DataStore / multiplatform-settings)
+    // over the in-memory default exposed by LauncherCore — otherwise the picker writes to a
+    // store that LauncherCore never reads, and active preset never persists across restarts.
+    single<PresetRepository> {
+        getOrNull<PresetRepository>(named(PRESET_REPOSITORY_OVERRIDE_QUALIFIER))
+            ?: get<LauncherCore>().presetRepository
+    }
     single<FlowRepository> { get<LauncherCore>().flowRepository }
     single<EventRouter> { get<LauncherCore>().eventRouter }
     single<AppIndex> { get<LauncherCore>().appIndex }

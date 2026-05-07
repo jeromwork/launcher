@@ -8,7 +8,14 @@ import com.arkivanov.decompose.router.stack.pop
 import com.arkivanov.decompose.router.stack.push
 import com.arkivanov.decompose.router.stack.replaceAll
 import com.arkivanov.decompose.value.Value
+import com.arkivanov.essenty.lifecycle.doOnDestroy
 import com.launcher.api.FlowPreset
+import com.launcher.api.PresetRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /**
  * Root navigation component. Holds the application's top-level stack and exposes
@@ -21,10 +28,16 @@ import com.launcher.api.FlowPreset
  */
 class RootComponent(
     componentContext: ComponentContext,
+    private val presetRepository: PresetRepository,
     initialPresetSlug: String?,
 ) : ComponentContext by componentContext {
 
     private val nav = StackNavigation<RootConfig>()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    init {
+        lifecycle.doOnDestroy { scope.cancel() }
+    }
 
     val stack: Value<ChildStack<RootConfig, RootChild>> = childStack(
         source = nav,
@@ -35,16 +48,22 @@ class RootComponent(
     )
 
     private fun createChild(config: RootConfig, context: ComponentContext): RootChild =
-        // Concrete components are added in T406-T409; until then we render placeholders.
-        RootChild.Placeholder(config)
+        when (config) {
+            is RootConfig.FirstLaunch -> RootChild.FirstLaunch(
+                FirstLaunchComponent(
+                    componentContext = context,
+                    onPresetSelected = ::handlePresetSelected,
+                )
+            )
+            // Other screens fill in T407-T409.
+            else -> RootChild.Placeholder(config)
+        }
 
-    /**
-     * Called by FirstLaunchScreen when the user picks a preset. Persists the choice
-     * (caller side) and advances the stack to Home. The preset itself is saved by
-     * the caller before invoking this.
-     */
-    fun onPresetSelected(@Suppress("unused") preset: FlowPreset) {
-        nav.replaceAll(RootConfig.Home)
+    private fun handlePresetSelected(preset: FlowPreset) {
+        scope.launch {
+            presetRepository.setActivePreset(preset)
+            nav.replaceAll(RootConfig.Home)
+        }
     }
 
     fun openFlow(flowId: String) {
