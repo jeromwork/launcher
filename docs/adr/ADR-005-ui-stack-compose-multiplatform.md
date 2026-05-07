@@ -149,13 +149,48 @@ CMP-стек overhead принимается один раз (см. «Required p
 ## Non-decisions
 
 Этот ADR не фиксирует:
-- Окончательный выбор между **Decompose** и **Voyager** для навигации — фиксируется в первом plan, использующем навигацию, и ссылается обратно сюда как amendment.
-- Окончательный выбор между **Koin** и **manual DI** — то же.
+- ~~Окончательный выбор между **Decompose** и **Voyager** для навигации.~~ **Закрыто Amendment 2026-05-07a (см. ниже): Decompose.**
+- ~~Окончательный выбор между **Koin** и **manual DI**.~~ **Закрыто Amendment 2026-05-07a (см. ниже): Koin.**
 - Точный момент включения `iosMain` source-set и создания модуля `:iosApp` — определяется отдельным spec'ом, который инициирует iOS-разработку.
 - Когда использовать Cupertino-look на iOS vs Material 3 на iOS (зависит от продуктового решения по бренду на iOS).
 - Когда переходить от `gitlive/firebase-kotlin-sdk` к платформенным Firebase SDKs через `expect`/`actual` (зависит от того, какие Firebase features понадобятся).
 
 Эти не-решения переходят в open questions, которые закрываются по мере появления первых конкретных plan'ов.
+
+---
+
+## Amendment 2026-05-07a — Navigation and DI choices
+
+**Status**: Accepted
+**Date**: 2026-05-07
+**Closes**: Non-decisions §1 (Decompose vs Voyager) и §2 (Koin vs manual DI) of this ADR.
+
+### Decision
+
+1. **Навигация — Decompose.** Причина:
+   - product root-routing нетипичный: корень держит выбор preset (Workspace / Launcher / Simple Launcher) и позже — переключение между OLD-режимом и admin-режимом (шаг 8 плана). Это естественнее ложится на компонент-модель Decompose (`RootComponent` + `StackNavigation<Config>`), чем на Composable-стек Voyager;
+   - типизированный routing (sealed `Config` классы) даёт compile-time safety при добавлении новых экранов и режимов;
+   - state preservation при пересоздании конфигурации работает из коробки, что важно для app-critical surfaces (Article III §3).
+
+2. **DI — Koin.** Причина:
+   - проект уже стартует с ~10–15 классов в domain/integration слое и быстро вырастет (specs 004–009 добавляют ProviderRegistry, ActionLauncher, RemoteSyncBackend, FirebaseRemoteSyncBackend, ConfigRepository, ConflictResolver, RequirementProbe, RequirementResolver, и т.д.);
+   - на этом масштабе manual constructor DI накапливает boilerplate в `Application`/`RootComponent`, что мешает читать главный entry-point;
+   - Koin — KMP-совместимая, минимальная по runtime-cost (~150 КБ), без code-generation и без compile-time зависимости от платформы.
+
+### Constitutional impact
+
+Article XI §1 (prefer platform/framework directly): Koin — обёртка-service-locator, формально это абстракция. Это уже покрыто constitutional exception этого ADR (XI §1 exception scope: cross-platform UI и domain слой). Koin лежит внутри этого scope.
+
+### Removal condition for this amendment
+
+- Если объём dependency graph упадёт до уровня <10 классов с тривиальными связями — Koin может быть заменён обратно на manual DI. Маловероятно по мере развития продукта.
+- Если KMP-поддержка Koin деградирует (заброшен, баги на iOS) — переключение на альтернативу через отдельное amendment.
+
+### Implications для шага 1 плана
+
+- В `gradle/libs.versions.toml` добавляется Koin (`io.insert-koin:koin-core` для commonMain, `io.insert-koin:koin-android` для androidMain) и Decompose (`com.arkivanov.decompose:decompose` + `com.arkivanov.decompose:extensions-compose`).
+- `Application` собирает Koin-модули, `RootComponent` (Decompose) получает зависимости через `KoinComponent` или конструктор-инъекцию.
+- Все existing классы из текущего `core/` сохраняют constructor-injection форму — Koin их регистрирует, но не меняет API классов.
 
 ## Migration impact
 
