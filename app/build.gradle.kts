@@ -50,6 +50,10 @@ dependencies {
     implementation(libs.koin.android)
     implementation(libs.koin.compose)
 
+    // Decompose used by HomeActivity entry point (defaultComponentContext + ComponentContext).
+    implementation(libs.decompose)
+    implementation(libs.decompose.extensions.compose)
+
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.robolectric)

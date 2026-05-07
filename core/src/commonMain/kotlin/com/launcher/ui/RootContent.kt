@@ -15,13 +15,14 @@ import com.arkivanov.decompose.extensions.compose.stack.Children
 import com.launcher.ui.navigation.RootChild
 import com.launcher.ui.navigation.RootComponent
 import com.launcher.ui.screens.FirstLaunchScreen
+import com.launcher.ui.screens.HomeScreen
 import com.launcher.ui.screens.PresetUiModel
 import com.launcher.ui.theme.Spacing
 
 /**
  * Renders the root [RootComponent]'s child stack. Each [RootChild] picks its
  * Composable. Screens not yet migrated render a placeholder card so debug
- * navigation still works during T407-T409.
+ * navigation still works during T409.
  *
  * @param presetUiModels already-localized UI models for the FirstLaunch picker.
  *   Caller (Activity / iOS app entry) resolves localized strings; this avoids
@@ -39,6 +40,7 @@ fun RootContent(
                 presets = presetUiModels,
                 onPresetSelected = child.component.onPresetSelected,
             )
+            is RootChild.Home -> HomeScreen(component = child.component)
             is RootChild.Placeholder -> PlaceholderScreen(label = child.config.toString())
         }
     }

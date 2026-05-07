@@ -1,162 +1,68 @@
 package com.launcher.app
 
 import android.os.Bundle
-import android.view.View
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
-import com.launcher.api.CatalogSnapshot
-import com.launcher.api.CommunicationWarningCode
-import com.launcher.api.EffectiveProfile
-import com.launcher.api.FlowDescriptor
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import com.arkivanov.decompose.defaultComponentContext
 import com.launcher.api.FlowPreset
-import com.launcher.api.ReturnRestoreOutcome
-import com.launcher.app.flow.FlowFragment
-import com.launcher.app.settings.SettingsFragment
-import com.launcher.app.wizard.AddFlowWizardFragment
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.launcher.api.FlowRepository
+import com.launcher.api.PresetRepository
+import com.launcher.ui.RootContent
+import com.launcher.ui.navigation.RootComponent
+import com.launcher.ui.screens.PresetUiModel
+import com.launcher.ui.theme.LauncherTheme
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
+import org.koin.android.ext.android.inject
 
-class HomeActivity : AppCompatActivity() {
+/**
+ * Home entry. Hosts a [RootComponent] (Decompose) which decides what to render —
+ * Home, Settings, wizards, etc. — based on its child stack. Activity stays thin
+ * and Android-specific.
+ */
+class HomeActivity : ComponentActivity() {
 
-    private lateinit var core: com.launcher.core.LauncherCore
-    private var flows: List<FlowDescriptor> = emptyList()
+    private val presetRepository: PresetRepository by inject()
+    private val flowRepository: FlowRepository by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        core = (application as LauncherApplication).core
-        applyPresetTheme()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_home)
 
-        val profileLine = findViewById<TextView>(R.id.profile_line)
-        val catalogLine = findViewById<TextView>(R.id.catalog_line)
+        // The active preset is read synchronously: it controls which density variant
+        // LauncherTheme uses, and a HomeActivity launch without a preset means the user
+        // never went through FirstLaunch (e.g. external HOME-intent before onboarding).
+        val activePreset: FlowPreset? = runBlocking { presetRepository.getActivePreset() }
 
-        findViewById<View>(R.id.settings_button).setOnClickListener { openSettings() }
-
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch {
-                    core.profileEngine.effectiveProfile.collect { eff ->
-                        profileLine.text = formatProfileLine(eff)
-                    }
-                }
-                launch {
-                    core.appIndex.snapshot.collect { snap ->
-                        catalogLine.text = formatCatalogLine(snap)
-                    }
-                }
-            }
-        }
-
-        if (savedInstanceState == null) {
-            lifecycleScope.launch {
-                flows = withContext(Dispatchers.IO) { core.flowRepository.loadFlows() }
-                buildFlowTabs()
-                flows.firstOrNull()?.let { openFlow(it) }
-            }
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        when (core.actionDispatcher.restoreOnHomeEntry(HOME_SURFACE_REF)) {
-            ReturnRestoreOutcome.RESTORED_NEAREST_STABLE_HOME -> showRestoredWarning()
-            else -> Unit
-        }
-    }
-
-    private fun buildFlowTabs() {
-        val container = findViewById<LinearLayout>(R.id.flow_tabs_container)
-        container.removeAllViews()
-
-        flows.forEachIndexed { _, flow ->
-            val btn = Button(this).apply {
-                text = flow.name
-                contentDescription = getString(R.string.flow_tab_content_description, flow.name)
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    resources.getDimensionPixelSize(R.dimen.flow_tab_height),
-                ).also { lp -> lp.marginEnd = dpToPx(8) }
-                setOnClickListener { openFlow(flow) }
-            }
-            container.addView(btn)
-        }
-
-        val addBtn = Button(this).apply {
-            text = getString(R.string.flow_tab_add)
-            contentDescription = getString(R.string.flow_tab_add_description)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                resources.getDimensionPixelSize(R.dimen.flow_tab_height),
-            )
-            setOnClickListener { openAddFlowWizard() }
-        }
-        container.addView(addBtn)
-    }
-
-    private fun openFlow(flow: FlowDescriptor) {
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.flow_container, FlowFragment.newInstance(flow.id))
-            .commit()
-    }
-
-    private fun openSettings() {
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.flow_container, SettingsFragment())
-            .addToBackStack(null)
-            .commit()
-    }
-
-    private fun openAddFlowWizard() {
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.flow_container, AddFlowWizardFragment())
-            .addToBackStack(null)
-            .commit()
-    }
-
-    private fun showRestoredWarning() {
-        val warningRoot = findViewById<View>(R.id.warning_root)
-        val warningTitle = findViewById<TextView>(R.id.warning_title)
-        val warningBody = findViewById<TextView>(R.id.warning_body)
-        val warningDismiss = findViewById<Button>(R.id.warning_dismiss_button)
-        warningTitle.text = getString(R.string.comm_warning_restore_title)
-        warningBody.text = getString(R.string.comm_warning_restore_body)
-        warningDismiss.contentDescription = getString(R.string.comm_warning_dismiss)
-        warningRoot.visibility = View.VISIBLE
-        warningDismiss.setOnClickListener { warningRoot.visibility = View.GONE }
-    }
-
-    private fun formatProfileLine(eff: EffectiveProfile): String =
-        getString(
-            R.string.home_profile_line,
-            eff.snapshot.id,
-            eff.profileGeneration,
-            eff.degradation.reasonCodes.joinToString(),
+        val rootComponent = RootComponent(
+            componentContext = defaultComponentContext(),
+            presetRepository = presetRepository,
+            flowRepository = flowRepository,
+            initialPresetSlug = activePreset?.slug,
         )
 
-    private fun formatCatalogLine(snap: CatalogSnapshot): String =
-        getString(R.string.home_catalog_line, snap.generation, snap.entries.size)
+        val presetUiModels = listOf(
+            uiModel(FlowPreset.WORKSPACE, R.string.preset_workspace_title, R.string.preset_workspace_description),
+            uiModel(FlowPreset.LAUNCHER, R.string.preset_launcher_title, R.string.preset_launcher_description),
+            uiModel(
+                FlowPreset.SIMPLE_LAUNCHER,
+                R.string.preset_simple_launcher_title,
+                R.string.preset_simple_launcher_description,
+            ),
+        )
 
-    private fun dpToPx(dp: Int): Int =
-        (dp * resources.displayMetrics.density).toInt()
-
-    private fun applyPresetTheme() {
-        val preset = runBlocking { core.presetRepository.getActivePreset() } ?: FlowPreset.WORKSPACE
-        val themeRes = when (preset) {
-            FlowPreset.WORKSPACE -> R.style.Theme_Launcher_Workspace
-            FlowPreset.LAUNCHER -> R.style.Theme_Launcher_LauncherPreset
-            FlowPreset.SIMPLE_LAUNCHER -> R.style.Theme_Launcher_SimpleLauncher
+        setContent {
+            LauncherTheme(preset = activePreset?.slug) {
+                RootContent(
+                    component = rootComponent,
+                    presetUiModels = presetUiModels,
+                )
+            }
         }
-        setTheme(themeRes)
     }
 
-    companion object {
-        private const val HOME_SURFACE_REF = "home_main"
-    }
+    private fun uiModel(preset: FlowPreset, titleRes: Int, descriptionRes: Int) =
+        PresetUiModel(
+            preset = preset,
+            title = getString(titleRes),
+            description = getString(descriptionRes),
+        )
 }

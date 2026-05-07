@@ -10,6 +10,7 @@ import com.arkivanov.decompose.router.stack.replaceAll
 import com.arkivanov.decompose.value.Value
 import com.arkivanov.essenty.lifecycle.doOnDestroy
 import com.launcher.api.FlowPreset
+import com.launcher.api.FlowRepository
 import com.launcher.api.PresetRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +30,7 @@ import kotlinx.coroutines.launch
 class RootComponent(
     componentContext: ComponentContext,
     private val presetRepository: PresetRepository,
+    private val flowRepository: FlowRepository,
     initialPresetSlug: String?,
 ) : ComponentContext by componentContext {
 
@@ -55,7 +57,17 @@ class RootComponent(
                     onPresetSelected = ::handlePresetSelected,
                 )
             )
-            // Other screens fill in T407-T409.
+            is RootConfig.Home -> RootChild.Home(
+                HomeComponent(
+                    componentContext = context,
+                    flowRepository = flowRepository,
+                    onSettingsClick = { nav.push(RootConfig.Settings) },
+                    onAddFlowClick = { nav.push(RootConfig.AddFlowWizard) },
+                    onAdminDevicesClick = { nav.push(RootConfig.AdminDevices) },
+                    onAddSlotClick = { flowId -> nav.push(RootConfig.AddSlotWizard(flowId)) },
+                )
+            )
+            // Other screens fill in T409.
             else -> RootChild.Placeholder(config)
         }
 
@@ -64,26 +76,6 @@ class RootComponent(
             presetRepository.setActivePreset(preset)
             nav.replaceAll(RootConfig.Home)
         }
-    }
-
-    fun openFlow(flowId: String) {
-        nav.push(RootConfig.FlowDetail(flowId))
-    }
-
-    fun openSettings() {
-        nav.push(RootConfig.Settings)
-    }
-
-    fun openAddFlowWizard() {
-        nav.push(RootConfig.AddFlowWizard)
-    }
-
-    fun openAddSlotWizard(flowId: String) {
-        nav.push(RootConfig.AddSlotWizard(flowId))
-    }
-
-    fun openAdminDevices() {
-        nav.push(RootConfig.AdminDevices)
     }
 
     fun back() {
