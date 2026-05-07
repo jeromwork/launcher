@@ -3,9 +3,9 @@ package com.launcher.core.preset
 import com.launcher.api.FlowPreset
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class InMemoryPresetRepositoryTest {
 

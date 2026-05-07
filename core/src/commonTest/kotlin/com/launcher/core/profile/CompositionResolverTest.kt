@@ -3,10 +3,10 @@ package com.launcher.core.profile
 import com.launcher.api.DegradationReason
 import com.launcher.api.ProfileSnapshot
 import com.launcher.core.modules.ModuleResolutionState
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class CompositionResolverTest {
 

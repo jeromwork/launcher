@@ -9,9 +9,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class EventRouterTest {
@@ -34,11 +34,7 @@ class EventRouterTest {
         router.emit(ProjectEvent.PackageSetChanged(PackageChangeReason.PACKAGE_REPLACED))
         scheduler.runCurrent()
 
-        assertEquals(
-            "Burst within debounce window must not emit yet",
-            0,
-            received.size,
-        )
+        assertEquals(0, received.size, "Burst within debounce window must not emit yet")
 
         scheduler.advanceTimeBy(200L)
         scheduler.runCurrent()
