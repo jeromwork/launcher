@@ -55,6 +55,9 @@ kotlin {
             implementation(libs.mockk)
             implementation(libs.robolectric)
             implementation(libs.androidx.test.core)
+            // Compose UI test (Robolectric-backed) per T411
+            implementation(libs.androidx.compose.ui.test.junit4)
+            implementation(libs.androidx.compose.ui.test.manifest)
         }
     }
 }
