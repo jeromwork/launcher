@@ -57,7 +57,7 @@
 
 - [x] T070 — `./gradlew assembleDebug` — BUILD SUCCESSFUL in 49s
 - [x] T071 — `./gradlew test` — все 22 core-теста прошли; 4 pre-existing app-теста (без @RunWith) удалены как часть миграции; @RunWith добавлен в CommunicationConfigValidatorTest и ReturnContextStoreTest
-- [ ] T072 — smoke check: bottom bar + FlowFragment + Settings + Wizard (эмулятор API 26 или 34) — **выполнить вручную**
+- [x] T072 — smoke check на двух эмуляторах (Medium_Phone_API_36.1 + клон `_2`): закрыто в spec 004 / T413 после миграции UI на Compose Multiplatform. Verified paths: FirstLaunch → preset → Home → tile → Confirmation → Cancel/Confirm → handoff/Warning fallback ("WhatsApp недоступен") → Settings → preset switch → Simple launcher. Both presets render. Two known issues opened for spec 005: (a) auto-return на Home после смены preset в Settings не срабатывает; (b) density override для simple-launcher визуально неотличим от workspace.
 - [x] T073 — финализация tasks.md
 
 ## Заметки по завершению
