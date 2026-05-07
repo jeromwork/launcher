@@ -1,21 +1,27 @@
 <!--
-Sync Impact Report — Launcher / GitHub Spec Kit
-- Version: 1.2.0 → 1.3.0
+Sync Impact Report — Universal App / GitHub Spec Kit
+- Version: 1.4.0 → 1.5.0
+- Principles: Article II redefined project identity from "launcher product" to universal Android app
+  with launcher capabilities as one supported use case; Articles III, V, VII, IX, and
+  Project-Specific Architectural Direction aligned to app-owned / launcher-mode wording
+- Previous: 1.3.0 → 1.4.0 — Added required `docs/**` context review rules
+- Previous: 1.2.0 → 1.3.0
 - Principles: Article XVIII strengthened — MUST commit and push after each significant step (with exceptions); Article XV §13 aligned
 - Previous: 1.1.0 → 1.2.0 — Added Article XVIII; Article XV §13 cross-reference for AI agents
-- Previous: Replaced generic [PRINCIPLE_N] placeholders with Articles I–XVII and supporting sections
+- Previous: Replaced generic principle placeholders with Articles I–XVII and supporting sections
 - Added: Preamble, Normative Levels, Articles I–XVII, Delivery Rules for Spec Kit Artifacts,
   Project-Specific Architectural Direction, Quality Bar, Reference Patterns, Amendment History
 - Removed: Template "Core Principles" / SECTION_2 / SECTION_3 / Governance placeholders
-- Templates: plan-template.md ✅ | spec-template.md ✅ | tasks-template.md ✅
-- Commands: .cursor/commands/*.md — verified; no CLAUDE-only guidance requiring change
+- Templates: plan-template.md ✅ reviewed | spec-template.md ✅ reviewed | tasks-template.md ✅ reviewed
+- Commands: .specify/templates/commands/*.md — not present in this repo
+- Runtime docs: AGENTS.md ✅ manual project-identity clarification added
 - Follow-up TODOs: none
 -->
 
-# Launcher — Constitution for GitHub Spec Kit
+# Universal Android App — Constitution for GitHub Spec Kit
 
-**Status**: Adopted Draft 1.4  
-**Project**: Android Launcher / accessibility-first configurable launcher platform  
+**Status**: Adopted Draft 1.5  
+**Project**: Universal Android application with accessibility-first launcher capabilities  
 **Scope**: Governs all future `spec`, `plan`, `tasks`, code generation, code review, refactoring, test design, release preparation, and architectural decisions.  
 **Audience**: Human maintainers and AI agents working through GitHub Spec Kit.
 
@@ -23,13 +29,18 @@ Sync Impact Report — Launcher / GitHub Spec Kit
 
 ## Preamble
 
-This constitution defines the non-negotiable engineering rules for the Launcher project.
+This constitution defines the non-negotiable engineering rules for this universal Android application.
 
-The project is not a demo application. It is a long-lived Android product intended to remain maintainable as functionality grows: accessibility modes, elderly-friendly UX, configurable builds, modular features, profile-driven behavior, and potentially optional downloadable modules.
+The project is not a demo application and MUST NOT be treated as "only a launcher".
+It is a long-lived Android product intended to remain maintainable as functionality grows:
+accessibility modes, elderly-friendly UX, configurable builds, modular features,
+profile-driven behavior, communication and assistance workflows, and potentially optional
+downloadable modules. Launcher behavior is an important supported mode and product case,
+not the whole product boundary.
 
 All future specification, planning, implementation, review, and release work MUST optimize for:
 
-1. **User safety and clarity** — the launcher is core UX infrastructure, not a toy.
+1. **User safety and clarity** — app-owned surfaces, including launcher-mode surfaces, are core UX infrastructure, not toys.
 2. **Reliability on real devices** — especially under low memory, device restarts, OEM variations, and intermittent permissions.
 3. **Battery discipline** — background processing and event listening are controlled and justified.
 4. **Accessibility first** — elderly users and users with low vision, reduced dexterity, or cognitive load sensitivity are first-class target users.
@@ -73,18 +84,24 @@ This constitution intentionally separates:
 
 ---
 
-## Article II. Product Reality Over Demo Thinking
+## Article II. Product Identity and Product Reality
 
-1. The Launcher MUST be designed as a production Android application, not as a sample app.
-2. Every feature MUST justify its operational cost in one or more of these dimensions:
+1. The product MUST be designed as a production universal Android application, not as a sample app.
+2. The product MUST NOT be specified, planned, or implemented as if "launcher" is the
+   complete product category. Launcher functionality is one supported use case and one
+   app-owned operating mode among other approved capabilities.
+3. Launcher-mode behavior MUST remain coherent and reliable where required, but architecture
+   MUST leave room for non-launcher app features without forcing every feature through a
+   launcher metaphor.
+4. Every feature MUST justify its operational cost in one or more of these dimensions:
    - user value,
    - accessibility impact,
    - maintainability,
    - reliability,
    - measurable performance.
-3. “Nice to have”, “might need later”, and speculative extensibility are prohibited unless explicitly justified.
-4. The default engineering posture SHOULD be **simple now, extensible only when evidence exists**.
-5. Every new module, abstraction, event type, or configuration layer MUST have an explicit reason.
+5. "Nice to have", "might need later", and speculative extensibility are prohibited unless explicitly justified.
+6. The default engineering posture SHOULD be **simple now, extensible only when evidence exists**.
+7. Every new module, abstraction, event type, or configuration layer MUST have an explicit reason.
 
 ---
 
@@ -94,9 +111,9 @@ The following are non-negotiable product and engineering invariants:
 
 1. Accessibility is a release concern, not a polish concern.
 2. Battery waste, unnecessary background work, and uncontrolled listeners are product defects.
-3. Launcher-critical behavior MUST remain reliable across device restarts, configuration changes, OEM variations, and partial permission states.
+3. App-critical and launcher-mode behavior MUST remain reliable across device restarts, configuration changes, OEM variations, and partial permission states.
 4. Invalid configuration MUST fail safely with deterministic fallback.
-5. Optional capabilities MUST NOT compromise base launcher stability.
+5. Optional capabilities MUST NOT compromise base application stability or launcher-mode stability.
 6. Security, privacy, and permission scope MUST remain proportionate to approved product requirements.
 
 ---
@@ -140,7 +157,7 @@ Additional defaults:
    - What API boundary does this module protect?
    - What complexity does it remove now?
 
-**Project-specific rule**: Because Launcher may evolve toward configurable builds and optional modules, the architecture MUST support modular features; however, the team SHOULD favor a small, disciplined module graph over micro-modules.
+**Project-specific rule**: Because the application may evolve toward configurable builds, launcher-mode variants, and optional modules, the architecture MUST support modular features; however, the team SHOULD favor a small, disciplined module graph over micro-modules.
 
 ---
 
@@ -168,7 +185,7 @@ Additional defaults:
 
 ## Article VII. Profile-Driven and Configurable by Design
 
-1. The Launcher MUST treat configuration as a first-class concern.
+1. The application MUST treat configuration as a first-class concern.
 2. User-facing and distribution-facing variability MUST be modeled explicitly through profiles and structured configuration, not hidden `if/else` branches scattered across the codebase.
 3. A profile or configuration system MAY use JSON or another structured schema, but it MUST define:
    - versioning,
@@ -178,7 +195,7 @@ Additional defaults:
    - migration policy.
 4. Configuration SHOULD be declarative where practical.
 5. Profiles MAY enable or disable modules, features, layouts, accessibility presets, or integration policies only through documented contracts.
-6. Runtime-loaded or downloadable modules MUST remain optional enhancements, never assumptions for core launcher stability.
+6. Runtime-loaded or downloadable modules MUST remain optional enhancements, never assumptions for base application or launcher-mode stability.
 7. AI-generated changes MUST NOT silently widen config schema without updating:
    - schema docs,
    - validation logic,
@@ -199,7 +216,7 @@ Additional defaults:
    - low cognitive load,
    - error recoverability,
    - screen reader semantics where applicable.
-3. For launcher-critical flows, preference SHOULD be given to:
+3. For app-critical and launcher-mode flows, preference SHOULD be given to:
    - large targets,
    - clear labels,
    - stable layouts,
@@ -214,7 +231,7 @@ Additional defaults:
 
 ## Article IX. Battery, Performance, and Startup Discipline
 
-1. The Launcher is a resident UX surface; therefore performance regressions are product regressions.
+1. The application owns user-critical surfaces, including potential resident launcher-mode surfaces; therefore performance regressions are product regressions.
 2. Every background task, observer, receiver, polling loop, or service MUST be justified.
 3. Event-driven mechanisms SHOULD be preferred over polling.
 4. Startup path MUST remain minimal. Non-critical work SHOULD be deferred.
@@ -462,23 +479,24 @@ The following rules are binding for future Spec Kit usage in this project:
 
 ## Project-Specific Architectural Direction
 
-This section is intentionally opinionated and specific to Launcher. It defines default direction, not an automatic ban on alternatives.
+This section is intentionally opinionated and specific to this universal Android application.
+It defines default direction, not an automatic ban on alternatives.
 
 ### 1. Core Platform Layer
 
-Core owns platform-facing responsibilities such as app/package change observation, boot-related handling where approved, shared event intake, and common contracts. Core is not a junk drawer; it is a controlled boundary around Android system behavior.
+Core owns platform-facing responsibilities such as app/package change observation, boot-related handling where approved, shared event intake, and common contracts. Core is not a junk drawer; it is a controlled boundary around Android system behavior needed by app-owned features.
 
 ### 2. Feature Modules
 
-Features implement user-facing capabilities or isolated business logic. Features consume stable contracts from Core and shared modules. Features do not directly spread platform listeners across the codebase.
+Features implement user-facing capabilities or isolated business logic. Features consume stable contracts from Core and shared modules. Features do not directly spread platform listeners across the codebase. A launcher feature is one feature family, not the architectural root for every capability.
 
 ### 3. Profiles and Configurations
 
-Profiles define curated launcher variants or user-focused operating modes. Examples may include elderly-friendly presets, simplified navigation variants, OEM-specific packaging constraints, or optional feature bundles. Profiles are data, not forks.
+Profiles define curated application variants, launcher-mode variants, or user-focused operating modes. Examples may include elderly-friendly presets, simplified navigation variants, OEM-specific packaging constraints, communication-focused experiences, or optional feature bundles. Profiles are data, not forks.
 
 ### 4. Optional Modules
 
-Optional or downloadable components must fail gracefully when absent. The base launcher must remain coherent without them.
+Optional or downloadable components must fail gracefully when absent. The base application and any enabled launcher-mode surface must remain coherent without them.
 
 ### 5. Accessibility Presets
 
@@ -533,6 +551,12 @@ These sources informed the constitution and are recommended reference material w
 
 ## Amendment History
 
+### 1.5 — 2026-04-25
+
+- Clarified that the product is a universal Android application, not only a launcher.
+- Defined launcher functionality as one supported use case / operating mode.
+- Updated architectural direction so non-launcher features are not forced through a launcher metaphor.
+
 ### 1.4 — 2026-04-01
 
 - Added explicit required-project-context rules for `docs/**`.
@@ -572,4 +596,4 @@ Initial project constitution created for Launcher based on:
 
 ---
 
-**Version**: 1.4.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-04-01
+**Version**: 1.5.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-04-25

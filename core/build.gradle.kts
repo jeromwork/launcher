@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.library)
+    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.compose.multiplatform)
 }
 
 kotlin {
@@ -19,6 +21,13 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
+
+            // Compose Multiplatform — UI runtime + Material 3 (per ADR-005 §1, §6)
+            implementation(compose.runtime)
+            implementation(compose.foundation)
+            implementation(compose.material3)
+            implementation(compose.ui)
+            implementation(compose.components.resources)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
