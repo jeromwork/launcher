@@ -151,8 +151,8 @@ CMP-стек overhead принимается один раз (см. «Required p
 Этот ADR не фиксирует:
 - ~~Окончательный выбор между **Decompose** и **Voyager** для навигации.~~ **Закрыто Amendment 2026-05-07a (см. ниже): Decompose.**
 - ~~Окончательный выбор между **Koin** и **manual DI**.~~ **Закрыто Amendment 2026-05-07a (см. ниже): Koin.**
+- ~~Когда использовать Cupertino-look на iOS vs Material 3 на iOS.~~ **Закрыто Amendment 2026-05-07b (см. ниже): Material 3 на обеих платформах на старте.**
 - Точный момент включения `iosMain` source-set и создания модуля `:iosApp` — определяется отдельным spec'ом, который инициирует iOS-разработку.
-- Когда использовать Cupertino-look на iOS vs Material 3 на iOS (зависит от продуктового решения по бренду на iOS).
 - Когда переходить от `gitlive/firebase-kotlin-sdk` к платформенным Firebase SDKs через `expect`/`actual` (зависит от того, какие Firebase features понадобятся).
 
 Эти не-решения переходят в open questions, которые закрываются по мере появления первых конкретных plan'ов.
@@ -191,6 +191,39 @@ Article XI §1 (prefer platform/framework directly): Koin — обёртка-ser
 - В `gradle/libs.versions.toml` добавляется Koin (`io.insert-koin:koin-core` для commonMain, `io.insert-koin:koin-android` для androidMain) и Decompose (`com.arkivanov.decompose:decompose` + `com.arkivanov.decompose:extensions-compose`).
 - `Application` собирает Koin-модули, `RootComponent` (Decompose) получает зависимости через `KoinComponent` или конструктор-инъекцию.
 - Все existing классы из текущего `core/` сохраняют constructor-injection форму — Koin их регистрирует, но не меняет API классов.
+
+---
+
+## Amendment 2026-05-07b — UI look on both platforms
+
+**Status**: Accepted
+**Date**: 2026-05-07
+**Closes**: Non-decisions §3 (Cupertino-look vs Material 3 on iOS) of this ADR.
+
+### Decision
+
+**Material 3 на обеих платформах** на старте. На iOS приложение будет иметь Material-look, а не нативный Cupertino-look.
+
+### Reasons
+
+1. **Меньше работы** — один дизайн-система покрывает обе платформы; не нужно писать параллельный набор Cupertino-компонентов.
+2. **Консистентность бренда** — пользователь, видящий приложение на Android и iPad/iPhone, узнаёт продукт по визуалу.
+3. **Senior-safe override темы** (≥18sp body, ≥56dp tap-target, контраст ≥4.5:1) применяется одинаково через `MaterialTheme` — не дублируется в Cupertino-стеке.
+4. **На старте достаточно «нормально выглядеть»** — соответствует Article II §6 «simple now, extensible only when evidence exists».
+
+### Removal condition
+
+- Если App Store ревью отвергает приложение из-за «Not native iOS look» (для consumer-store это редко, для enterprise/managed deployment — почти никогда).
+- Если пользовательское исследование на iOS показывает заметный UX-регресс из-за неродного look.
+- Если бренд-стратегия требует разделить визуал между платформами.
+
+В этих случаях вводится отдельное amendment с переходом на selective Cupertino-стилизацию (compose-cupertino от alexzhirkevich) — но **не раньше реальной проблемы**.
+
+### Implications
+
+- В дизайн-системе (`docs/dev/design-system.md`) фиксируется один Material 3 theme; платформенных вариантов нет.
+- iOS app, когда подключится, будет визуально Material 3 — это документируется в onboarding для iOS-команды (когда появится).
+- Если в будущем понадобится мелкая платформенная настройка (например, нативный системный share-sheet) — это решается через `expect`/`actual` UI components, не через смену всего стека.
 
 ## Migration impact
 
