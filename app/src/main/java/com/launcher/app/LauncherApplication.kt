@@ -20,9 +20,7 @@ import org.koin.core.logger.Level
  */
 class LauncherApplication : Application() {
 
-    // Public until legacy Fragments are removed in T410 — they read it via
-    // (application as LauncherApplication).core. After T410 this becomes private.
-    val core: LauncherCore by inject()
+    private val core: LauncherCore by inject()
 
     override fun onCreate() {
         super.onCreate()
