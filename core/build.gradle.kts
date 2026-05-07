@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.compose.multiplatform)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -31,6 +32,13 @@ kotlin {
 
             // Koin — DI (per ADR-005 Amendment 2026-05-07a)
             implementation(libs.koin.core)
+
+            // Decompose — navigation (per ADR-005 Amendment 2026-05-07a)
+            implementation(libs.decompose)
+            implementation(libs.decompose.extensions.compose)
+
+            // kotlinx.serialization — used for Decompose Config persistence + future config files
+            implementation(libs.kotlinx.serialization.json)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
