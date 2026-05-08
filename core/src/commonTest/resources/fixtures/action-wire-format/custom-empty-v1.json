@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "providerId": "smart_assistant",
+  "payload": { "kind": "custom", "key": "ask" }
+}

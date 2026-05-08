@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "providerId": "system_settings",
+  "payload": { "kind": "open_settings", "target": "General" }
+}

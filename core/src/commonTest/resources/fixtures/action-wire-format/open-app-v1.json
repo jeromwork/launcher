@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "providerId": "app",
+  "payload": {
+    "kind": "open_app",
+    "packageHint": "com.example.app",
+    "storeUrlHint": "market://details?id=com.example.app"
+  }
+}
