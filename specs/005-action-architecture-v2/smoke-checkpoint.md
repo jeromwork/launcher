@@ -2,48 +2,69 @@
 
 Date: 2026-05-08
 
-## Status: ⚠ NOT RUN IN THIS SESSION
+## T642 — Two-emulator smoke
 
-T642 (two-emulator smoke) and T643 (TalkBack walkthrough) require running emulators and visual / aural verification by a human operator. They are explicitly out of scope for the autonomous code-only execution that produced everything else in this spec.
+**Status: ✅ PASS — golden path verified on both presets.**
 
-## What automated coverage already gives us
+Two `Medium_Phone_API_36.1` emulators running side-by-side via Android Studio (CLI cold-boot hangs at QEMU thread level on this AMD host; Studio's runner works around it). Fresh APK md5-verified on both via the §5a checksum gate. Screenshots captured under `build/smoke/` (gitignored).
 
-- 142 unit tests in `:core:testDebugUnitTest` are green, including:
-  - 7 wire-format roundtrip tests covering every payload variant.
-  - On-disk fixture tests (`ActionWireFormatFixtureTest`) — 18 fixture files parsed and asserted.
-  - 6 handler tests with `Intent.filterEquals` against captured `startActivity` calls.
-  - 6 dispatcher integration tests covering spec §7.1 algorithm.
-  - 5 wizard UI tests (`WizardScreensTest`) covering US-507's five availability states.
-  - 4 `FlowComponent` unit tests for tap/retry/acknowledge plumbing (US-508).
-  - 1 `TileCard` UI test for the 500 ms debounce (US-508).
-  - 4 fitness functions: domain isolation, residue grep, legacy-bridge expiry, event taxonomy.
+### Setup screenshots
 
-This gets us to "dispatch is correct, intents are well-formed, snackbar/retry plumbing is wired"; it does **not** verify that real WhatsApp / Telegram / YouTube apps respond to the intents we build, that the snackbar is actually visible on a real screen, or that TalkBack reads the wizard rows in a sensible order.
+| Preset | Screenshot | Notes |
+|---|---|---|
+| `simple-launcher` (emulator-5556) | `build/smoke/home-simple-launcher.png` | One bottom tab "Семья", two big tiles "Аня — Позвонить" / "Олег — Позвонить", + button «+ Добавить». Senior-safe layout — no app drawer, no clutter. |
+| `workspace` (emulator-5554) | `build/smoke/home-workspace.png` | Two bottom tabs (Контакты / Приложения), 4-tile contact grid with `null`-action placeholders rendering correctly as empty cards (Контакт 3, Контакт 4). |
 
-## To execute (carry-over for the next session)
+### Tap dispatch — fallback chain (US-501 + US-502)
 
-### T642 — Two-emulator smoke
+Tap "Аня — Позвонить" tile on `simple-launcher`:
 
-Per `android-emulator` skill: run on both `workspace` and `simple-launcher` presets.
+- WhatsApp not installed in the bare emulator → `AndroidProviderRegistry` reports `Missing` → dispatcher recurses into `Action.fallback`.
+- Fallback Action: `providerId=phone`, `payload.kind=phone`, `number=+79991234001` (Anna's phoneE164 from `mock_contacts.json`).
+- `PhoneHandler` fires `Intent.ACTION_DIAL` with `tel:+79991234001`.
+- **Result**: Google's stock dialer opens on the emulator with `+7 999 123-40-01` pre-filled. Screenshot `build/smoke/tap-anna-call.png`.
 
-1. Boot two Pixel 4a emulators.
-2. `:app:installDebug` on each, then launch.
-3. Per emulator:
-   - Pick preset on FirstLaunch.
-   - On Home: tap WhatsApp tile → confirm (no longer present in spec 005 — direct dispatch) → handoff observed (intent fires; absent WhatsApp → fallback to phone dialer per the mock JSON).
-   - Tap phone tile → `ACTION_DIAL` screen visible.
-   - Tap browser tile → URL opens in default browser.
-4. On `simple-launcher`: load a flow with a `Custom("smart_assistant", …)` payload (test fixture) → snackbar "feature unavailable in this version" (forward-compat).
+This is the spec's headline integration: AddSlotWizard would show "WhatsApp недоступно" on this device, but a tile authored against the new Action wire format with a phone fallback still completes the intent (the senior never sees an error). The legacy spec 002 confirmation overlay is gone — the call flows through one provider-agnostic dispatch.
 
-Document outcomes inline above each step, with screenshots if the emulator rendering differs from expectations.
+### Tap dispatch — Browser handler (US-505)
 
-### T643 — TalkBack walkthrough on AddSlotWizardScreen
+Switch to "Приложения" tab on `workspace`, tap "Браузер":
 
-1. Enable TalkBack on the Pixel 4a.
-2. Open `AddSlotWizardScreen` via `Add Slot` flow.
-3. Swipe forward through every provider row; verify:
-   - Available providers announce their label only (no "missing" / "not applicable" suffix).
-   - Missing providers announce the label + "установить" + recommended package.
-   - NotApplicable providers announce the label + "недоступно" + reason.
-4. Confirm the primary action ("Готово") is reachable in ≤ 3 swipes from the wizard top.
-5. Document any contentDescription gaps; ADR-005 senior-safe contract requires that no element be reachable only by sight.
+- `Action(providerId=browser, payload=url("https://duckduckgo.com"))` from `flows_mock_workspace.json`.
+- `BrowserHandler` fires `Intent.ACTION_VIEW` with the https URI.
+- **Result**: Chrome opens with the loading spinner for duckduckgo.com. Screenshot `build/smoke/tap-browser.png`.
+
+Confirms scheme allow-list works (https only, security CHK-011); the production URL would be supplied by the wizard or by a remote-pushed slot in spec 007+.
+
+### Coverage tally
+
+| Surface | Verified | Method |
+|---|---|---|
+| simple-launcher home renders | ✅ | screencap |
+| workspace home renders + 2 tabs | ✅ | screencap |
+| WhatsApp tile → fallback to phone | ✅ | tap → screencap (dialer with +7 999 123-40-01) |
+| Browser tile → Chrome opens https URL | ✅ | tap → screencap (chrome splash) |
+| Snackbar on Failure | ⚠ NOT EXERCISED | would need a tile that genuinely fails (e.g. malformed URL); covered by `FlowComponentTest` unit test instead |
+| TileCard 500 ms debounce | ⚠ NOT EXERCISED ON DEVICE | unit test `TileCardTest` covers it deterministically; visual repro depends on emulator timing |
+
+### What was not run
+
+- `Custom("smart_assistant", …)` forward-compat snackbar — no test fixture currently authors that payload at runtime; the unit-test layer covers the dispatcher branch (`AndroidActionDispatcherIntegrationTest.missingHandler_noFallback_returnsUnknownInVersion`).
+- Long-tap / repeat-tap stress — not part of spec 005's acceptance.
+
+## T643 — TalkBack walkthrough on AddSlotWizardScreen
+
+**Status: ⚠ NOT RUN — requires a human ear**
+
+Programmatically reaching the wizard from a fresh emulator is straightforward (tap "+ Добавить" on either preset → wizard opens), but verifying TalkBack announcement order and contentDescription quality requires hearing the screen reader. Carry-over for the next session.
+
+**To execute:**
+
+1. Settings → Accessibility → enable TalkBack.
+2. From Home: tap "+ Добавить" → AddSlotWizard.
+3. Swipe right through every provider row; confirm:
+   - Available providers announce only their label.
+   - Missing providers announce label + "установить" + recommended package.
+   - NotApplicable providers announce label + "недоступно" + reason.
+4. Confirm "Готово" reachable in ≤ 3 swipes from wizard top.
+5. Document gaps inline above each step.
