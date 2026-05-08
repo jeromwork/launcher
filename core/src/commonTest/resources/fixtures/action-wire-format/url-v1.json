@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "providerId": "browser",
+  "payload": { "kind": "url", "url": "https://example.com/path?q=1" }
+}

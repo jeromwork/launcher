@@ -1,5 +1,7 @@
 package com.launcher.api
 
+import com.launcher.api.action.Action
+
 data class FlowDescriptor(
     val schemaVersion: Int,
     val id: String,
@@ -8,23 +10,17 @@ data class FlowDescriptor(
     val slots: List<SlotDescriptor>,
 )
 
+/**
+ * One tile on the home / flow screen. [action] is `null` when the slot is a
+ * placeholder (renders an empty card with no tap behaviour). When non-null,
+ * it carries a fully-formed [Action] ready to hand to the dispatcher.
+ */
 data class SlotDescriptor(
     val id: String,
     val label: String,
     val iconRef: String,
-    val action: SlotAction,
+    val action: Action?,
 )
-
-sealed class SlotAction {
-    data class WhatsAppCall(
-        val contactRef: String,
-        val actionType: CommunicationActionType,
-    ) : SlotAction()
-
-    data class OpenApp(val packageName: String) : SlotAction()
-
-    object Placeholder : SlotAction()
-}
 
 data class FlowTemplate(
     val id: String,

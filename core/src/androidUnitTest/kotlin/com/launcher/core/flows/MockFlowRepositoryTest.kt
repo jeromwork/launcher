@@ -2,9 +2,10 @@ package com.launcher.core.flows
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.launcher.api.CommunicationActionType
 import com.launcher.api.FlowPreset
-import com.launcher.api.SlotAction
+import com.launcher.api.action.ActionPayload
+import com.launcher.api.action.ProviderId
+import com.launcher.api.action.WhatsAppCallKind
 import com.launcher.core.preset.InMemoryPresetRepository
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -54,9 +55,15 @@ class MockFlowRepositoryTest {
         val slots = repo.loadFlows().first().slots
 
         val anna = slots.first { it.id == "slot_anna_call" }
-        val actionAnna = anna.action as SlotAction.WhatsAppCall
-        assertEquals("contact_anna", actionAnna.contactRef)
-        assertEquals(CommunicationActionType.CALL, actionAnna.actionType)
+        val action = anna.action ?: error("expected non-placeholder action for slot_anna_call")
+        assertEquals(ProviderId.WHATSAPP, action.providerId)
+        val payload = action.payload as ActionPayload.WhatsAppCall
+        assertEquals("contact_anna", payload.contactRef)
+        assertEquals(WhatsAppCallKind.VOICE, payload.kind)
+        // Fallback chain present: phone-call to Anna's number.
+        val fallbackPayload = action.fallback?.payload as? ActionPayload.Phone
+            ?: error("expected phone fallback")
+        assertEquals("+79991234001", fallbackPayload.number)
     }
 
     @Test

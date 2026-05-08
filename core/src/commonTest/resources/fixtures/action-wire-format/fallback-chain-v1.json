@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "providerId": "whatsapp",
+  "payload": { "kind": "whatsapp_message", "contactRef": "alice" },
+  "fallback": {
+    "schemaVersion": 1,
+    "providerId": "app",
+    "payload": {
+      "kind": "open_app",
+      "packageHint": "com.whatsapp",
+      "storeUrlHint": "market://details?id=com.whatsapp"
+    },
+    "fallback": {
+      "schemaVersion": 1,
+      "providerId": "browser",
+      "payload": { "kind": "url", "url": "https://wa.me/" }
+    }
+  }
+}

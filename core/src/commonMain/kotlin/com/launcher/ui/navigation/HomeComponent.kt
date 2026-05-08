@@ -7,10 +7,10 @@ import com.arkivanov.decompose.router.slot.activate
 import com.arkivanov.decompose.router.slot.childSlot
 import com.arkivanov.decompose.value.Value
 import com.arkivanov.essenty.lifecycle.doOnDestroy
-import com.launcher.api.ActionRequest
-import com.launcher.api.DispatchResult
 import com.launcher.api.FlowDescriptor
 import com.launcher.api.FlowRepository
+import com.launcher.api.action.Action
+import com.launcher.api.action.DispatchResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,7 +29,7 @@ import kotlinx.serialization.Serializable
 class HomeComponent(
     componentContext: ComponentContext,
     private val flowRepository: FlowRepository,
-    private val dispatchAction: (ActionRequest) -> DispatchResult,
+    private val dispatchAction: suspend (Action) -> DispatchResult,
     val onSettingsClick: () -> Unit,
     val onAddFlowClick: () -> Unit,
     val onAdminDevicesClick: () -> Unit,

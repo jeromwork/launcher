@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "providerId": "youtube",
+  "payload": {
+    "kind": "youtube",
+    "target": { "kind": "video", "videoId": "dQw4w9WgXcQ" }
+  }
+}

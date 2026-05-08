@@ -1,0 +1,27 @@
+[
+  {
+    "ref": "contact_anna",
+    "displayName": "Anna",
+    "phoneE164": "+79991234001"
+  },
+  {
+    "ref": "contact_oleg",
+    "displayName": "Oleg",
+    "phoneE164": "+79991234002"
+  },
+  {
+    "ref": "alice",
+    "displayName": "Alice",
+    "phoneE164": "+12025550101"
+  },
+  {
+    "ref": "bob",
+    "displayName": "Bob",
+    "phoneE164": "+12025550102"
+  },
+  {
+    "ref": "carol",
+    "displayName": "Carol",
+    "phoneE164": "+12025550103"
+  }
+]

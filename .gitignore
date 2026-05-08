@@ -25,6 +25,9 @@ Thumbs.db
 *.tmp
 *.swp
 
+# Kotlin compiler daemon cache (regenerated on every build).
+.kotlin/
+
 # Env
 .env
 .env.*

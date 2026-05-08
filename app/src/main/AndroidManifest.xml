@@ -1,10 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!--
+      Package visibility (Android 11+, per spec 005 plan §Risks row 2 + permissions-platform CHK-008):
+      - <intent> with MAIN/LAUNCHER lets AppIndex enumerate every launchable app (Workspace catalog).
+      - explicit <package> entries let provider availability check resolve known target packages
+        (whatsapp, telegram, youtube primary + alternate distributions).
+      - <intent> entries for tel:, smsto:, https: let provider availability resolve dial / sms /
+        browser handlers without scanning every package.
+      Contract: NO QUERY_ALL_PACKAGES requested per Play policy (security CHK-015).
+    -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+
+        <!-- WhatsApp providers -->
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
+
+        <!-- Telegram providers -->
+        <package android:name="org.telegram.messenger" />
+        <package android:name="org.telegram.plus" />
+
+        <!-- YouTube providers -->
+        <package android:name="com.google.android.youtube" />
+        <package android:name="com.google.android.youtube.tv" />
+
+        <!-- Phone dial handlers -->
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+
+        <!-- SMS handlers -->
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
+
+        <!-- Browser handlers -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
         </intent>
     </queries>
 

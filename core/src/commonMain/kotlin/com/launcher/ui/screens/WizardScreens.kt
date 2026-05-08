@@ -1,5 +1,6 @@
 package com.launcher.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -21,13 +22,19 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import com.launcher.api.action.NotApplicableReason
+import com.launcher.api.action.ProviderAvailability
+import com.launcher.api.action.ProviderId
+import com.launcher.api.action.ProviderState
 import com.launcher.ui.navigation.AddFlowWizardComponent
 import com.launcher.ui.navigation.AddSlotWizardComponent
 import com.launcher.ui.navigation.AdminDevicesComponent
@@ -86,8 +93,8 @@ fun AddFlowWizardScreen(component: AddFlowWizardComponent, modifier: Modifier = 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddSlotWizardScreen(component: AddSlotWizardComponent, modifier: Modifier = Modifier) {
-    val actionTypes = listOf("call" to "Позвонить", "video" to "Видеозвонок", "open_app" to "Открыть приложение")
-    var selected by remember { mutableStateOf(actionTypes.first().first) }
+    val providers by component.providers.collectAsState()
+    var selected by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -110,14 +117,19 @@ fun AddSlotWizardScreen(component: AddSlotWizardComponent, modifier: Modifier = 
                 "Что должна делать кнопка:",
                 style = MaterialTheme.typography.titleMedium,
             )
-            actionTypes.forEach { (id, label) ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("add_slot_type_$id"),
-                    selected = id == selected,
-                    onClick = { selected = id },
-                    label = label,
+            if (providers.isEmpty()) {
+                Text(
+                    text = "Нет доступных действий. Проверьте, что устройство подключено к сети и установлены нужные приложения.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("add_slot_empty"),
+                )
+            }
+            providers.forEach { state ->
+                ProviderRow(
+                    state = state,
+                    selected = selected == state.providerId.value,
+                    onSelect = { selected = state.providerId.value },
                 )
             }
             Spacer(Modifier.size(Spacing.lg))
@@ -126,11 +138,61 @@ fun AddSlotWizardScreen(component: AddSlotWizardComponent, modifier: Modifier = 
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("add_slot_done"),
+                enabled = selected != null,
             ) {
                 Text("Готово", style = MaterialTheme.typography.labelLarge)
             }
         }
     }
+}
+
+@Composable
+private fun ProviderRow(
+    state: ProviderState,
+    selected: Boolean,
+    onSelect: () -> Unit,
+) {
+    val displayLabel = providerDisplayLabel(state.providerId)
+    val testTagBase = "add_slot_provider_${state.providerId.value}"
+    when (val availability = state.availability) {
+        is ProviderAvailability.Available -> Row(
+            modifier = Modifier.fillMaxWidth().testTag(testTagBase),
+            selected = selected,
+            onClick = onSelect,
+            label = displayLabel,
+        )
+        is ProviderAvailability.Missing -> Row(
+            modifier = Modifier.fillMaxWidth().testTag("${testTagBase}_missing"),
+            selected = false,
+            onClick = onSelect,  // tap → caller will surface install affordance via component.onInstallRequested in a follow-up
+            label = "$displayLabel — установить (${availability.installHint?.recommendedPackage ?: "Play Store"})",
+        )
+        is ProviderAvailability.NotApplicable -> Row(
+            modifier = Modifier.fillMaxWidth().testTag("${testTagBase}_na"),
+            selected = false,
+            onClick = { /* greyed-out: not selectable */ },
+            label = "$displayLabel — недоступно (${notApplicableLabel(availability.reason)})",
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private fun providerDisplayLabel(id: ProviderId): String = when (id) {
+    ProviderId.APP             -> "Приложение"
+    ProviderId.WHATSAPP        -> "WhatsApp"
+    ProviderId.TELEGRAM        -> "Telegram"
+    ProviderId.PHONE           -> "Позвонить"
+    ProviderId.SMS             -> "Сообщение"
+    ProviderId.BROWSER         -> "Браузер"
+    ProviderId.YOUTUBE         -> "YouTube"
+    ProviderId.SYSTEM_SETTINGS -> "Настройки"
+    else                       -> id.value
+}
+
+private fun notApplicableLabel(reason: NotApplicableReason): String = when (reason) {
+    NotApplicableReason.NoTelephony      -> "нет телефонной связи"
+    NotApplicableReason.NoBrowser        -> "нет браузера"
+    NotApplicableReason.NoDefaultSmsApp  -> "нет SMS-приложения"
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -182,9 +244,11 @@ private fun Row(
     selected: Boolean,
     onClick: () -> Unit,
     label: String,
+    labelColor: Color = Color.Unspecified,
 ) {
     androidx.compose.foundation.layout.Row(
         modifier = modifier
+            .clickable(onClick = onClick)
             .padding(vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -193,6 +257,10 @@ private fun Row(
             onClick = onClick,
         )
         Spacer(Modifier.size(Spacing.sm))
-        Text(label, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = labelColor,
+        )
     }
 }

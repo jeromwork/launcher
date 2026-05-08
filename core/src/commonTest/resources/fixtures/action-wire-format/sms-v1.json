@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "providerId": "sms",
+  "payload": {
+    "kind": "sms",
+    "number": "+79991234567",
+    "body": "Optional pre-filled body"
+  }
+}

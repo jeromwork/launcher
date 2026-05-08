@@ -2,16 +2,10 @@ package com.launcher.ui.navigation
 
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.doOnDestroy
-import com.launcher.api.ActionRequest
-import com.launcher.api.CommunicationActionType
-import com.launcher.api.CommunicationWarningCode
-import com.launcher.api.DispatchResult
 import com.launcher.api.FlowRepository
-import com.launcher.api.SlotAction
 import com.launcher.api.SlotDescriptor
-import com.launcher.api.WhatsAppHandoffRequest
-import com.launcher.api.WhatsAppHandoffResult
-import kotlin.random.Random
+import com.launcher.api.action.Action
+import com.launcher.api.action.DispatchResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -22,17 +16,23 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Component for one flow's slot grid + confirmation/warning overlays.
+ * Component for one flow's slot grid.
  *
- * Until ActionDispatcher itself moves to commonMain (a later spec), it stays in
- * androidMain and is invoked through the [dispatchAction] callback the Activity
- * supplies — keeps this component platform-agnostic.
+ * Spec 005 migration: this component now hands off [Action] objects directly
+ * to the new dispatcher pipeline. The confirmation/warning overlay flow used
+ * for spec 002 WhatsApp tiles is **temporarily removed** — Phase 5 (US-508)
+ * brings it back as a snackbar-based universal mechanism (any provider).
+ *
+ * The dispatch callback type changed from
+ * `(ActionRequest) -> DispatchResult` (spec 002 path) to
+ * `suspend (Action) -> DispatchResult` (spec 005 path). The Activity wires
+ * the lambda; component stays platform-agnostic.
  */
 class FlowComponent(
     componentContext: ComponentContext,
     val flowId: String,
     private val flowRepository: FlowRepository,
-    private val dispatchAction: (ActionRequest) -> DispatchResult,
+    private val dispatchAction: suspend (Action) -> DispatchResult,
 ) : ComponentContext by componentContext {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -51,91 +51,34 @@ class FlowComponent(
     }
 
     fun onSlotTap(slot: SlotDescriptor) {
-        val action = slot.action as? SlotAction.WhatsAppCall ?: return
-        _state.value = _state.value.copy(
-            pending = PendingAction(slot = slot, actionType = action.actionType),
-            confirmationSuccess = false,
-            warning = null,
-        )
-    }
-
-    fun onCancel() {
-        _state.value = _state.value.copy(pending = null, confirmationSuccess = false)
-    }
-
-    fun onConfirm() {
-        val pending = _state.value.pending ?: return
-        val whatsApp = pending.slot.action as? SlotAction.WhatsAppCall ?: return
-        _state.value = _state.value.copy(confirmationSuccess = true)
-        val request = WhatsAppHandoffRequest(
-            tileId = pending.slot.id,
-            contactRef = whatsApp.contactRef,
-            actionType = pending.actionType,
-            actionCycleId = randomActionCycleId(),
-            homeSurfaceRef = HOME_SURFACE_REF,
-        )
-        val result = dispatchAction(ActionRequest.WhatsAppHandoff(request))
-        if (result is DispatchResult.WhatsApp) {
-            handleWhatsAppOutcome(result.outcome)
-        }
-    }
-
-    private fun handleWhatsAppOutcome(outcome: WhatsAppHandoffResult) {
-        when (outcome) {
-            WhatsAppHandoffResult.LAUNCH_STARTED -> {
-                // System will switch to WhatsApp; no UI change here.
-            }
-            WhatsAppHandoffResult.WHATSAPP_UNAVAILABLE -> showWarning(
-                CommunicationWarningCode.WHATSAPP_UNAVAILABLE,
-                "WhatsApp недоступен",
-                "WhatsApp не установлен или не настроен на этом телефоне.",
-            )
-            WhatsAppHandoffResult.ACTION_NOT_SUPPORTED -> showWarning(
-                CommunicationWarningCode.ACTION_NOT_SUPPORTED,
-                "Действие недоступно",
-                "Этот тип звонка пока не поддерживается этим контактом.",
-            )
-            else -> showWarning(
-                CommunicationWarningCode.HANDOFF_LAUNCH_FAILED,
-                "Не удалось открыть звонок",
-                "Попробуйте ещё раз. Если не получится — обратитесь к помощнику.",
+        val action = slot.action ?: return // placeholder — silently ignore
+        scope.launch {
+            val result = dispatchAction(action)
+            _state.value = _state.value.copy(
+                lastDispatchAction = action,
+                lastDispatchResult = result,
             )
         }
     }
 
-    private fun showWarning(code: CommunicationWarningCode, title: String, message: String) {
-        _state.value = _state.value.copy(
-            pending = null,
-            warning = WarningUiState(code = code, title = title, message = message),
-        )
+    /** US-508 retry: re-dispatch the most recent action. No-op if none recorded. */
+    fun retryLastAction() {
+        val action = _state.value.lastDispatchAction ?: return
+        scope.launch {
+            val result = dispatchAction(action)
+            _state.value = _state.value.copy(lastDispatchResult = result)
+        }
     }
 
-    fun onWarningDismiss() {
-        _state.value = _state.value.copy(warning = null)
-    }
-
-    private companion object {
-        const val HOME_SURFACE_REF = "home_main"
-        fun randomActionCycleId(): String =
-            (1..32).map { Random.nextInt(16).toString(16) }.joinToString("")
+    /** Called by [com.launcher.ui.screens.FlowScreen] after surfacing a result so the same snackbar is not shown twice. */
+    fun acknowledgeDispatchResult() {
+        _state.value = _state.value.copy(lastDispatchResult = null)
     }
 }
 
 data class FlowUiState(
     val flowName: String = "",
     val slots: List<SlotDescriptor> = emptyList(),
-    val pending: PendingAction? = null,
-    val confirmationSuccess: Boolean = false,
-    val warning: WarningUiState? = null,
-)
-
-data class PendingAction(
-    val slot: SlotDescriptor,
-    val actionType: CommunicationActionType,
-)
-
-data class WarningUiState(
-    val code: CommunicationWarningCode,
-    val title: String,
-    val message: String,
+    val lastDispatchAction: Action? = null,
+    val lastDispatchResult: DispatchResult? = null,
 )

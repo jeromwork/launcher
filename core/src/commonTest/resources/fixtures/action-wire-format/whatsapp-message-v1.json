@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "providerId": "whatsapp",
+  "payload": { "kind": "whatsapp_message", "contactRef": "alice" }
+}

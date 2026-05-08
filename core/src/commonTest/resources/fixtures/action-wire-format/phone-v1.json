@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "providerId": "phone",
+  "payload": { "kind": "phone", "number": "+74951234567" }
+}

@@ -1,10 +1,19 @@
 package com.launcher.ui.screens
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
+import com.arkivanov.essenty.lifecycle.resume
+import com.launcher.api.action.NotApplicableReason
+import com.launcher.api.action.ProviderAvailability
+import com.launcher.api.action.ProviderId
+import com.launcher.api.action.ProviderState
+import com.launcher.test.FakeProviderRegistry
 import com.launcher.ui.navigation.AddFlowWizardComponent
 import com.launcher.ui.navigation.AddSlotWizardComponent
 import com.launcher.ui.navigation.AdminDevicesComponent
@@ -24,8 +33,11 @@ class WizardScreensTest {
     @get:Rule
     val rule = createComposeRule()
 
-    private fun newContext(): DefaultComponentContext =
-        DefaultComponentContext(lifecycle = LifecycleRegistry())
+    private fun newContext(): DefaultComponentContext {
+        val lr = LifecycleRegistry()
+        lr.resume()
+        return DefaultComponentContext(lifecycle = lr)
+    }
 
     @Test
     fun addFlowWizardRendersTitle() {
@@ -44,22 +56,80 @@ class WizardScreensTest {
         rule.onNodeWithText("Контакты").assertIsDisplayed()
     }
 
+    private fun wizardWith(registry: FakeProviderRegistry): AddSlotWizardComponent =
+        AddSlotWizardComponent(
+            componentContext = newContext(),
+            flowId = "flow_main",
+            onBack = {},
+            onDone = {},
+            providerRegistry = registry,
+        )
+
     @Test
-    fun addSlotWizardRendersForFlowId() {
+    fun addSlotWizard_emptyRegistry_showsEmptyState() {
+        val component = wizardWith(FakeProviderRegistry(initial = emptyList()))
         rule.setContent {
-            LauncherTheme(preset = "workspace") {
-                AddSlotWizardScreen(
-                    component = AddSlotWizardComponent(
-                        componentContext = newContext(),
-                        flowId = "flow_main",
-                        onBack = {},
-                        onDone = {},
-                    ),
-                )
-            }
+            LauncherTheme(preset = "workspace") { AddSlotWizardScreen(component = component) }
         }
         rule.onNodeWithText("Новый слот").assertIsDisplayed()
+        rule.onNodeWithTag("add_slot_empty").assertIsDisplayed()
+    }
+
+    @Test
+    fun addSlotWizard_availableProvider_isShownPlain() {
+        val registry = FakeProviderRegistry(
+            initial = listOf(
+                ProviderState(ProviderId.PHONE, ProviderAvailability.Available),
+            ),
+        )
+        rule.setContent {
+            LauncherTheme(preset = "workspace") { AddSlotWizardScreen(component = wizardWith(registry)) }
+        }
+        rule.onNodeWithTag("add_slot_provider_phone").assertIsDisplayed()
         rule.onNodeWithText("Позвонить").assertIsDisplayed()
+    }
+
+    @Test
+    fun addSlotWizard_missingProvider_isShownAsInstall() {
+        val registry = FakeProviderRegistry(
+            initial = listOf(
+                ProviderState(ProviderId.WHATSAPP, ProviderAvailability.Missing(installHint = null)),
+            ),
+        )
+        rule.setContent {
+            LauncherTheme(preset = "workspace") { AddSlotWizardScreen(component = wizardWith(registry)) }
+        }
+        rule.onNodeWithTag("add_slot_provider_whatsapp_missing").assertIsDisplayed()
+    }
+
+    @Test
+    fun addSlotWizard_notApplicable_isShownGreyed() {
+        val registry = FakeProviderRegistry(
+            initial = listOf(
+                ProviderState(
+                    ProviderId.SMS,
+                    ProviderAvailability.NotApplicable(NotApplicableReason.NoDefaultSmsApp),
+                ),
+            ),
+        )
+        rule.setContent {
+            LauncherTheme(preset = "workspace") { AddSlotWizardScreen(component = wizardWith(registry)) }
+        }
+        rule.onNodeWithTag("add_slot_provider_sms_na").assertIsDisplayed()
+    }
+
+    @Test
+    fun addSlotWizard_clickProvider_enablesDone() {
+        val registry = FakeProviderRegistry(
+            initial = listOf(ProviderState(ProviderId.PHONE, ProviderAvailability.Available)),
+        )
+        rule.setContent {
+            LauncherTheme(preset = "workspace") { AddSlotWizardScreen(component = wizardWith(registry)) }
+        }
+        rule.onNodeWithTag("add_slot_done").assertIsDisplayed()
+        rule.onNodeWithTag("add_slot_provider_phone").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("add_slot_done").assertIsEnabled()
     }
 
     @Test

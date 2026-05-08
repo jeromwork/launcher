@@ -1,0 +1,5 @@
+{
+  "type": "whatsapp_call",
+  "contactRef": "bob",
+  "actionType": "video"
+}

@@ -8,7 +8,8 @@ import com.launcher.api.FlowPreset
 import com.launcher.api.FlowRepository
 import com.launcher.api.PresetRepository
 import com.launcher.app.firstlaunch.FirstLaunchActivity
-import com.launcher.core.actions.ActionDispatcher
+import com.launcher.api.action.ActionDispatcher
+import com.launcher.api.action.ProviderRegistry
 import com.launcher.ui.RootContent
 import com.launcher.ui.navigation.RootComponent
 import com.launcher.ui.screens.PresetUiModel
@@ -26,6 +27,7 @@ class HomeActivity : ComponentActivity() {
     private val presetRepository: PresetRepository by inject()
     private val flowRepository: FlowRepository by inject()
     private val actionDispatcher: ActionDispatcher by inject()
+    private val providerRegistry: ProviderRegistry by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,7 +41,8 @@ class HomeActivity : ComponentActivity() {
             componentContext = defaultComponentContext(),
             presetRepository = presetRepository,
             flowRepository = flowRepository,
-            dispatchAction = { request -> actionDispatcher.dispatch(request) },
+            dispatchAction = { action -> actionDispatcher.dispatch(action) },
+            providerRegistry = providerRegistry,
             onPresetChanged = { recreate() },
             onResetData = {
                 val intent = android.content.Intent(this, FirstLaunchActivity::class.java)

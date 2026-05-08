@@ -3,9 +3,11 @@ package com.launcher.ui.di
 import com.launcher.api.FlowRepository
 import com.launcher.api.ModuleDescriptor
 import com.launcher.api.PresetRepository
+import com.launcher.api.action.ActionDispatcher
+import com.launcher.api.action.ProviderRegistry
 import com.launcher.core.LauncherCore
-import com.launcher.core.actions.ActionDispatcher
 import com.launcher.core.catalog.AppIndex
+import com.launcher.core.contacts.MockContactsRepository
 import com.launcher.core.events.EventRouter
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.qualifier.named
@@ -42,5 +44,7 @@ val androidPlatformModule = module {
     single<FlowRepository> { get<LauncherCore>().flowRepository }
     single<EventRouter> { get<LauncherCore>().eventRouter }
     single<AppIndex> { get<LauncherCore>().appIndex }
-    single<ActionDispatcher> { get<LauncherCore>().actionDispatcher }
+    single<ActionDispatcher> { get<LauncherCore>().androidActionDispatcher }
+    single<ProviderRegistry> { get<LauncherCore>().androidProviderRegistry }
+    single<MockContactsRepository> { get<LauncherCore>().mockContactsRepository }
 }

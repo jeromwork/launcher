@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "providerId": "smart_assistant",
+  "payload": {
+    "kind": "custom",
+    "key": "ask",
+    "params": {
+      "prompt": "schedule meeting",
+      "lang": "ru"
+    }
+  }
+}
