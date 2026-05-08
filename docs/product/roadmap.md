@@ -11,7 +11,7 @@
 |---|---|---|---|
 | 003 | `ui-skeleton` | Частично выполнен (5 коммитов, T072 не выполнен; UI закроется через 004) | — |
 | **004** | **`ui-stack-migration`** | **Не начат — миграция UI на Compose Multiplatform + Material 3 + KMP per ADR-005; включает закрытие T072** | **003** |
-| 005 | `action-architecture-v2` | Не начат (был 004) | 004 |
+| 005 | `action-architecture-v2` | **Готов** (Phase 1–8 завершены; Phase 9 verification в процессе на ветке `005-action-architecture-v2`) | 004 |
 | 006 | `provider-capabilities-and-health` | Не начат (был 005) | 005 |
 | 007 | `pairing-and-firebase-channel` | Не начат (был 006) | 006 |
 | 008 | `bidirectional-config-sync` | Не начат (был 007) | 007 |
@@ -116,6 +116,8 @@
 **Статус:** не начат.
 
 **Зависит от:** 005.
+
+**Pre-requisite cleanup that lands with this spec:** удаление `migrateLegacyAction` бриджа из `core/.../api/action/ActionWireFormat.kt` (anchor: `LEGACY-BRIDGE-EXPIRES-IN-SPEC-006`) + всех `legacy-spec003-*.json` фикстур. Триггер автоматический: fitness-тест `LegacyMigrationExpiryTest` начинает требовать удаления, как только ветка `006-*` сольётся в `main` (тест читает `specs/` директорию). См. spec 005 §8.4 / Clarification C5.
 
 **Что делает:**
 - Снапшот «какие провайдеры доступны на этом устройстве»: `{provider, displayName, icon, available, version}`.

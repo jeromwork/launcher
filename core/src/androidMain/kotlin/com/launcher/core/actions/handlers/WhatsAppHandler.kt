@@ -11,12 +11,16 @@ import com.launcher.core.contacts.MockContactsRepository
 /**
  * Handles `whatsapp_message` and `whatsapp_call` payloads (spec 005 US-501).
  *
+ * Design rationale: see `docs/research/messenger-calling-research.md`. The
+ * key constraint surfaced there — WhatsApp does not publish a stable deep
+ * link that dials directly without a confirmation sheet — is what drives
+ * the "open chat, let user tap voice/video icon" strategy here, instead of
+ * trying to bypass the sheet.
+ *
  * Strategy (per spec §4.1, contracts/action-wire-format.md):
  *  - Resolve `contactRef` via [MockContactsRepository]; missing `phoneE164` →
  *    `Failure` (the dispatcher falls back to `OpenApp` on the next layer).
- *  - Build `https://wa.me/<digits>?...` URI. There is no public WhatsApp
- *    deep-link to dial directly; for both message and call we open the chat
- *    and let the user tap the voice/video icon. One extra tap is acceptable
+ *  - Build `https://wa.me/<digits>?...` URI. One extra tap is acceptable
  *    for the elderly persona; mis-routed calls are not.
  *  - Try `setPackage("com.whatsapp")` first, then `com.whatsapp.w4b`
  *    (business). Dispatcher already verified availability; here we just
