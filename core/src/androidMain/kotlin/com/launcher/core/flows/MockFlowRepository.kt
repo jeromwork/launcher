@@ -1,19 +1,24 @@
 package com.launcher.core.flows
 
 import android.content.Context
-import com.launcher.api.CommunicationActionType
 import com.launcher.api.FlowDescriptor
 import com.launcher.api.FlowPreset
 import com.launcher.api.FlowRepository
 import com.launcher.api.FlowTemplate
 import com.launcher.api.PresetRepository
-import com.launcher.api.SlotAction
 import com.launcher.api.SlotDescriptor
+import com.launcher.api.action.Action
+import com.launcher.api.action.ActionWireFormat
 import org.json.JSONObject
 
 /**
  * Reads a mock JSON per active preset (asset filename: flows_mock_<slug>.json).
  * Falls back to simple-launcher if preset is unset.
+ *
+ * Slot `action` field is parsed via [ActionWireFormat] (new spec 005 wire
+ * format). For safety with not-yet-migrated assets the parser also routes
+ * legacy spec 003 shapes (`{"type":"whatsapp_call",…}`) through
+ * [ActionWireFormat.migrateLegacyAction]. `null` action = placeholder slot.
  */
 class MockFlowRepository(
     private val context: Context,
@@ -66,7 +71,7 @@ class MockFlowRepository(
                 val slotId = slotObj.optString("id").takeIf { it.isNotBlank() } ?: continue
                 val label = slotObj.optString("label").takeIf { it.isNotBlank() } ?: continue
                 val iconRef = slotObj.optString("iconRef")
-                val action = parseAction(slotObj.optJSONObject("action")) ?: continue
+                val action = parseAction(slotObj.opt("action"))
                 slots.add(SlotDescriptor(id = slotId, label = label, iconRef = iconRef, action = action))
             }
 
@@ -83,23 +88,23 @@ class MockFlowRepository(
         return result
     }
 
-    private fun parseAction(actionObj: JSONObject?): SlotAction? {
-        actionObj ?: return null
-        return when (val type = actionObj.optString("type")) {
-            "whatsapp_call" -> {
-                val contactRef = actionObj.optString("contactRef").takeIf { it.isNotBlank() } ?: return null
-                val actionTypeRaw = actionObj.optString("actionType")
-                val actionType = runCatching { CommunicationActionType.valueOf(actionTypeRaw) }.getOrNull()
-                    ?: return null
-                SlotAction.WhatsAppCall(contactRef = contactRef, actionType = actionType)
+    /**
+     * Returns null for placeholder slots (`null` JSON value or legacy
+     * `{"type":"placeholder"}`); throws nothing on malformed entries —
+     * the slot is treated as a placeholder so the flow loads even with
+     * one bad row. Production assets are validated by tests.
+     */
+    private fun parseAction(actionValue: Any?): Action? {
+        if (actionValue == null || actionValue == JSONObject.NULL) return null
+        if (actionValue !is JSONObject) return null
+        val text = actionValue.toString()
+        return runCatching {
+            // Detect by presence of 'providerId' (new format) vs 'type' (legacy).
+            if (actionValue.has("providerId")) {
+                ActionWireFormat.decode(text)
+            } else {
+                ActionWireFormat.migrateLegacyAction(text)
             }
-            "open_app" -> {
-                val pkg = actionObj.optString("packageName").takeIf { it.isNotBlank() } ?: return null
-                SlotAction.OpenApp(packageName = pkg)
-            }
-            else -> {
-                if (type == "placeholder") SlotAction.Placeholder else null
-            }
-        }
+        }.getOrNull()
     }
 }

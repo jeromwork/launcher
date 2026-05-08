@@ -10,25 +10,51 @@
           "id": "slot_anna",
           "label": "Аня",
           "iconRef": "",
-          "action": { "type": "whatsapp_call", "contactRef": "contact_anna", "actionType": "CALL" }
+          "action": {
+            "schemaVersion": 1,
+            "providerId": "whatsapp",
+            "payload": {
+              "kind": "whatsapp_call",
+              "contactRef": "contact_anna",
+              "callKind": "VOICE"
+            },
+            "fallback": {
+              "schemaVersion": 1,
+              "providerId": "phone",
+              "payload": { "kind": "phone", "number": "+79991234001" }
+            }
+          }
         },
         {
           "id": "slot_oleg",
           "label": "Олег",
           "iconRef": "",
-          "action": { "type": "whatsapp_call", "contactRef": "contact_oleg", "actionType": "CALL" }
+          "action": {
+            "schemaVersion": 1,
+            "providerId": "whatsapp",
+            "payload": {
+              "kind": "whatsapp_call",
+              "contactRef": "contact_oleg",
+              "callKind": "VOICE"
+            },
+            "fallback": {
+              "schemaVersion": 1,
+              "providerId": "phone",
+              "payload": { "kind": "phone", "number": "+79991234002" }
+            }
+          }
         },
         {
           "id": "slot_contact_3",
           "label": "Контакт 3",
           "iconRef": "",
-          "action": { "type": "placeholder" }
+          "action": null
         },
         {
           "id": "slot_contact_4",
           "label": "Контакт 4",
           "iconRef": "",
-          "action": { "type": "placeholder" }
+          "action": null
         }
       ]
     },
@@ -41,25 +67,37 @@
           "id": "slot_app_1",
           "label": "Браузер",
           "iconRef": "",
-          "action": { "type": "open_app", "packageName": "com.android.chrome" }
+          "action": {
+            "schemaVersion": 1,
+            "providerId": "browser",
+            "payload": { "kind": "url", "url": "https://duckduckgo.com" }
+          }
         },
         {
           "id": "slot_app_2",
           "label": "Карты",
           "iconRef": "",
-          "action": { "type": "open_app", "packageName": "com.google.android.apps.maps" }
+          "action": {
+            "schemaVersion": 1,
+            "providerId": "app",
+            "payload": {
+              "kind": "open_app",
+              "packageHint": "com.google.android.apps.maps",
+              "storeUrlHint": "market://details?id=com.google.android.apps.maps"
+            }
+          }
         },
         {
           "id": "slot_app_3",
           "label": "Почта",
           "iconRef": "",
-          "action": { "type": "placeholder" }
+          "action": null
         },
         {
           "id": "slot_app_4",
           "label": "Календарь",
           "iconRef": "",
-          "action": { "type": "placeholder" }
+          "action": null
         }
       ]
     }

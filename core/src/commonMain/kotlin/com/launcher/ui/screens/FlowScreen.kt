@@ -15,15 +15,17 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.launcher.api.SlotAction
-import com.launcher.ui.components.ConfirmationOverlay
 import com.launcher.ui.components.TileCard
-import com.launcher.ui.components.WarningOverlay
 import com.launcher.ui.navigation.FlowComponent
 import com.launcher.ui.theme.Spacing
 
 /**
- * Renders one flow's slot grid plus its overlay state (confirmation / warning).
+ * Renders one flow's slot grid.
+ *
+ * Spec 005 migration note: confirmation/warning overlays from spec 002 are
+ * **temporarily removed**. Phase 5 (US-508) brings back failure feedback as a
+ * snackbar attached at this level. Placeholder slots (slot.action == null)
+ * still render but tap is a no-op.
  */
 @Composable
 fun FlowScreen(
@@ -53,26 +55,6 @@ fun FlowScreen(
             }
         }
     }
-
-    state.pending?.let { pending ->
-        if (pending.slot.action is SlotAction.WhatsAppCall) {
-            ConfirmationOverlay(
-                contactLabel = pending.slot.label,
-                actionType = pending.actionType,
-                success = state.confirmationSuccess,
-                onConfirm = component::onConfirm,
-                onCancel = component::onCancel,
-            )
-        }
-    }
-
-    state.warning?.let { warning ->
-        WarningOverlay(
-            title = warning.title,
-            message = warning.message,
-            onDismiss = component::onWarningDismiss,
-        )
-    }
 }
 
 @Composable
@@ -84,4 +66,3 @@ private fun EmptyFlow(flowName: String) {
         modifier = Modifier.padding(Spacing.xl),
     )
 }
-

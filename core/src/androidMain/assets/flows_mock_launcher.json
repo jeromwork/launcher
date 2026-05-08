@@ -10,25 +10,29 @@
           "id": "slot_call",
           "label": "Позвонить",
           "iconRef": "",
-          "action": { "type": "placeholder" }
+          "action": null
         },
         {
           "id": "slot_message",
           "label": "Сообщение",
           "iconRef": "",
-          "action": { "type": "placeholder" }
+          "action": null
         },
         {
           "id": "slot_browser",
           "label": "Браузер",
           "iconRef": "",
-          "action": { "type": "open_app", "packageName": "com.android.chrome" }
+          "action": {
+            "schemaVersion": 1,
+            "providerId": "browser",
+            "payload": { "kind": "url", "url": "https://duckduckgo.com" }
+          }
         },
         {
           "id": "slot_contacts",
           "label": "Контакты",
           "iconRef": "",
-          "action": { "type": "placeholder" }
+          "action": null
         }
       ]
     }

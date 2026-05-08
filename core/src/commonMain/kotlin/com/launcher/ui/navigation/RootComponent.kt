@@ -9,11 +9,11 @@ import com.arkivanov.decompose.router.stack.push
 import com.arkivanov.decompose.router.stack.replaceAll
 import com.arkivanov.decompose.value.Value
 import com.arkivanov.essenty.lifecycle.doOnDestroy
-import com.launcher.api.ActionRequest
-import com.launcher.api.DispatchResult
 import com.launcher.api.FlowPreset
 import com.launcher.api.FlowRepository
 import com.launcher.api.PresetRepository
+import com.launcher.api.action.Action
+import com.launcher.api.action.DispatchResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -39,7 +39,7 @@ class RootComponent(
     componentContext: ComponentContext,
     private val presetRepository: PresetRepository,
     private val flowRepository: FlowRepository,
-    private val dispatchAction: (ActionRequest) -> DispatchResult,
+    private val dispatchAction: suspend (Action) -> DispatchResult,
     private val onPresetChanged: () -> Unit,
     private val onResetData: () -> Unit,
     initialPresetSlug: String?,

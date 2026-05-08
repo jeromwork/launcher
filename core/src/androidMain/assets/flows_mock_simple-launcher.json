@@ -11,9 +11,18 @@
           "label": "Аня — Позвонить",
           "iconRef": "",
           "action": {
-            "type": "whatsapp_call",
-            "contactRef": "contact_anna",
-            "actionType": "CALL"
+            "schemaVersion": 1,
+            "providerId": "whatsapp",
+            "payload": {
+              "kind": "whatsapp_call",
+              "contactRef": "contact_anna",
+              "callKind": "VOICE"
+            },
+            "fallback": {
+              "schemaVersion": 1,
+              "providerId": "phone",
+              "payload": { "kind": "phone", "number": "+79991234001" }
+            }
           }
         },
         {
@@ -21,9 +30,18 @@
           "label": "Олег — Позвонить",
           "iconRef": "",
           "action": {
-            "type": "whatsapp_call",
-            "contactRef": "contact_oleg",
-            "actionType": "CALL"
+            "schemaVersion": 1,
+            "providerId": "whatsapp",
+            "payload": {
+              "kind": "whatsapp_call",
+              "contactRef": "contact_oleg",
+              "callKind": "VOICE"
+            },
+            "fallback": {
+              "schemaVersion": 1,
+              "providerId": "phone",
+              "payload": { "kind": "phone", "number": "+79991234002" }
+            }
           }
         }
       ]

@@ -7,14 +7,15 @@ import androidx.compose.ui.test.onNodeWithText
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.resume
-import com.launcher.api.ActionRequest
-import com.launcher.api.CommunicationActionType
-import com.launcher.api.DispatchResult
 import com.launcher.api.FlowDescriptor
 import com.launcher.api.FlowRepository
 import com.launcher.api.FlowTemplate
-import com.launcher.api.SlotAction
 import com.launcher.api.SlotDescriptor
+import com.launcher.api.action.Action
+import com.launcher.api.action.ActionPayload
+import com.launcher.api.action.DispatchResult
+import com.launcher.api.action.ProviderId
+import com.launcher.api.action.WhatsAppCallKind
 import com.launcher.ui.navigation.FlowComponent
 import com.launcher.ui.navigation.HomeComponent
 import com.launcher.ui.theme.LauncherTheme
@@ -48,13 +49,19 @@ class HomeAndFlowScreenTest {
                 id = "slot_anna",
                 label = "Анна",
                 iconRef = "ic_anna",
-                action = SlotAction.WhatsAppCall("contact_anna", CommunicationActionType.CALL),
+                action = Action(
+                    providerId = ProviderId.WHATSAPP,
+                    payload = ActionPayload.WhatsAppCall("contact_anna", WhatsAppCallKind.VOICE),
+                ),
             ),
             SlotDescriptor(
                 id = "slot_oleg",
                 label = "Олег",
                 iconRef = "ic_oleg",
-                action = SlotAction.WhatsAppCall("contact_oleg", CommunicationActionType.CALL),
+                action = Action(
+                    providerId = ProviderId.WHATSAPP,
+                    payload = ActionPayload.WhatsAppCall("contact_oleg", WhatsAppCallKind.VOICE),
+                ),
             ),
         ),
     )
