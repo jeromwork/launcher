@@ -3,9 +3,9 @@ package com.launcher.ui.di
 import com.launcher.api.FlowRepository
 import com.launcher.api.ModuleDescriptor
 import com.launcher.api.PresetRepository
+import com.launcher.api.action.ActionDispatcher
 import com.launcher.api.action.ProviderRegistry
 import com.launcher.core.LauncherCore
-import com.launcher.core.actions.ActionDispatcher
 import com.launcher.core.catalog.AppIndex
 import com.launcher.core.contacts.MockContactsRepository
 import com.launcher.core.events.EventRouter
@@ -44,13 +44,7 @@ val androidPlatformModule = module {
     single<FlowRepository> { get<LauncherCore>().flowRepository }
     single<EventRouter> { get<LauncherCore>().eventRouter }
     single<AppIndex> { get<LauncherCore>().appIndex }
-    single<ActionDispatcher> { get<LauncherCore>().actionDispatcher }
-
-    // Spec 005: new dispatcher pipeline. Registered alongside the legacy
-    // ActionDispatcher above. UI is migrated in Phase 5; the legacy class is
-    // deleted in Phase 6. Both bindings point at single instances owned by
-    // LauncherCore — no double construction.
-    single<com.launcher.api.action.ActionDispatcher> { get<LauncherCore>().androidActionDispatcher }
+    single<ActionDispatcher> { get<LauncherCore>().androidActionDispatcher }
     single<ProviderRegistry> { get<LauncherCore>().androidProviderRegistry }
     single<MockContactsRepository> { get<LauncherCore>().mockContactsRepository }
 }

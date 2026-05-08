@@ -23,19 +23,6 @@ sealed class ProjectEvent {
     ) : ProjectEvent()
 
     /**
-     * Diagnostic emit from spec 002 communication shell. Removed in spec 005 Phase 6
-     * (replaced by [ActionDispatched]); retained here only until Phase 6 deletion lands.
-     */
-    @Deprecated("Removed in spec 005 Phase 6 — use ActionDispatched instead.")
-    data class CommunicationDiagnostic(
-        val eventType: CommunicationDiagnosticEventType,
-        val actionCycleRef: String? = null,
-        val tileRef: String? = null,
-        val actionType: CommunicationActionType? = null,
-        val reasonCode: String? = null,
-    ) : ProjectEvent()
-
-    /**
      * Emitted exactly once per top-level `ActionDispatcher.dispatch()` call (NOT per
      * fallback recursion). Replaces [CommunicationDiagnostic] from spec 002.
      *
