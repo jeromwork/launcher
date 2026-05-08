@@ -58,10 +58,12 @@ Each variant is identified by `payload.kind`. Variants below are exhaustive for 
 ### `whatsapp_call`
 
 ```json
-{ "kind": "whatsapp_call", "contactRef": "alice", "kind": "VOICE" | "VIDEO" }
+{ "kind": "whatsapp_call", "contactRef": "alice", "callKind": "VOICE" | "VIDEO" }
 ```
 
-`kind` field uses `WhatsAppCallKind` enum (`VOICE`, `VIDEO`).
+`callKind` field uses `WhatsAppCallKind` enum (`VOICE`, `VIDEO`). Renamed from
+`kind` to avoid collision with the polymorphic discriminator at the same JSON
+object level (`classDiscriminator = "kind"` in `ActionWireFormat.json`).
 
 ### `phone`
 

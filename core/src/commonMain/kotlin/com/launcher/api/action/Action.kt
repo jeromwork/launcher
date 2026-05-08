@@ -116,6 +116,7 @@ sealed class ActionPayload {
     @SerialName("whatsapp_call")
     data class WhatsAppCall(
         val contactRef: String,
+        @SerialName("callKind")
         val kind: WhatsAppCallKind,
     ) : ActionPayload()
 

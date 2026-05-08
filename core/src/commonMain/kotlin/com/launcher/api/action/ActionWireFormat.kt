@@ -2,8 +2,6 @@ package com.launcher.api.action
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
@@ -81,9 +79,12 @@ object ActionWireFormat {
     fun migrateLegacyAction(legacyJsonString: String): Action? {
         val element = json.parseToJsonElement(legacyJsonString).jsonObject
 
-        // Already in new wire format -> parse directly.
-        val schemaVersion = element["schemaVersion"]?.jsonPrimitive?.intOrNull
-        if (schemaVersion != null) return decode(legacyJsonString)
+        // Already in new wire format -> parse directly. Detected by presence of
+        // either `schemaVersion` (when written by encodePretty / external producer)
+        // or `providerId` (default-omitted schemaVersion via encodeDefaults=false).
+        val hasSchemaVersion = element["schemaVersion"]?.jsonPrimitive?.intOrNull != null
+        val hasProviderId    = element["providerId"]?.jsonPrimitive?.contentOrNull != null
+        if (hasSchemaVersion || hasProviderId) return decode(legacyJsonString)
 
         val type = element["type"]?.jsonPrimitive?.contentOrNull
             ?: throw IllegalArgumentException("legacy action missing 'type': $legacyJsonString")
