@@ -52,18 +52,33 @@ class FlowComponent(
 
     fun onSlotTap(slot: SlotDescriptor) {
         val action = slot.action ?: return // placeholder — silently ignore
-        // TODO(spec 005 Phase 5 / US-508): show snackbar on Failure /
-        // ProviderUnavailable; until then we fire-and-forget. dispatch latency
-        // is < 50 ms p95 (per spec NFR), so blocking the click is fine.
+        scope.launch {
+            val result = dispatchAction(action)
+            _state.value = _state.value.copy(
+                lastDispatchAction = action,
+                lastDispatchResult = result,
+            )
+        }
+    }
+
+    /** US-508 retry: re-dispatch the most recent action. No-op if none recorded. */
+    fun retryLastAction() {
+        val action = _state.value.lastDispatchAction ?: return
         scope.launch {
             val result = dispatchAction(action)
             _state.value = _state.value.copy(lastDispatchResult = result)
         }
+    }
+
+    /** Called by [com.launcher.ui.screens.FlowScreen] after surfacing a result so the same snackbar is not shown twice. */
+    fun acknowledgeDispatchResult() {
+        _state.value = _state.value.copy(lastDispatchResult = null)
     }
 }
 
 data class FlowUiState(
     val flowName: String = "",
     val slots: List<SlotDescriptor> = emptyList(),
+    val lastDispatchAction: Action? = null,
     val lastDispatchResult: DispatchResult? = null,
 )

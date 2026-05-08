@@ -8,24 +8,32 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.launcher.api.action.DispatchResult
 import com.launcher.ui.components.TileCard
 import com.launcher.ui.navigation.FlowComponent
 import com.launcher.ui.theme.Spacing
 
 /**
- * Renders one flow's slot grid.
+ * Renders one flow's slot grid plus a snackbar host that surfaces dispatch
+ * failures (US-508). Per ux-quality CHK-020 we chose snackbar over toast:
+ * snackbar respects accessibility (announces via TalkBack), supports a
+ * Retry action, and does not steal focus.
  *
- * Spec 005 migration note: confirmation/warning overlays from spec 002 are
- * **temporarily removed**. Phase 5 (US-508) brings back failure feedback as a
- * snackbar attached at this level. Placeholder slots (slot.action == null)
- * still render but tap is a no-op.
+ * Placeholder slots (slot.action == null) still render but tap is a no-op.
  */
 @Composable
 fun FlowScreen(
@@ -33,24 +41,52 @@ fun FlowScreen(
     modifier: Modifier = Modifier,
 ) {
     val state by component.state.collectAsState()
-    Surface(
+    val snackbarHost = remember { SnackbarHostState() }
+
+    LaunchedEffect(state.lastDispatchResult) {
+        val result = state.lastDispatchResult ?: return@LaunchedEffect
+        val failureMessage = when (result) {
+            is DispatchResult.Failure              -> "Не удалось выполнить действие. Попробуйте ещё раз."
+            is DispatchResult.ProviderUnavailable  -> "Это действие сейчас недоступно. Проверьте, что нужное приложение установлено."
+            is DispatchResult.BlockedByPolicy      -> "Действие запрещено настройками."
+            is DispatchResult.Ok                   -> null
+        }
+        if (failureMessage != null) {
+            val outcome = snackbarHost.showSnackbar(
+                message = failureMessage,
+                actionLabel = "Повторить",
+                duration = SnackbarDuration.Short,
+            )
+            if (outcome == SnackbarResult.ActionPerformed) {
+                component.retryLastAction()
+            }
+        }
+        component.acknowledgeDispatchResult()
+    }
+
+    Scaffold(
         modifier = modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background,
-    ) {
-        if (state.slots.isEmpty()) {
-            EmptyFlow(state.flowName)
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 180.dp),
-                contentPadding = PaddingValues(Spacing.md),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-                verticalArrangement = Arrangement.spacedBy(Spacing.md),
-            ) {
-                items(state.slots, key = { it.id }) { slot ->
-                    TileCard(
-                        label = slot.label,
-                        onClick = { component.onSlotTap(slot) },
-                    )
+        snackbarHost = { SnackbarHost(snackbarHost) },
+    ) { padding ->
+        Surface(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            color = MaterialTheme.colorScheme.background,
+        ) {
+            if (state.slots.isEmpty()) {
+                EmptyFlow(state.flowName)
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 180.dp),
+                    contentPadding = PaddingValues(Spacing.md),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
+                    items(state.slots, key = { it.id }) { slot ->
+                        TileCard(
+                            label = slot.label,
+                            onClick = { component.onSlotTap(slot) },
+                        )
+                    }
                 }
             }
         }
