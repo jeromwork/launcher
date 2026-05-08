@@ -14,6 +14,7 @@ import com.launcher.api.FlowRepository
 import com.launcher.api.PresetRepository
 import com.launcher.api.action.Action
 import com.launcher.api.action.DispatchResult
+import com.launcher.api.action.ProviderRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -40,6 +41,7 @@ class RootComponent(
     private val presetRepository: PresetRepository,
     private val flowRepository: FlowRepository,
     private val dispatchAction: suspend (Action) -> DispatchResult,
+    private val providerRegistry: ProviderRegistry? = null,
     private val onPresetChanged: () -> Unit,
     private val onResetData: () -> Unit,
     initialPresetSlug: String?,
@@ -101,6 +103,7 @@ class RootComponent(
                     flowId = config.flowId,
                     onBack = { nav.pop() },
                     onDone = { nav.pop() },
+                    providerRegistry = providerRegistry,
                 )
             )
             is RootConfig.AdminDevices -> RootChild.AdminDevices(
