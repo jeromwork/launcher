@@ -1,0 +1,5 @@
+{
+  "type": "whatsapp_call",
+  "contactRef": "alice",
+  "actionType": "voice"
+}
