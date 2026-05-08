@@ -62,73 +62,73 @@
 
 ### Shared infrastructure
 
-- [ ] T530 Create `ActionHandler` interface and `HandlerContext` (carries `Context`, `PackageManager`, `EventRouter`) in `core/src/androidMain/kotlin/com/launcher/core/actions/handlers/ActionHandler.kt`. *(plan §Module shape)*
-- [ ] T531 Implement `PlayStoreFallbackResolver` in `core/src/androidMain/kotlin/com/launcher/core/actions/PlayStoreFallbackResolver.kt`. Method `resolve(packageName: String): Action` produces `Action(providerId=APP, payload=OpenApp(packageHint=..., storeUrlHint=market://...))` with web URL secondary fallback. *(plan §Module shape; meta-minimization CHK-002 — class form for DI testability)*
-- [ ] T532 Implement `CustomPayloadValidator` in `core/src/androidMain/kotlin/com/launcher/core/actions/CustomPayloadValidator.kt`. Bounds: max 16 keys; key length ≤ 64 (regex `[a-z][a-z0-9_.-]{1,63}`); value length ≤ 1024; no nested-JSON-as-string (warning only). Returns `Result<Unit>`. *(security CHK-011)*
-- [ ] T533 Implement `AndroidActionDispatcher` in `core/src/androidMain/kotlin/com/launcher/core/actions/AndroidActionDispatcher.kt` per spec §7.1 algorithm. Constructor takes `Map<ProviderId, ActionHandler>`, `ProviderRegistry`, `EventRouter`. *(spec §7.1; plan §Architecture)*
+- [X] T530 Create `ActionHandler` interface and `HandlerContext` (carries `Context`, `PackageManager`, `EventRouter`) in `core/src/androidMain/kotlin/com/launcher/core/actions/handlers/ActionHandler.kt`. *(plan §Module shape)*
+- [X] T531 Implement `PlayStoreFallbackResolver` in `core/src/androidMain/kotlin/com/launcher/core/actions/PlayStoreFallbackResolver.kt`. Method `resolve(packageName: String): Action` produces `Action(providerId=APP, payload=OpenApp(packageHint=..., storeUrlHint=market://...))` with web URL secondary fallback. *(plan §Module shape; meta-minimization CHK-002 — class form for DI testability)*
+- [X] T532 Implement `CustomPayloadValidator` in `core/src/androidMain/kotlin/com/launcher/core/actions/CustomPayloadValidator.kt`. Bounds: max 16 keys; key length ≤ 64 (regex `[a-z][a-z0-9_.-]{1,63}`); value length ≤ 1024; no nested-JSON-as-string (warning only). Returns `Result<Unit>`. *(security CHK-011)*
+- [X] T533 Implement `AndroidActionDispatcher` in `core/src/androidMain/kotlin/com/launcher/core/actions/AndroidActionDispatcher.kt` per spec §7.1 algorithm. Constructor takes `Map<ProviderId, ActionHandler>`, `ProviderRegistry`, `EventRouter`. *(spec §7.1; plan §Architecture)*
 
 ### Handler implementations (parallel)
 
-- [ ] T540 [P] [US-501] `WhatsAppHandler` in `core/src/androidMain/.../handlers/WhatsAppHandler.kt`. Handles `WhatsAppMessage(contactRef)` → `Intent(ACTION_VIEW, "https://wa.me/<phone>?text=...")` + `setPackage("com.whatsapp")` after availability check, fallback `setPackage("com.whatsapp.w4b")`. Handles `WhatsAppCall(contactRef, kind)` similarly. Resolves `contactRef` via `MockContactsRepository` (T567). *(US-501; data-model §ActionPayload.WhatsAppMessage/Call)*
-- [ ] T541 [P] [US-502] `PhoneHandler` in `core/src/androidMain/.../handlers/PhoneHandler.kt`. Handles `Phone(number)` → `Intent(ACTION_DIAL, Uri.parse("tel:$number"))`. **No** `ACTION_CALL`. *(US-502; spec §7.5)*
-- [ ] T542 [P] [US-503] `SmsHandler` in `core/src/androidMain/.../handlers/SmsHandler.kt`. Handles `Sms(number, body?)` → `Intent(ACTION_SENDTO, Uri.parse("smsto:$number"))` with optional `putExtra("sms_body", body)`. *(US-503)*
-- [ ] T543 [P] [US-504] `YouTubeHandler` in `core/src/androidMain/.../handlers/YouTubeHandler.kt`. Handles `YouTube(target)` per `YouTubeTarget` variant. Primary `vnd.youtube:` scheme; web fallback `https://youtube.com/...`. *(US-504; data-model §YouTubeTarget)*
-- [ ] T544 [P] [US-505] `BrowserHandler` in `core/src/androidMain/.../handlers/BrowserHandler.kt`. Handles `Url(url)` → `Intent(ACTION_VIEW, Uri.parse(url))`. Validates scheme `http`/`https` only. *(US-505; security CHK-011 deep-link gate)*
-- [ ] T545 [P] [US-506] `AppLaunchHandler` in `core/src/androidMain/.../handlers/AppLaunchHandler.kt`. Handles `OpenApp(packageHint, storeUrlHint?)` → `packageManager.getLaunchIntentForPackage(packageHint)`; if null → fallback to `PlayStoreFallbackResolver`. *(US-506)*
-- [ ] T546 [P] [FOUNDATION] `SystemSettingsHandler` in `core/src/androidMain/.../handlers/SystemSettingsHandler.kt`. Handles `OpenSettings(target)` → `Intent(Settings.ACTION_SETTINGS)` for `General`. Migrates current `OpenSystemSettings` logic. *(plan §Module shape; spec 003 carry-over)*
-- [ ] T547 [P] [FOUNDATION] `TelegramHandler` in `core/src/androidMain/.../handlers/TelegramHandler.kt`. Handles via `Custom("telegram_open", params)` for now (no first-class `Telegram*` payload variant in v1.0.0 — uses `Custom` escape-hatch per research R2). *(spec §4.1)*
+- [X] T540 [P] [US-501] `WhatsAppHandler` in `core/src/androidMain/.../handlers/WhatsAppHandler.kt`. Handles `WhatsAppMessage(contactRef)` → `Intent(ACTION_VIEW, "https://wa.me/<phone>?text=...")` + `setPackage("com.whatsapp")` after availability check, fallback `setPackage("com.whatsapp.w4b")`. Handles `WhatsAppCall(contactRef, kind)` similarly. Resolves `contactRef` via `MockContactsRepository` (T567). *(US-501; data-model §ActionPayload.WhatsAppMessage/Call)*
+- [X] T541 [P] [US-502] `PhoneHandler` in `core/src/androidMain/.../handlers/PhoneHandler.kt`. Handles `Phone(number)` → `Intent(ACTION_DIAL, Uri.parse("tel:$number"))`. **No** `ACTION_CALL`. *(US-502; spec §7.5)*
+- [X] T542 [P] [US-503] `SmsHandler` in `core/src/androidMain/.../handlers/SmsHandler.kt`. Handles `Sms(number, body?)` → `Intent(ACTION_SENDTO, Uri.parse("smsto:$number"))` with optional `putExtra("sms_body", body)`. *(US-503)*
+- [X] T543 [P] [US-504] `YouTubeHandler` in `core/src/androidMain/.../handlers/YouTubeHandler.kt`. Handles `YouTube(target)` per `YouTubeTarget` variant. Primary `vnd.youtube:` scheme; web fallback `https://youtube.com/...`. *(US-504; data-model §YouTubeTarget)*
+- [X] T544 [P] [US-505] `BrowserHandler` in `core/src/androidMain/.../handlers/BrowserHandler.kt`. Handles `Url(url)` → `Intent(ACTION_VIEW, Uri.parse(url))`. Validates scheme `http`/`https` only. *(US-505; security CHK-011 deep-link gate)*
+- [X] T545 [P] [US-506] `AppLaunchHandler` in `core/src/androidMain/.../handlers/AppLaunchHandler.kt`. Handles `OpenApp(packageHint, storeUrlHint?)` → `packageManager.getLaunchIntentForPackage(packageHint)`; if null → fallback to `PlayStoreFallbackResolver`. *(US-506)*
+- [X] T546 [P] [FOUNDATION] `SystemSettingsHandler` in `core/src/androidMain/.../handlers/SystemSettingsHandler.kt`. Handles `OpenSettings(target)` → `Intent(Settings.ACTION_SETTINGS)` for `General`. Migrates current `OpenSystemSettings` logic. *(plan §Module shape; spec 003 carry-over)*
+- [X] T547 [P] [FOUNDATION] `TelegramHandler` in `core/src/androidMain/.../handlers/TelegramHandler.kt`. Handles via `Custom("telegram_open", params)` for now (no first-class `Telegram*` payload variant in v1.0.0 — uses `Custom` escape-hatch per research R2). *(spec §4.1)*
 
 ### Provider registry
 
-- [ ] T550 Implement `AndroidProviderRegistry` in `core/src/androidMain/kotlin/com/launcher/core/providers/AndroidProviderRegistry.kt`. Subscribes to `AppIndex.snapshot`, derives availability per provider per spec §4.1.2. Exposes `Flow<List<ProviderState>>` debounced 1s, distinct. *(US-507; Clarification C3)*
+- [X] T550 Implement `AndroidProviderRegistry` in `core/src/androidMain/kotlin/com/launcher/core/providers/AndroidProviderRegistry.kt`. Subscribes to `AppIndex.snapshot`, derives availability per provider per spec §4.1.2. Exposes `Flow<List<ProviderState>>` debounced 1s, distinct. *(US-507; Clarification C3)*
 
 ### Wiring
 
-- [ ] T555 Update `core/src/androidMain/kotlin/com/launcher/core/LauncherCore.kt` composition root: instantiate `AndroidProviderRegistry`, all handlers (lazy except `AppLaunchHandler` + `SystemSettingsHandler` per plan §Risks row 5), `AndroidActionDispatcher`. Wire to `RootComponent.dispatchAction`. *(plan §Module shape; performance gate)*
-- [ ] T556 Update `core/src/androidMain/kotlin/com/launcher/ui/di/PlatformKoinModule.android.kt`: register `ActionDispatcher` → `AndroidActionDispatcher`, `ProviderRegistry` → `AndroidProviderRegistry`, all handlers, `PlayStoreFallbackResolver`, `CustomPayloadValidator`. *(plan §Test strategy DI wiring)*
-- [ ] T557 Add empty stub `iosActionDispatcher` placeholder in `core/src/iosMain/kotlin/com/launcher/core/actions/IosActionDispatcher.kt` (compiles to a `TODO("spec for iOS")` impl) — keeps iOS source-set compiling. *(plan §Documented Platform Asymmetry)*
+- [X] T555 Update `core/src/androidMain/kotlin/com/launcher/core/LauncherCore.kt` composition root: instantiate `AndroidProviderRegistry`, all handlers (lazy except `AppLaunchHandler` + `SystemSettingsHandler` per plan §Risks row 5), `AndroidActionDispatcher`. Wire to `RootComponent.dispatchAction`. *(plan §Module shape; performance gate)*
+- [X] T556 Update `core/src/androidMain/kotlin/com/launcher/ui/di/PlatformKoinModule.android.kt`: register `ActionDispatcher` → `AndroidActionDispatcher`, `ProviderRegistry` → `AndroidProviderRegistry`, all handlers, `PlayStoreFallbackResolver`, `CustomPayloadValidator`. *(plan §Test strategy DI wiring)*
+- [X] T557 Add empty stub `iosActionDispatcher` placeholder in `core/src/iosMain/kotlin/com/launcher/core/actions/IosActionDispatcher.kt` (compiles to a `TODO("spec for iOS")` impl) — keeps iOS source-set compiling. *(plan §Documented Platform Asymmetry)*
 
 ### Mock data migration
 
-- [ ] T560 [P] Rewrite `core/src/androidMain/assets/flows_mock_workspace.json` in new wire format (`schemaVersion: 1` per Action; per slot — full Action shape). Manually verified one tile per provider type. *(spec §4.1.4)*
-- [ ] T561 [P] Rewrite `core/src/androidMain/assets/flows_mock_simple-launcher.json` similarly. *(spec §4.1.4)*
-- [ ] T562 [P] Rewrite `core/src/androidMain/assets/flows_mock_launcher.json` similarly. *(spec §4.1.4)*
-- [ ] T563 Create `core/src/androidMain/assets/mock_contacts.json` with provider-agnostic contact records `[{ ref: String, displayName: String, phoneE164: String? }]` from existing `whatsapp_tiles_mock.json`. *(spec §4.1.4)*
-- [ ] T564 Update `MockFlowRepository` in `core/src/androidMain/kotlin/com/launcher/core/flows/MockFlowRepository.kt` to parse new wire format via `ActionWireFormat.decode`; route legacy-shaped JSON through `migrateLegacyAction` for safety. *(spec §6.3)*
-- [ ] T567 Create `MockContactsRepository` in `core/src/androidMain/kotlin/com/launcher/core/contacts/MockContactsRepository.kt` — loads `mock_contacts.json`, exposes `findByRef(ref): MockContact?`. Used by `WhatsAppHandler`, `PhoneHandler`, `SmsHandler` for `contactRef` resolution. *(T540, T541, T542)*
+- [X] T560 [P] Rewrite `core/src/androidMain/assets/flows_mock_workspace.json` in new wire format (`schemaVersion: 1` per Action; per slot — full Action shape). Manually verified one tile per provider type. *(spec §4.1.4)*
+- [X] T561 [P] Rewrite `core/src/androidMain/assets/flows_mock_simple-launcher.json` similarly. *(spec §4.1.4)*
+- [X] T562 [P] Rewrite `core/src/androidMain/assets/flows_mock_launcher.json` similarly. *(spec §4.1.4)*
+- [X] T563 Create `core/src/androidMain/assets/mock_contacts.json` with provider-agnostic contact records `[{ ref: String, displayName: String, phoneE164: String? }]` from existing `whatsapp_tiles_mock.json`. *(spec §4.1.4)*
+- [X] T564 Update `MockFlowRepository` in `core/src/androidMain/kotlin/com/launcher/core/flows/MockFlowRepository.kt` to parse new wire format via `ActionWireFormat.decode`; route legacy-shaped JSON through `migrateLegacyAction` for safety. *(spec §6.3)*
+- [X] T567 Create `MockContactsRepository` in `core/src/androidMain/kotlin/com/launcher/core/contacts/MockContactsRepository.kt` — loads `mock_contacts.json`, exposes `findByRef(ref): MockContact?`. Used by `WhatsAppHandler`, `PhoneHandler`, `SmsHandler` for `contactRef` resolution. *(T540, T541, T542)*
 
 ### Tests for Phase 3 (one per handler)
 
-- [ ] T570 [P] [US-501] `WhatsAppHandlerTest` in `core/src/androidUnitTest/kotlin/com/launcher/core/actions/handlers/WhatsAppHandlerTest.kt`. Asserts `Intent.filterEquals` for message + voice-call + video-call against expected URIs. Exercises both `com.whatsapp` and `com.whatsapp.w4b` package fallback. *(US-501)*
-- [ ] T571 [P] [US-502] `PhoneHandlerTest`. Asserts `Intent(ACTION_DIAL, "tel:+...")`. Asserts no `CALL_PHONE` permission referenced anywhere in handler source (grep test). *(US-502; security CHK-015)*
-- [ ] T572 [P] [US-503] `SmsHandlerTest`. Asserts `Intent(ACTION_SENDTO, "smsto:+...")` with/without body. *(US-503)*
-- [ ] T573 [P] [US-504] `YouTubeHandlerTest`. Asserts primary intent + web fallback per `YouTubeTarget` variant. *(US-504)*
-- [ ] T574 [P] [US-505] `BrowserHandlerTest`. Asserts `ACTION_VIEW` with `https:` URI; rejects `javascript:` and other schemes with `Failure("invalid scheme")`. *(US-505; security CHK-011)*
-- [ ] T575 [P] [US-506] `AppLaunchHandlerTest`. Asserts launch intent exists path; fallback-to-Play-Store path. *(US-506)*
-- [ ] T576 [P] [FOUNDATION] `PlayStoreFallbackResolverTest`. Asserts `market://details?id=X` primary + `https://play.google.com/...` secondary. *(T531)*
-- [ ] T577 [P] [FOUNDATION] `CustomPayloadValidatorTest`. Boundary tests: 16 keys ✓, 17 keys ✗; key length 64 ✓, 65 ✗; value length 1024 ✓, 1025 ✗. *(security CHK-011)*
+- [X] T570 [P] [US-501] `WhatsAppHandlerTest` in `core/src/androidUnitTest/kotlin/com/launcher/core/actions/handlers/WhatsAppHandlerTest.kt`. Asserts `Intent.filterEquals` for message + voice-call + video-call against expected URIs. Exercises both `com.whatsapp` and `com.whatsapp.w4b` package fallback. *(US-501)*
+- [X] T571 [P] [US-502] `PhoneHandlerTest`. Asserts `Intent(ACTION_DIAL, "tel:+...")`. Asserts no `CALL_PHONE` permission referenced anywhere in handler source (grep test). *(US-502; security CHK-015)*
+- [X] T572 [P] [US-503] `SmsHandlerTest`. Asserts `Intent(ACTION_SENDTO, "smsto:+...")` with/without body. *(US-503)*
+- [X] T573 [P] [US-504] `YouTubeHandlerTest`. Asserts primary intent + web fallback per `YouTubeTarget` variant. *(US-504)*
+- [X] T574 [P] [US-505] `BrowserHandlerTest`. Asserts `ACTION_VIEW` with `https:` URI; rejects `javascript:` and other schemes with `Failure("invalid scheme")`. *(US-505; security CHK-011)*
+- [X] T575 [P] [US-506] `AppLaunchHandlerTest`. Asserts launch intent exists path; fallback-to-Play-Store path. *(US-506)*
+- [X] T576 [P] [FOUNDATION] `PlayStoreFallbackResolverTest`. Asserts `market://details?id=X` primary + `https://play.google.com/...` secondary. *(T531)*
+- [X] T577 [P] [FOUNDATION] `CustomPayloadValidatorTest`. Boundary tests: 16 keys ✓, 17 keys ✗; key length 64 ✓, 65 ✗; value length 1024 ✓, 1025 ✗. *(security CHK-011)*
 
 ### Integration tests
 
-- [ ] T580 `AndroidActionDispatcherIntegrationTest` in `core/src/androidUnitTest/kotlin/com/launcher/core/actions/AndroidActionDispatcherIntegrationTest.kt`. Cases: success path; provider missing → fallback path; primary fails → fallback succeeds; fallback chain depth 3 → `Failure("fallback chain too deep")`; unknown provider → `ProviderUnavailable(UnknownInThisVersion)`. *(spec §7.1; plan §Test strategy)*
-- [ ] T581 [FOUNDATION] `EventTaxonomyTest` — Konsist test asserting `ProjectEvent.ActionDispatched` field set is exactly the 4 declared fields. *(contracts/diagnostics-events-v2.md §Test coverage)*
-- [ ] T582 [FOUNDATION] `AndroidActionDispatcherIntegrationTest.emitsActionDispatchedExactlyOnce` — verifies single emission per top-level dispatch (not per fallback recursion). *(contracts/diagnostics-events-v2.md §Emission rules)*
+- [X] T580 `AndroidActionDispatcherIntegrationTest` in `core/src/androidUnitTest/kotlin/com/launcher/core/actions/AndroidActionDispatcherIntegrationTest.kt`. Cases: success path; provider missing → fallback path; primary fails → fallback succeeds; fallback chain depth 3 → `Failure("fallback chain too deep")`; unknown provider → `ProviderUnavailable(UnknownInThisVersion)`. *(spec §7.1; plan §Test strategy)*
+- [X] T581 [FOUNDATION] `EventTaxonomyTest` — Konsist test asserting `ProjectEvent.ActionDispatched` field set is exactly the 4 declared fields. *(contracts/diagnostics-events-v2.md §Test coverage)*
+- [X] T582 [FOUNDATION] `AndroidActionDispatcherIntegrationTest.emitsActionDispatchedExactlyOnce` — verifies single emission per top-level dispatch (not per fallback recursion). *(contracts/diagnostics-events-v2.md §Emission rules)*
 
 ---
 
 ## Phase 4: UI — provider availability filtering (US-507)
 
-- [ ] T590 Update `AddSlotWizardScreen` in `core/src/commonMain/kotlin/com/launcher/ui/screens/WizardScreens.kt`: subscribe to `ProviderRegistry.updates`, filter providers per `ProviderAvailability`. `Available` → tap to add; `Missing(installHint)` → button "Install" deep-linking to store; `NotApplicable` → grey-out with reason text; `UnknownInThisVersion` → hide entirely. *(US-507)*
-- [ ] T591 [US-507] `AddSlotWizardScreenTest` in `core/src/androidUnitTest/.../WizardScreensTest.kt` using `createComposeRule` + `FakeProviderRegistry`. Cases: all available, one missing, one not-applicable, one unknown-in-version, **empty list** (ux-quality CHK-002). *(US-507; ux-quality checklist open items)*
+- [X] T590 Update `AddSlotWizardScreen` in `core/src/commonMain/kotlin/com/launcher/ui/screens/WizardScreens.kt`: subscribe to `ProviderRegistry.updates`, filter providers per `ProviderAvailability`. `Available` → tap to add; `Missing(installHint)` → button "Install" deep-linking to store; `NotApplicable` → grey-out with reason text; `UnknownInThisVersion` → hide entirely. *(US-507)*
+- [X] T591 [US-507] `AddSlotWizardScreenTest` in `core/src/androidUnitTest/.../WizardScreensTest.kt` using `createComposeRule` + `FakeProviderRegistry`. Cases: all available, one missing, one not-applicable, one unknown-in-version, **empty list** (ux-quality CHK-002). *(US-507; ux-quality checklist open items)*
 
 ---
 
 ## Phase 5: UI — failure feedback (US-508)
 
-- [ ] T595 Add snackbar host to `FlowScreen` in `core/src/commonMain/kotlin/com/launcher/ui/screens/FlowScreen.kt`. On `DispatchResult.Failure` or `ProviderUnavailable`, show snackbar with localized `dispatch_failure_snackbar` text + `dispatch_failure_retry_action` action button. *(US-508; ux-quality CHK-020 — chose snackbar over toast)*
-- [ ] T596 Add `clickableDebounced(durationMs = 500)` modifier to `TileCard` in `core/src/commonMain/kotlin/com/launcher/ui/components/TileCard.kt`. *(spec §7.6; ux-quality CHK-011)*
-- [ ] T597 [US-508] `FlowScreenDispatchTest` — tap → `dispatchAction` called once with correct `Action`; double-tap within 500ms → second call suppressed. *(US-508; spec §7.6)*
-- [ ] T598 [US-508] `ConfirmationOverlayTest` — `DispatchResult.Failure` → snackbar visible with retry; tap retry → re-dispatches same `Action`. *(US-508)*
+- [X] T595 Add snackbar host to `FlowScreen` in `core/src/commonMain/kotlin/com/launcher/ui/screens/FlowScreen.kt`. On `DispatchResult.Failure` or `ProviderUnavailable`, show snackbar with localized `dispatch_failure_snackbar` text + `dispatch_failure_retry_action` action button. *(US-508; ux-quality CHK-020 — chose snackbar over toast)*
+- [X] T596 Add `clickableDebounced(durationMs = 500)` modifier to `TileCard` in `core/src/commonMain/kotlin/com/launcher/ui/components/TileCard.kt`. *(spec §7.6; ux-quality CHK-011)*
+- [X] T597 [US-508] `FlowScreenDispatchTest` — tap → `dispatchAction` called once with correct `Action`; double-tap within 500ms → second call suppressed. *(US-508; spec §7.6)*
+- [X] T598 [US-508] `ConfirmationOverlayTest` — `DispatchResult.Failure` → snackbar visible with retry; tap retry → re-dispatches same `Action`. *(US-508)*
 
 ---
 
@@ -136,43 +136,43 @@
 
 **⚠️ Order matters**: deletions only after Phase 3 complete (otherwise build breaks).
 
-- [ ] T600 Delete `core/src/commonMain/kotlin/com/launcher/api/CommunicationModels.kt`. *(spec §6.4)*
-- [ ] T601 Delete `core/src/commonMain/kotlin/com/launcher/api/ActionModels.kt` (replaced by `Action.kt` from T510). *(spec §6.4)*
-- [ ] T602 Delete `core/src/androidMain/kotlin/com/launcher/core/actions/ActionDispatcher.kt` (replaced by `AndroidActionDispatcher.kt` from T533). *(spec §6.4)*
-- [ ] T603 Delete `core/src/androidMain/kotlin/com/launcher/core/actions/CommunicationConfigValidator.kt`. *(spec §6.4)*
-- [ ] T604 Delete `core/src/androidMain/kotlin/com/launcher/core/actions/WhatsAppLaunchabilityResolver.kt`. *(spec §6.4)*
-- [ ] T605 Implement one-shot SharedPreferences cleanup of `launcher.communication.return_context` on `LauncherCore.start()` with grep-anchor `// FEATURE-RETURN-CONTEXT-REMOVED-IN-SPEC-005`. *(research R3; spec §5.3)*
-- [ ] T606 Delete `core/src/androidMain/kotlin/com/launcher/core/actions/ReturnContextStore.kt` (after T605). *(spec §6.4)*
-- [ ] T607 Delete `core/src/commonMain/kotlin/com/launcher/core/actions/ActionCycleGuard.kt`. *(spec §6.4; research R4)*
-- [ ] T608 Delete `core/src/commonMain/kotlin/com/launcher/core/actions/RestoreOutcomeEvaluator.kt`. *(spec §6.4)*
-- [ ] T609 Delete `core/src/commonMain/kotlin/com/launcher/core/events/CommunicationDiagnostics.kt` (replaced by `ProjectEvent.ActionDispatched` from T517). *(spec §6.4)*
-- [ ] T610 Delete `core/src/androidMain/assets/whatsapp_tiles_mock.json` (after T563 migrates content). *(spec §6.4)*
-- [ ] T611 Grep verification: `grep -r 'WhatsAppHandoff\|ReturnContext\|ActionCycleGuard\|CommunicationConfigValidator\|WhatsAppLaunchabilityResolver\|RestoreOutcomeEvaluator\|CommunicationDiagnostics' src/ docs/dev/` → 0 hits (excluding spec docs and `docs/governance/`). *(spec §8.3 fitness function 3)*
+- [X] T600 Delete `core/src/commonMain/kotlin/com/launcher/api/CommunicationModels.kt`. *(spec §6.4)*
+- [X] T601 Delete `core/src/commonMain/kotlin/com/launcher/api/ActionModels.kt` (replaced by `Action.kt` from T510). *(spec §6.4)*
+- [X] T602 Delete `core/src/androidMain/kotlin/com/launcher/core/actions/ActionDispatcher.kt` (replaced by `AndroidActionDispatcher.kt` from T533). *(spec §6.4)*
+- [X] T603 Delete `core/src/androidMain/kotlin/com/launcher/core/actions/CommunicationConfigValidator.kt`. *(spec §6.4)*
+- [X] T604 Delete `core/src/androidMain/kotlin/com/launcher/core/actions/WhatsAppLaunchabilityResolver.kt`. *(spec §6.4)*
+- [X] T605 Implement one-shot SharedPreferences cleanup of `launcher.communication.return_context` on `LauncherCore.start()` with grep-anchor `// FEATURE-RETURN-CONTEXT-REMOVED-IN-SPEC-005`. *(research R3; spec §5.3)*
+- [X] T606 Delete `core/src/androidMain/kotlin/com/launcher/core/actions/ReturnContextStore.kt` (after T605). *(spec §6.4)*
+- [X] T607 Delete `core/src/commonMain/kotlin/com/launcher/core/actions/ActionCycleGuard.kt`. *(spec §6.4; research R4)*
+- [X] T608 Delete `core/src/commonMain/kotlin/com/launcher/core/actions/RestoreOutcomeEvaluator.kt`. *(spec §6.4)*
+- [X] T609 Delete `core/src/commonMain/kotlin/com/launcher/core/events/CommunicationDiagnostics.kt` (replaced by `ProjectEvent.ActionDispatched` from T517). *(spec §6.4)*
+- [X] T610 Delete `core/src/androidMain/assets/whatsapp_tiles_mock.json` (after T563 migrates content). *(spec §6.4)*
+- [X] T611 Grep verification: `grep -r 'WhatsAppHandoff\|ReturnContext\|ActionCycleGuard\|CommunicationConfigValidator\|WhatsAppLaunchabilityResolver\|RestoreOutcomeEvaluator\|CommunicationDiagnostics' src/ docs/dev/` → 0 hits (excluding spec docs and `docs/governance/`). *(spec §8.3 fitness function 3)*
 
 ---
 
 ## Phase 7: Fitness functions (CI activation)
 
-- [ ] T620 Implement `domainIsolationTest` Konsist test in `core/src/commonTest/kotlin/com/launcher/test/fitness/DomainIsolationTest.kt`. Asserts no imports of `android.*`, `androidx.*`, `*.intent.*`, `*.content.Context`, `*.net.Uri` in `core/src/commonMain/`. *(spec §8.1)*
-- [ ] T621 [P] Implement `whatsappResidueTest` in `core/src/commonTest/kotlin/com/launcher/test/fitness/WhatsAppResidueTest.kt`. Greps source set for forbidden symbols (T611). *(spec §8.3)*
-- [ ] T622 [P] Implement `legacyMigrationExpiryTest` in `core/src/commonTest/kotlin/com/launcher/test/fitness/LegacyMigrationExpiryTest.kt`. Reads `MIGRATE_LEGACY_ACTION_DEADLINE_SPEC` from build config; if latest merged spec >= deadline, asserts `migrateLegacyAction` symbol absent in `core/src/commonMain/`. *(spec §8.4; Clarification C5)*
-- [ ] T623 [P] Wire all 4 fitness tests into `./gradlew check` task in `core/build.gradle.kts` (likely already wired as part of `:core:test`). *(plan §Test strategy)*
+- [X] T620 Implement `domainIsolationTest` Konsist test in `core/src/commonTest/kotlin/com/launcher/test/fitness/DomainIsolationTest.kt`. Asserts no imports of `android.*`, `androidx.*`, `*.intent.*`, `*.content.Context`, `*.net.Uri` in `core/src/commonMain/`. *(spec §8.1)*
+- [X] T621 [P] Implement `whatsappResidueTest` in `core/src/commonTest/kotlin/com/launcher/test/fitness/WhatsAppResidueTest.kt`. Greps source set for forbidden symbols (T611). *(spec §8.3)*
+- [X] T622 [P] Implement `legacyMigrationExpiryTest` in `core/src/commonTest/kotlin/com/launcher/test/fitness/LegacyMigrationExpiryTest.kt`. Reads `MIGRATE_LEGACY_ACTION_DEADLINE_SPEC` from build config; if latest merged spec >= deadline, asserts `migrateLegacyAction` symbol absent in `core/src/commonMain/`. *(spec §8.4; Clarification C5)*
+- [X] T623 [P] Wire all 4 fitness tests into `./gradlew check` task in `core/build.gradle.kts` (likely already wired as part of `:core:test`). *(plan §Test strategy)*
 
 ---
 
 ## Phase 8: Doc updates
 
-- [ ] T630 [P] Update `docs/compliance/permissions-and-resource-budget.md`: add row "spec 005 (action-architecture-v2): 0 new permissions, 0 KB APK delta, manifest gains `<queries>` for known target packages — no QUERY_ALL_PACKAGES requested". *(spec §7.5; permissions-platform CHK-022)*
-- [ ] T631 [P] Update `docs/product/roadmap.md`: mark spec 005 as `Готов`; cross-link to expected spec 006 trigger for `migrateLegacyAction` removal. *(spec §13)*
-- [ ] T632 [P] Add cross-link comment in `core/src/androidMain/kotlin/com/launcher/core/actions/handlers/WhatsAppHandler.kt` referencing `docs/research/messenger-calling-research.md` for handler design rationale. *(plan §Required Context Review)*
-- [ ] T633 [P] Update `MEMORY.md` (auto-memory): no action — existing memory file stays. *(no entry needed)*
+- [X] T630 [P] Update `docs/compliance/permissions-and-resource-budget.md`: add row "spec 005 (action-architecture-v2): 0 new permissions, 0 KB APK delta, manifest gains `<queries>` for known target packages — no QUERY_ALL_PACKAGES requested". *(spec §7.5; permissions-platform CHK-022)*
+- [X] T631 [P] Update `docs/product/roadmap.md`: mark spec 005 as `Готов`; cross-link to expected spec 006 trigger for `migrateLegacyAction` removal. *(spec §13)*
+- [X] T632 [P] Add cross-link comment in `core/src/androidMain/kotlin/com/launcher/core/actions/handlers/WhatsAppHandler.kt` referencing `docs/research/messenger-calling-research.md` for handler design rationale. *(plan §Required Context Review)*
+- [X] T633 [P] Update `MEMORY.md` (auto-memory): no action — existing memory file stays. *(no entry needed)*
 
 ---
 
 ## Phase 9: Verification
 
 - [ ] T640 Run `perf-checkpoint.md` measurement — cold start `HomeActivity` and `FirstLaunchActivity` on Pixel 4a emulator (per `android-emulator` skill). Compare against spec 004 baseline. Document in `specs/005-action-architecture-v2/perf-checkpoint.md`. **Hard fail**: if cold start > 600ms (or > 700ms FirstLaunch), see plan §Risks row 5 mitigation. *(spec §9 NFR; ADR-005 performance targets)*
-- [ ] T641 Run dispatch-latency micromeasurement: 100 invocations of `AndroidActionDispatcher.dispatch(action)` with `FakeProviderRegistry` returning `Available`. Assert p95 ≤ 50ms. Document in `perf-checkpoint.md`. *(spec §9 dispatch latency)*
+- [X] T641 Run dispatch-latency micromeasurement: 100 invocations of `AndroidActionDispatcher.dispatch(action)` with `FakeProviderRegistry` returning `Available`. Assert p95 ≤ 50ms. Document in `perf-checkpoint.md`. *(spec §9 dispatch latency)*
 - [ ] T642 Two-emulator smoke per `android-emulator` skill (workspace + simple-launcher presets):
     - Launch FirstLaunch → pick preset → Home → tap whatsapp tile → confirm → handoff observed.
     - Launch FirstLaunch → pick preset → Home → tap phone tile → ACTION_DIAL screen visible.
