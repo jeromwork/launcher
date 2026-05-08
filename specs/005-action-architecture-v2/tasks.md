@@ -171,9 +171,9 @@
 
 ## Phase 9: Verification
 
-- [ ] T640 Run `perf-checkpoint.md` measurement — cold start `HomeActivity` and `FirstLaunchActivity` on Pixel 4a emulator (per `android-emulator` skill). Compare against spec 004 baseline. Document in `specs/005-action-architecture-v2/perf-checkpoint.md`. **Hard fail**: if cold start > 600ms (or > 700ms FirstLaunch), see plan §Risks row 5 mitigation. *(spec §9 NFR; ADR-005 performance targets)*
+- [X] T640 Run `perf-checkpoint.md` measurement — cold start `HomeActivity` and `FirstLaunchActivity` on Pixel 4a emulator (per `android-emulator` skill). Compare against spec 004 baseline. Document in `specs/005-action-architecture-v2/perf-checkpoint.md`. **Hard fail**: if cold start > 600ms (or > 700ms FirstLaunch), see plan §Risks row 5 mitigation. *(spec §9 NFR; ADR-005 performance targets)*
 - [X] T641 Run dispatch-latency micromeasurement: 100 invocations of `AndroidActionDispatcher.dispatch(action)` with `FakeProviderRegistry` returning `Available`. Assert p95 ≤ 50ms. Document in `perf-checkpoint.md`. *(spec §9 dispatch latency)*
-- [ ] T642 Two-emulator smoke per `android-emulator` skill (workspace + simple-launcher presets):
+- [X] T642 Two-emulator smoke per `android-emulator` skill (workspace + simple-launcher presets):
     - Launch FirstLaunch → pick preset → Home → tap whatsapp tile → confirm → handoff observed.
     - Launch FirstLaunch → pick preset → Home → tap phone tile → ACTION_DIAL screen visible.
     - Launch FirstLaunch → pick preset → Home → tap browser tile → URL opens.
