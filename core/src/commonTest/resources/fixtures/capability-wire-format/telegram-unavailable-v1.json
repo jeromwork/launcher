@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "providerId": "telegram",
+  "displayName": "Telegram",
+  "iconId": "bundled:telegram",
+  "available": false
+}

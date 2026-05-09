@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "providerId": "smart_assistant",
+  "displayName": "Smart Assistant",
+  "iconId": "custom:smart-assistant-uuid-12345",
+  "iconSha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+  "available": true,
+  "versionCode": 1
+}
