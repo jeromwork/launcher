@@ -6,13 +6,6 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-// Per Spec 005 Clarification C5: legacy migration bridge expires when this spec ID is reached.
-// Fitness test legacyMigrationExpiryTest enforces deletion of migrateLegacyAction symbol
-// from core/src/commonMain/ once the latest merged spec ID >= this value.
-// Spec 006 must remove the bridge AND advance this constant in the same PR.
-// LEGACY-BRIDGE-EXPIRY-CONSTANT — search anchor for grep / Konsist test.
-val migrateLegacyActionDeadlineSpec = "006"
-
 kotlin {
     androidTarget {
         compilations.all {

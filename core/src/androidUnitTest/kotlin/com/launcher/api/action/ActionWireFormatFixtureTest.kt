@@ -191,57 +191,6 @@ class ActionWireFormatFixtureTest {
         assertNull(parsed.fallback?.fallback?.fallback)
     }
 
-    // -- legacy spec 003 fixtures ---------------------------------------
-
-    @Test
-    fun fixture_legacyWhatsappCallVoice() {
-        assertEquals(
-            Action(
-                providerId = ProviderId.WHATSAPP,
-                payload = ActionPayload.WhatsAppCall("alice", WhatsAppCallKind.VOICE),
-            ),
-            ActionWireFormat.migrateLegacyAction(read("legacy-spec003-whatsapp-call-voice.json")),
-        )
-    }
-
-    @Test
-    fun fixture_legacyWhatsappCallVideo() {
-        assertEquals(
-            Action(
-                providerId = ProviderId.WHATSAPP,
-                payload = ActionPayload.WhatsAppCall("bob", WhatsAppCallKind.VIDEO),
-            ),
-            ActionWireFormat.migrateLegacyAction(read("legacy-spec003-whatsapp-call-video.json")),
-        )
-    }
-
-    @Test
-    fun fixture_legacyWhatsappMessage() {
-        assertEquals(
-            Action(
-                providerId = ProviderId.WHATSAPP,
-                payload = ActionPayload.WhatsAppMessage("carol"),
-            ),
-            ActionWireFormat.migrateLegacyAction(read("legacy-spec003-whatsapp-message.json")),
-        )
-    }
-
-    @Test
-    fun fixture_legacyOpenApp() {
-        assertEquals(
-            Action(
-                providerId = ProviderId.APP,
-                payload = ActionPayload.OpenApp(packageHint = "com.example"),
-            ),
-            ActionWireFormat.migrateLegacyAction(read("legacy-spec003-open-app.json")),
-        )
-    }
-
-    @Test
-    fun fixture_legacyPlaceholder_returnsNull() {
-        assertNull(ActionWireFormat.migrateLegacyAction(read("legacy-spec003-placeholder.json")))
-    }
-
     @Test
     fun fixture_directoryListedInReadme() {
         // Sanity check: every *.json fixture is mentioned in README.md.

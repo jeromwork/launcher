@@ -30,11 +30,7 @@ When you add a new `ActionPayload` variant: add a roundtrip test inline in
 - `custom-empty-v1.json` — escape-hatch payload, no params
 - `custom-populated-v1.json` — escape-hatch payload with params map
 - `fallback-chain-v1.json` — depth-2 fallback chain (whatsapp → app → browser)
-- `legacy-spec003-whatsapp-call-voice.json` — pre-spec-005 shape, parsed via `migrateLegacyAction`
-- `legacy-spec003-whatsapp-call-video.json` — pre-spec-005 shape
-- `legacy-spec003-whatsapp-message.json` — pre-spec-005 shape
-- `legacy-spec003-open-app.json` — pre-spec-005 shape
-- `legacy-spec003-placeholder.json` — pre-spec-005 placeholder; `migrateLegacyAction` returns `null`
 
-LEGACY-BRIDGE-EXPIRES-IN-SPEC-006 — `legacy-*.json` fixtures are removed when
-the bridge is removed (see Clarification C5).
+The legacy `legacy-spec003-*.json` fixtures и сопровождавший их
+`migrateLegacyAction` бридж были удалены при поставке спека 006 (см. spec 005
+Clarification C5). All assets теперь читаются прямо через `ActionWireFormat.decode`.

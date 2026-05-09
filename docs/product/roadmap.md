@@ -120,7 +120,7 @@
 
 **Зависит от:** 005.
 
-**Pre-requisite cleanup that lands with this spec:** удаление `migrateLegacyAction` бриджа из `core/.../api/action/ActionWireFormat.kt` (anchor: `LEGACY-BRIDGE-EXPIRES-IN-SPEC-006`) + всех `legacy-spec003-*.json` фикстур. Триггер автоматический: fitness-тест `LegacyMigrationExpiryTest` начинает требовать удаления, как только ветка `006-*` сольётся в `main` (тест читает `specs/` директорию). См. spec 005 §8.4 / Clarification C5.
+**Pre-requisite cleanup that landed with this spec (Phase 1, 2026-05-09):** `migrateLegacyAction` бридж удалён из `core/.../api/action/ActionWireFormat.kt` вместе с grep-anchor `LEGACY-BRIDGE-EXPIRES-IN-SPEC-006`, 5 `legacy-spec003-*.json` фикстур, 5 fixture-методов в `ActionWireFormatFixtureTest.kt`, 9 legacy-методов в `ActionWireFormatTest.kt`, и константа `migrateLegacyActionDeadlineSpec` из `core/build.gradle.kts`. `LegacyMigrationExpiryTest` стал green-and-noop. См. spec 005 §8.4 / Clarification C5.
 
 **Что делает:**
 - Снапшот «какие провайдеры доступны на этом устройстве»: `{provider, displayName, icon, available, version}`.
