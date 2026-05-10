@@ -12,7 +12,7 @@
 | 003 | `ui-skeleton` | Частично выполнен (5 коммитов, T072 не выполнен; UI закроется через 004) | — |
 | **004** | **`ui-stack-migration`** | **Не начат — миграция UI на Compose Multiplatform + Material 3 + KMP per ADR-005; включает закрытие T072** | **003** |
 | 005 | `action-architecture-v2` | **Смержен в main** (PR #5 закрыт 2026-05-09; cleanup `migrateLegacyAction` намечен на спек 006) | 004 |
-| **006** | **`provider-capabilities-and-health`** | **In progress — clarify завершён 2026-05-09; spec.md → plan.md следующий шаг** | **005** |
+| 006 | `provider-capabilities-and-health` | **Готов** (Phase 1-12 завершены 2026-05-10; emulator smoke-check passed; awaiting Phase 13 macrobenchmark + Phase 14 senior-safe walkthrough на physical device) | 005 |
 | 007 | `pairing-and-firebase-channel` | Не начат | 006 |
 | 008 | `bidirectional-config-sync` | Не начат | 007 |
 | 009 | `admin-mode-flows` | Не начат | 008 |
@@ -116,7 +116,7 @@
 
 ### Spec 006 — `provider-capabilities-and-health` *(was 005, renumbered)*
 
-**Статус:** не начат.
+**Статус:** **Готов** (Phase 1-12 завершены 2026-05-10; emulator smoke-check passed на Medium Phone API 36.1; awaiting Phase 13 macrobenchmark + Phase 14 senior-safe walkthrough на physical device — оба требуют user input).
 
 **Зависит от:** 005.
 
