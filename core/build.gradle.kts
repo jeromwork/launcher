@@ -48,6 +48,10 @@ kotlin {
             implementation(libs.androidx.core.ktx)
             implementation(libs.kotlinx.coroutines.android)
             implementation(libs.koin.android)
+            // DataStore Preferences — spec 006 persistence для capability/health/settings snapshots.
+            implementation(libs.androidx.datastore.preferences)
+            // ProcessLifecycleOwner — spec 006 RESUMED hooks для capability/health collectors.
+            implementation(libs.androidx.lifecycle.process)
         }
         getByName("androidUnitTest").dependencies {
             implementation(libs.kotlinx.coroutines.test)
