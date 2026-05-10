@@ -5,6 +5,7 @@ import com.launcher.api.PresetRepository
 import com.launcher.api.settings.BannerToggles
 import com.launcher.api.settings.LauncherSettings
 import com.launcher.api.settings.SettingsRepository
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -37,6 +38,11 @@ class AndroidSettingsRepository(
     private val projection: SettingsProjection,
     private val presetRepository: PresetRepository,
     scope: CoroutineScope,
+    /**
+     * Dispatcher для cold-start hydration. Defaults to [Dispatchers.IO] для
+     * production; tests inject TestDispatcher для детерминированного поведения.
+     */
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : SettingsRepository {
 
     private val state = MutableStateFlow(LauncherSettings.defaultsForPreset(DEFAULT_PRESET_SLUG))
@@ -46,7 +52,7 @@ class AndroidSettingsRepository(
         // Cold-start seed (synchronous-ish: blocks first observe() emission
         // until hydration completes; for Compose UI этого не страшно потому
         // что HomeScreen subscribes after Application.onCreate finishes).
-        scope.launch(Dispatchers.IO) {
+        scope.launch(ioDispatcher) {
             hydrateFromProjection()
         }
     }
