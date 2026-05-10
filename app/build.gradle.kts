@@ -42,6 +42,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.kotlinx.coroutines.android)
@@ -53,6 +54,15 @@ dependencies {
     // Decompose used by HomeActivity entry point (defaultComponentContext + ComponentContext).
     implementation(libs.decompose)
     implementation(libs.decompose.extensions.compose)
+
+    // Compose Android — нужны для :app debug screens (CapabilitySnapshotDebugActivity и
+    // HealthSnapshotDebugActivity) + spec 006 HomeBannerHost. CMP transitively через :core
+    // не expose'ит эти symbols в :app source set, нужно явное подключение через BOM.
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.runtime)
+    implementation(libs.androidx.compose.ui)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

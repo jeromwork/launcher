@@ -8,6 +8,7 @@ import com.launcher.api.FlowPreset
 import com.launcher.api.FlowRepository
 import com.launcher.api.PresetRepository
 import com.launcher.app.firstlaunch.FirstLaunchActivity
+import com.launcher.app.home.HomeBannerHost
 import com.launcher.api.action.ActionDispatcher
 import com.launcher.api.action.ProviderRegistry
 import com.launcher.ui.RootContent
@@ -71,6 +72,7 @@ class HomeActivity : ComponentActivity() {
                 RootContent(
                     component = rootComponent,
                     presetUiModels = presetUiModels,
+                    homeTopSlot = { HomeBannerHost() },
                 )
             }
         }

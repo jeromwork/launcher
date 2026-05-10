@@ -21,12 +21,16 @@ import com.launcher.ui.screens.SettingsScreen
  * @param presetUiModels already-localized UI models for the FirstLaunch picker.
  *   Caller (Activity / iOS app entry) resolves localized strings; this avoids
  *   pulling Android resource lookup into commonMain.
+ * @param homeTopSlot platform-specific banner host (spec 006 FR-026/027).
+ *   Android passes `HomeBannerHost` here. Default no-op slot keeps commonMain
+ *   testable без Android dependency.
  */
 @Composable
 fun RootContent(
     component: RootComponent,
     presetUiModels: List<PresetUiModel>,
     modifier: Modifier = Modifier,
+    homeTopSlot: @Composable () -> Unit = {},
 ) {
     Children(stack = component.stack, modifier = modifier.fillMaxSize()) { childCreated ->
         when (val child = childCreated.instance) {
@@ -34,7 +38,7 @@ fun RootContent(
                 presets = presetUiModels,
                 onPresetSelected = child.component.onPresetSelected,
             )
-            is RootChild.Home -> HomeScreen(component = child.component)
+            is RootChild.Home -> HomeScreen(component = child.component, topSlot = homeTopSlot)
             is RootChild.Settings -> SettingsScreen(component = child.component)
             is RootChild.AddFlowWizard -> AddFlowWizardScreen(component = child.component)
             is RootChild.AddSlotWizard -> AddSlotWizardScreen(component = child.component)

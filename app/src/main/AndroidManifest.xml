@@ -87,5 +87,22 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!--
+          Spec 006 debug screens (US-1 / US-3 Independent Tests).
+          exported=true с пустым intent-filter: НЕ появляется в системном
+          launcher (нет MAIN/LAUNCHER), но launchable через `adb shell am start -n`
+          для ручной диагностики snapshot rebuild на эмуляторе. Безопасно:
+          показывают только non-PII device telemetry per FR-056. До public release —
+          рассмотреть isolation через debug build variant.
+        -->
+        <activity
+            android:name=".debug.CapabilitySnapshotDebugActivity"
+            android:exported="true"
+            android:label="Capability Debug" />
+        <activity
+            android:name=".debug.HealthSnapshotDebugActivity"
+            android:exported="true"
+            android:label="Health Debug" />
     </application>
 </manifest>

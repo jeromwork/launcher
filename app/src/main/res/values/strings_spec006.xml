@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Spec 006 user-facing strings (en, default locale per ADR-004 baseline + FR-059).
+  Russian translations live in values-ru/strings_spec006.xml.
+
+  Translator notes:
+  - banner_*_text: short notice (≤ 25 chars target). Translation length should
+    not break senior-safe layout (≥ 18sp font + max 2 lines).
+  - banner_*_action: short call-to-action verb-phrase (≤ 25 chars target).
+    Button width adapts via wrapContentWidth(); long translations may wrap.
+  - toast_action_failed_audio: shown when AudioManager rejects setStreamVolume
+    (typically because system DND is blocking ringer changes). The notice
+    should NOT imply media is muted — only ringer/notifications.
+  - toast_feature_unavailable: shown when both primary OS intent and fallback
+    fail (e.g. OEM device with no airplane mode settings activity).
+  - banner_*_icon_desc: TalkBack contentDescription. Keep concise but
+    descriptive for screen readers.
+-->
+<resources>
+    <!-- Airplane mode banner -->
+    <string name="banner_airplane_text">Airplane mode is on</string>
+    <string name="banner_airplane_action">Turn off airplane mode</string>
+    <string name="banner_airplane_icon_desc">Airplane mode icon</string>
+
+    <!-- Mute banner -->
+    <string name="banner_mute_text">Sound is off</string>
+    <string name="banner_mute_action">Turn on sound</string>
+    <string name="banner_mute_icon_desc">Muted icon</string>
+
+    <!-- Toast messages for action failure (FR-050) -->
+    <string name="toast_action_failed_audio">Failed — check audio settings</string>
+    <string name="toast_feature_unavailable">Feature unavailable on this device</string>
+</resources>
