@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android Auto Backup rules для Android 12+ (`android:dataExtractionRules`).
+  Same intent as backup_rules.xml но новый XML schema разделяет cloud-backup
+  и device-transfer rules.
+
+  Per spec 006 FR-057:
+  - Cloud backup и device transfer оба EXCLUDE capability/health snapshots
+    (per-device transient state).
+  - Settings snapshot включён по умолчанию (пользовательские toggles
+    переносятся на новый телефон).
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="datastore/com.launcher.capability.snapshot_v1.preferences_pb" />
+        <exclude domain="file" path="datastore/com.launcher.health.snapshot_v1.preferences_pb" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="datastore/com.launcher.capability.snapshot_v1.preferences_pb" />
+        <exclude domain="file" path="datastore/com.launcher.health.snapshot_v1.preferences_pb" />
+    </device-transfer>
+</data-extraction-rules>

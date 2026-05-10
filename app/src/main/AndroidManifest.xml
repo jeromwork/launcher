@@ -2,6 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
+      Permissions (per spec 006 FR-053/054 + spec 005 §permissions register).
+      ACCESS_NETWORK_STATE — нужен AndroidHealthCollector для ConnectivityManager.NetworkCallback
+      (Wifi/Mobile/None detection per FR-018). Normal permission, auto-granted, нет runtime prompt.
+      No QUERY_ALL_PACKAGES (Play policy + spec 006 NFR-008 zero new dangerous permissions).
+    -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!--
       Package visibility (Android 11+, per spec 005 plan §Risks row 2 + permissions-platform CHK-008):
       - <intent> with MAIN/LAUNCHER lets AppIndex enumerate every launchable app (Workspace catalog).
       - explicit <package> entries let provider availability check resolve known target packages
@@ -54,6 +62,8 @@
     <application
         android:name=".LauncherApplication"
         android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Launcher.Workspace">
