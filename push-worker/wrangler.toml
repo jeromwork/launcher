@@ -1,16 +1,15 @@
 ﻿# push-worker — Cloudflare Worker для FCM push relay
 # Spec 007 §FR-019..025
 #
-# TODO (Phase 5, T061-T070): полная реализация согласно plan.md
-# TODO (C10 exit ramp): при миграции на свой домен — добавить routes block ниже.
-#   См. push-worker/README.md §Migration to custom domain (будет создан в T070).
+# TODO (C10 exit ramp): при миграции на свой домен — раскомментировать
+#   routes block ниже. См. push-worker/README.md §Migration to custom domain.
 #
-# name: ёлжно быть уникальным per Cloudflare account.
-# main: точка входа; заменяется на src/index.ts когда добавим TypeScript build в T061.
-# compatibility_date: Cloudflare API compat date — стандарт 2025-05-11.
+# name: должно быть уникальным per Cloudflare account.
+# main: TypeScript entry; Wrangler compiles to JS in-place via esbuild.
+# compatibility_date: Cloudflare API compat date — фиксируем 2025-05-11.
 
 name = "launcher-push"
-main = "src/index.js"
+main = "src/index.ts"
 compatibility_date = "2025-05-11"
 account_id = "c8f9c8c59e930e0283d713b91c01fb13"
 
