@@ -10,8 +10,13 @@ import com.launcher.api.link.Link
  *  - [Idle]: toggle off, no token in flight.
  *  - [WaitingForClaim]: Managed has written `/pairings/{token}`; QR is shown
  *    with the countdown until [expiresAt] (epoch millis, see DocSnapshot TODO).
- *  - [Claimed]: admin transaction succeeded; Managed should now show the
- *    consent screen with [link.adminId].
+ *  - [AwaitingConsent]: admin transaction succeeded — `/pairings/{token}`
+ *    now carries `claimed=true, linkId, adminId`. Managed shows the
+ *    consent screen with the supplied [adminId] and the fixed category
+ *    list (FR-007). User taps Allow → [Claimed]; Decline → [Idle] with
+ *    full cleanup (FR-008).
+ *  - [Claimed]: consent granted; `/links/{linkId}/state/current` written
+ *    and Managed subscribed to FCM topic `link-{linkId}` (FR-009).
  *  - [Expired]: token TTL elapsed before claim — UI offers "regenerate".
  *  - [Revoked]: link was hard-deleted by the Managed side (FR-033).
  *  - [Error]: terminal-for-this-attempt; UI surfaces user-friendly text
@@ -23,6 +28,12 @@ sealed interface PairingState {
     data class WaitingForClaim(
         val token: PairingToken,
         val expiresAt: Long,
+    ) : PairingState
+
+    data class AwaitingConsent(
+        val token: PairingToken,
+        val linkId: String,
+        val adminId: String,
     ) : PairingState
 
     data class Claimed(val link: Link) : PairingState

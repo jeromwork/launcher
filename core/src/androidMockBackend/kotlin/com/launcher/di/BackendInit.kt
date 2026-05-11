@@ -40,7 +40,7 @@ val backendModule: Module = module {
         )
     }
     single<DeviceIdProvider> { FakeDeviceIdProvider() }
-    single<LinkRegistry> { FakeLinkRegistry() }
+    single<LinkRegistry> { FakeLinkRegistry(backend = get()) }
     single<PushSender> { FakePushSender() }
     single<PushReceiver> { FakePushReceiver() }
 }

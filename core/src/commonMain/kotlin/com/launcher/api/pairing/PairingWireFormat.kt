@@ -47,6 +47,11 @@ object PairingWireFormat {
         val expiresAt: Long,
         val createdAt: Long?,
         val updatedAt: Long?,
+        /** Set by admin during the claim transaction (FR-006). `null` before claim. */
+        val linkId: String? = null,
+        /** Set by admin during the claim transaction. Lets Managed render the
+         *  consent screen (FR-007) without an extra `/links/{linkId}` read. */
+        val adminId: String? = null,
     )
 
     fun serialize(
@@ -58,6 +63,8 @@ object PairingWireFormat {
         pairingType: PairingType = PairingType.AdminManagedLink,
         createdAt: Long? = null,
         updatedAt: Long? = null,
+        linkId: String? = null,
+        adminId: String? = null,
     ): JsonObject {
         // token is encoded in the document id (path key), NOT in the body — kept
         // out of the body to avoid drift between key and field.
@@ -70,6 +77,8 @@ object PairingWireFormat {
             put("expiresAt", JsonPrimitive(expiresAt))
             if (createdAt != null) put("createdAt", JsonPrimitive(createdAt))
             if (updatedAt != null) put("updatedAt", JsonPrimitive(updatedAt))
+            if (linkId != null) put("linkId", JsonPrimitive(linkId))
+            if (adminId != null) put("adminId", JsonPrimitive(adminId))
         }
         // suppress unused — kept signature symmetric for callers that pass token explicitly
         @Suppress("UNUSED_EXPRESSION") token
@@ -113,6 +122,8 @@ object PairingWireFormat {
             expiresAt = expiresAt,
             createdAt = obj["createdAt"]?.jsonPrimitive?.longOrNull,
             updatedAt = obj["updatedAt"]?.jsonPrimitive?.longOrNull,
+            linkId = obj["linkId"]?.jsonPrimitive?.contentOrNullSafe(),
+            adminId = obj["adminId"]?.jsonPrimitive?.contentOrNullSafe(),
         ))
     }
 
