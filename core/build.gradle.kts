@@ -99,3 +99,15 @@ android {
         }
     }
 }
+
+// Spec 007 realBackend-only deps (FR-034): Firebase Auth, Firestore, FCM.
+// mockBackend stays Firebase-free so the APK builds without google-services.json.
+// Wired via Android's flavor-specific configuration name (not KMP source set
+// DSL, which can't address the bare flavor-only Kotlin source set in current
+// AGP 8.7 + KMP 2.0 combo).
+dependencies {
+    "realBackendImplementation"(platform(libs.firebase.bom))
+    "realBackendImplementation"(libs.firebase.firestore.ktx)
+    "realBackendImplementation"(libs.firebase.auth.ktx)
+    "realBackendImplementation"(libs.firebase.messaging.ktx)
+}

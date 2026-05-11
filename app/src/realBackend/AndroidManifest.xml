@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  realBackend-flavor manifest overlay (spec 007 T056).
+
+  Adds the FCM service entry that wakes the launcher on incoming
+  data-message push. mockBackend doesn't register it because there is no
+  Firebase Messaging SDK in that flavor.
+
+  Permission rationale:
+   - INTERNET: required for Firestore, Firebase Auth, and the Cloudflare
+     Worker call.
+   - POST_NOTIFICATIONS (Android 13+): not used for spec 007 silent-data
+     pushes (contracts/fcm-payload.md), but the FCM SDK still asks the
+     system for it on first launch; we keep it absent so the user never
+     sees a notification prompt for spec 007. If we ever surface a
+     user-visible notification we'll add it then.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application>
+
+        <!--
+          FCM data-message entry point per FR-016. Routes to
+          com.launcher.adapters.push.LauncherFirebaseMessagingService which
+          parses payloads through FcmReceiverContract and dispatches to the
+          injected PushReceiver.
+        -->
+        <service
+            android:name="com.launcher.adapters.push.LauncherFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+    </application>
+</manifest>
