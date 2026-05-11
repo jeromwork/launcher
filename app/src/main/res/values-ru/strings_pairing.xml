@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Spec 007 pairing-flow strings — русский перевод (T092).
+  Целевая аудитория: пожилые пользователи, простой язык, глагол-первым.
+-->
+<resources>
+
+    <!-- Settings toggle -->
+    <string name="pairing_toggle_title">Удалённое управление</string>
+    <string name="pairing_toggle_description">Разрешите близкому человеку видеть этот телефон и помогать настраивать со своего телефона.</string>
+    <string name="pairing_toggle_turn_on">Включить</string>
+    <string name="pairing_toggle_turn_off">Выключить</string>
+
+    <!-- QR display -->
+    <string name="pairing_qr_title">Покажите этот код помощнику</string>
+    <string name="pairing_qr_instructions">Попросите близкого человека отсканировать этот код своим телефоном. Код подходит только одному устройству.</string>
+    <string name="pairing_qr_image_description">QR-код для связи этого устройства</string>
+    <string name="pairing_qr_token_label">Код: %1$s</string>
+    <string name="pairing_qr_countdown">Осталось: %1$d мин %2$d сек</string>
+    <string name="pairing_qr_cancel_button">Отменить</string>
+
+    <!-- Consent screen -->
+    <string name="pairing_consent_title">Разрешить доступ?</string>
+    <string name="pairing_consent_admin_label">Идентификатор помощника: %1$s</string>
+    <string name="pairing_consent_categories_intro">Помощник сможет:</string>
+    <string name="pairing_consent_category_config">Менять расположение значков на главном экране</string>
+    <string name="pairing_consent_category_state">Видеть, какой экран открыт</string>
+    <string name="pairing_consent_category_capabilities">Видеть список установленных приложений</string>
+    <string name="pairing_consent_category_health">Видеть заряд и соединение</string>
+    <string name="pairing_consent_category_commands">Присылать команды (открыть приложение, обновить)</string>
+    <string name="pairing_consent_revoke_note">Вы можете отвязать устройство в любой момент в настройках.</string>
+    <string name="pairing_consent_allow_button">Разрешить</string>
+    <string name="pairing_consent_decline_button">Отклонить</string>
+
+    <!-- Paired status -->
+    <string name="pairing_paired_status_title">Связь установлена</string>
+    <string name="pairing_paired_status_admin">Помощник: %1$s</string>
+    <string name="pairing_paired_status_link_id">Соединение: %1$s</string>
+    <string name="pairing_paired_unbind_button">Отвязать</string>
+
+    <!-- Unbind double-confirm dialog -->
+    <string name="pairing_unbind_dialog_title">Отвязать это устройство?</string>
+    <string name="pairing_unbind_dialog_body">Помощник потеряет доступ. Чтобы снова подключиться, нужно будет отсканировать новый QR-код.</string>
+    <string name="pairing_unbind_dialog_confirm">Отвязать</string>
+    <string name="pairing_unbind_dialog_cancel">Не отвязывать</string>
+
+    <!-- Generic notices -->
+    <string name="pairing_expired_title">Код устарел</string>
+    <string name="pairing_expired_retry">Показать новый код</string>
+    <string name="pairing_error_retry">Повторить</string>
+    <string name="pairing_close">Закрыть</string>
+
+</resources>

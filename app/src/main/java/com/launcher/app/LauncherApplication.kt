@@ -2,6 +2,7 @@ package com.launcher.app
 
 import android.app.Application
 import com.launcher.app.di.appAndroidModule
+import com.launcher.app.di.pairingModule
 import com.launcher.app.di.spec006Module
 import com.launcher.core.LauncherCore
 import com.launcher.di.backendModule
@@ -31,7 +32,14 @@ class LauncherApplication : Application() {
             androidContext(this@LauncherApplication)
             // backendModule is flavor-resolved: Firebase wiring under
             // realBackend, Fake wiring under mockBackend (spec 007 FR-034/FR-035).
-            modules(coreCommonModule, androidPlatformModule, appAndroidModule, spec006Module, backendModule)
+            modules(
+                coreCommonModule,
+                androidPlatformModule,
+                appAndroidModule,
+                spec006Module,
+                backendModule, // flavor-resolved (Firebase or Fakes)
+                pairingModule, // spec 007 PairingService + PairingViewModel
+            )
         }
         core.start()
     }

@@ -82,6 +82,12 @@ dependencies {
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.ui)
 
+    // ZXing — QR encoder for the Managed-side pairing display (spec 007 FR-004).
+    // Pure JVM, ~150 KB; lives in :app since the Managed UI is Android-only
+    // (TODO when iOS support arrives: extract a :core/api/qr/QrEncoder port
+    // with expect/actual impls per checklist domain-isolation note 1).
+    implementation(libs.zxing.core)
+
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.robolectric)

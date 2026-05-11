@@ -54,6 +54,10 @@ konsist = "0.17.3"
 firebaseBom = "33.7.0"
 googleServicesPlugin = "4.4.2"
 
+# ZXing — QR encoder for the Managed-side pairing display (spec 007 FR-004).
+# Pure JVM, no Android dep — works in both flavors.
+zxingCore = "3.5.3"
+
 [libraries]
 # Existing
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -116,6 +120,9 @@ firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.r
 firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
 firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx" }
 firebase-messaging-ktx = { group = "com.google.firebase", name = "firebase-messaging-ktx" }
+
+# ZXing — QR encode for /pairings/{token} display (spec 007 FR-004).
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxingCore" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Spec 007 pairing-flow strings (T091, T092 — EN baseline).
+  Russian translations live in res/values-ru/strings_pairing.xml.
+
+  Senior-safe copy guidelines (Article VIII §7):
+   - Plain language, no jargon.
+   - Verb-first action buttons ("Allow", "Decline" — not "OK"/"Cancel").
+   - One idea per sentence.
+-->
+<resources>
+
+    <!-- Settings toggle -->
+    <string name="pairing_toggle_title">Remote control</string>
+    <string name="pairing_toggle_description">Let a trusted family member view and adjust this device from their phone.</string>
+    <string name="pairing_toggle_turn_on">Turn on</string>
+    <string name="pairing_toggle_turn_off">Turn off</string>
+
+    <!-- QR display -->
+    <string name="pairing_qr_title">Show this code to your helper</string>
+    <string name="pairing_qr_instructions">Ask the family member to scan this code with their phone. The code works for one device only.</string>
+    <string name="pairing_qr_image_description">QR code for pairing this device</string>
+    <string name="pairing_qr_token_label">Token: %1$s</string>
+    <string name="pairing_qr_countdown">Time left: %1$d min %2$d sec</string>
+    <string name="pairing_qr_cancel_button">Cancel</string>
+
+    <!-- Consent screen -->
+    <string name="pairing_consent_title">Allow access?</string>
+    <string name="pairing_consent_admin_label">Family member ID: %1$s</string>
+    <string name="pairing_consent_categories_intro">They will be able to:</string>
+    <string name="pairing_consent_category_config">Adjust your home-screen layout</string>
+    <string name="pairing_consent_category_state">See which screen you are looking at</string>
+    <string name="pairing_consent_category_capabilities">See which apps are installed</string>
+    <string name="pairing_consent_category_health">See battery and connection status</string>
+    <string name="pairing_consent_category_commands">Send commands (open an app, refresh)</string>
+    <string name="pairing_consent_revoke_note">You can disconnect at any time from Settings.</string>
+    <string name="pairing_consent_allow_button">Allow</string>
+    <string name="pairing_consent_decline_button">Decline</string>
+
+    <!-- Paired status -->
+    <string name="pairing_paired_status_title">Connected</string>
+    <string name="pairing_paired_status_admin">Family member: %1$s</string>
+    <string name="pairing_paired_status_link_id">Connection: %1$s</string>
+    <string name="pairing_paired_unbind_button">Disconnect</string>
+
+    <!-- Unbind double-confirm dialog -->
+    <string name="pairing_unbind_dialog_title">Disconnect this device?</string>
+    <string name="pairing_unbind_dialog_body">The family member will lose access. Reconnecting requires scanning a new QR code.</string>
+    <string name="pairing_unbind_dialog_confirm">Disconnect</string>
+    <string name="pairing_unbind_dialog_cancel">Keep connected</string>
+
+    <!-- Generic notices -->
+    <string name="pairing_expired_title">The code expired</string>
+    <string name="pairing_expired_retry">Show a new code</string>
+    <string name="pairing_error_retry">Try again</string>
+    <string name="pairing_close">Close</string>
+
+</resources>
