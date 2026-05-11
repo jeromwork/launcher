@@ -67,3 +67,60 @@
 - **Monitoring/observability**: [`RecoveryEventLogger`](../../core/src/androidMain/kotlin/com/launcher/core/diagnostics/RecoveryEventLogger.kt) — structured log events с категориями (`corruption`, `missing_resource`, `unknown_namespace`, `system_api_failure`, `user_action_failed`), **zero PII** (FR-052). В спеке 006 пишет через `android.util.Log.i` (tag `LauncherRecovery`); в спеке 007 заменится на Firebase telemetry без изменения call sites.
 - **Privacy classification**: Capability/Health/LauncherSettings — **non-PII device telemetry** (FR-056). Нет имён, телефонов, email, contact refs, location, biometric, account identifiers. App-private DataStore + Android FBE encryption по умолчанию. В спеке 007 при cloud export — privacy review для admin transparency / consent.
 - **Decision**: ✅ принято. Бюджет полностью соблюдён, никаких новых dangerous permissions, никаких background services, battery-friendly event-driven design.
+
+### spec 007: pairing-and-firebase-channel
+
+- **Feature**: Pairing protocol (QR + Firestore transaction), `RemoteSyncBackend` adapter (Firebase Firestore + Auth), Cloudflare Worker push-relay, FCM data-message receiver, Firestore Security Rules. Plus end-to-end push consumer (admin write `/config` → Worker → FCM → managed reads).
+- **Requested permissions**:
+  - `INTERNET` (normal, auto-granted) — Firestore + FCM + Cloudflare Worker HTTPS.
+  - `ACCESS_NETWORK_STATE` (normal, auto-granted) — уже добавлено в спеке 006; ре-используется для GMS detection.
+  - `POST_NOTIFICATIONS` (runtime, Android 13+) — declared в manifest для FCM SDK совместимости; **runtime не запрашиваем** (silent push, FR-016).
+  - `CAMERA` (runtime, dangerous) — только для admin-mode QR scanner (FR-005). Запрашивается в runtime при первом open QrScannerScreen.
+  - **НЕ добавлены**: `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (per C7), `READ_CONTACTS` (это спек 011), `SEND_SMS`, `CALL_PHONE` (это спеки 012/013), `QUERY_ALL_PACKAGES` (запрещено Play policy).
+- **Why each permission is needed**:
+  - `INTERNET` — все Firebase/Cloudflare операции.
+  - `ACCESS_NETWORK_STATE` — `ConnectivityManager` для определения наличия сети (для UI «Нет подключения») + GMS availability check (FR-018 stub).
+  - `POST_NOTIFICATIONS` — Android 13+ требует declared для любого FCM SDK init; silent push не запрашивает runtime grant, но manifest declared нужен.
+  - `CAMERA` — admin QR scanner через CameraX + ML Kit Barcode (FR-005).
+- **Fallback if denied**:
+  - `CAMERA` denied → fallback на manual token entry (текстовое поле в admin mode).
+  - `POST_NOTIFICATIONS` denied → silent push продолжает работать (data-only, не визуальный).
+  - `INTERNET`/`ACCESS_NETWORK_STATE` — normal, denial невозможен.
+- **Manifest deltas** (по сравнению со спеком 006):
+  - `<uses-permission android:name="android.permission.INTERNET" />`.
+  - `<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />` (Android 13+ guarded).
+  - `<uses-permission android:name="android.permission.CAMERA" />`.
+  - `<uses-feature android:name="android.hardware.camera" android:required="false" />` (admin scanner — не критично для managed-only устройств).
+  - `<service>` entry для `LauncherFirebaseMessagingService` с intent-filter `com.google.firebase.MESSAGING_EVENT`.
+  - Google Services Gradle plugin apply (per FR-034 — только в `realBackend` flavor source-set).
+- **Background/runtime impact**:
+  - `FirebaseMessagingService` — managed by Android system; запускается **только** при поступлении FCM message. Не foreground service. Per-message handling ≤ 200ms typical (FR-037 — read /config + log).
+  - **НЕТ WorkManager polling** в спеке 007 (per C13 stub).
+  - Firestore SDK поддерживает persistent connection во foreground; auto-disconnect в background per SDK default behavior.
+- **Startup impact**:
+  - +50ms на lazy Firebase Auth anonymous sign-in (per FR-002 + SC-007).
+  - Cold start `HomeActivity` ≤650ms (vs baseline 600ms из спека 006). Замеряется в Phase 11 T105.
+  - `realBackend` flavor only; `mockBackend` без Firebase init.
+- **Memory/storage impact**:
+  - DataStore `com.launcher.pairing.identity_v1` ~200 байт.
+  - Firestore SDK in-memory cache ~5-10 MB при активной сессии.
+  - APK delta: `realBackend` vs `mockBackend` ≤ +3 MB (SC-006, T108 measurement). Включает: firebase-firestore-ktx, firebase-auth-ktx, firebase-messaging-ktx. ZXing + CameraX + MLKit Barcode уже считаются в `mockBackend` baseline (для in-process pairing).
+- **Network impact**:
+  - Firestore — bidirectional long-lived connection во foreground; ~1-5 KB/min idle (heartbeats).
+  - FCM — managed by Android System (не наш cost).
+  - Cloudflare Worker — POST `/notify` ≤1 KB body, response ≤1 KB. Только admin-side (managed device не дёргает Worker напрямую).
+  - **No polling** (per C13).
+- **Monitoring/observability**:
+  - `Log.i("LauncherPairing", ...)` для pairing state transitions (FR-007, FR-008, FR-009).
+  - `Log.i("LauncherPush", ...)` для FCM receive events (FR-037).
+  - Firebase Console показывает FCM delivery success rate + Firestore operation count (free dashboard).
+  - Cloudflare dashboard показывает Worker requests/errors/p95 latency.
+  - **Zero PII в логах** — UID/fcmToken не логируются (FR-052 inherited).
+- **Privacy classification** (для country-legal-tax-register update):
+  - `managedDeviceId` (UUIDv4) — pseudonym, persistent per device.
+  - Firebase Auth UID — pseudonym, generated by Firebase per device.
+  - `fcmToken` — pseudonym, rotated by Google.
+  - `adminId` — pseudonym (Firebase Auth UID admin-устройства).
+  - **Никаких PII в strict sense**: нет email, phone, name, address, location, biometric.
+  - Хранение в облаке: Firestore (Google), Cloudflare Worker Secrets (Cloudflare). Оба US/global multi-region; data processing agreements автоматические для бесплатного tier.
+- **Decision**: ✅ принято. Permissions минимальны (только runtime CAMERA в admin-mode), нет dangerous permissions для managed device, no background services, no polling. Pre-production checklist: TODO-OPS-001/002 (2FA), TODO-OPS-003 (key rotation).

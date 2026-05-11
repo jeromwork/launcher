@@ -1,0 +1,13 @@
+# Cloudflare Workers — local development artifacts
+node_modules/
+.wrangler/
+.dev.vars
+.dev.vars.*
+dist/
+*.log
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/

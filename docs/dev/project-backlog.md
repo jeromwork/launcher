@@ -39,18 +39,27 @@
 - **Status**: 🔴 OPEN
 - **Origin**: `/speckit.analyze` 2026-05-11 recommendation #2.
 
-### TODO-OPS-003: Rotate Firebase service-account JSON после Phase 12 🟡
+### TODO-OPS-003: Rotate Firebase service-account JSON 🔴 ELEVATED
 
-- **What**: Когда спек 007 будет полностью реализован и протестирован — сгенерировать **новый** service-account private key в Firebase Console и обновить Cloudflare Secret.
-- **Why**: Hygiene-практика. Текущий ключ создавался во время dev — мог потенциально мелькнуть в логах, командной истории, скриншотах. После production-ready состояния — fresh key.
+- **What**: Сгенерировать **новый** service-account private key в Firebase Console и обновить Cloudflare Secret.
+- **Why elevated to 🔴 (was 🟡)**: 2026-05-11 текущий JSON был передан project owner'ом через chat-сообщение. Chat history может попасть в:
+  - Логи Anthropic (AI provider).
+  - Server logs (если есть proxy).
+  - Скриншоты / истории браузера.
+  - Архивы conversation tooling.
+  - Через `git log` если кто-то случайно закоммитит conversation export.
+
+  **Текущий ключ должен считаться potentially-compromised**. Заменить до начала Phase 5 (когда реально используем для FCM push в production-like usage).
 - **How**:
   1. Firebase Console → Project Settings → Service Accounts → Generate new private key.
-  2. `wrangler secret put FIREBASE_SA_JSON --name launcher-push` (вставляем содержимое нового JSON).
-  3. В Firebase Console удалить старый key (Service Accounts → Keys → delete).
-  4. Verify Worker still works: `curl POST /notify` smoke test.
-- **When**: После T110 (smoke check спека 007), до объявления спека «Готов».
-- **Status**: 🟡 OPEN
-- **Origin**: `/speckit.analyze` 2026-05-11 recommendation #3.
+  2. `wrangler secret put FIREBASE_SA_JSON` (через stdin, **НЕ через chat**, локально из файла).
+  3. В Firebase Console удалить старый key (Service Accounts → Keys → delete the `bf6c8bdb724bf37cc3e650aa33a9c208b3f4acd9` key).
+  4. Verify Worker still works.
+- **When**: До начала Phase 5 спека 007 (Worker implementation).
+- **Status**: 🔴 OPEN (elevated 2026-05-11)
+- **Origin**: `/speckit.analyze` 2026-05-11 recommendation #3 + chat-exposure incident 2026-05-11.
+
+**Lesson learned (process)**: secrets никогда не передавать через chat. Для будущих случаев — owner должен сохранить JSON в файл, а agent через `Bash` / `Read` берёт из локального пути, потом owner удаляет файл. Memory note: `reference_secret_handling.md` (создать).
 
 ### TODO-OPS-004: Production Firebase project (отдельный от dev) 🟡
 
