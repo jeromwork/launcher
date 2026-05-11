@@ -128,6 +128,25 @@
 - **Status**: 🟢 OPEN
 - **Origin**: Spec 007 C13 = C stub.
 
+### TODO-ARCH-006: Enable R8 minification on `release` buildType 🟡
+
+- **What**: Включить `isMinifyEnabled = true` + `isShrinkResources = true` для `release` buildType в `app/build.gradle.kts`.
+- **Why**: spec 007 SC-006 «realBackend APK ≤ mockBackend + 3 MB» сейчас **fails by 0.99 MB** (delta 3.99 MB SI, target 3.00 MB). Firebase Firestore/Auth/Messaging SDKs тянут много кода, который R8 ужмёт на 40-60%. Без минификации SC-006 нарушено постоянно.
+- **How**: См. `specs/007-pairing-and-firebase-channel/perf-checkpoint.md` §SC-006 exit ramp. Снэпет:
+  ```kotlin
+  buildTypes {
+      release {
+          isMinifyEnabled = true
+          isShrinkResources = true
+          proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+      }
+  }
+  ```
+  Firebase shipping consumer ProGuard rules автоматически. Validation gate: пересобрать оба flavor'а release, пересчитать delta, обновить таблицу в perf-checkpoint.md.
+- **When**: До первого signed release / Play upload. Two-way door — легко откатить если ломает Firebase reflection.
+- **Status**: 🟡 OPEN (one-time follow-up for spec 007 ship-readiness).
+- **Origin**: Spec 007 T108 measurement; SC-006 fail.
+
 ---
 
 ## Security Hardening
