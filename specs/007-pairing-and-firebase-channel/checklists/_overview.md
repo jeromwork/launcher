@@ -34,6 +34,6 @@ Checklist-skill'ы корректно работают **после плана**
 
 ## Открытые риски (вне грей-зон)
 
-- **Blaze plan на Firebase project** (необходим из-за Cloud Functions, см. C1) — финансовое решение, требует подтверждения project owner'а перед началом Phase 1 имплементации.
+- **Firebase plan**: спек совместим с **Spark plan** после revision C1 на Variant C (client-side FCM, topic-per-link, без Cloud Functions). Blaze апгрейд — отложен до появления server-side потребностей (cron-чистка, fan-out, антифрод). Project `launcher-old-dev` создан 2026-05-11 на Spark plan.
 - **`google-services.json` в репозитории**: для dev-проекта — да; для production — через CI secrets; production проект может ещё не существовать на момент старта спека.
 - **iOS source-set**: спек 007 — Android-only пока; в KMP `:core/api` остаётся pure, в `androidMain` живут все Firebase-adapter'ы; в `iosMain` — `expect`/`actual` stub'ы, которые бросают `NotImplementedError`. Это согласуется с CMP+KMP подходом per ADR-005.
