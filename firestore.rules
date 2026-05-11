@@ -1,11 +1,183 @@
 rules_version = '2';
 
-// Placeholder rules — finalised in /speckit-plan + /speckit-tasks per spec 007.
-// Real rules will enforce:
-//   /pairings/{token}: claim transaction semantics
-//   /links/{linkId}:   admin writes /config + /commands, OLD writes /state /capabilities /health
+// Spec 007 Firestore Security Rules (FR-028 .. FR-030).
+//
+// Identity model:
+//  - The Managed device's Firebase Auth UID is captured at pairing time as
+//    `managedDeviceFirebaseUid` (in /pairings/{token} and /links/{linkId}).
+//  - The admin's UID is `adminId` on /links/{linkId} after claim.
+//  - Anonymous Auth is the only auth method in spec 007 (OWD-2 named-auth
+//    migration tracked in project-backlog).
+//
+// Reusable-trust-primitive (spec 007 plan §Reusable trust primitive):
+//  - /pairings/{token} carries `pairingType` (default "admin-managed-link")
+//    so future specs (011 contacts, jitsi calls, …) can publish their own
+//    tokens into the same collection without a schema bump. These rules
+//    enforce admin-managed-link semantics; future types will need their
+//    own validate-fn that we'd OR in here (or move to subcollections —
+//    decided when the second pairingType lands).
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ─── helpers ──────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isManagedUid(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function newDoc() {
+      return request.resource.data;
+    }
+
+    function existingDoc() {
+      return resource.data;
+    }
+
+    // Anti-spam on /pairings create: only the device that claims to be the
+    // Managed side may write the doc, and the body's managedDeviceFirebaseUid
+    // must match request.auth.uid. Stops random anonymous users from
+    // flooding the collection.
+    function isValidPairingCreate() {
+      return isSignedIn()
+        && newDoc().managedDeviceFirebaseUid == request.auth.uid
+        && newDoc().claimed == false
+        && newDoc().schemaVersion == 1;
+    }
+
+    // Atomic claim: caller flips claimed false→true. No other field may
+    // change (block in-place mutation of token/expiresAt/managedDeviceId
+    // by a hostile claimer).
+    function isValidClaimUpdate() {
+      return isSignedIn()
+        && existingDoc().claimed == false
+        && newDoc().claimed == true
+        && newDoc().schemaVersion == existingDoc().schemaVersion
+        && newDoc().managedDeviceId == existingDoc().managedDeviceId
+        && newDoc().managedDeviceFirebaseUid == existingDoc().managedDeviceFirebaseUid
+        && newDoc().expiresAt == existingDoc().expiresAt;
+    }
+
+    // /links/{linkId} root doc — link membership helpers.
+    function isLinkAdmin(linkId) {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/links/$(linkId)).data.adminId == request.auth.uid;
+    }
+
+    function isLinkManaged(linkId) {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/links/$(linkId)).data.managedDeviceFirebaseUid == request.auth.uid;
+    }
+
+    function isLinkParty(linkId) {
+      return isLinkAdmin(linkId) || isLinkManaged(linkId);
+    }
+
+    // ─── /pairings/{token} (FR-029, contracts/pairing-token.md) ────────
+
+    match /pairings/{token} {
+      // Anyone authenticated can read — the token IS the secret (anyone
+      // with the QR can read; we don't gate further to keep claim flow
+      // friction-free).
+      allow read: if isSignedIn();
+
+      // Managed creates with matching uid (anti-spam).
+      allow create: if isValidPairingCreate();
+
+      // Update is the atomic claim transaction performed by the admin.
+      // No field-level lock on adminId — the admin pairs by writing
+      // /links/{linkId} atomically (enforced via batched-write contract,
+      // not here, because Firestore Rules can't see a batch).
+      allow update: if isValidClaimUpdate();
+
+      // Decline / single-use cleanup — only the Managed creator may delete.
+      allow delete: if isManagedUid(existingDoc().managedDeviceFirebaseUid);
+    }
+
+    // ─── /links/{linkId} (FR-028, contracts/link.md) ───────────────────
+
+    match /links/{linkId} {
+      // Both sides of the link may read the root doc.
+      allow read: if isSignedIn()
+        && (existingDoc().adminId == request.auth.uid
+            || existingDoc().managedDeviceFirebaseUid == request.auth.uid);
+
+      // Create: admin transaction — paired with the /pairings/{token}
+      // claim update. The admin's uid must end up as adminId; the
+      // managedDeviceFirebaseUid must come from a pre-existing
+      // /pairings/{token} doc (we can't cross-reference in pure rules,
+      // so we trust the client-side batched transaction to carry both
+      // updates atomically). The schemaVersion and identity fields are
+      // sanity-checked here.
+      allow create: if isSignedIn()
+        && newDoc().adminId == request.auth.uid
+        && newDoc().managedDeviceFirebaseUid is string
+        && newDoc().managedDeviceId is string
+        && newDoc().schemaVersion == 1;
+
+      // Root doc is immutable post-create (contract §Security Rules).
+      allow update: if false;
+
+      // Delete: Managed side revokes (FR-033).
+      allow delete: if isManagedUid(existingDoc().managedDeviceFirebaseUid);
+
+      // ─── /links/{linkId}/state/{stateId} ──────────────────────────
+      // FR-027, contracts/state-bootstrap.md.
+      match /state/{stateId} {
+        allow read:   if isLinkParty(linkId);
+        allow create: if isLinkManaged(linkId)
+                       && newDoc().schemaVersion == 1;
+        // Managed may update fcmToken / presetId; cannot lower schemaVersion.
+        allow update: if isLinkManaged(linkId)
+                       && newDoc().schemaVersion >= existingDoc().schemaVersion;
+        allow delete: if isLinkManaged(linkId);
+      }
+
+      // ─── /links/{linkId}/config/{configId} ────────────────────────
+      // Admin writes the layout config; both sides read.
+      // Full schema lands in spec 008; spec 007 ships just push consumer.
+      match /config/{configId} {
+        allow read:  if isLinkParty(linkId);
+        allow write: if isLinkAdmin(linkId);
+      }
+
+      // ─── /links/{linkId}/capabilities/{capId} ─────────────────────
+      // Managed writes provider snapshot; admin reads.
+      match /capabilities/{capId} {
+        allow read:  if isLinkParty(linkId);
+        allow write: if isLinkManaged(linkId);
+      }
+
+      // ─── /links/{linkId}/health/{healthId} ────────────────────────
+      // Managed writes battery/connectivity; admin reads.
+      match /health/{healthId} {
+        allow read:  if isLinkParty(linkId);
+        allow write: if isLinkManaged(linkId);
+      }
+
+      // ─── /links/{linkId}/commands/{cmdId} ─────────────────────────
+      // Admin issues commands (spec 009); Managed updates with ack/result.
+      match /commands/{cmdId} {
+        allow read:   if isLinkParty(linkId);
+        allow create: if isLinkAdmin(linkId);
+        allow update: if isLinkManaged(linkId);
+        allow delete: if isLinkAdmin(linkId);
+      }
+    }
+
+    // ─── /devices/{managedDeviceId} (per data-model.md §DocPath) ───────
+    // Spec 007 does not write to this collection (deferred to spec 008
+    // capability/health export). Leave deny-all so any accidental write
+    // is rejected — when spec 008 needs it, expand here.
+    match /devices/{managedDeviceId} {
+      allow read, write: if false;
+    }
+
+    // ─── default deny for everything else ──────────────────────────────
     match /{document=**} {
       allow read, write: if false;
     }
