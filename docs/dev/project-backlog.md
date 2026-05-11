@@ -39,27 +39,20 @@
 - **Status**: 🔴 OPEN
 - **Origin**: `/speckit.analyze` 2026-05-11 recommendation #2.
 
-### TODO-OPS-003: Rotate Firebase service-account JSON 🔴 ELEVATED
+### TODO-OPS-003: Rotate Firebase service-account JSON ✅ DONE 2026-05-11
 
-- **What**: Сгенерировать **новый** service-account private key в Firebase Console и обновить Cloudflare Secret.
-- **Why elevated to 🔴 (was 🟡)**: 2026-05-11 текущий JSON был передан project owner'ом через chat-сообщение. Chat history может попасть в:
-  - Логи Anthropic (AI provider).
-  - Server logs (если есть proxy).
-  - Скриншоты / истории браузера.
-  - Архивы conversation tooling.
-  - Через `git log` если кто-то случайно закоммитит conversation export.
+- **Was**: Сгенерировать **новый** service-account private key в Firebase Console и обновить Cloudflare Secret.
+- **Why**: 2026-05-11 текущий JSON был передан project owner'ом через chat-сообщение → ключ должен считаться potentially-compromised.
+- **Resolution (2026-05-11)**:
+  1. ✅ Project owner сгенерировал новый key в Firebase Console (key ID `ca55aa1f09330398cda45909fc4be92c4d03b73a`).
+  2. ✅ Загружен в Cloudflare Secrets как `FIREBASE_SA_JSON` через `Get-Content sa.json -Raw | wrangler secret put` (из локального файла, не через chat).
+  3. ✅ Локальный файл удалён project owner'ом.
+  4. ✅ Старый key (`bf6c8bdb724bf37cc3e650aa33a9c208b3f4acd9`) удалён из Firebase через IAM REST API (`DELETE https://iam.googleapis.com/v1/projects/launcher-old-dev/serviceAccounts/firebase-adminsdk-fbsvc@launcher-old-dev.iam.gserviceaccount.com/keys/...`).
+  5. ✅ Verified: только 2 ключа остались (новый user-managed + Google system-managed).
 
-  **Текущий ключ должен считаться potentially-compromised**. Заменить до начала Phase 5 (когда реально используем для FCM push в production-like usage).
-- **How**:
-  1. Firebase Console → Project Settings → Service Accounts → Generate new private key.
-  2. `wrangler secret put FIREBASE_SA_JSON` (через stdin, **НЕ через chat**, локально из файла).
-  3. В Firebase Console удалить старый key (Service Accounts → Keys → delete the `bf6c8bdb724bf37cc3e650aa33a9c208b3f4acd9` key).
-  4. Verify Worker still works.
-- **When**: До начала Phase 5 спека 007 (Worker implementation).
-- **Status**: 🔴 OPEN (elevated 2026-05-11)
-- **Origin**: `/speckit.analyze` 2026-05-11 recommendation #3 + chat-exposure incident 2026-05-11.
+**Lesson learned (process)**: secrets никогда не передавать через chat. Saved as memory `feedback_secret_handling.md`.
 
-**Lesson learned (process)**: secrets никогда не передавать через chat. Для будущих случаев — owner должен сохранить JSON в файл, а agent через `Bash` / `Read` берёт из локального пути, потом owner удаляет файл. Memory note: `reference_secret_handling.md` (создать).
+**Bonus learning**: Firebase IAM REST API (`https://iam.googleapis.com/v1/...`) **работает** для key management операций (list, delete) через firebase-tools refresh-token + OAuth flow. Это можно использовать в будущем для CI/CD ключевой ротации. Saved in memory.
 
 ### TODO-OPS-004: Production Firebase project (отдельный от dev) 🟡
 
