@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "pairingType": "admin-managed-link",
+  "managedDeviceId": "0c8e3a5e-1e7c-4f7b-9a1d-2b3c4d5e6f7a",
+  "managedDeviceFirebaseUid": "anonUidAbc123",
+  "claimed": false,
+  "expiresAt": 1746974400000,
+  "createdAt": 1746974100000,
+  "updatedAt": 1746974100000
+}
