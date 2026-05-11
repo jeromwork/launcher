@@ -78,6 +78,16 @@ android {
         consumerProguardFiles("consumer-rules.pro")
     }
 
+    // Spec 007 product flavors (FR-035). Must match :app's flavors verbatim so
+    // AGP variant resolution picks the right :core artefact for each :app flavor.
+    // KMP+Android auto-creates source sets `androidMainRealBackend` and
+    // `androidMainMockBackend` (extending `androidMain`).
+    flavorDimensions += "backend"
+    productFlavors {
+        create("realBackend") { dimension = "backend" }
+        create("mockBackend") { dimension = "backend" }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

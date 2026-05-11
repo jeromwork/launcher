@@ -4,6 +4,7 @@ import android.app.Application
 import com.launcher.app.di.appAndroidModule
 import com.launcher.app.di.spec006Module
 import com.launcher.core.LauncherCore
+import com.launcher.di.backendModule
 import com.launcher.ui.di.androidPlatformModule
 import com.launcher.ui.di.coreCommonModule
 import org.koin.android.ext.android.inject
@@ -28,7 +29,9 @@ class LauncherApplication : Application() {
         startKoin {
             androidLogger(Level.INFO)
             androidContext(this@LauncherApplication)
-            modules(coreCommonModule, androidPlatformModule, appAndroidModule, spec006Module)
+            // backendModule is flavor-resolved: Firebase wiring under
+            // realBackend, Fake wiring under mockBackend (spec 007 FR-034/FR-035).
+            modules(coreCommonModule, androidPlatformModule, appAndroidModule, spec006Module, backendModule)
         }
         core.start()
     }
