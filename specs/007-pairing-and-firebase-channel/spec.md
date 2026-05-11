@@ -23,18 +23,16 @@
 | C7 | **Doze handling** | **Resolution:** **`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` не нужен**. Pairing — foreground; FCM data-push в Doze работает через high-priority (см. research.md). |
 | C8 | **Расширение `RemoteSyncBackend`** | **Resolution:** **полностью переписать** (нет реальных consumer'ов на текущий момент). |
 
-### 2026-05-11 c — New grey zones (для /speckit.clarify)
+### 2026-05-11 c (pass 2) — Push-infra grey zones resolved
 
-Новые открытые вопросы по push-инфраструктуре (Cloudflare Workers). Решаются в следующем проходе `/speckit.clarify`:
-
-| # | Grey zone |
-|---|-----------|
-| C9 | **Cloudflare account** — использовать существующий аккаунт project owner'а или завести отдельный для проекта? |
-| C10 | **Worker URL** — `*.workers.dev` (бесплатно, не требует домена) или собственный домен (`push.launcher-old.dev` через DNS Cloudflare)? |
-| C11 | **Authentication request → Worker**: Worker должен валидировать, что вызов идёт от настоящего клиента (admin/OLD). Варианты: Firebase ID-token + Worker валидирует через Firebase Admin SDK / shared HMAC secret / нет аутентификации (rate-limit only)? |
-| C12 | **Worker storage** — Worker stateless, или ему нужен Cloudflare KV для rate-limiting / replay-prevention? |
-| C13 | **Полл-fallback (FR-018)**: оставить как safety net на устройствах без GMS, или удалить полностью (учитывая что push теперь работает)? |
-| C14 | **First push consumer внутри 007** — добавляем ли реальный consumer push'а в этом спеке (admin меняет `/config` → push «config-changed» → OLD читает), или push-инфраструктура остаётся «без consumer'а до спека 008/009»? Влияет на FR-список. |
+| # | Grey zone | Resolution |
+|---|-----------|------------|
+| C9 | **Cloudflare account** | **Resolution:** **отдельный новый Cloudflare account** под этот проект (email project owner'а с `+launcher` alias, либо новый email). **Why:** (а) чистое разделение от других проектов owner'а; (б) лимиты бесплатного tier не делятся; (в) передаваемость в будущем. **Exit ramp:** аккаунт-уровневые ресурсы можно перенести через team-sharing или передать ownership; код Worker'а не зависит от identity аккаунта. **TODO в `push-worker/README.md`:** инструкция по передаче аккаунта новому owner'у. |
+| C10 | **Worker URL** | **Resolution:** **бесплатный поддомен `*.workers.dev`** (`launcher-push.<account>.workers.dev`). **Why:** (а) бесплатно, без покупки домена; (б) HTTPS из коробки; (в) MVP не требует брендирования. **Exit ramp / Migration to custom domain:** см. секции «Migration to custom domain» в `push-worker/README.md` + TODO в `push-worker/wrangler.toml` рядом с `name`. Шаги: купить домен (~$10/year) → добавить в Cloudflare → DNS-record → `route` в `wrangler.toml` → передеплоить → обновить `WORKER_BASE_URL` в admin-приложении (env-переменная, без код-changes). **TODO в admin-app коде:** комментарий рядом с константой `WORKER_BASE_URL`. |
+| C11 | **Authentication request → Worker** | **Resolution:** **Firebase ID-token (Bearer) + Worker валидирует подпись через публичные ключи Firebase + проверяет `uid == links/{linkId}.adminId` через Firestore read**. **Why:** (а) single source of truth для identity (та же модель что Security Rules); (б) JWT короткоживущий (1ч), защита от replay через `exp`; (в) Worker stateless для проверки. **Cost:** +30-50 LOC в Worker'е (JWT verification + Firestore call). **Exit ramp:** TODO в коде Worker'а — (а) rate-limit per uid при росте abuse; (б) App Check для защиты от поддельных приложений; (в) при переходе на named auth — проверять `email_verified` claim. |
+| C12 | **Worker storage (KV)** | **Resolution:** **stateless для MVP — in-memory rate-limit + module-scope cache публичных ключей Firebase**. **Why:** (а) Workers держат module-scope alive между вызовами на одном инстансе → ключи кешируются без KV; (б) точный rate-limit для MVP избыточен (~5 пользователей в первый месяц); (в) Cloudflare KV — отдельный binding, добавляется позже без breaking change. **Exit ramp / Migration to KV:** TODO в `push-worker/src/rate-limit.ts` — раздел в README «Adding KV namespace» с командами `wrangler kv namespace create`, добавление binding в `wrangler.toml`, замена in-memory Map на KV API. |
+| C13 | **Polling fallback (FR-018)** | **Resolution:** **минимальный stub без WorkManager**. На устройствах без GMS — detection-логика + UI-баннер «уведомления недоступны, изменения появятся при следующем открытии лаунчера». **Никакого 15-минутного polling** в спеке 007. Foreground Firestore listener — единственный update-канал для non-GMS. **Why:** (а) аудитория проекта (бабушка в RU/СНГ) ~98% Samsung/Xiaomi-global с GMS; (б) Huawei post-2019 — маргинальный случай для бабушек; (в) Doze у Huawei всё равно агрессивный, polling 15 мин его не пробьёт. **Exit ramp:** TODO в `androidMain/adapters/.../FcmRegistration.kt` — «non-gms fallback deferred; if real users appear, add WorkManager polling here»; ссылка на потенциальный mini-spec. |
+| C14 | **First push consumer внутри 007** | **Resolution:** **минимальный consumer `config-changed` внутри 007**. Admin-приложение **после успешного write в `/links/{linkId}/config`** вызывает Worker `POST /notify` с `type:"config-changed"`. OLD при приёме push'а **читает `/config` и пишет в лог** «config received schemaVersion=N». Применение конфига к раскладке — out-of-scope (спек 008). **Why:** (а) end-to-end проверка push-канала внутри 007; (б) ~3 FR / 2 теста — минимальная цена; (в) защита от ситуации «построили без consumer'а»; (г) CLAUDE.md правило 4 (MVA). **Cost:** +FR-036 (admin-side trigger), +FR-037 (OLD-side receiver logs). **Exit ramp:** consumer расширяется в спеке 008 (applying config) без изменений wire-format. |
 
 ### 2026-05-11 — Cross-spec impact (updated)
 
@@ -231,6 +229,11 @@
 
 - **FR-034**: Проект MUST иметь два flavor'а: `realBackend` (Firebase + FCM + Worker calls) и `mockBackend` (Fake + FakePushSender).
 - **FR-035**: Koin граф MUST подменять `RemoteSyncBackend` и `PushSender` в зависимости от flavor через source-set discovery.
+
+**End-to-end consumer (`config-changed`)** *[per C14]*
+
+- **FR-036**: Admin-режим лаунчера MUST после успешного write в `/links/{linkId}/config` вызвать `PushSender.notify(linkId, type="config-changed")`. На стороне `WorkerPushSender` это HTTPS `POST /notify` с Firebase ID-token; на стороне `FakePushSender` — increment counter (для тестов).
+- **FR-037**: OLD при приёме FCM data-message с `type="config-changed"` MUST: (а) прочитать `/links/{linkId}/config` через `RemoteSyncBackend.readDoc()`; (б) залогировать в Android Logcat «config received: schemaVersion=N, updatedAt=...». **Применение конфига к UI — out-of-scope** (это спек 008). TODO в коде `PushReceiver.kt` — «expand here in spec 008: apply config to local Room database + trigger UI refresh».
 
 ### Key Entities
 
