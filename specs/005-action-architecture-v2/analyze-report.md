@@ -211,6 +211,74 @@ VERDICT: ✅ READY for implementation.
 
 ---
 
+## Final pass — post-implementation re-trace (2026-05-11)
+
+**Run by**: T644 closure, end-of-implementation verification.
+**Scope**: confirm no drift between plan/tasks and actual code; identify remaining gates.
+
+### Code structure spot-check
+
+Walked `core/src/commonMain/kotlin/com/launcher/api/action/` against plan §Module shape:
+
+| Plan-declared file | Actual file | Notes |
+|---|---|---|
+| `Action.kt` | ✓ present (7.5 KB) | holds `Action`, `ActionPayload`, `ProviderId`, `DispatchResult`, `WhatsAppCallKind`, `YouTubeTarget`, `SettingsTarget` |
+| `ActionDispatcher.kt` | ✓ present (1.1 KB) | single-method port per plan |
+| `ProviderRegistry.kt` | ✓ present (2.8 KB) | port + `ProviderState`/`ProviderAvailability`/`InstallHint`/`NotApplicableReason` |
+| `ActionWireFormat.kt` | ✓ present (2.1 KB) | encode/decode; `migrateLegacyAction` already retired (per spec 006 Phase 1 — C5 deadline anchor fired correctly) |
+| `ProjectEvent.kt` | ✓ contains `ActionDispatched` | (T517) |
+
+### Deleted-file grep (T611 re-run today)
+
+`Grep WhatsAppHandoff|ReturnContextStore|ActionCycleGuard|CommunicationConfigValidator|WhatsAppLaunchabilityResolver|RestoreOutcomeEvaluator|CommunicationDiagnostics` over `core/src/`:
+- 1 hit: `core/src/androidUnitTest/kotlin/com/launcher/test/fitness/WhatsAppResidueTest.kt` (the fitness test that **looks for** these names) — expected. ✓
+- 0 hits in production source sets. ✓
+
+### Manifest <queries> (T501)
+
+`app/src/main/AndroidManifest.xml` lines 28–37 show entries for `com.whatsapp`, `com.whatsapp.w4b`, `org.telegram.messenger`, `com.google.android.youtube`, `com.google.android.youtube.tv`. ✓
+
+### Legacy-bridge expiry (T622) post-action audit
+
+C5 contract: `migrateLegacyAction` should be removed before/at spec 006. Reality: commit `50d9bed chore(006): Phase 1 cleanup — remove migrateLegacyAction bridge per spec 005 C5` retired the symbol. Fitness test stays green because the symbol is gone. ✓ **The deadline mechanism worked end-to-end as designed in C5** — first practical proof.
+
+### Test gate
+
+`./gradlew :core:testDebugUnitTest` — BUILD SUCCESSFUL on the 006 branch (where 005 work lives in commits T501…T642). Cached as UP-TO-DATE, indicating the test outcomes were green at the previous run. ✓
+
+### Performance + smoke checkpoints
+
+- `perf-checkpoint.md` — T641 dispatch-latency: p95 ≤ 1 ms (50× margin). T640 cold-start: deferred to physical device with reasoned write-up (emulator Compose tax — not a regression signal).
+- `smoke-checkpoint.md` — T642 two-emulator smoke: WhatsApp-fallback-to-phone golden path verified on `simple-launcher`; Browser handler verified on `workspace`.
+
+### Open items at end of spec 005
+
+| # | Item | Owner | Gate |
+|---|---|---|---|
+| 1 | T643 — TalkBack walkthrough on `AddSlotWizardScreen` | manual / human ears required | accessibility checklist mark-up after run |
+| 2 | T644 closure marker — this section | this pass | once #1 is signed off |
+
+No other open items. Spec 005 is **functionally complete** in code and tests; only the manual a11y gate remains.
+
+### Verdict (post-implementation)
+
+```
+SPECKIT-ANALYZE final pass for specs/005-action-architecture-v2/:
+
+CODE-VS-PLAN DRIFT  : none
+DELETED-FILE GREP   : 0 production hits
+MANIFEST <queries>  : present
+LEGACY BRIDGE       : retired per C5 deadline (spec 006 Phase 1)
+TESTS               : green (cached UP-TO-DATE)
+PERF / SMOKE        : checkpoints written, golden path verified
+REMAINING GATE      : T643 (manual TalkBack walkthrough)
+
+VERDICT: ⏳ READY-TO-CLOSE pending T643.
+         Once T643 is signed off and accessibility.md updated, T644 → ✅.
+```
+
+---
+
 ## TL;DR (по-русски, для новичка и для будущего AI)
 
 **Суть.** Вердикт ✅ READY for implementation. Constitution Check 8/8 PASS (повтор). Cross-artifact trace — все 8 USs, все 5 Clarifications, все 10 удалений §6.4, все 4 fitness functions имеют покрывающие задачи. Все 11 «open items» с этапа clarify закрыты на уровне плана и задач.

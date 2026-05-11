@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 999,
+  "batteryPercent": 80,
+  "charging": false,
+  "connectivity": "Wifi",
+  "ringerVolumePercent": 50,
+  "audioStreamMuted": false,
+  "lastSeen": 1746780123456,
+  "appVersion": "1.4.2",
+  "futureField": {
+    "experimental": true
+  },
+  "anotherUnknown": [1, 2, 3],
+  "thermalState": "nominal"
+}

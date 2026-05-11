@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 999,
+  "providerId": "whatsapp",
+  "displayName": "WhatsApp",
+  "iconId": "bundled:whatsapp",
+  "available": true,
+  "versionCode": 241800,
+  "futureFeature": {
+    "experimentalFlag": true,
+    "experimentScore": 0.85
+  },
+  "anotherUnknownField": [1, 2, 3],
+  "iconAnimationHints": ["bounce", "fade"]
+}

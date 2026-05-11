@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android Auto Backup rules per spec 006 FR-057.
+
+  Targets pre-Android-12 backup behaviour (`android:fullBackupContent`).
+  Modern devices use `data_extraction_rules.xml` (Android 12+) — этот файл
+  оставлен для compatibility со старыми устройствами.
+
+  Rules:
+  - EXCLUDE capability snapshot (per-device transient — derived from
+    installed packages, irrelevant on new device with different apps).
+  - EXCLUDE health snapshot (per-device telemetry — battery / connectivity /
+    ringer state of OLD device misleads UI when restored on NEW device).
+  - INCLUDE settings snapshot (user banner toggles — пользователь явно
+    выбрал, хочет сохранить при переносе на новый телефон).
+
+  DataStore Preferences файлы лежат под `files/datastore/` в app-private dir.
+-->
+<full-backup-content>
+    <exclude domain="file" path="datastore/com.launcher.capability.snapshot_v1.preferences_pb" />
+    <exclude domain="file" path="datastore/com.launcher.health.snapshot_v1.preferences_pb" />
+    <!-- Settings DataStore не excluded → backup'ится по умолчанию вместе со всем app data. -->
+</full-backup-content>

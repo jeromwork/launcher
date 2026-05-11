@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "batteryPercent": 22,
+  "charging": true,
+  "connectivity": "Mobile",
+  "ringerVolumePercent": 0,
+  "audioStreamMuted": true,
+  "lastSeen": 1746780500000,
+  "appVersion": "1.4.2"
+}

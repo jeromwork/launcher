@@ -15,10 +15,8 @@ import org.json.JSONObject
  * Reads a mock JSON per active preset (asset filename: flows_mock_<slug>.json).
  * Falls back to simple-launcher if preset is unset.
  *
- * Slot `action` field is parsed via [ActionWireFormat] (new spec 005 wire
- * format). For safety with not-yet-migrated assets the parser also routes
- * legacy spec 003 shapes (`{"type":"whatsapp_call",…}`) through
- * [ActionWireFormat.migrateLegacyAction]. `null` action = placeholder slot.
+ * Slot `action` field is parsed via [ActionWireFormat]. `null` action =
+ * placeholder slot. Malformed entries are tolerated (treated as placeholder).
  */
 class MockFlowRepository(
     private val context: Context,
@@ -89,22 +87,14 @@ class MockFlowRepository(
     }
 
     /**
-     * Returns null for placeholder slots (`null` JSON value or legacy
-     * `{"type":"placeholder"}`); throws nothing on malformed entries —
-     * the slot is treated as a placeholder so the flow loads even with
-     * one bad row. Production assets are validated by tests.
+     * Returns null for placeholder slots (`null` JSON value); throws nothing
+     * on malformed entries — the slot is treated as a placeholder so the
+     * flow loads even with one bad row. Production assets are validated by
+     * tests.
      */
     private fun parseAction(actionValue: Any?): Action? {
         if (actionValue == null || actionValue == JSONObject.NULL) return null
         if (actionValue !is JSONObject) return null
-        val text = actionValue.toString()
-        return runCatching {
-            // Detect by presence of 'providerId' (new format) vs 'type' (legacy).
-            if (actionValue.has("providerId")) {
-                ActionWireFormat.decode(text)
-            } else {
-                ActionWireFormat.migrateLegacyAction(text)
-            }
-        }.getOrNull()
+        return runCatching { ActionWireFormat.decode(actionValue.toString()) }.getOrNull()
     }
 }

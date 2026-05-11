@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 999,
+  "banners": {
+    "airplane": true,
+    "mute": false,
+    "offline": true
+  },
+  "raiseRingerOnLongOffline": true,
+  "escalation": {
+    "firstStepMinutes": 60,
+    "subsequentStepMinutes": 30,
+    "stepPercent": 20
+  }
+}

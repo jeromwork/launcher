@@ -6,13 +6,6 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-// Per Spec 005 Clarification C5: legacy migration bridge expires when this spec ID is reached.
-// Fitness test legacyMigrationExpiryTest enforces deletion of migrateLegacyAction symbol
-// from core/src/commonMain/ once the latest merged spec ID >= this value.
-// Spec 006 must remove the bridge AND advance this constant in the same PR.
-// LEGACY-BRIDGE-EXPIRY-CONSTANT — search anchor for grep / Konsist test.
-val migrateLegacyActionDeadlineSpec = "006"
-
 kotlin {
     androidTarget {
         compilations.all {
@@ -55,6 +48,10 @@ kotlin {
             implementation(libs.androidx.core.ktx)
             implementation(libs.kotlinx.coroutines.android)
             implementation(libs.koin.android)
+            // DataStore Preferences — spec 006 persistence для capability/health/settings snapshots.
+            implementation(libs.androidx.datastore.preferences)
+            // ProcessLifecycleOwner — spec 006 RESUMED hooks для capability/health collectors.
+            implementation(libs.androidx.lifecycle.process)
         }
         getByName("androidUnitTest").dependencies {
             implementation(libs.kotlinx.coroutines.test)

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "providerId": "whatsapp",
+  "displayName": "WhatsApp",
+  "iconId": "bundled:whatsapp",
+  "available": true,
+  "versionCode": 241800
+}

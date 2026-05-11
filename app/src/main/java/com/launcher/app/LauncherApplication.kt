@@ -2,6 +2,7 @@ package com.launcher.app
 
 import android.app.Application
 import com.launcher.app.di.appAndroidModule
+import com.launcher.app.di.spec006Module
 import com.launcher.core.LauncherCore
 import com.launcher.ui.di.androidPlatformModule
 import com.launcher.ui.di.coreCommonModule
@@ -27,7 +28,7 @@ class LauncherApplication : Application() {
         startKoin {
             androidLogger(Level.INFO)
             androidContext(this@LauncherApplication)
-            modules(coreCommonModule, androidPlatformModule, appAndroidModule)
+            modules(coreCommonModule, androidPlatformModule, appAndroidModule, spec006Module)
         }
         core.start()
     }
