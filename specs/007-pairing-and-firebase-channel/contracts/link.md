@@ -1,4 +1,4 @@
-# Wire format: `/links/{linkId}`
+﻿# Wire format: `/links/{linkId}`
 
 **Source of truth**: this document.
 **Used by**: spec 007 §FR-006, FR-009, FR-028, FR-033; spec 008+, 009+ (subcollections).
@@ -17,8 +17,8 @@
 |---|---|---|---|---|
 | `schemaVersion` | `Int` | ✓ | ✗ | `1` |
 | `adminId` | `String` | ✓ | ✗ | Firebase Auth UID admin'а; используется в Security Rules |
-| `oldDeviceId` | `String` | ✓ | ✗ | UUIDv4 из DataStore OLD'а |
-| `oldDeviceFirebaseUid` | `String` | ✓ | ✗ | Текущий Firebase Auth UID OLD'а |
+| `managedDeviceId` | `String` | ✓ | ✗ | UUIDv4 из DataStore Managed'а |
+| `managedDeviceFirebaseUid` | `String` | ✓ | ✗ | Текущий Firebase Auth UID Managed'а |
 | `createdAt` | `Timestamp` | ✓ | ✓ | `FieldValue.serverTimestamp()` |
 | `updatedAt` | `Timestamp` | ✓ | ✓ | Server set; FR-030 |
 
@@ -26,10 +26,10 @@
 
 | Subcollection | Created by | Created in spec | Notes |
 |---|---|---|---|
-| `state/current` | OLD on consent.allow | 007 (this spec, see `state-bootstrap.md`) | initial snapshot, расширяется в спеке 008 |
+| `state/current` | Managed on consent.allow | 007 (this spec, see `state-bootstrap.md`) | initial snapshot, расширяется в спеке 008 |
 | `config/current` | admin (write) | 008 (push consumer in 007) | full layout config |
-| `capabilities/current` | OLD periodic | 008 (extension спека 006) | provider snapshot |
-| `health/current` | OLD on RESUMED | 008 (extension спека 006) | battery, connectivity |
+| `capabilities/current` | Managed periodic | 008 (extension спека 006) | provider snapshot |
+| `health/current` | Managed on RESUMED | 008 (extension спека 006) | battery, connectivity |
 | `commands/{cmdId}` | admin push | 009 | business commands |
 
 ## Example
@@ -38,8 +38,8 @@
 {
   "schemaVersion": 1,
   "adminId": "anonUidAdminXyz",
-  "oldDeviceId": "0c8e3a5e-1e7c-4f7b-9a1d-2b3c4d5e6f7a",
-  "oldDeviceFirebaseUid": "anonUidOldAbc",
+  "managedDeviceId": "0c8e3a5e-1e7c-4f7b-9a1d-2b3c4d5e6f7a",
+  "managedDeviceFirebaseUid": "anonUidOldAbc",
   "createdAt": {"_seconds": 1746974400, "_nanoseconds": 0},
   "updatedAt": {"_seconds": 1746974400, "_nanoseconds": 0}
 }
@@ -50,21 +50,21 @@
 ```text
 Created            ── admin transaction (FR-006) — created atomically with /pairings/{token}.claimed=true
    │
-   ├── /state/current created (FR-009) on OLD consent.allow
+   ├── /state/current created (FR-009) on Managed consent.allow
    ├── /config/current created/updated by admin (spec 008)
    ├── /commands/{cmdId} created by admin (spec 009)
    │
-   └── Hard-deleted (FR-033) on OLD revoke:
+   └── Hard-deleted (FR-033) on Managed revoke:
         - recursive subtree delete (research.md §Recursive)
-        - OLD unsubscribes from FCM topic link-{linkId}
+        - Managed unsubscribes from FCM topic link-{linkId}
 ```
 
 ## Security Rules requirements (FR-028)
 
 - **Create**: only by admin transaction атомично с `/pairings/{token}.claimed → true`.
-- **Read**: by `adminId` OR by `oldDeviceFirebaseUid`.
+- **Read**: by `adminId` OR by `managedDeviceFirebaseUid`.
 - **Update**: not allowed at root (immutable post-create).
-- **Delete**: only by `oldDeviceFirebaseUid` (revoke from OLD).
+- **Delete**: only by `managedDeviceFirebaseUid` (revoke from Managed).
 
 ## Tests (commonTest)
 
@@ -74,7 +74,7 @@ Created            ── admin transaction (FR-006) — created atomically with
 | `LinkWireFormat.backwardCompat_v2_reads_v1` | Future v2-reader reads v1-snapshot |
 | `LinkWireFormat.security_rules.foreign_uid_denied` | Сторонний uid не может read `/links/{linkId}` (через Firebase Emulator) |
 | `LinkWireFormat.security_rules.admin_can_read` | adminId может read весь subtree |
-| `LinkWireFormat.security_rules.old_can_read` | oldDeviceFirebaseUid может read весь subtree |
+| `LinkWireFormat.security_rules.old_can_read` | managedDeviceFirebaseUid может read весь subtree |
 
 ## Backward compatibility policy
 
@@ -87,4 +87,4 @@ Created            ── admin transaction (FR-006) — created atomically with
 
 ## TL;DR
 
-«Корневой документ связи между бабушкой и внуком». Содержит: кто admin, кто OLD, когда связь создана. Внутри — **подколлекции** (`state`, `config`, `capabilities`, `health`, `commands`), которые наполняются в будущих спеках. Удалить = разорвать связь полностью (revoke).
+«Корневой документ связи между бабушкой и внуком». Содержит: кто admin, кто Managed, когда связь создана. Внутри — **подколлекции** (`state`, `config`, `capabilities`, `health`, `commands`), которые наполняются в будущих спеках. Удалить = разорвать связь полностью (revoke).

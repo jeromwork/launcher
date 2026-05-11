@@ -1,7 +1,7 @@
-# Wire format: FCM data-message payload
+﻿# Wire format: FCM data-message payload
 
 **Source of truth**: this document.
-**Used by**: spec 007 §FR-016 (OLD receiver), FR-024 (Worker sender).
+**Used by**: spec 007 §FR-016 (Managed receiver), FR-024 (Worker sender).
 **Schema version**: 1.
 **Transport**: FCM HTTP v1 API `data` field; **silent push** (no `notification` field).
 
@@ -25,7 +25,7 @@
 }
 ```
 
-**Note**: все значения в `data` — **строки** (это требование FCM API). Парсинг на стороне OLD преобразует.
+**Note**: все значения в `data` — **строки** (это требование FCM API). Парсинг на стороне Managed преобразует.
 
 ## Field schema
 
@@ -36,7 +36,7 @@
 | `linkId` | string | ✓ | Identifies which link's documents to refetch |
 | `cmdId` | string | only if `type=command-issued` | Command ID to fetch from `/links/{linkId}/commands/{cmdId}` |
 
-## Reception on OLD (`LauncherFirebaseMessagingService.onMessageReceived`)
+## Reception on Managed (`LauncherFirebaseMessagingService.onMessageReceived`)
 
 ```kotlin
 override fun onMessageReceived(message: RemoteMessage) {
@@ -53,7 +53,7 @@ override fun onMessageReceived(message: RemoteMessage) {
 }
 ```
 
-**Idempotency**: Type handlers must be **idempotent**. FCM может доставить duplicate; OLD не должен «применить дважды». Для `config-changed` — read latest, no state mutation; idempotent by design.
+**Idempotency**: Type handlers must be **idempotent**. FCM может доставить duplicate; Managed не должен «применить дважды». Для `config-changed` — read latest, no state mutation; idempotent by design.
 
 ## Push types
 
@@ -71,7 +71,7 @@ override fun onMessageReceived(message: RemoteMessage) {
 
 ### `revoke`
 
-- Trigger: optional, OLD on revoke calls `pushSender.notify(linkId, Revoke)` so admin'у приходит уведомление.
+- Trigger: optional, Managed on revoke calls `pushSender.notify(linkId, Revoke)` so admin'у приходит уведомление.
 - Receiver action: admin UI refreshes paired-devices list.
 
 ## Tests (commonTest + Worker tests)
@@ -89,7 +89,7 @@ override fun onMessageReceived(message: RemoteMessage) {
 
 - `data["v"]` always present, currently `"1"`.
 - Adding fields → OK (additive).
-- Adding new `type` value → OK, old OLD apps drop unknown types gracefully.
+- Adding new `type` value → OK, old Managed apps drop unknown types gracefully.
 - Removing existing type → breaking; bump schemaVersion to `"2"`.
 
 **TODO в `parseType()`**: «при добавлении новых типов (например `incoming-call` в будущем спеке звонков) — добавлять в when, не падать на unknown».

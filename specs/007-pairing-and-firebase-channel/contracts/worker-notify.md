@@ -1,4 +1,4 @@
-# Wire format: `POST /notify` (Cloudflare Worker HTTP API)
+﻿# Wire format: `POST /notify` (Cloudflare Worker HTTP API)
 
 **Source of truth**: this document.
 **Used by**: spec 007 §FR-019..025, FR-036.
@@ -56,7 +56,7 @@ X-Schema-Version: 1
 }
 ```
 
-FCM accepted; push will be delivered (subject to OLD's reachability).
+FCM accepted; push will be delivered (subject to Managed's reachability).
 
 ### 400 Bad Request
 
@@ -184,7 +184,7 @@ Worker receives POST /notify
 
 ## Idempotency
 
-Worker **не** дедуплицирует — client retry на 429/502/503 безопасен (FCM delivers same data twice; OLD идемпотентен per `fcm-payload.md`).
+Worker **не** дедуплицирует — client retry на 429/502/503 безопасен (FCM delivers same data twice; Managed идемпотентен per `fcm-payload.md`).
 
 ## Tests (push-worker/test/, vitest)
 

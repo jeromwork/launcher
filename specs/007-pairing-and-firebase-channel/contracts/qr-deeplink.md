@@ -1,7 +1,7 @@
-# Wire format: QR deep-link `launcher://pair?token=XXXXXX&v=1`
+﻿# Wire format: QR deep-link `launcher://pair?token=XXXXXX&v=1`
 
 **Source of truth**: this document.
-**Used by**: spec 007 §FR-004 (encode by OLD), FR-005 (decode by admin).
+**Used by**: spec 007 §FR-004 (encode by Managed), FR-005 (decode by admin).
 **Schema version**: `v=1` query param (отличается от `schemaVersion: Int` в JSON).
 **Lifetime**: 5 минут (TTL parsed-token-а).
 
@@ -25,7 +25,7 @@ launcher://pair?token=A3KX9B&v=1
 launcher://pair?token=ZN7P2W&v=1
 ```
 
-## QR encoding (OLD side, FR-004)
+## QR encoding (Managed side, FR-004)
 
 - Library: ZXing (`com.google.zxing:core`).
 - Error correction level: **M** (medium — balance reliability vs size).
@@ -75,7 +75,7 @@ fun parsePairingDeepLink(uri: String): QrParseResult
 
 - `v=1` остаётся forever-supported для существующих generated QR (5 min TTL, но decode logic должен работать).
 - Future `v=2` будет добавлять параметры; parser `v=1` игнорирует unknown params.
-- Если когда-либо потребуется breaking change (rename `token`) — выкатываем v2 одновременно на encode-OLD и decode-admin (синхронизированный rollout).
+- Если когда-либо потребуется breaking change (rename `token`) — выкатываем v2 одновременно на encode-Managed и decode-admin (синхронизированный rollout).
 
 **TODO в `parsePairingDeepLink`**: «при добавлении `v=2` — добавить case в when и не падать на legacy `v=1`».
 
@@ -85,4 +85,4 @@ fun parsePairingDeepLink(uri: String): QrParseResult
 
 ## TL;DR
 
-Когда OLD показывает QR-код на экране — внутри QR закодирована **специальная ссылка** `launcher://pair?token=A3KX9B&v=1`. Admin-приложение сканирует QR, парсит ссылку, достаёт токен (6 символов) и версию схемы. Используется alphabet без `0/O/I/1` чтобы бабушка не запуталась если придётся читать вслух. Защита от старых/новых версий — через `v=` параметр.
+Когда Managed показывает QR-код на экране — внутри QR закодирована **специальная ссылка** `launcher://pair?token=A3KX9B&v=1`. Admin-приложение сканирует QR, парсит ссылку, достаёт токен (6 символов) и версию схемы. Используется alphabet без `0/O/I/1` чтобы бабушка не запуталась если придётся читать вслух. Защита от старых/новых версий — через `v=` параметр.

@@ -1,4 +1,4 @@
-# Wire format: `/links/{linkId}/state/current` (bootstrap)
+﻿# Wire format: `/links/{linkId}/state/current` (bootstrap)
 
 **Source of truth**: this document.
 **Used by**: spec 007 §FR-009, FR-027. Full schema — спек 008.
@@ -18,7 +18,7 @@
 | `schemaVersion` | `Int` | ✓ | ✗ | `1` |
 | `appliedAt` | `Timestamp` | ✓ | ✓ | Server-set on write |
 | `presetId` | `String` | ✓ | ✗ | Current preset (e.g. `simple-launcher`) |
-| `fcmToken` | `String?` | ✗ | ✗ | FCM token OLD'а; `null` если GMS отсутствует (C13) |
+| `fcmToken` | `String?` | ✗ | ✗ | FCM token Managed'а; `null` если GMS отсутствует (C13) |
 | `updatedAt` | `Timestamp` | ✓ | ✓ | FR-030 |
 
 **Полная схема state** (с `flows`, `slots`, applied capabilities snapshot и т.д.) — спек 008.
@@ -38,9 +38,9 @@
 ## Lifecycle
 
 ```text
-Created    ── OLD on consent.allow (FR-009) — initial bootstrap snapshot
+Created    ── Managed on consent.allow (FR-009) — initial bootstrap snapshot
    │
-   ├── Updated by OLD on:
+   ├── Updated by Managed on:
    │     • FCM token rotation (FR-017) — обновляется fcmToken
    │     • Preset changed in Settings — обновляется presetId
    │     • (spec 008) on config apply — добавляются flows/slots fields
@@ -52,10 +52,10 @@ Created    ── OLD on consent.allow (FR-009) — initial bootstrap snapshot
 
 ## Security Rules requirements
 
-- **Create**: by `oldDeviceFirebaseUid` only.
-- **Read**: by `adminId` OR `oldDeviceFirebaseUid`.
-- **Update**: by `oldDeviceFirebaseUid` only; cannot change `schemaVersion` downward.
-- **Delete**: by `oldDeviceFirebaseUid` (revoke).
+- **Create**: by `managedDeviceFirebaseUid` only.
+- **Read**: by `adminId` OR `managedDeviceFirebaseUid`.
+- **Update**: by `managedDeviceFirebaseUid` only; cannot change `schemaVersion` downward.
+- **Delete**: by `managedDeviceFirebaseUid` (revoke).
 
 ## Tests (commonTest)
 
