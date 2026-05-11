@@ -1,0 +1,13 @@
+rules_version = '2';
+
+// Placeholder rules — finalised in /speckit-plan + /speckit-tasks per spec 007.
+// Real rules will enforce:
+//   /pairings/{token}: claim transaction semantics
+//   /links/{linkId}:   admin writes /config + /commands, OLD writes /state /capabilities /health
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
