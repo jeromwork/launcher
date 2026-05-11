@@ -187,6 +187,41 @@ cross-artifact-trace 8/8 — see checklists/cross-artifact-trace.md.
 
 ---
 
+## Post-implementation addendum (2026-05-11, code-complete)
+
+Спек прошёл Phase 1-12 на ветке `007-pairing-and-firebase-channel`. Это аддендум к pre-implementation отчёту выше — фиксирует фактическое состояние артефактов после имплементации, чтобы будущие спеки могли опираться на конкретные ссылки.
+
+### Что закрылось во время имплементации
+
+| Pre-impl note | Resolution |
+|---|---|
+| FCM subscription failure during activate (failure-recovery note) | `FcmRegistration.subscribeToTopic` ошибка логируется, не блокирует activate (FR-009 — link working без FCM, push retry на следующем admin write). |
+| Pluralization countdown (l10n note) | Использован простой формат `4 min 57 sec` / `4 мин 57 сек` — текст без склонений. Полная plural-resource форма deferred до спека 010. |
+| Senior-safe UX hardening notes | `QrDisplayScreen` прошёл визуальный smoke на эмуляторе — heading 28sp, body 18sp, tap target 56dp height — все в budget Article VIII §7. См. `smoke-screens/README.md`. |
+
+### Operational deferrals (с exit ramps)
+
+| Item | Where it lives | Trigger to close |
+|---|---|---|
+| T069 — `wrangler deploy` production worker | `docs/dev/project-backlog.md` + `push-worker/README.md` | `wrangler login` approval window |
+| T074 — Firestore rules tests runtime | `firestore-tests/README.md` | JDK 21+ available |
+| T075 — `firebase deploy --only firestore:rules` | inline TODO | `firebase login` approval window |
+| T089 — admin QR scanner | spec 008 scope (`PairingActivity` уже умеет приём deep-link'а; scanner UI — отдельная история) | spec 008 kick-off |
+| T097/T098 instrumented integration | `specs/007-.../integration-tests-deferred.md` + `.github/workflows/integration-tests.yml` | JDK 21+ + `androidInstrumentedTestRealBackend` source set wired |
+| T099 worker × emulator stack | same | same |
+| T105/T106/T107 perf measurements | `specs/007-.../perf-checkpoint.md` | macrobenchmark module + 2-emulator smoke + deployed worker |
+| T108 SC-006 R8 follow-up | `TODO-ARCH-006` in `docs/dev/project-backlog.md` | First signed release / Play upload |
+| T110 full two-emulator smoke | `specs/007-.../smoke-screens/README.md` | Provisioned Firebase project + deployed Worker on host |
+
+### Implementation artefacts (для cross-reference из будущих спеков)
+
+- **Trust primitive**: `core/src/commonMain/kotlin/com/launcher/api/pairing/TrustEdgeBootstrap.kt` — plain `interface`, не sealed (cross-package extensibility per memory `project_qr_pairing_trust_primitive.md`).
+- **Sync port**: `core/src/commonMain/kotlin/com/launcher/api/sync/RemoteSyncBackend.kt` — единственная точка контакта домена с любым cloud-backend; реализован `FirebaseRemoteSyncBackend` (realBackend) + `FakeRemoteSyncBackend` (mockBackend + tests).
+- **Konsist fitness gates**: `core/src/androidUnitTest/kotlin/com/launcher/test/fitness/{DomainIsolationTest,Spec007PortFakesTest}.kt` — держат «нет Firebase в `:core/api/`» инвариантом + «каждый port имеет Fake» инвариантом.
+- **Wire-format versioning**: каждый `*WireFormat` object имеет `CURRENT_SCHEMA_VERSION` const + `parseSchemaVersionOnly()` helper — спеки 008+ могут полагаться на этот контракт.
+
+---
+
 <!-- novice summary -->
 
 ## TL;DR для новичка

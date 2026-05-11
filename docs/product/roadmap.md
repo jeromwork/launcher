@@ -13,7 +13,7 @@
 | **004** | **`ui-stack-migration`** | **Не начат — миграция UI на Compose Multiplatform + Material 3 + KMP per ADR-005; включает закрытие T072** | **003** |
 | 005 | `action-architecture-v2` | **Смержен в main** (PR #5 закрыт 2026-05-09; cleanup `migrateLegacyAction` намечен на спек 006) | 004 |
 | 006 | `provider-capabilities-and-health` | **Готов** (Phase 1-12 завершены 2026-05-10; emulator smoke-check passed; awaiting Phase 13 macrobenchmark + Phase 14 senior-safe walkthrough на physical device) | 005 |
-| 007 | `pairing-and-firebase-channel` | В работе (2026-05-11): /speckit.specify ✓, /speckit.clarify pass 2 ✓ (8+6 grey zones), /speckit.plan ✓. Содержит pairing + RemoteSyncBackend + Cloudflare Worker push-server + Security Rules. **QR-pairing спроектирован как reusable trust primitive** для будущих use case'ов (контакты, звонки, multi-admin, device replacement) — см. `specs/007-pairing-and-firebase-channel/plan.md §Reusable trust primitive` + `research.md §QR-pairing как reusable trust primitive`. Запланирован ADR-007 при имплементации спека 011 | 006 |
+| 007 | `pairing-and-firebase-channel` | **Готов (code-complete 2026-05-11; Phase 1-12 завершены).** Pairing FSM + RemoteSyncBackend port + Firestore/Auth/FCM adapters + Cloudflare Worker push-relay + Security Rules + Managed-side UI + Konsist fitness gates + in-process E2E test. Operational deferrals: T069 wrangler deploy (interactive login), T074 emulator rules tests (JDK 21+), T097-T100 instrumented integration tier (JDK 21+; CI workflow scaffolded `if: false`), T105/T106/T107 perf measurements (macrobenchmark module + 2-emulator smoke), T108 SC-006 R8 follow-up (`TODO-ARCH-006` in backlog). **QR-pairing работает как reusable trust primitive** — `PairingService.claim()` возвращает `TrustEdgeBootstrap`; spec 011/multi-admin расширяют без модификации pairing core. ADR-007 запланирован при имплементации спека 011 | 006 |
 | 008 | `bidirectional-config-sync` | Не начат | 007 |
 | 009 | `admin-mode-flows` | Не начат | 008 |
 | 010 | `setup-assistant-soft-checks` | Не начат | 006 (параллельно 007/008) |
@@ -136,27 +136,32 @@
 
 ### Spec 007 — `pairing-and-firebase-channel` *(was 006, renumbered)*
 
-**Статус:** не начат.
+**Статус:** **Готов (code-complete 2026-05-11).** Phase 1-12 завершены на ветке `007-pairing-and-firebase-channel`.
 
 **Зависит от:** 006.
 
-**Что делает:**
-- Firebase project setup, подключение `google-services.json`.
-- `FirebaseRemoteSyncBackend` — реализация интерфейса `RemoteSyncBackend` из spec 003.
-- Pairing protocol (шаги 1-6, описаны ниже в разделе «Pairing protocol»).
-- Реальный consent-screen на стороне Managed (с данными admin'а).
-- Firestore security rules: admin пишет только в `/config`, Managed пишет только в `/state`, `/capabilities`, `/health`.
-- FCM для push-уведомлений об изменениях конфига.
-- `FakeRemoteSyncBackend` — in-memory для тестов.
+**Что сделано:**
+- Domain ports в `:core/api/{sync,identity,pairing,link,push,qr}/` — нет ни одного Firebase import; Konsist fitness gate (`DomainIsolationTest`, `Spec007PortFakesTest`) держит это инвариантом.
+- `FirebaseRemoteSyncBackend` + `FirebaseIdentityProvider` + `WorkerPushSender` + `FirestoreLinkRegistry` + `LauncherFirebaseMessagingService` — все живут только в `:core/src/androidRealBackend/` source set.
+- `mockBackend` flavor с in-memory Fakes — APK строится без `google-services.json`, юнит-тесты и UI-сцены гоняются без сети.
+- `PairingService` FSM (Idle → WaitingForClaim → AwaitingConsent → Claimed) — atomic claim transaction, observer на `/pairings/{token}`, dispose() для clean shutdown.
+- `TrustEdgeBootstrap` interface — `claim()` возвращает sealed-like контракт; в 007 единственный subtype `Link`, в 011/multi-admin будут добавляться без модификации `PairingService` (см. memory `project_qr_pairing_trust_primitive.md`).
+- Cloudflare Worker (`push-worker/`) — POST `/notify`: verify Firebase ID-token → SA OAuth → FCM HTTP v1 `messages:send`. 10 vitest cases (mocked Firebase REST).
+- Firestore Security Rules (`firestore.rules`) + ~21 emulator-based rules tests (runtime блокирован JDK 8).
+- Managed-side UI — QR display screen с ZXing + senior-safe consent + paired status + unbind double-confirm. EN + RU strings.
+- In-process E2E test `PairingEndToEndTest` гоняет два `PairingService` инстанса через один `FakeRemoteSyncBackend`, включая admin-config-write + push-receive consumer.
+
+**Operational deferrals** (документированы с exit ramps):
+- **T069** — `wrangler deploy` requires interactive `wrangler login`; runbook в `push-worker/README.md`.
+- **T074** — Firestore rules runtime tests требуют JDK 21+ (firebase-tools 14+ drops Java 8).
+- **T075** — `firebase deploy --only firestore:rules` требует `firebase login`.
+- **T097/T098/T099/T100** — instrumented integration tests + Worker × Emulator stack — code-ready в `specs/007-.../integration-tests-deferred.md`; CI workflow scaffolded `if: false` в `.github/workflows/integration-tests.yml`.
+- **T105/T106/T107** — perf measurements (macrobenchmark / 2-emulator smoke / Worker p95) — exit ramps в `specs/007-.../perf-checkpoint.md`.
+- **T108 / SC-006** — APK delta измерен 3.99 MB (target 3 MB); follow-up `TODO-ARCH-006` в `docs/dev/project-backlog.md` — включить R8 на `release` buildType (типичный drop 40-60%).
 
 **Что НЕ входит:**
-- Bidirectional config sync (это в 007).
-- Admin-mode UI (это в 008).
-
-**Требует до старта:**
-- Создание Firebase project (real env).
-- Обновление `docs/compliance/country-legal-tax-register.md` (новые персональные данные).
-- Обновление `docs/compliance/permissions-and-resource-budget.md` (новые network permissions).
+- Bidirectional config sync (это в 008).
+- Admin-mode UI (это в 009).
 
 ---
 
