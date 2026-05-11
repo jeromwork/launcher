@@ -13,7 +13,7 @@
 | **004** | **`ui-stack-migration`** | **Не начат — миграция UI на Compose Multiplatform + Material 3 + KMP per ADR-005; включает закрытие T072** | **003** |
 | 005 | `action-architecture-v2` | **Смержен в main** (PR #5 закрыт 2026-05-09; cleanup `migrateLegacyAction` намечен на спек 006) | 004 |
 | 006 | `provider-capabilities-and-health` | **Готов** (Phase 1-12 завершены 2026-05-10; emulator smoke-check passed; awaiting Phase 13 macrobenchmark + Phase 14 senior-safe walkthrough на physical device) | 005 |
-| 007 | `pairing-and-firebase-channel` | Не начат | 006 |
+| 007 | `pairing-and-firebase-channel` | В работе (2026-05-11): /speckit.specify ✓, /speckit.clarify pass 2 ✓ (8+6 grey zones), /speckit.plan ✓. Содержит pairing + RemoteSyncBackend + Cloudflare Worker push-server + Security Rules. **QR-pairing спроектирован как reusable trust primitive** для будущих use case'ов (контакты, звонки, multi-admin, device replacement) — см. `specs/007-pairing-and-firebase-channel/plan.md §Reusable trust primitive` + `research.md §QR-pairing как reusable trust primitive`. Запланирован ADR-007 при имплементации спека 011 | 006 |
 | 008 | `bidirectional-config-sync` | Не начат | 007 |
 | 009 | `admin-mode-flows` | Не начат | 008 |
 | 010 | `setup-assistant-soft-checks` | Не начат | 006 (параллельно 007/008) |
