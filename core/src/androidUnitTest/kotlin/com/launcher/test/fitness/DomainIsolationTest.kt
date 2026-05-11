@@ -17,6 +17,10 @@ import java.io.File
  *
  * Forbidden import roots in commonMain:
  *  - `android.*` — raw Android SDK
+ *  - `com.google.firebase.*` — Firebase SDK (spec 007 T102, FR-013, CHK001):
+ *    every Firebase touch belongs in the `androidRealBackend` source-set
+ *    adapter modules; the domain talks only through ports
+ *    (`RemoteSyncBackend`, `IdentityProvider`, `PushSender`, `LinkRegistry`).
  *
  * `androidx.compose.*` is **allowed**: Compose Multiplatform is the chosen
  * UI stack per ADR-005, and it runs natively in commonMain. Other
@@ -26,7 +30,10 @@ import java.io.File
  */
 class DomainIsolationTest {
 
-    private val forbiddenPrefixes = listOf("android.")
+    private val forbiddenPrefixes = listOf(
+        "android.",
+        "com.google.firebase.",
+    )
     private val forbiddenAndroidxPrefixes = listOf(
         "androidx.activity.",
         "androidx.appcompat.",
