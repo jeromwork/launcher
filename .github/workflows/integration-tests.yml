@@ -1,0 +1,110 @@
+# Spec 007 T100 — integration tests CI gate.
+#
+# Status: scaffolded but disabled (`if: false`) until two things land:
+#   1. The repo's primary dev workstation has JDK 21+ available so the
+#      Firebase Emulator can boot locally; AND
+#   2. `androidInstrumentedTestRealBackend` source set is wired into
+#      `core/build.gradle.kts` per
+#      `specs/007-pairing-and-firebase-channel/integration-tests-deferred.md`.
+#
+# Flip `if: false` to `if: true` after both prerequisites are satisfied.
+# The job intentionally runs every PR + push to main once enabled — these
+# tests are the only safety net for the FirebaseRemoteSyncBackend Firestore
+# wire format and the Worker × Emulator stack.
+
+name: integration-tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  firestore-emulator-integration:
+    if: false # remove this gate once JDK 21 is the dev baseline (T100 follow-up).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Firebase tools
+        run: npm install -g firebase-tools
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+
+      - name: Enable KVM (needed for Android emulator)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Start Firebase Emulator + run instrumented tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            firebase emulators:exec \
+              --only firestore,auth \
+              --project demo-test \
+              "./gradlew :core:connectedAndroidTestRealBackendDebug"
+
+  worker-integration:
+    if: false # see firestore-emulator-integration above.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: push-worker
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install push-worker deps
+        run: npm ci
+
+      - name: Run worker vitest suite
+        run: npm test
+
+  fitness-and-domain-tests:
+    # These run on every push and have no Java-21 / emulator dependency —
+    # they live in the regular `:core:test*UnitTest` tasks.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Run fitness + domain tests
+        run: |
+          ./gradlew \
+            :core:testMockBackendDebugUnitTest \
+            :core:testRealBackendDebugUnitTest

@@ -104,5 +104,16 @@
             android:name=".debug.HealthSnapshotDebugActivity"
             android:exported="true"
             android:label="Health Debug" />
+
+        <!--
+          Spec 007 pairing host (Managed-side flow). Launched from Settings
+          via explicit intent. Stays adb-launchable for QA via
+          `am start -n com.launcher.app/.ui.pairing.PairingActivity` —
+          same convention as the spec 006 debug activities above.
+        -->
+        <activity
+            android:name=".ui.pairing.PairingActivity"
+            android:exported="true"
+            android:label="@string/pairing_toggle_title" />
     </application>
 </manifest>

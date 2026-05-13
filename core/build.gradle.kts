@@ -78,6 +78,16 @@ android {
         consumerProguardFiles("consumer-rules.pro")
     }
 
+    // Spec 007 product flavors (FR-035). Must match :app's flavors verbatim so
+    // AGP variant resolution picks the right :core artefact for each :app flavor.
+    // KMP+Android auto-creates source sets `androidMainRealBackend` and
+    // `androidMainMockBackend` (extending `androidMain`).
+    flavorDimensions += "backend"
+    productFlavors {
+        create("realBackend") { dimension = "backend" }
+        create("mockBackend") { dimension = "backend" }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -88,4 +98,16 @@ android {
             isIncludeAndroidResources = true
         }
     }
+}
+
+// Spec 007 realBackend-only deps (FR-034): Firebase Auth, Firestore, FCM.
+// mockBackend stays Firebase-free so the APK builds without google-services.json.
+// Wired via Android's flavor-specific configuration name (not KMP source set
+// DSL, which can't address the bare flavor-only Kotlin source set in current
+// AGP 8.7 + KMP 2.0 combo).
+dependencies {
+    "realBackendImplementation"(platform(libs.firebase.bom))
+    "realBackendImplementation"(libs.firebase.firestore.ktx)
+    "realBackendImplementation"(libs.firebase.auth.ktx)
+    "realBackendImplementation"(libs.firebase.messaging.ktx)
 }

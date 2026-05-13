@@ -1,0 +1,23 @@
+﻿# push-worker — Cloudflare Worker для FCM push relay
+# Spec 007 §FR-019..025
+#
+# TODO (C10 exit ramp): при миграции на свой домен — раскомментировать
+#   routes block ниже. См. push-worker/README.md §Migration to custom domain.
+#
+# name: должно быть уникальным per Cloudflare account.
+# main: TypeScript entry; Wrangler compiles to JS in-place via esbuild.
+# compatibility_date: Cloudflare API compat date — фиксируем 2025-05-11.
+
+name = "launcher-push"
+main = "src/index.ts"
+compatibility_date = "2025-05-11"
+account_id = "c8f9c8c59e930e0283d713b91c01fb13"
+
+[vars]
+# Public (не secret) — Firebase project ID для FCM HTTP v1 send API.
+FIREBASE_PROJECT_ID = "launcher-old-dev"
+
+# routes — раскомментировать при миграции на custom domain (TODO-ARCH-001 backlog).
+# [[routes]]
+# pattern = "push.<our-domain>/notify"
+# custom_domain = true

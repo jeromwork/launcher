@@ -16,6 +16,24 @@ android {
         versionName = "0.1.0"
     }
 
+    // Spec 007 product flavors (FR-034). `realBackend` wires Firebase + Cloudflare Worker;
+    // `mockBackend` wires in-memory Fakes so the app builds and runs without
+    // google-services.json or network access. Flavor-specific Koin wiring lives
+    // in :core/src/androidMain{RealBackend,MockBackend}/.
+    flavorDimensions += "backend"
+    productFlavors {
+        create("realBackend") {
+            dimension = "backend"
+            // TODO(spec 007 Phase 4): once Firebase adapters are in place, this
+            // is where applicationIdSuffix / firebase-config selectors land.
+        }
+        create("mockBackend") {
+            dimension = "backend"
+            applicationIdSuffix = ".mock"
+            versionNameSuffix = "-mock"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -63,6 +81,12 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.ui)
+
+    // ZXing — QR encoder for the Managed-side pairing display (spec 007 FR-004).
+    // Pure JVM, ~150 KB; lives in :app since the Managed UI is Android-only
+    // (TODO when iOS support arrives: extract a :core/api/qr/QrEncoder port
+    // with expect/actual impls per checklist domain-isolation note 1).
+    implementation(libs.zxing.core)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
