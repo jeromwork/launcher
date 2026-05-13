@@ -179,7 +179,20 @@
         <activity
             android:name=".ui.pairing.PairingActivity"
             android:exported="true"
-            android:label="@string/pairing_toggle_title" />
+            android:label="@string/pairing_toggle_title">
+            <!--
+              Pairing deep-link entry (FR-005 fallback / admin-side claim before
+              QrScannerScreen lands in spec 008). Lets `launcher://pair?token=XXX`
+              from a sister-device QR resolve directly into PairingActivity, which
+              routes the inbound token through PairingViewModel.claimAsAdmin().
+            -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="launcher" android:host="pair" />
+            </intent-filter>
+        </activity>
 
         <!--
           Spec 009 FR-027 / FR-027a: VCard share intent receiver.
@@ -233,5 +246,6 @@
                 android:value="androidx.startup"
                 tools:node="remove" />
         </provider>
+
     </application>
 </manifest>
