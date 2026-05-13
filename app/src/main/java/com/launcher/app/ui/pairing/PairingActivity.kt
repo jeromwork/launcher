@@ -1,8 +1,11 @@
 package com.launcher.app.ui.pairing
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.lifecycle.lifecycleScope
+import com.launcher.api.pairing.PairingToken
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +47,7 @@ class PairingActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleIncomingDeepLink(intent)
         setContent {
             LauncherTheme(preset = null) {
                 Surface(
@@ -58,6 +62,33 @@ class PairingActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIncomingDeepLink(intent)
+    }
+
+    private var adminClaimFlow: Boolean = false
+
+    private fun handleIncomingDeepLink(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_VIEW) return
+        val raw = intent.data?.getQueryParameter("token") ?: return
+        // Strict regex per spec 007 FR-003 token alphabet (Crockford base32 minus
+        // ambiguous I/L/O/0/1). Invalid tokens stay on the Idle screen.
+        if (!raw.matches(Regex("^[A-HJ-NP-Z2-9]{6}$"))) return
+        adminClaimFlow = true
+        viewModel.claimAsAdmin(PairingToken(raw))
+        // Watch for the claim to land and close ourselves so the user returns
+        // to the "Управление телефонами" list where the new device is now
+        // visible. Managed side does NOT auto-finish — it needs the consent step.
+        lifecycleScope.launchWhenStarted {
+            viewModel.state.collect { st ->
+                if (adminClaimFlow && st is PairingState.Claimed) {
+                    finish()
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -66,6 +97,7 @@ fun PairingRouter(
     onFlowEnded: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
+    val isProcessing by viewModel.isProcessing.collectAsState()
 
     LaunchedEffect(viewModel) {
         // Reserved for future Snackbar wiring per project-backlog TODO-UX-001.
@@ -73,6 +105,10 @@ fun PairingRouter(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        if (isProcessing) {
+            ProcessingScreen()
+            return@Box
+        }
         when (val s = state) {
             PairingState.Idle -> IdleEntry(
                 onStart = { viewModel.startPairing() },
@@ -97,9 +133,7 @@ fun PairingRouter(
             is PairingState.Claimed -> PairedStatusSection(
                 link = s.link,
                 onUnbind = {
-                    // TODO(follow-up): wire LinkRegistry.revoke() through the
-                    // ViewModel. Held back so Phase 8 ships the Managed-side
-                    // pairing surface end-to-end first.
+                    viewModel.unbind()
                     onFlowEnded()
                 },
                 modifier = Modifier.padding(24.dp),
@@ -117,6 +151,22 @@ fun PairingRouter(
                 onClose = onFlowEnded,
             )
         }
+    }
+}
+
+@Composable
+private fun ProcessingScreen() {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        androidx.compose.material3.CircularProgressIndicator()
+        Text(
+            text = "Привязываем устройства…",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 

@@ -51,13 +51,12 @@ import com.launcher.ui.theme.Spacing
 @Composable
 fun AddFlowWizardScreen(component: AddFlowWizardComponent, modifier: Modifier = Modifier) {
     val templates = listOf("contacts" to "Контакты", "admin_devices" to "Управление телефонами")
-    var selected by remember { mutableStateOf(templates.first().first) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("Новый flow", style = MaterialTheme.typography.titleLarge) },
+                title = { Text("Новая вкладка", style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
                     IconButton(onClick = component.onBack, modifier = Modifier.testTag("add_flow_back")) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
@@ -70,28 +69,15 @@ fun AddFlowWizardScreen(component: AddFlowWizardComponent, modifier: Modifier = 
             modifier = Modifier.fillMaxSize().padding(padding).padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            Text(
-                "Выберите шаблон:",
-                style = MaterialTheme.typography.titleMedium,
-            )
             templates.forEach { (id, label) ->
-                Row(
+                Button(
+                    onClick = { component.onTemplateChosen(id) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("add_flow_template_$id"),
-                    selected = id == selected,
-                    onClick = { selected = id },
-                    label = label,
-                )
-            }
-            Spacer(Modifier.size(Spacing.lg))
-            Button(
-                onClick = component.onDone,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("add_flow_done"),
-            ) {
-                Text("Добавить", style = MaterialTheme.typography.labelLarge)
+                ) {
+                    Text(label, style = MaterialTheme.typography.labelLarge)
+                }
             }
         }
     }
@@ -220,7 +206,7 @@ fun AdminDevicesScreen(component: AdminDevicesComponent, modifier: Modifier = Mo
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { /* pairing wired through spec 007 PairingActivity launch */ },
+                onClick = component.onAddDevice,
                 modifier = Modifier.testTag("admin_add_device"),
             ) {
                 Icon(Icons.Filled.Add, contentDescription = "Добавить устройство")

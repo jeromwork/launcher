@@ -62,6 +62,7 @@ class PairingService(
     @Suppress("unused") private val pushSender: PushSender, // wired for spec 009 admin-side flows
     private val clock: () -> Long,
     private val scope: CoroutineScope,
+    private val managedDevices: com.launcher.api.link.ManagedDevicesRegistry? = null,
     private val random: Random = Random.Default,
 ) {
 
@@ -93,6 +94,16 @@ class PairingService(
         stateFlow.value = PairingState.WaitingForClaim(token, expiresAt)
         startObservingPairing(token)
         return Outcome.Success(token)
+    }
+
+    /** Forces the FSM back to [PairingState.Idle] without touching Firestore.
+     *  Used by the UI after an out-of-band revoke (LinkRegistry.revoke) so the
+     *  cached [PairingState.Claimed] doesn't keep the PairingActivity stuck on
+     *  the "Связь установлена" screen for the next entry. Safe to call from
+     *  any state. */
+    fun resetToIdle() {
+        stopObservingPairing()
+        stateFlow.value = PairingState.Idle
     }
 
     suspend fun cancelPairingAsManaged(): Outcome<Unit, PairingError> {
@@ -226,7 +237,33 @@ class PairingService(
         }
 
         return when (txn) {
-            is Outcome.Success -> Outcome.Success(txn.value)
+            is Outcome.Success -> {
+                val newLink = txn.value
+                // Reconnect dedup: if this admin already had a link to the same
+                // managed device (linkId differs because Managed disconnected +
+                // reconnected with a fresh token), delete the stale `/links/{old}`
+                // root so it doesn't show as a phantom card in the admin list.
+                // We don't fail the claim if this cleanup fails — the new claim
+                // already succeeded and is authoritative.
+                managedDevices?.let { reg ->
+                    val prior = reg.findByManagedDeviceId(newLink.managedDeviceId)
+                    if (prior is Outcome.Success) {
+                        val p = prior.value
+                        if (p != null && p.linkId != newLink.linkId) {
+                            backend.deleteDoc(DocPath.Links(p.linkId))
+                            reg.forgetLink(p.linkId)
+                        }
+                    }
+                    reg.recordClaim(newLink)
+                }
+                // Reflect the successful admin-side claim on the local FSM so
+                // the UI (PairingActivity) can route to the "Связь установлена"
+                // screen instead of staying on Idle (which used to flash the
+                // Managed-side toggle). The Managed side gets its own
+                // AwaitingConsent transition via its `/pairings/{token}` observer.
+                stateFlow.value = PairingState.Claimed(newLink)
+                Outcome.Success(newLink)
+            }
             is Outcome.Failure -> {
                 // The runBlocking adapter wraps the ClaimAbort throwable as
                 // BackendError.Unknown — recover the original PairingError if

@@ -128,6 +128,24 @@
 - **Status**: 🟢 OPEN
 - **Origin**: Spec 007 C13 = C stub.
 
+### TODO-ARCH-007: Persistent flow storage (`FlowRepository.addFlow` сейчас in-memory) 🟡
+
+- **What**: `MockFlowRepository.addFlow()` хранит созданные runtime flows в `mutableListOf` поверх JSON-ассетов. После перезапуска процесса добавленные пользователем вкладки исчезают.
+- **Why**: Минимально жизнеспособный путь для интерактивного теста pairing'а в спеке 007 (нужно «Управление телефонами» как inline-flow с FAB). Полноценное хранилище flows было в плане спека 005, но в имплементацию не попало.
+- **How**: Добавить SQLDelight-таблицу `flow_descriptors` (или DataStore JSON-list), миграционно загружать дефолтные flows из JSON-ассетов один раз, дальше — write-through. Wire-format спека 005 должен иметь `schemaVersion`.
+- **When**: Когда понадобится: (а) персистентный admin-flow со списком привязанных Managed-устройств, либо (б) пользовательское создание flow в спеке 008/009.
+- **Status**: 🟡 OPEN
+- **Origin**: Спек 007 inline-test session 2026-05-13 — minimal addFlow API введён в `FlowRepository` interface без write-through; см. коммит с `MockFlowRepository.runtimeFlows`.
+
+### TODO-ARCH-008: Real admin-side device list (replace `admin_devices` empty-state stub) 🟡
+
+- **What**: Сейчас `FlowScreen` при `templateId == "admin_devices"` рендерит фиксированный «Нет привязанных устройств» + FAB «Сканировать QR». Реального списка из Firestore (`/links where adminId == currentUid`) нет.
+- **Why**: Минимально достаточный путь для тестирования камеры/сканера. Полноценный список — это admin-mode (спек 009).
+- **How**: Добавить `ManagedDevicesRegistry` port в `:core/api/link/` с `observeAll(): Flow<List<Link>>`. Firebase adapter: `firestore.collection("links").where("adminId", "==", currentUid)`. Реализовать в FlowScreen `templateId == "admin_devices"` рендеринг списка `Link` + revoke на свайп.
+- **When**: Спек 009 (admin-mode-flows).
+- **Status**: 🟡 OPEN
+- **Origin**: Спек 007 inline-test session 2026-05-13.
+
 ### TODO-ARCH-006: Enable R8 minification on `release` buildType 🟡 🚨 PLAY-STORE-BLOCKER
 
 - **What**: Включить `isMinifyEnabled = true` + `isShrinkResources = true` для `release` buildType в `app/build.gradle.kts`.

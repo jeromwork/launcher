@@ -39,6 +39,8 @@ class HomeAndFlowScreenTest {
         override fun availableTemplates(presetId: String): List<FlowTemplate> = emptyList()
         override fun observeFlows(): kotlinx.coroutines.flow.Flow<List<FlowDescriptor>> =
             kotlinx.coroutines.flow.flowOf(flows)
+        override suspend fun addFlow(templateId: String): FlowDescriptor =
+            error("not used in this test")
     }
 
     private val sampleFlow = FlowDescriptor(
@@ -84,6 +86,7 @@ class HomeAndFlowScreenTest {
             onAddFlowClick = {},
             onAdminDevicesClick = {},
             onAddSlotClick = {},
+            onOpenScanner = {},
         )
 
         rule.setContent {

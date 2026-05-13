@@ -17,6 +17,7 @@ import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
 import com.launcher.api.lifecycle.AppForegroundEvents
 import com.launcher.api.lifecycle.NetworkAvailability
 import com.launcher.api.link.LinkRegistry
+import com.launcher.api.link.ManagedDevicesRegistry
 import com.launcher.api.paired.LocalLinkRevocationStore
 import com.launcher.api.push.PushReceiver
 import com.launcher.api.push.PushSender
@@ -38,6 +39,7 @@ import com.launcher.fake.identity.FakeIdentityProvider
 import com.launcher.fake.lifecycle.FakeAppForegroundEvents
 import com.launcher.fake.lifecycle.FakeNetworkAvailability
 import com.launcher.fake.link.FakeLinkRegistry
+import com.launcher.fake.link.FakeManagedDevicesRegistry
 import com.launcher.fake.paired.InMemoryLocalLinkRevocationStore
 import com.launcher.fake.push.FakePushReceiver
 import com.launcher.fake.push.FakePushSender
@@ -89,6 +91,8 @@ val backendModule: Module = module {
             ),
         )
     }
+    // Spec 007 admin-side multi-link view (separate from single-link LinkRegistry).
+    single<ManagedDevicesRegistry> { FakeManagedDevicesRegistry() }
     single<PushSender> { FakePushSender() }
     single<PushReceiver> { FakePushReceiver() }
 

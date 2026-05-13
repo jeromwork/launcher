@@ -23,4 +23,11 @@ interface FlowRepository {
      *    used to be `MockFlowRepository` in spec 005, deleted by T031/T032).
      */
     fun observeFlows(): Flow<List<FlowDescriptor>>
+
+    /**
+     * Spec 007 wizard support — append a new flow created from [templateId].
+     * The default label is derived from the template; renames happen later
+     * via slot editing UI. Returns the freshly-added flow.
+     */
+    suspend fun addFlow(templateId: String): FlowDescriptor
 }

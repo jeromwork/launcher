@@ -101,7 +101,7 @@ fun SettingsScreen(
                 headlineContent = { Text("Удалённое управление", style = MaterialTheme.typography.titleMedium) },
                 supportingContent = {
                     Text(
-                        "Связать с телефоном родственника",
+                        "Показать свой QR-код помощнику",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 },

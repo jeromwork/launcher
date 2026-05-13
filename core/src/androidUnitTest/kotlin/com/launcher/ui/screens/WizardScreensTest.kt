@@ -48,6 +48,7 @@ class WizardScreensTest {
                         componentContext = newContext(),
                         onBack = {},
                         onDone = {},
+                        onTemplateChosen = {},
                     ),
                 )
             }
@@ -147,6 +148,7 @@ class WizardScreensTest {
                         onHistoryLink = {},
                         onContactsLink = {},
                         onHealthLink = {},
+                        onAddDevice = {},
                     ),
                 )
             }

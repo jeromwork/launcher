@@ -26,6 +26,7 @@ class SettingsComponent(
     val onResetData: () -> Unit,
     val onAdminDevicesClick: () -> Unit = {},
     val onOpenPairing: () -> Unit,
+    val onOpenScanner: () -> Unit,
 ) : ComponentContext by componentContext {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -58,6 +59,10 @@ class SettingsComponent(
 
     fun openPairing() {
         onOpenPairing()
+    }
+
+    fun openScanner() {
+        onOpenScanner()
     }
 
     fun confirmReset() {

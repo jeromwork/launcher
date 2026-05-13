@@ -24,6 +24,7 @@ import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
 import com.launcher.adapters.lifecycle.ConnectivityManagerNetworkAvailability
 import com.launcher.adapters.lifecycle.ProcessLifecycleForegroundEvents
 import com.launcher.adapters.link.FirestoreLinkRegistry
+import com.launcher.adapters.link.FirestoreManagedDevicesRegistry
 import com.launcher.adapters.paired.DataStoreLocalLinkRevocationStore
 import com.launcher.adapters.push.FcmRegistration
 import com.launcher.adapters.push.FirebaseTokenSupplier
@@ -45,6 +46,7 @@ import com.launcher.api.identity.IdentityProvider
 import com.launcher.api.lifecycle.AppForegroundEvents
 import com.launcher.api.lifecycle.NetworkAvailability
 import com.launcher.api.link.LinkRegistry
+import com.launcher.api.link.ManagedDevicesRegistry
 import com.launcher.api.paired.LocalLinkRevocationStore
 import com.launcher.api.push.PushReceiver
 import com.launcher.api.push.PushSender
@@ -120,6 +122,15 @@ val backendModule: Module = module {
             firestore = get(),
             fcmRegistration = get(),
             encryptedMediaStorage = get(),
+        )
+    }
+
+    // Spec 007 admin-side multi-link view via Firestore listener (separate
+    // от single-link Managed LinkRegistry).
+    single<ManagedDevicesRegistry> {
+        FirestoreManagedDevicesRegistry(
+            firestore = get(),
+            auth = get(),
         )
     }
 
@@ -266,6 +277,14 @@ val backendModule: Module = module {
             configEditor = get(),
             linkRegistry = get(),
             revocationStore = get(),
+        )
+    }
+
+    // ManagedDevicesRegistry → admin-side multi-link view via Firestore listener.
+    single<ManagedDevicesRegistry> {
+        FirestoreManagedDevicesRegistry(
+            firestore = get(),
+            auth = get(),
         )
     }
 }

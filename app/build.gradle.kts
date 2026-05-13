@@ -112,6 +112,16 @@ dependencies {
     // but :app's compilation needs it as direct dep.
     implementation(libs.androidx.work.runtime.ktx)
 
+    // CameraX + ML Kit barcode — admin-side QR scanner (spec 007 FR-005, T089).
+    "realBackendImplementation"(libs.androidx.camera.core)
+    "realBackendImplementation"(libs.androidx.camera.camera2)
+    "realBackendImplementation"(libs.androidx.camera.lifecycle)
+    "realBackendImplementation"(libs.androidx.camera.view)
+    "realBackendImplementation"(libs.mlkit.barcode.scanning)
+    // Guava ListenableFuture — needed at compile time for ProcessCameraProvider.getInstance().
+    // The CameraX runtime brings it transitively, but Kotlin compiler needs the type.
+    "realBackendImplementation"("com.google.guava:guava:33.4.0-android")
+
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.robolectric)

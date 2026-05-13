@@ -43,6 +43,8 @@ class HomeActivity : ComponentActivity() {
     private val remoteSyncBackend: RemoteSyncBackend by inject()
     private val identityProvider: IdentityProvider by inject()
     private val linkRegistry: com.launcher.api.link.LinkRegistry by inject()
+    // Spec 007 — admin paired-devices registry (separate from single-link LinkRegistry).
+    private val managedDevices: com.launcher.api.link.ManagedDevicesRegistry by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,6 +85,21 @@ class HomeActivity : ComponentActivity() {
             onOpenPairing = {
                 startActivity(android.content.Intent(this, PairingActivity::class.java))
             },
+            onOpenScanner = {
+                // QrScannerActivity lives in the realBackend source set only
+                // (CameraX + ML Kit dependencies). In mockBackend the class
+                // is absent, so we reference it by string name and silently
+                // ignore the failure — flavors that don't ship a scanner
+                // simply do nothing on this menu item.
+                runCatching {
+                    val intent = android.content.Intent().setClassName(
+                        this,
+                        "com.launcher.app.ui.pairing.QrScannerActivity",
+                    )
+                    startActivity(intent)
+                }
+            },
+            managedDevices = managedDevices,
             initialPresetSlug = activePreset?.slug,
             // Spec 009 admin-mode dependencies.
             configEditor = configEditor,

@@ -58,6 +58,8 @@ class RootComponent(
     private val onPresetChanged: () -> Unit,
     private val onResetData: () -> Unit,
     private val onOpenPairing: () -> Unit,
+    private val onOpenScanner: () -> Unit,
+    private val managedDevices: com.launcher.api.link.ManagedDevicesRegistry? = null,
     initialPresetSlug: String?,
     // ─── Spec 009 admin-mode-flows deps (all nullable so spec 008-only
     // wiring still works; admin entry points are inert without them). ─
@@ -107,6 +109,9 @@ class RootComponent(
                     // challenge gate, which on success pops itself and pushes
                     // AdminDevices (admin-mode entry).
                     onSevenTapTriggered = { nav.push(RootConfig.ChallengeGate) },
+                    // Spec 007 admin QR scanner + paired devices view.
+                    onOpenScanner = onOpenScanner,
+                    managedDevices = managedDevices,
                 )
             )
             is RootConfig.ChallengeGate -> RootChild.ChallengeGate(
@@ -128,6 +133,7 @@ class RootComponent(
                     onResetData = onResetData,
                     onAdminDevicesClick = { nav.push(RootConfig.AdminDevices) },
                     onOpenPairing = onOpenPairing,
+                    onOpenScanner = onOpenScanner,
                 )
             )
             is RootConfig.AddFlowWizard -> RootChild.AddFlowWizard(
@@ -135,6 +141,21 @@ class RootComponent(
                     componentContext = context,
                     onBack = { nav.pop() },
                     onDone = { nav.pop() },
+                    onTemplateChosen = { templateId ->
+                        scope.launch {
+                            val newFlow = flowRepository.addFlow(templateId)
+                            // Refresh the underlying Home so the new tab appears.
+                            val homeChild = stack.value.items
+                                .map { it.instance }
+                                .filterIsInstance<RootChild.Home>()
+                                .firstOrNull()
+                                ?.component
+                            homeChild?.refresh()
+                            // Activate the new flow tab immediately for fast feedback.
+                            homeChild?.selectFlow(newFlow.id)
+                            nav.pop()
+                        }
+                    },
                 )
             )
             is RootConfig.AddSlotWizard -> RootChild.AddSlotWizard(
@@ -155,6 +176,7 @@ class RootComponent(
                     onHistoryLink = { linkId -> nav.push(RootConfig.History(linkId)) },
                     onContactsLink = { linkId -> nav.push(RootConfig.ContactsManage(linkId)) },
                     onHealthLink = { linkId -> nav.push(RootConfig.PhoneHealth(linkId)) },
+                    onAddDevice = onOpenScanner,
                 )
             )
             is RootConfig.FlowDetail -> error(

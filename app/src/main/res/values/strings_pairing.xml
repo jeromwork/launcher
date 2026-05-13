@@ -49,6 +49,13 @@
     <string name="pairing_unbind_dialog_confirm">Disconnect</string>
     <string name="pairing_unbind_dialog_cancel">Keep connected</string>
 
+    <!-- Scanner -->
+    <string name="pairing_scan_title">Scan QR code</string>
+    <string name="pairing_scan_button">Scan helper QR</string>
+    <string name="pairing_scan_hint">Point the camera at the QR code shown on the other phone</string>
+    <string name="pairing_scan_permission_denied">Camera access is not granted. Open app settings and enable it.</string>
+    <string name="pairing_scan_open_settings">Open settings</string>
+
     <!-- Generic notices -->
     <string name="pairing_expired_title">The code expired</string>
     <string name="pairing_expired_retry">Show a new code</string>

@@ -43,6 +43,7 @@ class SettingsScreenTest {
         onPresetChanged: () -> Unit = {},
         onResetData: () -> Unit = {},
         onOpenPairing: () -> Unit = {},
+        onOpenScanner: () -> Unit = {},
     ) = SettingsComponent(
         componentContext = DefaultComponentContext(lifecycle = LifecycleRegistry()),
         presetRepository = repo,
@@ -50,6 +51,7 @@ class SettingsScreenTest {
         onPresetChanged = onPresetChanged,
         onResetData = onResetData,
         onOpenPairing = onOpenPairing,
+        onOpenScanner = onOpenScanner,
     )
 
     @Test

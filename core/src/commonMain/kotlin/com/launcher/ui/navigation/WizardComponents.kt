@@ -22,6 +22,7 @@ class AddFlowWizardComponent(
     componentContext: ComponentContext,
     val onBack: () -> Unit,
     val onDone: () -> Unit,
+    val onTemplateChosen: (templateId: String) -> Unit,
 ) : ComponentContext by componentContext
 
 /**
@@ -88,6 +89,7 @@ class AdminDevicesComponent(
     val onHistoryLink: (String) -> Unit,
     val onContactsLink: (String) -> Unit,
     val onHealthLink: (String) -> Unit,
+    val onAddDevice: () -> Unit,
 ) : ComponentContext by componentContext {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)

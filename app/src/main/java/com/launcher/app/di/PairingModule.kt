@@ -42,6 +42,7 @@ val pairingModule = module {
             pushSender = get<PushSender>(),
             clock = { System.currentTimeMillis() },
             scope = get(named(APPLICATION_SCOPE_QUALIFIER)),
+            managedDevices = get<com.launcher.api.link.ManagedDevicesRegistry>(),
         )
     }
 
@@ -54,6 +55,7 @@ val pairingModule = module {
         PairingViewModel(
             service = get(),
             identity = get<IdentityProvider>(),
+            linkRegistry = get<LinkRegistry>(),
             onLinkEstablished = { linkId ->
                 when (val r = coordinator.publishOwnIdentity(linkId)) {
                     is Outcome.Failure -> {

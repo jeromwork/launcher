@@ -6,15 +6,20 @@ import com.launcher.api.FlowRepository
 import com.launcher.api.SlotDescriptor
 import com.launcher.api.action.Action
 import com.launcher.api.action.DispatchResult
+import com.launcher.api.link.Link
+import com.launcher.api.link.ManagedDevicesRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -35,23 +40,39 @@ class FlowComponent(
     val flowId: String,
     private val flowRepository: FlowRepository,
     private val dispatchAction: suspend (Action) -> DispatchResult,
+    val onOpenScanner: () -> Unit = {},
+    managedDevices: ManagedDevicesRegistry? = null,
 ) : ComponentContext by componentContext {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val _state = MutableStateFlow(FlowUiState())
     val state: StateFlow<FlowUiState> = _state.asStateFlow()
 
+    /** Stream of paired devices for `admin_devices` flows. Stays empty when
+     *  no ManagedDevicesRegistry is wired (tests / mockBackend without DI). */
+    val pairedDevices: StateFlow<List<Link>> =
+        (managedDevices?.observeAll() ?: flowOf<List<Link>>(emptyList()))
+            .stateIn(scope, SharingStarted.Eagerly, emptyList())
+
+    /** Debug banner for the admin_devices tab. Will be removed once the flow
+     *  is verified end-to-end. */
+    val debugEvents: StateFlow<List<String>> =
+        (managedDevices?.debugEvents() ?: flowOf<List<String>>(emptyList()))
+            .stateIn(scope, SharingStarted.Eagerly, emptyList())
+
     init {
         lifecycle.doOnDestroy { scope.cancel() }
         // Spec 010 T030 — observe Flow, не одноразовый loadFlows().
         // When admin pushes new config (ARCH-016 closure), the matching flow's
-        // slots arrive without explicit refresh.
+        // slots arrive without explicit refresh. Также подхватывает templateId
+        // (spec 007 — нужен для admin_devices template detection в FlowScreen).
         flowRepository.observeFlows()
             .onEach { flows ->
                 val flow = flows.firstOrNull { it.id == flowId }
                 _state.value = _state.value.copy(
                     flowName = flow?.name.orEmpty(),
                     slots = flow?.slots.orEmpty(),
+                    templateId = flow?.templateId.orEmpty(),
                 )
             }
             .launchIn(scope)
@@ -85,6 +106,7 @@ class FlowComponent(
 
 data class FlowUiState(
     val flowName: String = "",
+    val templateId: String = "",
     val slots: List<SlotDescriptor> = emptyList(),
     val lastDispatchAction: Action? = null,
     val lastDispatchResult: DispatchResult? = null,
