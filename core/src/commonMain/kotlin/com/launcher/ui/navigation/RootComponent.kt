@@ -57,6 +57,7 @@ class RootComponent(
     private val providerRegistry: ProviderRegistry? = null,
     private val onPresetChanged: () -> Unit,
     private val onResetData: () -> Unit,
+    private val onOpenPairing: () -> Unit,
     initialPresetSlug: String?,
     // ─── Spec 009 admin-mode-flows deps (all nullable so spec 008-only
     // wiring still works; admin entry points are inert without them). ─
@@ -126,6 +127,7 @@ class RootComponent(
                     onPresetChanged = onPresetChanged,
                     onResetData = onResetData,
                     onAdminDevicesClick = { nav.push(RootConfig.AdminDevices) },
+                    onOpenPairing = onOpenPairing,
                 )
             )
             is RootConfig.AddFlowWizard -> RootChild.AddFlowWizard(

@@ -9,6 +9,7 @@ import com.launcher.api.FlowRepository
 import com.launcher.api.PresetRepository
 import com.launcher.app.firstlaunch.FirstLaunchActivity
 import com.launcher.app.home.HomeBannerHost
+import com.launcher.app.ui.pairing.PairingActivity
 import com.launcher.api.action.ActionDispatcher
 import com.launcher.api.action.ProviderRegistry
 import com.launcher.api.apps.InstalledAppsCatalog
@@ -78,6 +79,9 @@ class HomeActivity : ComponentActivity() {
                     )
                 startActivity(intent)
                 finish()
+            },
+            onOpenPairing = {
+                startActivity(android.content.Intent(this, PairingActivity::class.java))
             },
             initialPresetSlug = activePreset?.slug,
             // Spec 009 admin-mode dependencies.

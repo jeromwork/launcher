@@ -26,7 +26,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -102,33 +101,20 @@ fun SettingsScreen(
                 headlineContent = { Text("Удалённое управление", style = MaterialTheme.typography.titleMedium) },
                 supportingContent = {
                     Text(
-                        if (state.remoteControlEnabled) "Включено" else "Выключено",
+                        "Связать с телефоном родственника",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 },
                 trailingContent = {
-                    Switch(
-                        checked = state.remoteControlEnabled,
-                        onCheckedChange = { component.toggleRemoteControl() },
-                        modifier = Modifier.testTag("settings_remote_toggle"),
-                    )
+                    OutlinedButton(
+                        onClick = component::openPairing,
+                        modifier = Modifier.testTag("settings_open_pairing"),
+                    ) {
+                        Text("Открыть", style = MaterialTheme.typography.labelLarge)
+                    }
                 },
                 colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
             )
-            if (state.remoteControlEnabled) {
-                ListItem(
-                    headlineContent = { Text("Показать QR-код", style = MaterialTheme.typography.titleMedium) },
-                    trailingContent = {
-                        OutlinedButton(
-                            onClick = component::openQrPlaceholder,
-                            modifier = Modifier.testTag("settings_show_qr"),
-                        ) {
-                            Text("Показать", style = MaterialTheme.typography.labelLarge)
-                        }
-                    },
-                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-                )
-            }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             // Spec 009 — entry into admin-mode flows (paired-device list,
             // layout editor, history+rollback, contacts management, phone
@@ -196,24 +182,6 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = component::closePresetPicker) {
                     Text("Закрыть", style = MaterialTheme.typography.labelLarge)
-                }
-            },
-        )
-    }
-
-    if (state.qrPlaceholderVisible) {
-        AlertDialog(
-            onDismissRequest = component::closeQrPlaceholder,
-            title = { Text("QR-код", style = MaterialTheme.typography.headlineSmall) },
-            text = {
-                Text(
-                    "Реальный QR будет здесь после реализации pairing (spec 007).",
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = component::closeQrPlaceholder) {
-                    Text("Понятно", style = MaterialTheme.typography.labelLarge)
                 }
             },
         )

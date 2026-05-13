@@ -2,11 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
-    // Spec 007 — Firebase google-services. Applies для всех вариантов,
-    // но Firebase init via ContentProvider читает app/google-services.json
-    // (committed in repo). mockBackend builds компилируют plugin но не
-    // используют Firebase classes (Koin не binds FirebaseFirestore в
-    // mockBackend BackendInit.kt).
+    // Spec 007 — Firebase google-services plugin. Per-variant mockBackend
+    // disable добавляется отдельным commit'ом (e3066a9 в 007 branch).
     alias(libs.plugins.google.services)
 }
 
