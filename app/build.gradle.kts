@@ -7,6 +7,19 @@ plugins {
     alias(libs.plugins.google.services)
 }
 
+// google-services plugin processes google-services.json for every variant
+// by default and fails the mockBackend build because that flavor uses
+// applicationIdSuffix ".mock" which has no matching client in the JSON.
+// mockBackend doesn't link Firebase SDKs so the resources aren't needed —
+// disable the per-variant task on every mockBackend variant.
+androidComponents {
+    onVariants(selector().withFlavor("backend" to "mockBackend")) { variant ->
+        tasks.named("process${variant.name.replaceFirstChar { it.uppercase() }}GoogleServices") {
+            enabled = false
+        }
+    }
+}
+
 android {
     namespace = "com.launcher.app"
     compileSdk = libs.versions.compileSdk.get().toInt()

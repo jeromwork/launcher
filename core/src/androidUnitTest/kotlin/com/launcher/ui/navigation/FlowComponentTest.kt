@@ -70,6 +70,7 @@ class FlowComponentTest {
         // Spec 010 T029 — observeFlows emits the seeded list once.
         override fun observeFlows(): kotlinx.coroutines.flow.Flow<List<FlowDescriptor>> =
             kotlinx.coroutines.flow.flowOf(flows)
+        override suspend fun addFlow(templateId: String) = error("not used in this test")
     }
 
     @Test

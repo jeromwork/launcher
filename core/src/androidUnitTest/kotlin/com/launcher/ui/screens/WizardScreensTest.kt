@@ -53,7 +53,7 @@ class WizardScreensTest {
                 )
             }
         }
-        rule.onNodeWithText("Новый flow").assertIsDisplayed()
+        rule.onNodeWithText("Новая вкладка").assertIsDisplayed()
         rule.onNodeWithText("Контакты").assertIsDisplayed()
     }
 
