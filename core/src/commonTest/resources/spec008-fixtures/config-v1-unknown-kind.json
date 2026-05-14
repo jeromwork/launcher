@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "serverUpdatedAt": {"epochSeconds": 1747166400, "nanoseconds": 0},
+  "lastWriterDeviceId": "0c8e3a5e-1e7c-4f7b-9a1d-2b3c4d5e6f7a",
+  "presetId": "simple-launcher",
+  "flows": [
+    {
+      "id": "f1111111-1111-4111-8111-111111111111",
+      "title": "Главный",
+      "slots": [
+        {
+          "id": "44444444-4444-4444-8444-444444444444",
+          "kind": "unknown-future-kind",
+          "args": {}
+        }
+      ]
+    }
+  ],
+  "contacts": []
+}
