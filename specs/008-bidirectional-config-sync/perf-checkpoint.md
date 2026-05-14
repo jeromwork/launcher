@@ -135,3 +135,24 @@ DEVICE-DEPENDENT VERIFICATIONS               : ⏳ deferred to device session
 
 **Next step**: when device available — run macrobenchmark, measure APK delta,
 24h trial; update this file with actual numbers; flip checkboxes.
+
+---
+
+## Compose UI tests (Phase 8/9 composables)
+
+**Deferred to instrumented session** per implementation experience 2026-05-14.
+
+**Why**: Compose Multiplatform's `stringResource()` requires real Android
+Context initialization. Robolectric pure-JVM run gives
+`IllegalStateException: Android context is not initialized` when composables
+using `stringResource()` are rendered через `createComposeRule()`. Existing
+project Compose tests (TileCard, FirstLaunchScreen) work because они pass
+labels as parameters from outside.
+
+**Coverage that already works** (commonTest + androidUnitTest):
+- [PushIndicatorPresenterTest](../../core/src/commonTest/kotlin/com/launcher/ui/components/config/PushIndicatorPresenterTest.kt) — 9 tests on state machine.
+- [MergeResolverTest](../../core/src/commonTest/kotlin/com/launcher/ui/merge/MergeResolverTest.kt) — 7 tests on merge resolution.
+- [strings_config_sync.xml](../../core/src/commonMain/composeResources/values/strings_config_sync.xml) — manually reviewed CHK009-compliant wording, single source of truth.
+
+**Action в instrumented session**: run `:app:connectedMockBackendDebugAndroidTest`
+с composables, verify text matches `strings_config_sync.xml`.
