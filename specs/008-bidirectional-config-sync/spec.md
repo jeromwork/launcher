@@ -199,6 +199,7 @@ Admin может настраивать не только preset, но и сам
 - **FR-053**: Если diff содержит только **непересекающиеся** изменения (разные id) — merge UI показывается с пометкой «изменения не пересекаются, применить оба?», действие default = «применить оба».
 - **FR-054**: После merge-выбора клиент MUST перечитать `/config` (для свежего `serverUpdatedAt`) и сделать новый push с актуальным `clientSnapshotUpdatedAt`. Если за время merge сервер снова изменился — второй раунд merge UI.
 - **FR-055 (Merge UI cancellation)**: Если пользователь закрывает merge UI без выбора (cancel / back button / kill app), pending-local-changes MUST сохраняться без изменений; баннер «есть несинхронизированные изменения» (FR-047) остаётся. Никакой auto-merge, никакой auto-discard. Источник: failure-recovery checklist 2026-05-14 (F12).
+- **FR-056 (Save granularity — continuous autosave)**: «Save локально» (FR-040) MUST триггериться **continuously** при каждом изменении в editing UI (autosave per change), без explicit «save» button. Pending state в Room обновляется на каждое user-edit (debounce допустим в пределах ~300 ms для UX smoothness, но не дольше). Это гарантирует ноль потери данных при rotation / process death / low-memory kill во время editing. Источник: state-management checklist 2026-05-14; обоснование senior-safe (Article VIII) — пожилой пользователь не должен помнить «нажми save», ожидаемое поведение «всё уже сохранено».
 
 **Out of scope (для предотвращения скоупа)**
 
