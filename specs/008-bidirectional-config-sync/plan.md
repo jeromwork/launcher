@@ -335,9 +335,9 @@ Per Article XII §7, the following docs were consulted (or are required to be co
 - [`CLAUDE.md`](../../CLAUDE.md) — rules 1, 2, 4, 5, 6.
 
 **ADRs** (relevant subset):
-- ADR-001 Platform Parity Gate — iOS out of scope today, commonMain stays parity-ready.
-- ADR-004 Localization — string-resources extraction (CHK008/009 of ux-quality).
-- ADR-005 UI Stack — Compose Multiplatform for MergeScreen.
+- [`docs/adr/ADR-001-platform-parity-gate.md`](../../docs/adr/ADR-001-platform-parity-gate.md) — iOS out of scope today, commonMain stays parity-ready.
+- [`docs/adr/ADR-004-localization.md`](../../docs/adr/ADR-004-localization.md) — string-resources extraction (CHK008/009 of ux-quality).
+- [`docs/adr/ADR-005-ui-stack.md`](../../docs/adr/ADR-005-ui-stack.md) — Compose Multiplatform for MergeScreen.
 - (No new ADR needed for 008 — optimistic concurrency on `serverUpdatedAt` is below ADR-threshold per Article XV §4.)
 
 **Product**:
