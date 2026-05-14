@@ -184,7 +184,7 @@ Admin может настраивать не только preset, но и сам
 - **FR-042**: Каждый editor (вкл. Managed-as-editor) MUST хранить **pending-local-changes** (Room) — локальные изменения, прошедшие «save локально» но не «push на сервер».
 - **FR-043**: Pending state MUST жить **сколь угодно долго** — никакого авто-discard, никакого авто-push. Только явное действие пользователя (push, discard в UI).
 - **FR-044**: При process restart editor MUST читать applied-config до показа UI (FR-041), и проверять наличие pending для предупреждения (FR-046).
-- **FR-045**: Локальная Room-схема MUST иметь migration-path от mock-JSON storage спека 003 — [NEEDS CLARIFICATION Q6: явная migration или cleanup при первом запуске].
+- **FR-045**: Managed-приложение MUST при первом запуске после обновления до 008-кода **удалить** любые legacy mock-storage artifacts (JSON-файлы из спека 003, in-memory stub state), **не пытаясь** их конвертировать в Room. Обоснование (Q6 clarify, 2026-05-14): спек 003 не достиг production-пользователей; mock-данные не являются валидным `/config` (нет UUID id, нет server-полей, нет linkId-привязки) — попытка migration создала бы «фейковые» applied-config без пары на сервере; CLAUDE.md §4 (Minimum Viable Architecture) — не добавляем abstraction для несуществующего use case.
 - **FR-046**: Если в local store есть pending для какого-то Managed-телефона, **главный экран** editor-приложения MUST показывать **визуальный маркер** «pending push» рядом с этим телефоном в списке привязанных устройств.
 - **FR-047**: При входе в Settings конкретного Managed-телефона, если для него есть pending, MUST показываться **баннер** «у вас локальные изменения, не запушено на сервер» с действиями «push сейчас» / «отменить локальные изменения».
 
@@ -252,10 +252,10 @@ Admin может настраивать не только preset, но и сам
 3. ~~**Форма `appliedConfigRef` в /state**~~ → **РЕШЕНО**: используется `appliedConfigUpdatedAt` (server-set timestamp). Зафиксировано в FR-031 и FR-002.
 4. ~~**Schema mismatch**~~ → **РЕШЕНО**: вынесено в отдельный будущий спек `app-version-compatibility` (см. OUT-006 и roadmap §Backlog). В 008 — out of scope, тестируется монорелизом.
 5. ~~**Concurrent admin writes**~~ → **РЕШЕНО**: optimistic concurrency на `serverUpdatedAt` + merge UI. См. FR-013/014/050-054.
-6. **Migration спека 003 → 008 storage (FR-045)**: явная migration или cleanup-on-first-launch?
+6. ~~**Migration спека 003 → 008**~~ → **РЕШЕНО**: cleanup at first launch (вариант A). См. FR-045. Обоснование: 003 не в production, mock-данные не валидны как `/config`.
 7. **Roll-back (OUT-003)**: scope 008 или backlog?
 8. **SC-001 / SC-002 / SC-004 значения**: какие конкретные числа?
 9. ~~**T-POLL для no-GMS fallback**~~ → **РЕШЕНО**: 15 минут WorkManager + RESUMED trigger throttled 2 min. См. FR-022.
 10. **Лимит размера `/config`** (edge case ~500 контактов, Firestore документ ≤ 1 MiB): какой soft-limit и UI-предупреждение?
 
-**Остаётся обсудить:** Q6, Q7, Q8, Q10.
+**Остаётся обсудить:** Q7, Q8, Q10.
