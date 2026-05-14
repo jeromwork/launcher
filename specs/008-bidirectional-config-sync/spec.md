@@ -158,15 +158,18 @@ Admin может настраивать не только preset, но и сам
 - **FR-012**: При push на сервер клиент MUST передать `clientSnapshotUpdatedAt` (значение `serverUpdatedAt`, прочитанное клиентом перед редактированием).
 - **FR-013**: Server-side check (Firestore transaction или precondition): если `clientSnapshotUpdatedAt != serverUpdatedAt` в момент write — write отклоняется (PERMISSION_DENIED или transaction abort).
 - **FR-014**: При отклонении (FR-013) клиент MUST прочитать актуальный `/config`, вычислить **diff** между (а) своим local-state и (б) актуальным server-state, и показать **merge UI**.
+- **FR-015 (Push UX feedback)**: При инициации push admin-UI MUST мгновенно показать спиннер «в процессе» рядом с целевым Managed-устройством в списке (SC-001). При успешной записи в Firestore (`/config/current` write acknowledged) спиннер сменяется на значок «отправлено на сервер ✓». Если за 5 секунд write не подтверждён + `ConnectivityManager.NetworkCallback` сообщает «нет сети» — текст индикатора расширяется «нет сети, идёт загрузка». Дополнительно — второй значок «применено бабушкой ✓» появляется когда Managed обновил `/state.appliedConfigUpdatedAt` (SC-001b).
 
 **Channel server → Managed (apply pushed config)**
 
 - **FR-020**: При успешной записи `/config/current` Cloudflare Worker (из 007) MUST отправить FCM-пуш с payload type `config.updated` на topic `link-{linkId}`.
 - **FR-021**: Managed MUST на FCM `config.updated` прочитать `/config/current` и применить атомарно (всё или ничего на уровне локального хранилища).
-- **FR-022**: Trigger для apply проверки на Managed (определён в Q1 clarify):
-  - On Activity#onResume (launcher visible),
-  - Throttle: не чаще раза в **2 минуты**,
-  - Periodic fallback (если экран долго не включают): WorkManager polling **15 минут** (consistent с FR-018 спека 007).
+- **FR-022**: Triggers для apply-check на Managed (определены в Q1 + Q8 clarify) — четыре независимых:
+  - (T1) FCM push `config.updated` (FR-020/021),
+  - (T2) `ConnectivityManager.NetworkCallback.onAvailable` — сеть появилась → проверить накопившиеся изменения,
+  - (T3) WorkManager periodic 15 минут — fallback (consistent с FR-018 спека 007),
+  - (T4) Activity#onResume → throttle не чаще раза в **2 минуты**.
+  Любой из четырёх триггеров инициирует чтение `/config/current` с сервера и сравнение с last-applied.
 - **FR-023**: Если Managed сам только что был writer (только что pushed свою версию `/config`), он MUST избежать double-apply (apply уже сделан перед push'ем) — определяется по `lastWriterDeviceId == self`.
 
 **Channel Managed → server (state publish)**
@@ -183,7 +186,7 @@ Admin может настраивать не только preset, но и сам
 - **FR-041**: Managed MUST хранить **applied-config** локально (Room) для fast bootstrap при process restart (US-5).
 - **FR-042**: Каждый editor (вкл. Managed-as-editor) MUST хранить **pending-local-changes** (Room) — локальные изменения, прошедшие «save локально» но не «push на сервер».
 - **FR-043**: Pending state MUST жить **сколь угодно долго** — никакого авто-discard, никакого авто-push. Только явное действие пользователя (push, discard в UI).
-- **FR-044**: При process restart editor MUST читать applied-config до показа UI (FR-041), и проверять наличие pending для предупреждения (FR-046).
+- **FR-044**: При process restart Managed MUST читать last-applied-config из Room до первого frame UI — без сетевых обращений до отрисовки (SC-004a). Через **5 секунд после first frame** MUST запросить `/config/current` с сервера и применить, если `serverUpdatedAt > appliedConfigUpdatedAt` (SC-004b). Любой editor (включая admin-phone, admin-tablet) MUST при старте проверять наличие pending-local-changes для предупреждения (FR-046).
 - **FR-045**: Managed-приложение MUST при первом запуске после обновления до 008-кода **удалить** любые legacy mock-storage artifacts (JSON-файлы из спека 003, in-memory stub state), **не пытаясь** их конвертировать в Room. Обоснование (Q6 clarify, 2026-05-14): спек 003 не достиг production-пользователей; mock-данные не являются валидным `/config` (нет UUID id, нет server-полей, нет linkId-привязки) — попытка migration создала бы «фейковые» applied-config без пары на сервере; CLAUDE.md §4 (Minimum Viable Architecture) — не добавляем abstraction для несуществующего use case.
 - **FR-046**: Если в local store есть pending для какого-то Managed-телефона, **главный экран** editor-приложения MUST показывать **визуальный маркер** «pending push» рядом с этим телефоном в списке привязанных устройств.
 - **FR-047**: При входе в Settings конкретного Managed-телефона, если для него есть pending, MUST показываться **баннер** «у вас локальные изменения, не запушено на сервер» с действиями «push сейчас» / «отменить локальные изменения».
@@ -222,10 +225,17 @@ Admin может настраивать не только preset, но и сам
 
 ### Measurable Outcomes
 
-- **SC-001**: End-to-end latency «save локально + push (no conflict)» → «Managed applied + /state updated» MUST быть < [NEEDS CLARIFICATION Q8: 5s / 10s, учитывая FCM p95 спека 007 SC-001].
-- **SC-002**: При offline-Managed (≥ 30 минут) и последующем online — apply последней `/config` MUST произойти в течение [NEEDS CLARIFICATION Q8: ~10s] после восстановления связи (через FCM или RESUMED-trigger).
+- **SC-001 (push UX feedback)**: При нажатии «push на сервер» admin-UI MUST мгновенно показать индикатор «в процессе» (крутящийся спиннер) рядом с целевым Managed-устройством в списке привязанных. Сигнал успешного push для UI = **Firestore подтвердил write** `/config/current` (вариант А, Q8 clarify) — после ack спиннер исчезает, появляется значок «отправлено на сервер ✓». Если за **5 секунд** push не подтверждён и через `ConnectivityManager.NetworkCallback` детектирована «нет сети» — индикатор расширяется текстом «нет сети, идёт загрузка на сервер». Гарантия: 100% push-операций имеют видимый UI-state, нет «тихих» процессов. Метрика для тестов: 100 push'ей → 100 видимых UI-state-transitions.
+- **SC-001b (apply confirmation — second indicator)**: После того как Managed обновил `/state.appliedConfigUpdatedAt` (т.е. реально применил), admin-UI MUST показать **второй значок** «применено бабушкой ✓» рядом с тем же Managed-устройством. Это отдельный от SC-001 индикатор — admin видит две фазы: «на сервере» (SC-001) → «применено Managed'ом» (SC-001b). Жёсткого бюджета времени между ними нет; если Managed долго offline — значок «применено» появится позже (когда Managed догонит).
+- **SC-002 (multi-trigger config refresh on Managed)**: Managed MUST подписаться на **четыре независимых триггера** обновления `/config`:
+  - (T1) FCM push `config.updated`,
+  - (T2) `ConnectivityManager.NetworkCallback.onAvailable` — сеть только что появилась,
+  - (T3) WorkManager periodic 15 минут (fallback при отсутствии FCM/событий сети),
+  - (T4) Activity#onResume throttled 2 минуты (FR-022).
+  Метрика SC: каждый из четырёх триггеров покрыт integration-test'ом — при искусственной активации триггера проверяется, что `/config` читается с сервера и применяется. Жёсткого latency-бюджета на refresh **нет** — это event-driven система, не SLO-механизм.
 - **SC-003**: 100% push'ей приводят к /state update **или** к visible merge UI — нет «тихих» потерь. Метрика: 100 push'ей → 100 итоговых исходов (либо state, либо merge), 0 silent failures.
-- **SC-004**: После process death Managed bootstrap-time (Activity#onCreate → first frame с applied-config) < [NEEDS CLARIFICATION Q8: 500ms / 1s].
+- **SC-004a (cold start with last-applied)**: После process death first frame UI Managed-телефона MUST отрисовываться с **last-applied-config из Room** (без сетевых обращений до first frame) и укладываться в бюджет SC-007 спека 007: **≤ 650 ms (p95)**. Бабушка видит свой обычный экран мгновенно при старте лаунчера.
+- **SC-004b (post-startup config refresh)**: После first frame (SC-004a) Managed MUST через **5 секунд** запросить `/config/current` с сервера и, если `serverUpdatedAt > appliedConfigUpdatedAt` — применить и перерисовать UI. Обоснование 5 секунд (Q8 clarify): дать пользователю «прийти в себя» и UI стабилизироваться, не дёргать сеть на самом критичном этапе старта.
 - **SC-005**: Wire-format roundtrip и backward-compat read tests — 100% green.
 - **SC-006**: ~~schema mismatch behavior~~ — вынесено в отдельный спек (OUT-006); в 008 все editor'ы тестируются монорелизом, SC-006 неактивен.
 - **SC-007**: Diff/merge correctness — формальные test cases для всех edge cases из этого спека (Q2 acceptance scenarios 1-5 + section Edge Cases): 100% green.
@@ -255,8 +265,8 @@ Admin может настраивать не только preset, но и сам
 5. ~~**Concurrent admin writes**~~ → **РЕШЕНО**: optimistic concurrency на `serverUpdatedAt` + merge UI. См. FR-013/014/050-054.
 6. ~~**Migration спека 003 → 008**~~ → **РЕШЕНО**: cleanup at first launch (вариант A). См. FR-045. Обоснование: 003 не в production, mock-данные не валидны как `/config`.
 7. ~~**Roll-back**~~ → **РЕШЕНО**: встроено в спек 009 `admin-mode-flows` как config history + rollback (retention 10 версий). См. OUT-007 и roadmap §Spec 009.
-8. **SC-001 / SC-002 / SC-004 значения**: какие конкретные числа?
+8. ~~**SC-001 / SC-002 / SC-004 значения**~~ → **РЕШЕНО**: behavior-based criteria, не latency-budgets. SC-001 push = Firestore ack + 5s no-network warning threshold. SC-001b = «применено» как второй значок. SC-002 = 4 триггера refresh, без жёсткого latency. SC-004a = ≤ 650 ms first frame с last-applied (re-use SC-007 спека 007). SC-004b = 5s после first frame → fetch /config.
 9. ~~**T-POLL для no-GMS fallback**~~ → **РЕШЕНО**: 15 минут WorkManager + RESUMED trigger throttled 2 min. См. FR-022.
 10. **Лимит размера `/config`** (edge case ~500 контактов, Firestore документ ≤ 1 MiB): какой soft-limit и UI-предупреждение?
 
-**Остаётся обсудить:** Q8, Q10.
+**Остаётся обсудить:** Q10.
