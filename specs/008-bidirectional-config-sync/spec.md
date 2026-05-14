@@ -2,94 +2,139 @@
 
 **Feature Branch**: `008-bidirectional-config-sync`
 **Created**: 2026-05-14
-**Status**: Draft
-**Input**: roadmap §008 (`docs/product/roadmap.md` lines 168–188) — applies admin's `/config` to Managed, publishes back `/state` as source of truth for admin UI.
+**Status**: Draft (rev. 2 — после Q1-Q2 clarify: collaborative editing model)
+**Input**: roadmap §008 (`docs/product/roadmap.md` lines 168–188) — admin's `/config` ↔ Managed's `/state` + multi-editor collaborative-edit с optimistic concurrency и merge UI.
 
 ---
 
 ## Контекст (для не-разработчика)
 
 После спека 007 у нас уже есть «связь» (link) между двумя телефонами:
-- телефон **admin'а** (взрослый родственник),
+- телефон **admin'а** (взрослый родственник, обычно внук),
 - телефон **Managed** (пожилой пользователь, в режиме лаунчера).
 
-В спеке 007 admin может только **видеть**, что связь установлена и какой preset выбран на Managed'е. Реальное «что показывать на главном экране» (раскладка плиток, контакты, потоки flow/slot) — пока mock из спека 003.
+В спеке 007 admin может только **видеть**, что связь установлена. Реальное «что показывать на главном экране» (раскладка плиток, контакты, потоки flow/slot) — пока mock из спека 003.
 
-Спек 008 даёт admin'у возможность **редактировать раскладку удалённо** и видеть, **что реально применилось** на телефоне у пожилого пользователя. Это первая фича, где данные ходят в обе стороны: admin → Managed (конфиг) и Managed → admin (отчёт о применении).
+Спек 008 даёт **возможность редактировать раскладку** Managed-телефона с любого устройства, привязанного к этой паре admin↔Managed:
+- с **телефона admin'а** (типичный случай — удалённо, по сети),
+- с **планшета admin'а** (тот же admin Firebase-account, второе устройство),
+- с **самого Managed-телефона** (admin часто будет «брать его в руки» и настраивать напрямую — это нормальный путь, не исключение).
+
+Все три типа устройств — **равноправные редакторы (editors)**. Это первая фича, где данные ходят **во все стороны**, и где возможны **параллельные правки**.
+
+**Ключевая особенность.** Между «сохранить локально» и «отправить на сервер» — два **раздельных** действия пользователя. Можно сохранить локально и не пушить неделю; в это время кто-то с другого устройства может изменить тот же `/config` — тогда при push увидим **diff (различия) + merge UI**.
 
 ---
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 — Admin меняет раскладку, Managed применяет (Priority: P1)
+### User Story 1 — Admin меняет раскладку с одного устройства (Priority: P1)
 
-Admin редактирует на своём телефоне раскладку «бабушкиного» экрана — например, добавляет плитку «позвонить внучке». После сохранения изменение приходит на телефон Managed (по push'у из 007), применяется и появляется на главном экране. Admin видит подтверждение «применено» в своём UI.
+Admin редактирует на своём телефоне раскладку «бабушкиного» экрана — например, добавляет плитку «позвонить внучке». Нажимает **«save локально»** (изменение сохранено только на admin-телефоне). Затем нажимает **«push на сервер»** — изменение улетает в Firestore, по push-каналу из 007 доставляется на Managed, применяется. Admin видит в своём UI подтверждение «применено».
 
-**Why this priority**: это базовая ценность всей фичи дистанционного управления. Без P1 спек 008 бесполезен — admin не может ничего реально изменить.
+**Why this priority**: базовая ценность спека. Без P1 — admin не может ничего реально изменить.
 
-**Independent Test**: при работающем спеке 007 (pairing + push) admin меняет один параметр конфига (например, presetId) → push доставляется на Managed (FCM, или fallback poll при отсутствии GMS — C13 из 007) → Managed применяет → `/state/current` обновляется → admin UI показывает «применено». MVP-достаточно для одного типа изменения.
-
-**Acceptance Scenarios**:
-
-1. **Given** admin и Managed связаны (link существует) и Managed online, **When** admin записывает новый `/config/current` с другим `presetId`, **Then** в течение T-PUSH (определяется в clarify) на Managed приходит уведомление, конфиг применяется, и `/state/current.presetId` обновляется на новое значение.
-2. **Given** конфиг применён, **When** admin читает `/state/current`, **Then** admin видит applied-snapshot, совпадающий с тем, что реально на главном экране Managed'а, а не тот `/config`, который он отправил.
-3. **Given** admin отправил `/config`, **When** Managed offline, **Then** в admin-UI `/state` остаётся прежним (не показывает «применено»); при возврате Managed online — Managed синхронизируется и `/state` обновляется.
-
----
-
-### User Story 2 — Managed offline получает устаревший конфиг (Priority: P1)
-
-Managed был offline какое-то время. За это время admin успел изменить конфиг **дважды** (например, сначала добавил плитку, потом убрал). Когда Managed возвращается online, он должен применить **последнюю** версию `/config`, а не воспроизводить промежуточные состояния.
-
-**Why this priority**: без корректной conflict-resolution Managed может оказаться в несогласованном состоянии или применить устаревшие данные. Это критично для пользовательской безопасности (вдруг admin специально убрал какую-то плитку).
-
-**Independent Test**: записать `/config` версии A, затем B, при offline Managed'е → перевести Managed в online → проверить, что применилась B и `/state` отражает B.
+**Independent Test**: на работающем спеке 007 admin меняет один параметр (например, `presetId`), save локально → push → Managed получает push → применяет → `/state` обновляется → admin UI показывает «применено».
 
 **Acceptance Scenarios**:
 
-1. **Given** Managed offline, admin записал `/config` A, затем B, **When** Managed подключается, **Then** Managed читает текущий `/config` (B) и применяет именно его.
-2. **Given** Managed применил конфиг, **When** admin читает `/state`, **Then** в `/state` есть поле, идентифицирующее **какую именно версию конфига** Managed применил (например, hash или versionId — точная форма в clarify).
+1. **Given** admin и Managed связаны, Managed online, никто параллельно не редактирует, **When** admin делает «save локально» затем «push на сервер», **Then** push проходит без conflict UI, и в течение T-PUSH Managed применяет, `/state.appliedConfigUpdatedAt` обновляется.
+2. **Given** конфиг применён, **When** admin читает `/state/current`, **Then** видит applied-snapshot, совпадающий с реальным экраном Managed'а (не тот `/config`, который отправил — если partial-apply, видны различия).
 
 ---
 
-### User Story 3 — Расширение раскладки: flows / slots / contacts (Priority: P2)
+### User Story 2 — Merge при параллельных правках (Priority: P1)
 
-Admin может настраивать не только preset, но и сами **потоки (flow)** и их **слоты (slot)** — какие действия доступны бабушке. Также — какие **контакты** показывать.
+Admin с **телефона** делает «save локально» (изменение плитки «Маша»), но **не пушит**. В это же время admin с **планшета** меняет другую плитку и **пушит**. Когда позже admin на телефоне нажмёт «push на сервер» → обнаруживается, что сервер ушёл вперёд → показывается **merge UI** с diff'ом: «вы поменяли плитку Маша, на сервере поменяли плитку Петя, что оставить?»
 
-**Why this priority**: для MVP достаточно P1 (один параметр меняется end-to-end). Полная раскладка — расширение, поэтому P2.
+**Why this priority**: без корректного conflict-resolution параллельные правки приведут к **молчаливой потере данных** (одно изменение перетрёт другое). Это критично — `/config` управляет тем, что видит пожилой пользователь, потерять плитку «вызов экстренной помощи» недопустимо.
 
-**Independent Test**: после успешного P1 — admin меняет один flow (добавляет slot) → Managed применяет → `/state` отражает новый flow → admin-UI показывает применённый flow.
+**Independent Test**: два устройства редактируют `/config` параллельно; первое пушит, второе пушит → второе видит merge UI, юзер выбирает, save → итоговый `/config` содержит выбранную комбинацию.
 
 **Acceptance Scenarios**:
 
-1. **Given** P1 работает, **When** admin записывает `/config` с новым набором slots в одном из flows, **Then** Managed применяет, и `/state.flows` отражает применённые slots.
-2. **Given** admin записал контакты в `/config`, **When** Managed применяет, **Then** только эти контакты показаны в раскладке (старые удаляются согласно schema).
+1. **Given** оба admin-устройства имеют snapshot `/config` с `updatedAt = T0`, **When** устройство A пушит изменение (server `updatedAt → T1`), **When** устройство B затем пытается push с `clientSnapshotUpdatedAt = T0`, **Then** push отклоняется (FR-020), и устройству B показывается merge UI с server-side изменениями A.
+2. **Given** конфликт показан, **When** пользователь делает выбор в merge UI и нажимает save, **Then** клиент перечитывает server (новый `updatedAt = T1`), пушит с `clientSnapshotUpdatedAt = T1` → push проходит.
+3. **Given** два устройства изменили **разные** элементы `/config` (плитки с разными id), **When** оба пушат, **Then** второй push видит конфликт по `updatedAt`, но merge UI показывает: «изменения не пересекаются, применить оба?» — auto-mergeable case.
+4. **Given** оба устройства **удалили одну и ту же плитку** (один id), **When** оба пушат, **Then** второй push видит конфликт по `updatedAt`, но diff пуст (оба удалили то же самое) — авто-резолв, без UI.
+5. **Given** устройство A удалило плитку, устройство B изменило её, **When** оба пушат, **Then** второй push показывает merge UI с конфликтом «удалить vs изменить», юзер решает.
 
 ---
 
-### User Story 4 — Persisted config на Managed (Room) (Priority: P2)
+### User Story 3 — Managed-телефон как редактор (Priority: P1)
+
+Admin физически взял Managed-телефон в руки (или бабушка прошла через защищённый вход — 7 тапов + пароль, как в спеке 003), открыл Settings прямо на Managed, изменил плитку, сделал save + push. Изменения летят на сервер так же, как с admin-устройства. С точки зрения collaborative editing — Managed это **обычный editor**, не специальный.
+
+**Why this priority**: основной путь первичной настройки — admin берёт Managed в руки и настраивает на месте. Без P3 спек игнорирует главный реальный use case.
+
+**Independent Test**: на Managed-телефоне войти в Settings (7 тапов + пароль), изменить плитку, save + push → запись `/config` на сервере содержит изменение, admin (на своём устройстве) при следующем чтении видит изменение.
+
+**Acceptance Scenarios**:
+
+1. **Given** admin физически держит Managed-телефон, никто параллельно не редактирует, **When** в Settings меняет плитку, делает save + push, **Then** push проходит, `/config` на сервере обновлён.
+2. **Given** Managed редактирует локально (save локально, не push), параллельно admin с другого устройства пушит изменение, **When** Managed нажимает push, **Then** показывается **тот же самый merge UI**, что на admin-устройстве (единая реализация, не senior-safe-вариант).
+3. **Given** Managed offline, **When** admin делает save локально на Managed, **Then** save проходит, баннер «pending push» появляется; при возврате online push не делается автоматически — пользователь сам должен нажать.
+
+---
+
+### User Story 4 — Pending changes warning (Priority: P1)
+
+Admin сделал «save локально», но не нажал «push на сервер». Закрыл приложение. Через день/неделю/месяц открывает снова → **на главном экране** в списке привязанных Managed-телефонов телефон, для которого есть pending, **помечен значком** «есть несинхронизированные изменения». Войдя в Settings этого телефона — баннер «у вас локальные изменения, не запушено на сервер». Pending живёт **сколь угодно долго** — никакого авто-discard, никакого авто-push. Пользователь сам решает.
+
+**Why this priority**: без этого admin может забыть про save локально и не понять, почему изменения не на Managed. Visibility — обязательное условие, иначе данные «теряются» с точки зрения пользователя.
+
+**Independent Test**: сделать save локально без push, закрыть приложение, открыть снова → проверить, что в списке Managed-телефонов pending-значок виден; войти в Settings → проверить, что баннер виден.
+
+**Acceptance Scenarios**:
+
+1. **Given** save локально сделан, push не сделан, **When** приложение убито и запущено заново, **Then** на главном экране списка Managed-телефонов pending-телефон помечен значком «pending push».
+2. **Given** pending существует 30+ дней, **When** пользователь открывает приложение, **Then** изменения по-прежнему доступны, никакого авто-discard.
+3. **Given** есть pending, **When** пользователь push'ит и сервер за это время изменился, **Then** показывается merge UI (FR-020 / US-2).
+
+---
+
+### User Story 5 — Persisted config на Managed (Room) (Priority: P2)
 
 Managed хранит применённый конфиг локально (Room database), чтобы после рестарта/process death показать тот же экран без сетевого запроса.
 
-**Why this priority**: critical for реальной надёжности, но не блокирует P1 (тот может работать с in-memory store). После P1 это первое, что нужно для production-ready.
+**Why this priority**: критично для production-надёжности, но не блокирует P1-P4 (те могут работать с in-memory storage). Без P5 после process kill бабушка увидит «загрузка» или mock-экран — приемлемо для MVP.
 
-**Independent Test**: применить конфиг → убить процесс → запустить заново → проверить, что главный экран сразу показывает применённый конфиг без обращения к Firestore.
+**Independent Test**: применить конфиг → убить процесс → запустить заново → главный экран сразу показывает applied-config без обращения к Firestore.
 
 **Acceptance Scenarios**:
 
-1. **Given** конфиг применён, **When** процесс Managed убит (process death), **When** запущен снова, **Then** UI отрисовывается из локального хранилища с тем же `presetId` и flows, что были до убийства.
-2. **Given** локальное хранилище содержит конфиг schemaVersion N, **When** приложение обновилось до версии с reader schemaVersion N+1 (additive), **Then** старый конфиг читается без ошибок и без потери полей.
+1. **Given** конфиг применён, **When** процесс Managed убит, запущен снова, **Then** UI отрисовывается из локального хранилища с тем же `presetId` и flows.
+2. **Given** local store содержит конфиг schemaVersion N, **When** приложение обновлено до reader schemaVersion N+1 (additive), **Then** старый конфиг читается без ошибок.
+
+---
+
+### User Story 6 — Расширение раскладки: flows / slots / contacts (Priority: P2)
+
+Admin может настраивать не только preset, но и сами потоки (flow), их слоты (slot), контакты. Все эти элементы имеют стабильный `id` (UUID v4, client-generated) — что обеспечивает корректный diff/merge.
+
+**Why this priority**: для MVP достаточно P1 (один параметр меняется end-to-end). Полная раскладка — расширение.
+
+**Independent Test**: после P1 — admin меняет один flow (добавляет slot с новым UUID id), save + push → Managed применяет → `/state.flowsApplied` отражает.
+
+**Acceptance Scenarios**:
+
+1. **Given** P1-P4 работают, **When** admin записывает `/config` с новым slot (UUID id) в одном из flows, **Then** Managed применяет, `/state.flows` отражает применённое.
+2. **Given** admin записал контакты в `/config`, **When** Managed применяет, **Then** только эти контакты показаны в раскладке (старые контакты с другими id удаляются).
 
 ---
 
 ### Edge Cases
 
-- **Managed применить не смог** (partial apply: один из provider'ов недоступен, контакт-permission отозван). `/state` должен отразить, что **реально применилось**, и какая часть failed — admin-UI показывает только реальное состояние.
-- **Schema mismatch**: admin записал `/config` schemaVersion N+1, Managed на старой версии приложения умеет только N. Поведение в clarify (отклонить vs применить additive-поля как unknown).
-- **Конкурентная запись admin'ом** в /config из двух устройств одновременно (admin переустановил приложение). Last-write-wins via `updatedAt`, либо optimistic-concurrency через precondition (clarify).
-- **Revoke во время apply**: admin начал запись, в этот момент Managed выполнил revoke (FR-033 из 007). `/links/{linkId}` удалён → запись `/config` должна быть отклонена Security Rules.
-- **Огромный список контактов** (например, 500 контактов в одном `/config`). Лимиты Firestore: документ ≤ 1 MiB. В clarify — лимит на размер `/config`, и поведение при превышении.
-- **Roll-back**: admin отправил «плохой» конфиг (например, пустой flow без slot'ов). На Managed применилось — у бабушки пустой экран. Возможность отката (восстановить предыдущий `/config`) — в clarify, возможно out of scope.
+- **Partial apply на Managed** (provider недоступен, контакт-permission отозван). `/state` отражает реально применённое + `partialApplyReasons[]`. Admin-UI рендерит из `/state`, не из `/config`.
+- **Schema mismatch**: admin записал `/config` schemaVersion N+1, Managed на старой версии умеет N. Поведение — [NEEDS CLARIFICATION Q4: reject / ignore-unknown additive / hard-fail].
+- **Конкурентная запись из двух editor'ов** — покрыто FR-020 (optimistic concurrency на `updatedAt`).
+- **UUID-коллизия** (два editor'а сгенерировали одинаковый UUID v4 — вероятность ~0): обрабатывается как обычный element-conflict в merge UI.
+- **Revoke во время apply**: link удалён → запись `/config` отклоняется Security Rules.
+- **Огромный список контактов** (~500 контактов): Firestore лимит документа ≤ 1 MiB. [NEEDS CLARIFICATION Q10: какой soft-limit и UI-предупреждение].
+- **Roll-back** (откат к предыдущему `/config`): [NEEDS CLARIFICATION Q7: scope 008 или backlog].
+- **Сеть рвётся в момент push**: push retry с проверкой `updatedAt` (если за время retry сервер ушёл — конфликт, merge UI).
+- **App killed между save локально и push**: pending state сохраняется (Room), баннер при следующем запуске (US-4).
+- **Pending существует месяц, server тем временем менялся 5 раз**: при push — стандартный merge UI, без особой обработки «старого» pending.
 
 ---
 
@@ -97,54 +142,77 @@ Managed хранит применённый конфиг локально (Room 
 
 ### Functional Requirements
 
-**Channel: admin → Managed (config push)**
+**Wire format & versioning**
 
-- **FR-001**: Admin MUST быть способен записать `/links/{linkId}/config/current` через Firestore, при наличии действительного `linkId` и Firebase Auth UID, совпадающего с `adminId` из `/links/{linkId}` (Security Rules из 007).
-- **FR-002**: `/config/current` MUST содержать поле `schemaVersion` (Int) с первого коммита.
-- **FR-003**: При успешной записи `/config/current` Cloudflare Worker (из 007) MUST отправить FCM-пуш на topic `link-{linkId}` с типом payload `config.updated`.
-- **FR-004**: Managed MUST при получении пуша `config.updated` прочитать `/config/current` и применить его атомарно (всё или ничего — на уровне локального хранилища, не на уровне provider'ов).
-- **FR-005**: При отсутствии GMS на Managed (C13 из 007) MUST работать fallback: периодический poll `/config/current` с интервалом [NEEDS CLARIFICATION: T-POLL — взять из спека 007 или иное?].
+- **FR-001**: `/links/{linkId}/config/current` MUST содержать поле `schemaVersion` (Int) с первого коммита.
+- **FR-002**: `/config/current` MUST содержать `serverUpdatedAt` (server-set timestamp) — используется как `version` для optimistic concurrency.
+- **FR-003**: `/config/current` MUST включать (минимум): `schemaVersion`, `serverUpdatedAt`, `lastWriterDeviceId`, `presetId`, `flows[]` (с `slots[]`), `contacts[]`.
+- **FR-004**: Каждый элемент `/config` (flow, slot, contact, plate, тиле — любое, что может появиться/исчезнуть/измениться независимо) MUST иметь стабильный `id` (UUID v4, client-generated at creation time).
+- **FR-005**: Спек MUST включать roundtrip-test (`write v1 → read v1 → deep-equal`) и backward-compat read-test (`reader v2 reads v1`) для `/config` и `/state` (per CLAUDE.md §5).
+- **FR-006**: Field additions MUST быть additive (новые опциональные поля без bump schemaVersion). Rename/remove полей requires schemaVersion bump + reader-migration в Phase 0 следующего спека.
 
-**Channel: Managed → admin (state publish)**
+**Channel admin/Managed/tablet → server (push с conflict check)**
 
-- **FR-006**: После apply (успешного или partial) Managed MUST обновить `/links/{linkId}/state/current` с актуальным applied-snapshot.
-- **FR-007**: `/state/current` MUST содержать поле, идентифицирующее версию `/config`, которая была применена ([NEEDS CLARIFICATION: `appliedConfigHash` / `appliedConfigUpdatedAt` / `appliedConfigVersion`]).
-- **FR-008**: `/state/current` MUST расширять схему spec 007 additive (без bump'а schemaVersion с 1 до 2 — per `state-bootstrap.md` §Backward compatibility).
-- **FR-009**: `/state/current` MUST отражать только то, что **реально применилось** на Managed (не то, что admin отправил). Partial-apply MUST быть видимым (admin-UI рендерит из `/state`, не из `/config`).
-- **FR-010**: При revoke (FR-033 из 007) `/state/current` и `/config/current` MUST быть удалены рекурсивно — должно быть учтено в TODO `Link.kt` из 007 (список known subcollections для recursive-delete).
+- **FR-010**: Любой editor (admin-phone / admin-tablet / Managed-phone) MUST уметь записать `/links/{linkId}/config/current` через Firestore, при наличии действительного `linkId` и Firebase Auth UID, входящего в whitelist link'а (adminId или managedDeviceFirebaseUid).
+- **FR-011**: Security Rules для `/config/current` MUST разрешать write для `adminId` И для `managedDeviceFirebaseUid` (оба — equal editors). Update спека 007 Security Rules — обязательно в Phase 0.
+- **FR-012**: При push на сервер клиент MUST передать `clientSnapshotUpdatedAt` (значение `serverUpdatedAt`, прочитанное клиентом перед редактированием).
+- **FR-013**: Server-side check (Firestore transaction или precondition): если `clientSnapshotUpdatedAt != serverUpdatedAt` в момент write — write отклоняется (PERMISSION_DENIED или transaction abort).
+- **FR-014**: При отклонении (FR-013) клиент MUST прочитать актуальный `/config`, вычислить **diff** между (а) своим local-state и (б) актуальным server-state, и показать **merge UI**.
 
-**Wire format & schema**
+**Channel server → Managed (apply pushed config)**
 
-- **FR-011**: `/config/current` MUST включать (минимум): `schemaVersion`, `presetId`, `flows[]` (с `slots[]`), `contacts[]`, `updatedAt` (server-set), `updatedBy` (adminId).
-- **FR-012**: Спек MUST включать roundtrip-test (`write v1 → read v1 → assert deep-equal`) для `/config` и `/state` (per CLAUDE.md правило 5 и Article VII).
-- **FR-013**: Спек MUST включать backward-compat read-test (`future reader v2 reads v1`) для `/config` и `/state`.
-- **FR-014**: Field additions MUST быть additive (новые опциональные поля, без bump schemaVersion). Rename/remove полей requires schemaVersion bump 1 → 2 и reader-migration в Phase 0 следующего спека.
+- **FR-020**: При успешной записи `/config/current` Cloudflare Worker (из 007) MUST отправить FCM-пуш с payload type `config.updated` на topic `link-{linkId}`.
+- **FR-021**: Managed MUST на FCM `config.updated` прочитать `/config/current` и применить атомарно (всё или ничего на уровне локального хранилища).
+- **FR-022**: Trigger для apply проверки на Managed (определён в Q1 clarify):
+  - On Activity#onResume (launcher visible),
+  - Throttle: не чаще раза в **2 минуты**,
+  - Periodic fallback (если экран долго не включают): WorkManager polling **15 минут** (consistent с FR-018 спека 007).
+- **FR-023**: Если Managed сам только что был writer (только что pushed свою версию `/config`), он MUST избежать double-apply (apply уже сделан перед push'ем) — определяется по `lastWriterDeviceId == self`.
 
-**Persistence (Managed)**
+**Channel Managed → server (state publish)**
 
-- **FR-015**: Managed MUST хранить последний applied-config локально (Room DB), чтобы после process death рендерить главный экран без сетевого запроса.
-- **FR-016**: Локальная схема Room MUST иметь migration-path от mock-JSON storage спека 003 — [NEEDS CLARIFICATION: cleanup при первом запуске после обновления или явная migration функция].
-- **FR-017**: При process restart Managed MUST читать local applied-config до того, как покажет UI (no white-flash, no «applying default» при наличии локально сохранённого конфига).
+- **FR-030**: После apply Managed MUST обновить `/links/{linkId}/state/current` с applied-snapshot.
+- **FR-031**: `/state/current` MUST содержать `appliedConfigUpdatedAt` (значение `serverUpdatedAt` из `/config`, который применили) — admin-UI этим полем понимает «какая версия применена».
+- **FR-032**: `/state/current` MUST расширять схему 007 additive (без bump schemaVersion).
+- **FR-033**: `/state/current` MUST отражать только реально применённое (не отправленное). Partial-apply видим через `partialApplyReasons[]`.
+- **FR-034**: При revoke (FR-033 спека 007) `/config/current` и `/state/current` MUST быть удалены рекурсивно — TODO `Link.kt` спека 007 расширяется новым subcollection.
 
-**Conflict resolution**
+**Local persistence + pending state**
 
-- **FR-018**: Managed offline → admin writes /config A → admin writes /config B → Managed online: Managed MUST применить B (current state of /config), не воспроизводить A.
-- **FR-019**: Если admin записал `/config` с `schemaVersion` выше, чем умеет читать Managed, поведение: [NEEDS CLARIFICATION: reject (Managed пишет в `/state` ошибку «unsupported version») / apply known fields + ignore unknown additive fields / hard-fail].
-- **FR-020**: Конкурентная запись admin'ом из двух устройств: [NEEDS CLARIFICATION: last-write-wins via `updatedAt` server-timestamp / optimistic-concurrency через precondition].
+- **FR-040**: На каждом editor (admin-phone / admin-tablet / Managed-phone) MUST быть **раздельные действия** «save локально» (мгновенно, всегда успешно) и «push на сервер» (с FR-013 check).
+- **FR-041**: Managed MUST хранить **applied-config** локально (Room) для fast bootstrap при process restart (US-5).
+- **FR-042**: Каждый editor (вкл. Managed-as-editor) MUST хранить **pending-local-changes** (Room) — локальные изменения, прошедшие «save локально» но не «push на сервер».
+- **FR-043**: Pending state MUST жить **сколь угодно долго** — никакого авто-discard, никакого авто-push. Только явное действие пользователя (push, discard в UI).
+- **FR-044**: При process restart editor MUST читать applied-config до показа UI (FR-041), и проверять наличие pending для предупреждения (FR-046).
+- **FR-045**: Локальная Room-схема MUST иметь migration-path от mock-JSON storage спека 003 — [NEEDS CLARIFICATION Q6: явная migration или cleanup при первом запуске].
+- **FR-046**: Если в local store есть pending для какого-то Managed-телефона, **главный экран** editor-приложения MUST показывать **визуальный маркер** «pending push» рядом с этим телефоном в списке привязанных устройств.
+- **FR-047**: При входе в Settings конкретного Managed-телефона, если для него есть pending, MUST показываться **баннер** «у вас локальные изменения, не запушено на сервер» с действиями «push сейчас» / «отменить локальные изменения».
+
+**Merge UI**
+
+- **FR-050**: Merge UI MUST быть **единым** для всех editor'ов (admin-phone / admin-tablet / Managed-phone) — одна реализация, без senior-safe-варианта. Обоснование (зафиксировано в Q2 clarify): вход в Settings уже защищён 7-тапами + паролем, пользователь осознанно туда зашёл и способен разобрать конфликт.
+- **FR-051**: Merge UI MUST показывать **по-элементно** (по id) различия между local-pending и server-current: для каждого изменённого элемента — local-value, server-value, действие пользователя (keep local / keep server / для some types — keep both).
+- **FR-052**: Если diff пуст (оба editor'а сделали идентичные изменения — например, оба удалили одну и ту же плитку с одним id) — merge UI **не показывается**, push проходит автоматически.
+- **FR-053**: Если diff содержит только **непересекающиеся** изменения (разные id) — merge UI показывается с пометкой «изменения не пересекаются, применить оба?», действие default = «применить оба».
+- **FR-054**: После merge-выбора клиент MUST перечитать `/config` (для свежего `serverUpdatedAt`) и сделать новый push с актуальным `clientSnapshotUpdatedAt`. Если за время merge сервер снова изменился — второй раунд merge UI.
 
 **Out of scope (для предотвращения скоупа)**
 
-- **OUT-001**: Admin UI editor для flow/slot/contacts — это spec 009 (`admin-mode-flows`). 008 даёт только wire-format и Managed-side apply; admin-side writer может быть mock/CLI/test-fixture для acceptance.
-- **OUT-002**: Команды (commands subcollection — create/delete/move tiles через imperative push) — это spec 009. 008 — про **declarative `/config`**, не про commands. (Roadmap line 185 имеет open question — закроем в `/speckit.clarify`.)
-- **OUT-003**: Roll-back механизм (откат к предыдущему `/config`) — [NEEDS CLARIFICATION: в scope 008 или backlog?].
-- **OUT-004**: Provider capabilities / health subcollections (`/capabilities/current`, `/health/current`) — это extension спека 006, отдельный трек, не зависит от 008. Roadmap-block 008 их не упоминает.
+- **OUT-001**: Полный admin UI editor (флоу, drag-and-drop, design polish) — это spec 009 (`admin-mode-flows`). 008 даёт wire-format, conflict logic, merge UI, базовые controls для save/push. UI-внешность 008 — минимальная функциональная.
+- **OUT-002**: Commands (create/delete/move tiles через imperative push команды) — это spec 009. 008 — declarative `/config` only. (Roadmap line 185 open question — закрыто в этом clarify: 009.)
+- **OUT-003**: Roll-back механизм (откат к предыдущему `/config`) — [NEEDS CLARIFICATION Q7].
+- **OUT-004**: Provider capabilities / health subcollections — extension спека 006, не зависит от 008.
+- **OUT-005**: Live notifications «server изменился, посмотри» (background-listener на сервере) — НЕ нужно. Diff обнаруживается **только** при push (зафиксировано в Q2 clarify).
 
 ### Key Entities
 
-- **ConfigDocument** (`/links/{linkId}/config/current`): применяемая раскладка для Managed. Поля: `schemaVersion`, `presetId`, `flows[]`, `contacts[]`, `updatedAt`, `updatedBy`.
-- **StateDocument** (`/links/{linkId}/state/current`): applied-snapshot — что Managed реально применил. Поля (расширение к bootstrap из 007): прежние bootstrap-поля + `appliedConfigRef` (hash/version), `flowsApplied[]`, `contactsApplied[]`, `partialApplyReasons[]`.
-- **LocalConfigStore** (Managed, Room): локальная копия applied-config + applied-version для fast bootstrap при process restart.
-- **ConfigApplier** (Managed domain port): применяет ConfigDocument к UI/storage; возвращает applied-snapshot для публикации в `/state`.
+- **ConfigDocument** (`/links/{linkId}/config/current`): editable layout document. Поля: `schemaVersion`, `serverUpdatedAt`, `lastWriterDeviceId`, `presetId`, `flows[]`, `contacts[]`. Каждый элемент имеет UUID id.
+- **StateDocument** (`/links/{linkId}/state/current`): applied-snapshot Managed'а. Поля (расширение к bootstrap 007): + `appliedConfigUpdatedAt`, `flowsApplied[]`, `contactsApplied[]`, `partialApplyReasons[]`.
+- **LocalAppliedConfig** (Managed, Room): копия последнего applied-config для fast bootstrap.
+- **PendingLocalChanges** (любой editor, Room): локально-сохранённые но не запушенные изменения. Содержит: snapshot `serverUpdatedAt` (на момент начала редактирования) + текущий локальный draft.
+- **ConfigDiff** (in-memory, domain): результат сравнения двух ConfigDocument по id — список added/removed/modified элементов.
+- **ConfigApplier** (Managed domain port): применяет ConfigDocument к UI/storage; возвращает applied-snapshot для публикации в /state.
+- **ConfigEditor** (любой editor, domain port): операции save локально / push на сервер / merge resolution.
 
 ---
 
@@ -152,35 +220,41 @@ Managed хранит применённый конфиг локально (Room 
 
 ### Measurable Outcomes
 
-- **SC-001**: При online-Managed end-to-end latency «admin writes /config» → «Managed applied + /state updated» MUST быть < [NEEDS CLARIFICATION: 5s / 10s? с учётом FCM p95 из spec 007 SC-001].
-- **SC-002**: При offline-Managed (≥ 30 минут offline) и последующем online — apply последней версии `/config` MUST произойти в течение [NEEDS CLARIFICATION: T-RECONNECT, типично 10s] после восстановления связи.
-- **SC-003**: 100% записей `/config` приводят к обновлению `/state` (или к явному `partialApplyReasons[]`) — нет «тихих» failed apply. Метрика: за тестовый прогон 100 записей → 100 state-updates, 0 потерь.
-- **SC-004**: После process death Managed bootstrap-time (от Activity#onCreate до first frame с applied-config) < [NEEDS CLARIFICATION: 500 ms / 1 s?].
-- **SC-005**: Wire-format roundtrip и backward-compat read tests — 100% green (per FR-012, FR-013).
-- **SC-006**: При schemaVersion mismatch (FR-019) — 0 crashes на Managed; поведение детерминированное (либо reject в /state, либо ignore unknown — после clarify).
+- **SC-001**: End-to-end latency «save локально + push (no conflict)» → «Managed applied + /state updated» MUST быть < [NEEDS CLARIFICATION Q8: 5s / 10s, учитывая FCM p95 спека 007 SC-001].
+- **SC-002**: При offline-Managed (≥ 30 минут) и последующем online — apply последней `/config` MUST произойти в течение [NEEDS CLARIFICATION Q8: ~10s] после восстановления связи (через FCM или RESUMED-trigger).
+- **SC-003**: 100% push'ей приводят к /state update **или** к visible merge UI — нет «тихих» потерь. Метрика: 100 push'ей → 100 итоговых исходов (либо state, либо merge), 0 silent failures.
+- **SC-004**: После process death Managed bootstrap-time (Activity#onCreate → first frame с applied-config) < [NEEDS CLARIFICATION Q8: 500ms / 1s].
+- **SC-005**: Wire-format roundtrip и backward-compat read tests — 100% green.
+- **SC-006**: При schemaVersion mismatch — 0 crashes на Managed; поведение детерминированное (определяется в Q4).
+- **SC-007**: Diff/merge correctness — формальные test cases для всех edge cases из этого спека (Q2 acceptance scenarios 1-5 + section Edge Cases): 100% green.
+- **SC-008**: Pending visibility — 100% editor'ов с pending для какого-либо Managed-телефона показывают маркер на главном экране (per FR-046). Test: создать pending, перезапустить app, проверить наличие маркера.
 
 ---
 
 ## Assumptions
 
-- Spec 007 в main — pairing/link/FCM-push channel работают (verified: PR #7 merged, see git log `46eb5de`).
-- Cloudflare Worker (push-relay) расширяется для обработки нового payload type `config.updated` — добавление, не breaking change.
-- Firebase Security Rules из спека 007 уже покрывают `/links/{linkId}/config/**` и `/state/**` (verified: `link.md` §Security Rules requirements — Rules для config/state нужно дополнить в Phase 0 этого спека).
-- Managed использует Room (стандартный AndroidX — не violates rule 1, т.к. Room — infrastructure adapter, domain читает через port).
-- Admin-side writer в этом спеке может быть тестовый/CLI/fake (полноценный UI — spec 009).
-- Спек НЕ вводит новых внешних SDK (Firebase, FCM уже в 007; Room — стандартная Android-библиотека).
+- Spec 007 в main — pairing, FCM-push, Security Rules infra работают (verified: PR #7 merged, `46eb5de`).
+- Cloudflare Worker (push-relay) расширяется новым payload type `config.updated` — additive.
+- Security Rules спека 007 расширяются: write на `/config/current` для adminId И для managedDeviceFirebaseUid (FR-011).
+- Все три типа editor'ов (admin-phone, admin-tablet, Managed-phone) — одно и то же приложение, разные deployment-конфигурации. Merge UI — общий код.
+- Managed использует Room (AndroidX) — adapter в infrastructure-слое, domain читает через port (CLAUDE.md §1).
+- UUID v4 collision probability считается практически нулевой (но обрабатывается как обычный element-conflict).
+- Спек НЕ вводит новых внешних SDK сверх 007 + Room.
+- Admin UI editor в 008 — функционально-минимальный (save / push кнопки, list of changes); полноценный визуальный editor — spec 009.
 
 ---
 
-## Open Questions (для `/speckit.clarify`)
+## Open Questions (для дальнейшего clarify Q3-Q10)
 
-1. **Roadmap line 184/185 — расхождение после ренумерации**: «Admin-mode UI (это в 008)» — должно читаться «это в 009». Подтвердить и поправить roadmap.
-2. **Commands (create/delete/move tiles через push)** — в спеке 008 (declarative + imperative) или **только** в 009? Текущий draft помещает в 009 (OUT-002), нужно подтвердить.
-3. **`appliedConfigRef`** — какая форма ссылки на применённый /config? Hash (стабильно при replay) / `updatedAt` (server-timestamp) / monotonic `version` field? Предпочтение: `appliedConfigUpdatedAt` (server-set, monotonic per Firestore semantics).
-4. **Schema mismatch (FR-019)**: reject, ignore-unknown, или hard-fail?
-5. **Concurrent admin writes (FR-020)**: last-write-wins или optimistic concurrency?
-6. **Migration спека 003 → 008 storage (FR-016)**: cleanup или migration? Учитывая, что 003 пока не в production у реальных пользователей — cleanup проще.
-7. **Roll-back (OUT-003)**: в scope 008 или backlog?
+> Q1 и Q2 уже отвечены в этой ревизии spec.md. Остальные:
+
+3. ~~**Форма `appliedConfigRef` в /state**~~ → **РЕШЕНО**: используется `appliedConfigUpdatedAt` (server-set timestamp). Зафиксировано в FR-031 и FR-002.
+4. **Schema mismatch (FR-019 / SC-006)**: reject (Managed пишет в /state error «unsupported version»), ignore-unknown additive, или hard-fail?
+5. ~~**Concurrent admin writes**~~ → **РЕШЕНО**: optimistic concurrency на `serverUpdatedAt` + merge UI. См. FR-013/014/050-054.
+6. **Migration спека 003 → 008 storage (FR-045)**: явная migration или cleanup-on-first-launch?
+7. **Roll-back (OUT-003)**: scope 008 или backlog?
 8. **SC-001 / SC-002 / SC-004 значения**: какие конкретные числа?
-9. **T-POLL для no-GMS fallback (FR-005)**: использовать значение из спека 007 или другое?
-10. **Лимит размера `/config` (edge-case «500 контактов»)**: какой лимит, и как Managed/admin должны это видеть?
+9. ~~**T-POLL для no-GMS fallback**~~ → **РЕШЕНО**: 15 минут WorkManager + RESUMED trigger throttled 2 min. См. FR-022.
+10. **Лимит размера `/config`** (edge case ~500 контактов, Firestore документ ≤ 1 MiB): какой soft-limit и UI-предупреждение?
+
+**Остаётся обсудить:** Q4, Q6, Q7, Q8, Q10.
