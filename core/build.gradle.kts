@@ -61,6 +61,8 @@ kotlin {
             implementation(libs.androidx.lifecycle.process)
             // SQLDelight Android driver — spec 008 LocalConfigStore.
             implementation(libs.sqldelight.android.driver)
+            // WorkManager — spec 008 FR-022 T3 (fallback periodic config refresh).
+            implementation(libs.androidx.work.runtime.ktx)
         }
         getByName("androidUnitTest").dependencies {
             implementation(libs.kotlinx.coroutines.test)

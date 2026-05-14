@@ -31,3 +31,6 @@ Thumbs.db
 # Env
 .env
 .env.*
+
+# Claude Code harness — runtime locks/state, not project content
+.claude/scheduled_tasks.lock
