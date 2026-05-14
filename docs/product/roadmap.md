@@ -167,7 +167,7 @@
 
 ### Spec 008 — `bidirectional-config-sync` *(was 007, renumbered)*
 
-**Статус:** не начат.
+**Статус:** Phases 0-11 завершены 2026-05-14 (~50 commits на ветке `008-bidirectional-config-sync`, все unit/contract/fitness/E2E тесты PASS на обоих flavor'ах `mockBackend`/`realBackend`). Остаются device-dependent tasks: T072-T075 Firebase Emulator integration, T091/T095 instrumented tests, T140-T143 perf checkpoint + 2-device smoke. Documentation skeletons committed (perf-checkpoint.md, smoke/README.md).
 
 **Зависит от:** 007.
 
