@@ -4,6 +4,9 @@ plugins {
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.kotlin.serialization)
+    // Spec 008 — SQLDelight для local persistence (LocalConfigStore).
+    // Schema lives в commonMain/sqldelight/, queries generated в commonMain.
+    alias(libs.plugins.sqldelight)
 }
 
 kotlin {
@@ -39,6 +42,10 @@ kotlin {
 
             // kotlinx.serialization — used for Decompose Config persistence + future config files
             implementation(libs.kotlinx.serialization.json)
+
+            // SQLDelight — KMP local persistence для spec 008 LocalConfigStore.
+            implementation(libs.sqldelight.runtime)
+            implementation(libs.sqldelight.coroutines.extensions)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -52,6 +59,8 @@ kotlin {
             implementation(libs.androidx.datastore.preferences)
             // ProcessLifecycleOwner — spec 006 RESUMED hooks для capability/health collectors.
             implementation(libs.androidx.lifecycle.process)
+            // SQLDelight Android driver — spec 008 LocalConfigStore.
+            implementation(libs.sqldelight.android.driver)
         }
         getByName("androidUnitTest").dependencies {
             implementation(libs.kotlinx.coroutines.test)
@@ -110,4 +119,15 @@ dependencies {
     "realBackendImplementation"(libs.firebase.firestore.ktx)
     "realBackendImplementation"(libs.firebase.auth.ktx)
     "realBackendImplementation"(libs.firebase.messaging.ktx)
+}
+
+// Spec 008 — SQLDelight schema setup.
+// Schema lives в `core/src/commonMain/sqldelight/com/launcher/adapters/config/db/ConfigStore.sq`.
+// Plugin generates type-safe Kotlin queries в commonMain (KMP-pure code).
+sqldelight {
+    databases {
+        create("ConfigStore") {
+            packageName.set("com.launcher.adapters.config.db")
+        }
+    }
 }
