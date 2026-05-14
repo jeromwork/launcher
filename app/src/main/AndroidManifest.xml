@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!--
       Permissions (per spec 006 FR-053/054 + spec 005 §permissions register).
@@ -115,5 +116,22 @@
             android:name=".ui.pairing.PairingActivity"
             android:exported="true"
             android:label="@string/pairing_toggle_title" />
+
+        <!--
+          Spec 008 FR-022 T3: disable default WorkManager auto-init so our
+          custom Configuration.Provider (LauncherApplication) is used. This
+          gives ConfigRefreshWorker its Koin-injected dependencies
+          (LinkRegistry + ConfigApplier) via ConfigSyncWorkerFactory.
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
     </application>
 </manifest>
