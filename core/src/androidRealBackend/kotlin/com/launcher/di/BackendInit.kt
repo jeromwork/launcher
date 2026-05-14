@@ -9,6 +9,7 @@ import com.launcher.adapters.config.FirebaseConfigApplier
 import com.launcher.adapters.config.SqlDelightLocalConfigStore
 import com.launcher.adapters.identity.DataStoreDeviceIdProvider
 import com.launcher.adapters.identity.FirebaseIdentityProvider
+import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
 import com.launcher.adapters.lifecycle.ConnectivityManagerNetworkAvailability
 import com.launcher.adapters.lifecycle.ProcessLifecycleForegroundEvents
 import com.launcher.adapters.link.FirestoreLinkRegistry
@@ -161,4 +162,8 @@ val backendModule: Module = module {
 
     // AppForegroundEvents — ProcessLifecycleOwner throttled (FR-022 T4).
     single<AppForegroundEvents> { ProcessLifecycleForegroundEvents() }
+
+    // Custom WorkerFactory для DI-injected ConfigRefreshWorker. App's
+    // Configuration.Provider implementation must reference this via Koin.
+    single { ConfigSyncWorkerFactory(linkRegistry = get(), configApplier = get()) }
 }

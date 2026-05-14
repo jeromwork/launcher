@@ -5,6 +5,7 @@ import com.launcher.api.config.ConfigEditor
 import com.launcher.api.config.LocalConfigStore
 import com.launcher.api.identity.DeviceIdProvider
 import com.launcher.api.identity.IdentityProvider
+import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
 import com.launcher.api.lifecycle.AppForegroundEvents
 import com.launcher.api.lifecycle.NetworkAvailability
 import com.launcher.api.link.LinkRegistry
@@ -71,4 +72,8 @@ val backendModule: Module = module {
     }
     single<NetworkAvailability> { FakeNetworkAvailability() }
     single<AppForegroundEvents> { FakeAppForegroundEvents() }
+
+    // WorkerFactory — needed by Application.Configuration.Provider even в
+    // mockBackend flavor (WorkManager itself is still active в mockBackend).
+    single { ConfigSyncWorkerFactory(linkRegistry = get(), configApplier = get()) }
 }
