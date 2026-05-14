@@ -173,6 +173,19 @@
 - **Status**: 🟡 OPEN
 - **Origin**: spec 008 `/speckit.clarify` 2026-05-14 Q7. Решение: встроить в 009 (Вариант X), не делать отдельным спеком.
 
+### TODO-ARCH-009: Config size soft-limits and proactive warnings 🟢
+
+- **What**: Ввести client-side soft-limit на размер `/config` (например, 500 KiB = 50% от Firestore 1 MiB hard-limit) с проактивным баннером при ~80% заполнении и блокировкой save при превышении soft-limit. Сообщения на простом русском («ваш конфиг становится большим, удалите что-нибудь или вынесите фото в облако»).
+- **Why**: В спеке 008 (Q10 clarify, 2026-05-14) решено НЕ вводить soft-limits — при типичном использовании (30-50 контактов) до 1 MiB далеко, и спек 011 (`contacts-and-e2e-encrypted-media`) выносит фото в Firebase Storage, что снимает основной риск. Однако: если по каким-то причинам спек 011 задержится, либо у юзера экзотический кейс (много контактов с большими подписями), он может упереться в Firestore `INVALID_ARGUMENT` без понятного объяснения. Soft-limit + баннер — UX-страховка.
+- **How**:
+  - Измерение размера через serialize-and-count перед save локально (Kotlin Serialization → ByteArray → size).
+  - Banner в Settings при ~80% заполнении: «конфиг занимает 400 KiB из 500 KiB; уберите медиа или контакты».
+  - Hard-block save при превышении soft-limit (500 KiB) с понятным сообщением.
+  - Никаких изменений wire-format — это чисто client-side проверка.
+- **When**: 🟢 Nice-to-have. Если в реальной эксплуатации увидим достижение 1 MiB → повышаем приоритет. До этого момента — общий error-path FR-013 спека 008 покрывает.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 008 `/speckit.clarify` 2026-05-14 Q10. В 008 явно отложено (OUT-008), сохраняем здесь как страховка.
+
 ---
 
 ## Security Hardening

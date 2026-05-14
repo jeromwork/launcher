@@ -130,7 +130,7 @@ Admin может настраивать не только preset, но и сам
 - **Конкурентная запись из двух editor'ов** — покрыто FR-020 (optimistic concurrency на `updatedAt`).
 - **UUID-коллизия** (два editor'а сгенерировали одинаковый UUID v4 — вероятность ~0): обрабатывается как обычный element-conflict в merge UI.
 - **Revoke во время apply**: link удалён → запись `/config` отклоняется Security Rules.
-- **Огромный список контактов** (~500 контактов): Firestore лимит документа ≤ 1 MiB. [NEEDS CLARIFICATION Q10: какой soft-limit и UI-предупреждение].
+- **Огромный список контактов** (~500 контактов): Firestore hard-limit документа ≤ 1 MiB. **В 008 — никаких soft-limits и проактивных банеров** (Q10 clarify, см. OUT-008). При попытке записи > 1 MiB Firestore вернёт `INVALID_ARGUMENT`, который пройдёт через общий error-path FR-013. Реально не достижимо при типичном использовании (30-50 контактов ≈ 10-30 KiB); спек 011 выносит медиа в Storage, что окончательно снимает риск.
 - **Roll-back** (откат к предыдущему `/config`): **out of scope 008** — встроено в спек 009 (см. OUT-007). В эпоху 008 — только ручное восстановление.
 - **Сеть рвётся в момент push**: push retry с проверкой `updatedAt` (если за время retry сервер ушёл — конфликт, merge UI).
 - **App killed между save локально и push**: pending state сохраняется (Room), баннер при следующем запуске (US-4).
@@ -208,6 +208,7 @@ Admin может настраивать не только preset, но и сам
 - **OUT-005**: Live notifications «server изменился, посмотри» (background-listener на сервере) — НЕ нужно. Diff обнаруживается **только** при push (зафиксировано в Q2 clarify).
 - **OUT-006**: **App version compatibility management** — отдельный будущий спек (см. roadmap §Backlog `app-version-compatibility`). 008 НЕ содержит: detection несовместимых версий приложения, поля `requiredManagedAppVersion`/`managedAppVersion`/`compatibilityError` в wire-format, visibility на admin UI про устаревшее приложение Managed'а, механизмы remote-update. Обоснование (Q4 clarify): в текущей фазе все editor'ы тестируются монорелизом — schema mismatch by construction не возникает; полноценная инфраструктура версионности требует отдельной проработки (Play Store update flows, выбор конкретной версии, OEM-quirks).
 - **OUT-007**: **Config history + rollback** — встроено в spec 009 `admin-mode-flows` (Q7 clarify, 2026-05-14). 008 НЕ содержит: subcollection `/config/history/*`, UI просмотра истории, действие «откатить к версии». Восстановление после ошибочного push в эпоху 008 — только ручное (admin вспоминает, что было, и пишет заново). Обоснование: спек 008 уже большой (5-7 недель), history+rollback — это UI-фича admin'а, естественно живёт в 009 (полноценный admin UI editor). Retention: 10 версий (закрепляется в 009). См. roadmap §Spec 009.
+- **OUT-008**: **Config size soft-limits and proactive warnings** — out of scope 008 (Q10 clarify, 2026-05-14). При превышении Firestore hard-limit 1 MiB write возвращает `INVALID_ARGUMENT`, что обрабатывается общим error-path (FR-013). Никаких proactive banners при 80% заполнения, никаких client-side soft-limits. Обоснование: при типичном использовании (30-50 контактов) реально достичь 1 MiB невозможно; спек 011 (`contacts-and-e2e-encrypted-media`) выносит фото-медиа в Firebase Storage с e2e-шифрованием, окончательно снимая риск. См. project-backlog `TODO-ARCH-009`.
 
 ### Key Entities
 
@@ -267,6 +268,6 @@ Admin может настраивать не только preset, но и сам
 7. ~~**Roll-back**~~ → **РЕШЕНО**: встроено в спек 009 `admin-mode-flows` как config history + rollback (retention 10 версий). См. OUT-007 и roadmap §Spec 009.
 8. ~~**SC-001 / SC-002 / SC-004 значения**~~ → **РЕШЕНО**: behavior-based criteria, не latency-budgets. SC-001 push = Firestore ack + 5s no-network warning threshold. SC-001b = «применено» как второй значок. SC-002 = 4 триггера refresh, без жёсткого latency. SC-004a = ≤ 650 ms first frame с last-applied (re-use SC-007 спека 007). SC-004b = 5s после first frame → fetch /config.
 9. ~~**T-POLL для no-GMS fallback**~~ → **РЕШЕНО**: 15 минут WorkManager + RESUMED trigger throttled 2 min. См. FR-022.
-10. **Лимит размера `/config`** (edge case ~500 контактов, Firestore документ ≤ 1 MiB): какой soft-limit и UI-предупреждение?
+10. ~~**Лимит размера `/config`**~~ → **РЕШЕНО**: в 008 никаких soft-limits/banners; общий error-path при Firestore hard-limit; страховка через TODO-ARCH-009 + спек 011 (e2e media в Storage). См. OUT-008.
 
-**Остаётся обсудить:** Q10.
+**Остаётся обсудить:** _нет — все 10 вопросов закрыты._
