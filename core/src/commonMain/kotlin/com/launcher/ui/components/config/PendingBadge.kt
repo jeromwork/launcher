@@ -12,6 +12,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import launcher.core.generated.resources.Res
+import launcher.core.generated.resources.config_sync_badge_not_sent
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * «Не отправлено» badge для admin device-list (spec 008 Phase 8 T107, FR-046,
@@ -42,7 +45,7 @@ fun PendingBadge(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            text = "Не отправлено",
+            text = stringResource(Res.string.config_sync_badge_not_sent),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onTertiaryContainer,
         )

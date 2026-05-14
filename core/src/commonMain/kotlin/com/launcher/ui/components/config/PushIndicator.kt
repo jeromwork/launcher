@@ -11,6 +11,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import launcher.core.generated.resources.Res
+import launcher.core.generated.resources.config_sync_indicator_applied
+import launcher.core.generated.resources.config_sync_indicator_failed
+import launcher.core.generated.resources.config_sync_indicator_no_network
+import launcher.core.generated.resources.config_sync_indicator_sent
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Push status indicator composable (spec 008 Phase 8 T101, FR-015 + SC-001b).
@@ -52,7 +58,7 @@ fun PushIndicator(
                     strokeWidth = 2.dp,
                 )
                 Text(
-                    text = "Нет интернета, попробуем позже",
+                    text = stringResource(Res.string.config_sync_indicator_no_network),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -60,7 +66,7 @@ fun PushIndicator(
 
             is PushIndicatorState.Sent -> {
                 Text(
-                    text = "Отправлено ✓",
+                    text = stringResource(Res.string.config_sync_indicator_sent),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -68,7 +74,7 @@ fun PushIndicator(
 
             is PushIndicatorState.AppliedOnDevice -> {
                 Text(
-                    text = "Применено на телефоне ✓",
+                    text = stringResource(Res.string.config_sync_indicator_applied),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -76,7 +82,7 @@ fun PushIndicator(
 
             is PushIndicatorState.Failed -> {
                 Text(
-                    text = "Не удалось отправить",
+                    text = stringResource(Res.string.config_sync_indicator_failed),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )

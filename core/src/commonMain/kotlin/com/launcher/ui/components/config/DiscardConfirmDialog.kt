@@ -8,6 +8,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import launcher.core.generated.resources.Res
+import launcher.core.generated.resources.config_sync_dialog_action_delete
+import launcher.core.generated.resources.config_sync_dialog_action_keep
+import launcher.core.generated.resources.config_sync_dialog_discard_body
+import launcher.core.generated.resources.config_sync_dialog_discard_title
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Confirmation dialog для destructive «Отменить изменения» action
@@ -30,13 +36,13 @@ fun DiscardConfirmDialog(
         onDismissRequest = onCancel,
         title = {
             Text(
-                text = "Удалить изменения?",
+                text = stringResource(Res.string.config_sync_dialog_discard_title),
                 style = MaterialTheme.typography.titleLarge,
             )
         },
         text = {
             Text(
-                text = "Изменения, которые ещё не отправлены, нельзя будет восстановить.",
+                text = stringResource(Res.string.config_sync_dialog_discard_body),
                 style = MaterialTheme.typography.bodyLarge,
             )
         },
@@ -46,7 +52,7 @@ fun DiscardConfirmDialog(
                 onClick = onCancel,
                 modifier = Modifier.testTag(DIALOG_KEEP_BUTTON_TEST_TAG),
             ) {
-                Text("Оставить")
+                Text(stringResource(Res.string.config_sync_dialog_action_keep))
             }
         },
         dismissButton = {
@@ -56,7 +62,7 @@ fun DiscardConfirmDialog(
                 modifier = Modifier.testTag(DIALOG_DISCARD_BUTTON_TEST_TAG),
             ) {
                 Text(
-                    text = "Удалить",
+                    text = stringResource(Res.string.config_sync_dialog_action_delete),
                     color = MaterialTheme.colorScheme.error,
                 )
             }

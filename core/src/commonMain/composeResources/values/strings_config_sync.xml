@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Localised strings для spec 008 (bidirectional-config-sync) UI components.
+
+  Naming convention per ADR-004 + ux-quality CHK-008/009:
+    config_sync_indicator_*   — PushIndicator visual states (FR-015 + SC-001b)
+    config_sync_banner_*      — PendingBanner texts (FR-047)
+    config_sync_dialog_*      — DiscardConfirmDialog (FR-057)
+    config_sync_badge_*       — PendingBadge (FR-046)
+    config_sync_merge_*       — MergeScreen (FR-050..054)
+
+  Wording principle per elderly-friendly CHK-009 fix:
+   - No developer jargon: never «push», «сервер», «pending» в user-visible text.
+   - No persona terms: never «бабушка», «admin», «managed».
+   - Neutral plain Russian; technical concepts paraphrased.
+
+  Russian-first per project audience.
+-->
+<resources>
+
+    <!-- PushIndicator states (FR-015 + SC-001) -->
+    <string name="config_sync_indicator_sent">Отправлено ✓</string>
+    <string name="config_sync_indicator_applied">Применено на телефоне ✓</string>
+    <string name="config_sync_indicator_no_network">Нет интернета, попробуем позже</string>
+    <string name="config_sync_indicator_failed">Не удалось отправить</string>
+
+    <!-- PendingBanner (FR-047) -->
+    <string name="config_sync_banner_pending_title">Есть изменения, которые ещё не отправлены</string>
+    <string name="config_sync_banner_action_push_now">Отправить сейчас</string>
+    <string name="config_sync_banner_action_discard">Отменить изменения</string>
+
+    <!-- DiscardConfirmDialog (FR-057) -->
+    <string name="config_sync_dialog_discard_title">Удалить изменения?</string>
+    <string name="config_sync_dialog_discard_body">Изменения, которые ещё не отправлены, нельзя будет восстановить.</string>
+    <string name="config_sync_dialog_action_keep">Оставить</string>
+    <string name="config_sync_dialog_action_delete">Удалить</string>
+
+    <!-- PendingBadge (FR-046) -->
+    <string name="config_sync_badge_not_sent">Не отправлено</string>
+
+    <!-- MergeScreen (FR-050..054) -->
+    <string name="config_sync_merge_title">Решите конфликт</string>
+    <string name="config_sync_merge_hint_auto_mergeable">Изменения не пересекаются. Применить оба?</string>
+    <string name="config_sync_merge_hint_overlapping">Кто-то изменил это раньше. Выберите, что оставить.</string>
+    <string name="config_sync_merge_section_preset">Preset</string>
+    <string name="config_sync_merge_section_flow">Поток</string>
+    <string name="config_sync_merge_section_contact">Контакт</string>
+    <string name="config_sync_merge_section_added">Добавлено: %1$d</string>
+    <string name="config_sync_merge_section_removed">Удалено: %1$d</string>
+    <string name="config_sync_merge_choice_keep_local">Оставить моё: %1$s</string>
+    <string name="config_sync_merge_choice_keep_server">Оставить серверное: %1$s</string>
+    <string name="config_sync_merge_action_save">Сохранить</string>
+    <string name="config_sync_merge_action_cancel">Отмена</string>
+
+</resources>

@@ -32,6 +32,20 @@ import com.launcher.api.config.ConfigDiff
 import com.launcher.api.config.ElementId
 import com.launcher.api.config.ModifiedContact
 import com.launcher.api.config.ModifiedFlow
+import launcher.core.generated.resources.Res
+import launcher.core.generated.resources.config_sync_merge_action_cancel
+import launcher.core.generated.resources.config_sync_merge_action_save
+import launcher.core.generated.resources.config_sync_merge_choice_keep_local
+import launcher.core.generated.resources.config_sync_merge_choice_keep_server
+import launcher.core.generated.resources.config_sync_merge_hint_auto_mergeable
+import launcher.core.generated.resources.config_sync_merge_hint_overlapping
+import launcher.core.generated.resources.config_sync_merge_section_added
+import launcher.core.generated.resources.config_sync_merge_section_contact
+import launcher.core.generated.resources.config_sync_merge_section_flow
+import launcher.core.generated.resources.config_sync_merge_section_preset
+import launcher.core.generated.resources.config_sync_merge_section_removed
+import launcher.core.generated.resources.config_sync_merge_title
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Unified Merge UI (spec 008 Phase 9 T111, FR-050).
@@ -64,7 +78,7 @@ fun MergeScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Решите конфликт",
+                        text = stringResource(Res.string.config_sync_merge_title),
                         style = MaterialTheme.typography.titleLarge,
                     )
                 },
@@ -86,9 +100,9 @@ fun MergeScreen(
                 item {
                     Text(
                         text = if (state.isAutoMergeable)
-                            "Изменения не пересекаются. Применить оба?"
+                            stringResource(Res.string.config_sync_merge_hint_auto_mergeable)
                         else
-                            "Кто-то изменил это раньше. Выберите, что оставить.",
+                            stringResource(Res.string.config_sync_merge_hint_overlapping),
                         style = MaterialTheme.typography.bodyLarge,
                     )
                 }
@@ -127,16 +141,20 @@ fun MergeScreen(
                 if (state.diff.addedFlows.isNotEmpty() || state.diff.addedContacts.isNotEmpty()) {
                     item {
                         InfoCard(
-                            title = "Добавлено",
-                            count = state.diff.addedFlows.size + state.diff.addedContacts.size,
+                            text = stringResource(
+                                Res.string.config_sync_merge_section_added,
+                                state.diff.addedFlows.size + state.diff.addedContacts.size,
+                            ),
                         )
                     }
                 }
                 if (state.diff.removedFlowIds.isNotEmpty() || state.diff.removedContactIds.isNotEmpty()) {
                     item {
                         InfoCard(
-                            title = "Удалено",
-                            count = state.diff.removedFlowIds.size + state.diff.removedContactIds.size,
+                            text = stringResource(
+                                Res.string.config_sync_merge_section_removed,
+                                state.diff.removedFlowIds.size + state.diff.removedContactIds.size,
+                            ),
                         )
                     }
                 }
@@ -171,14 +189,14 @@ private fun PresetChoiceCard(
             modifier = Modifier.padding(16.dp).selectableGroup(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(text = "Preset", style = MaterialTheme.typography.titleMedium)
+            Text(text = stringResource(Res.string.config_sync_merge_section_preset), style = MaterialTheme.typography.titleMedium)
             ChoiceRow(
-                label = "Оставить моё: $localPreset",
+                label = stringResource(Res.string.config_sync_merge_choice_keep_local, localPreset),
                 selected = selected == MergeChoice.KeepLocal,
                 onSelect = { onChoice(MergeChoice.KeepLocal) },
             )
             ChoiceRow(
-                label = "Оставить серверное: $serverPreset",
+                label = stringResource(Res.string.config_sync_merge_choice_keep_server, serverPreset),
                 selected = selected == MergeChoice.KeepServer,
                 onSelect = { onChoice(MergeChoice.KeepServer) },
             )
@@ -197,14 +215,14 @@ private fun ModifiedFlowCard(
             modifier = Modifier.padding(16.dp).selectableGroup(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(text = "Поток", style = MaterialTheme.typography.titleMedium)
+            Text(text = stringResource(Res.string.config_sync_merge_section_flow), style = MaterialTheme.typography.titleMedium)
             ChoiceRow(
-                label = "Оставить моё: ${modified.local.title}",
+                label = stringResource(Res.string.config_sync_merge_choice_keep_local, modified.local.title),
                 selected = selected == MergeChoice.KeepLocal,
                 onSelect = { onChoice(MergeChoice.KeepLocal) },
             )
             ChoiceRow(
-                label = "Оставить серверное: ${modified.server.title}",
+                label = stringResource(Res.string.config_sync_merge_choice_keep_server, modified.server.title),
                 selected = selected == MergeChoice.KeepServer,
                 onSelect = { onChoice(MergeChoice.KeepServer) },
             )
@@ -223,14 +241,20 @@ private fun ModifiedContactCard(
             modifier = Modifier.padding(16.dp).selectableGroup(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(text = "Контакт", style = MaterialTheme.typography.titleMedium)
+            Text(text = stringResource(Res.string.config_sync_merge_section_contact), style = MaterialTheme.typography.titleMedium)
             ChoiceRow(
-                label = "Оставить моё: ${modified.local.displayName} (${modified.local.phoneNumber})",
+                label = stringResource(
+                    Res.string.config_sync_merge_choice_keep_local,
+                    "${modified.local.displayName} (${modified.local.phoneNumber})",
+                ),
                 selected = selected == MergeChoice.KeepLocal,
                 onSelect = { onChoice(MergeChoice.KeepLocal) },
             )
             ChoiceRow(
-                label = "Оставить серверное: ${modified.server.displayName} (${modified.server.phoneNumber})",
+                label = stringResource(
+                    Res.string.config_sync_merge_choice_keep_server,
+                    "${modified.server.displayName} (${modified.server.phoneNumber})",
+                ),
                 selected = selected == MergeChoice.KeepServer,
                 onSelect = { onChoice(MergeChoice.KeepServer) },
             )
@@ -239,10 +263,10 @@ private fun ModifiedContactCard(
 }
 
 @Composable
-private fun InfoCard(title: String, count: Int) {
+private fun InfoCard(text: String) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = "$title: $count", style = MaterialTheme.typography.bodyMedium)
+            Text(text = text, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
@@ -285,13 +309,13 @@ private fun ActionButtons(
             enabled = canSave,
             modifier = Modifier.testTag(MERGE_SAVE_BUTTON_TEST_TAG),
         ) {
-            Text("Сохранить")
+            Text(stringResource(Res.string.config_sync_merge_action_save))
         }
         TextButton(
             onClick = onCancel,
             modifier = Modifier.testTag(MERGE_CANCEL_BUTTON_TEST_TAG),
         ) {
-            Text("Отмена")
+            Text(stringResource(Res.string.config_sync_merge_action_cancel))
         }
     }
 }

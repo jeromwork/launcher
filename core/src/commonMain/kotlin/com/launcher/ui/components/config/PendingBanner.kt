@@ -15,6 +15,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import launcher.core.generated.resources.Res
+import launcher.core.generated.resources.config_sync_banner_action_discard
+import launcher.core.generated.resources.config_sync_banner_action_push_now
+import launcher.core.generated.resources.config_sync_banner_pending_title
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Pending-changes banner для Settings screen (spec 008 Phase 8 T104, FR-047).
@@ -49,7 +54,7 @@ fun PendingBanner(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = "Есть изменения, которые ещё не отправлены",
+                text = stringResource(Res.string.config_sync_banner_pending_title),
                 style = MaterialTheme.typography.bodyLarge,
             )
             Row(
@@ -60,13 +65,13 @@ fun PendingBanner(
                     onClick = onPushNow,
                     modifier = Modifier.testTag(PENDING_BANNER_PUSH_BUTTON_TEST_TAG),
                 ) {
-                    Text("Отправить сейчас")
+                    Text(stringResource(Res.string.config_sync_banner_action_push_now))
                 }
                 TextButton(
                     onClick = onDiscardRequested,
                     modifier = Modifier.testTag(PENDING_BANNER_DISCARD_BUTTON_TEST_TAG),
                 ) {
-                    Text("Отменить изменения")
+                    Text(stringResource(Res.string.config_sync_banner_action_discard))
                 }
             }
         }
