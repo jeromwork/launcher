@@ -125,6 +125,80 @@ VERDICT: READY for implementation. Start с Phase 0 (T001-T006).
 
 ---
 
+## Post-implementation re-verification (2026-05-14, late session)
+
+After Phases 0-11 implementation + Phase 12 partial:
+
+```
+SPECKIT-ANALYZE RE-RUN:
+
+CODE COMPLETE                       : ✅ Phases 0-11 done, 50+ commits on branch
+                                       008-bidirectional-config-sync.
+
+TESTS                               :
+  commonTest (KMP-pure)             : ✅ 47+ tests, 100% green:
+                                        - ElementId / ServerTimestamp;
+                                        - ConfigDocument / StateApplied wire-format;
+                                        - ConfigDiff (US-2 scenarios);
+                                        - PushIndicatorPresenter (state machine);
+                                        - MergeResolver (merge algorithm);
+                                        - FakeLocalConfigStore / FakeConfigApplier
+                                          / FakeConfigEditor (port contracts);
+                                        - E2E ConfigSyncE2ETest (US-1, US-2, US-4,
+                                          SC-003 100×).
+  androidUnitTest                    : ✅ 14+ tests, 100% green:
+                                        - SqlDelightLocalConfigStore parity;
+                                        - ProcessLifecycleForegroundEvents throttle;
+                                        - Spec008IsolationTest (Konsist).
+  androidRealBackendUnitTest         : ✅ 8 tests, 100% green:
+                                        - FirebaseConfigApplier;
+                                        - DefaultConfigEditor (autosave debounce,
+                                          push happy + conflict).
+
+BUILDS                              :
+  :app:assembleMockBackendDebug     : ✅ SUCCESS
+  :app:assembleRealBackendDebug     : ✅ SUCCESS
+  Both flavors fully wired через Koin DI + WorkerFactory.
+
+DRIFT FROM /speckit.plan            :
+  - Persistence layer changed Room → SQLDelight (per project version
+    catalog pre-declaration «used from spec 008 onwards»). Spec.md /
+    plan.md / research.md / data-model.md / tasks.md updated, contracts
+    unchanged. Same wire format, same behaviour.
+  - FR-045 cleanup re-scoped: spec 003 mock-storage was discovered to be
+    read-only APK assets, not user files. T054 became a no-op marker
+    (LegacyMockStorageCleanup.kt с CLEANUP-008 grep anchor); real
+    "cleanup" is DI binding switch handled by realBackend flavor.
+
+OUTSTANDING (DEVICE-DEPENDENT)      :
+  - T072-T075 emulator tests (code committed; awaits Java 21+);
+  - T091/T095 instrumented tests;
+  - T140 macrobenchmark;
+  - T142 APK delta;
+  - T143 manual 2-device smoke;
+  - Compose UI text-content tests (Compose Multiplatform stringResource
+    Robolectric limitation, see perf-checkpoint.md §«Compose UI tests»);
+  - Worker dev deploy (wrangler);
+  - R8 coordination (TODO-ARCH-006).
+
+CONSTITUTION CHECK (post-impl)      : ✅ 8/8 PASS unchanged.
+  - Article XI anti-bloat: no new ports beyond clarify scope;
+  - Article VIII §7 exception (FR-050) still authorized;
+  - Article XIV privacy: SQLDelight DB protected by app sandbox per
+    research.md §security CHK001 Option A;
+  - Article IX §3 background cap: 4 triggers, < 10 wakeups/hr expected.
+
+CROSS-ARTIFACT TRACE (post-impl)    : ✅ Still all 37 FRs covered, both
+                                       contracts have roundtrip + backward-compat
+                                       tests, no smuggled architecture, ADR links
+                                       intact.
+
+VERDICT: Code-complete cleared for merge **once device-dependent items
+fire green** + R8 coordination + PR review.
+```
+
+---
+
 ## What changed since /speckit.tasks
 
 No additional spec.md edits required. Two action items from `cross-artifact-trace.md` already addressed inline during `/speckit.tasks`:
