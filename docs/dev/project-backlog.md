@@ -147,6 +147,18 @@
 - **Status**: 🟡 OPEN (one-time follow-up for spec 007 ship-readiness).
 - **Origin**: Spec 007 T108 measurement; SC-006 fail.
 
+### TODO-ARCH-007: App version compatibility management (вынесено из 008) 🟡
+
+- **What**: Реализовать отдельный спек `app-version-compatibility` (см. roadmap §Backlog) — detection несовместимых версий приложения admin↔Managed, поля `requiredManagedAppVersion`/`managedAppVersion`/`compatibilityError`, visibility на admin UI, remote-update mechanism.
+- **Why**: В спеке 008 (Q4 clarify, 2026-05-14) решено протестировать collaborative-edit монорелизом — все editor'ы одной версии, schema mismatch by construction не возникает. Но как только мы пойдём в реальные обновления (часть пользователей на v1, часть на v2) — admin v2 пушит `/config` с новыми полями, Managed v1 не понимает. Это **обязательно** к реализации до первого update'а после релиза, иначе бабушкины телефоны получат частично-применённый или сломанный конфиг.
+- **How**:
+  - В 008 wire format уже стабилизирован — добавление полей будет additive (не bump schemaVersion).
+  - Спек должен покрыть: detection (Managed читает schemaVersion, понимает или нет), reject-behavior (last-applied остаётся), `/state.compatibilityError`, visibility на admin UI (значок + детали), Security Rules (write `requiredManagedAppVersion` только adminId), remote update mechanism (Play Store update intent / выбор версии / force-install).
+  - One-way door: UX «admin удалённо ставит версию приложения» — пользователь привыкает.
+- **When**: До первого update'а после production-релиза 008 (т.е. ещё до того, как у части пользователей появятся разные версии).
+- **Status**: 🟡 OPEN
+- **Origin**: spec 008 `/speckit.clarify` 2026-05-14 Q4 — вынесено отдельным спеком из соображений объёма (Play Store update flows + OEM-варианты = самостоятельная глубина).
+
 ---
 
 ## Security Hardening

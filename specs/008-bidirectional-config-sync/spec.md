@@ -126,7 +126,7 @@ Admin может настраивать не только preset, но и сам
 ### Edge Cases
 
 - **Partial apply на Managed** (provider недоступен, контакт-permission отозван). `/state` отражает реально применённое + `partialApplyReasons[]`. Admin-UI рендерит из `/state`, не из `/config`.
-- **Schema mismatch**: admin записал `/config` schemaVersion N+1, Managed на старой версии умеет N. Поведение — [NEEDS CLARIFICATION Q4: reject / ignore-unknown additive / hard-fail].
+- **Schema mismatch** (admin v2 ↔ Managed v1): **out of scope 008** — управляется отдельным спеком `app-version-compatibility` (см. OUT-006). В 008 тестирование монорелизом — все editor'ы одной версии, schema mismatch by construction не возникает. Backward-compat reads (CLAUDE.md §5) сохраняются — additive fields без bump schemaVersion.
 - **Конкурентная запись из двух editor'ов** — покрыто FR-020 (optimistic concurrency на `updatedAt`).
 - **UUID-коллизия** (два editor'а сгенерировали одинаковый UUID v4 — вероятность ~0): обрабатывается как обычный element-conflict в merge UI.
 - **Revoke во время apply**: link удалён → запись `/config` отклоняется Security Rules.
@@ -203,6 +203,7 @@ Admin может настраивать не только preset, но и сам
 - **OUT-003**: Roll-back механизм (откат к предыдущему `/config`) — [NEEDS CLARIFICATION Q7].
 - **OUT-004**: Provider capabilities / health subcollections — extension спека 006, не зависит от 008.
 - **OUT-005**: Live notifications «server изменился, посмотри» (background-listener на сервере) — НЕ нужно. Diff обнаруживается **только** при push (зафиксировано в Q2 clarify).
+- **OUT-006**: **App version compatibility management** — отдельный будущий спек (см. roadmap §Backlog `app-version-compatibility`). 008 НЕ содержит: detection несовместимых версий приложения, поля `requiredManagedAppVersion`/`managedAppVersion`/`compatibilityError` в wire-format, visibility на admin UI про устаревшее приложение Managed'а, механизмы remote-update. Обоснование (Q4 clarify): в текущей фазе все editor'ы тестируются монорелизом — schema mismatch by construction не возникает; полноценная инфраструктура версионности требует отдельной проработки (Play Store update flows, выбор конкретной версии, OEM-quirks).
 
 ### Key Entities
 
@@ -225,7 +226,7 @@ Admin может настраивать не только preset, но и сам
 - **SC-003**: 100% push'ей приводят к /state update **или** к visible merge UI — нет «тихих» потерь. Метрика: 100 push'ей → 100 итоговых исходов (либо state, либо merge), 0 silent failures.
 - **SC-004**: После process death Managed bootstrap-time (Activity#onCreate → first frame с applied-config) < [NEEDS CLARIFICATION Q8: 500ms / 1s].
 - **SC-005**: Wire-format roundtrip и backward-compat read tests — 100% green.
-- **SC-006**: При schemaVersion mismatch — 0 crashes на Managed; поведение детерминированное (определяется в Q4).
+- **SC-006**: ~~schema mismatch behavior~~ — вынесено в отдельный спек (OUT-006); в 008 все editor'ы тестируются монорелизом, SC-006 неактивен.
 - **SC-007**: Diff/merge correctness — формальные test cases для всех edge cases из этого спека (Q2 acceptance scenarios 1-5 + section Edge Cases): 100% green.
 - **SC-008**: Pending visibility — 100% editor'ов с pending для какого-либо Managed-телефона показывают маркер на главном экране (per FR-046). Test: создать pending, перезапустить app, проверить наличие маркера.
 
@@ -249,7 +250,7 @@ Admin может настраивать не только preset, но и сам
 > Q1 и Q2 уже отвечены в этой ревизии spec.md. Остальные:
 
 3. ~~**Форма `appliedConfigRef` в /state**~~ → **РЕШЕНО**: используется `appliedConfigUpdatedAt` (server-set timestamp). Зафиксировано в FR-031 и FR-002.
-4. **Schema mismatch (FR-019 / SC-006)**: reject (Managed пишет в /state error «unsupported version»), ignore-unknown additive, или hard-fail?
+4. ~~**Schema mismatch**~~ → **РЕШЕНО**: вынесено в отдельный будущий спек `app-version-compatibility` (см. OUT-006 и roadmap §Backlog). В 008 — out of scope, тестируется монорелизом.
 5. ~~**Concurrent admin writes**~~ → **РЕШЕНО**: optimistic concurrency на `serverUpdatedAt` + merge UI. См. FR-013/014/050-054.
 6. **Migration спека 003 → 008 storage (FR-045)**: явная migration или cleanup-on-first-launch?
 7. **Roll-back (OUT-003)**: scope 008 или backlog?
@@ -257,4 +258,4 @@ Admin может настраивать не только preset, но и сам
 9. ~~**T-POLL для no-GMS fallback**~~ → **РЕШЕНО**: 15 минут WorkManager + RESUMED trigger throttled 2 min. См. FR-022.
 10. **Лимит размера `/config`** (edge case ~500 контактов, Firestore документ ≤ 1 MiB): какой soft-limit и UI-предупреждение?
 
-**Остаётся обсудить:** Q4, Q6, Q7, Q8, Q10.
+**Остаётся обсудить:** Q6, Q7, Q8, Q10.
