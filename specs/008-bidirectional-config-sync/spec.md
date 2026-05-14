@@ -131,7 +131,7 @@ Admin может настраивать не только preset, но и сам
 - **UUID-коллизия** (два editor'а сгенерировали одинаковый UUID v4 — вероятность ~0): обрабатывается как обычный element-conflict в merge UI.
 - **Revoke во время apply**: link удалён → запись `/config` отклоняется Security Rules.
 - **Огромный список контактов** (~500 контактов): Firestore лимит документа ≤ 1 MiB. [NEEDS CLARIFICATION Q10: какой soft-limit и UI-предупреждение].
-- **Roll-back** (откат к предыдущему `/config`): [NEEDS CLARIFICATION Q7: scope 008 или backlog].
+- **Roll-back** (откат к предыдущему `/config`): **out of scope 008** — встроено в спек 009 (см. OUT-007). В эпоху 008 — только ручное восстановление.
 - **Сеть рвётся в момент push**: push retry с проверкой `updatedAt` (если за время retry сервер ушёл — конфликт, merge UI).
 - **App killed между save локально и push**: pending state сохраняется (Room), баннер при следующем запуске (US-4).
 - **Pending существует месяц, server тем временем менялся 5 раз**: при push — стандартный merge UI, без особой обработки «старого» pending.
@@ -200,10 +200,11 @@ Admin может настраивать не только preset, но и сам
 
 - **OUT-001**: Полный admin UI editor (флоу, drag-and-drop, design polish) — это spec 009 (`admin-mode-flows`). 008 даёт wire-format, conflict logic, merge UI, базовые controls для save/push. UI-внешность 008 — минимальная функциональная.
 - **OUT-002**: Commands (create/delete/move tiles через imperative push команды) — это spec 009. 008 — declarative `/config` only. (Roadmap line 185 open question — закрыто в этом clarify: 009.)
-- **OUT-003**: Roll-back механизм (откат к предыдущему `/config`) — [NEEDS CLARIFICATION Q7].
+- **OUT-003**: ~~Roll-back механизм~~ → см. OUT-007 (встроено в спек 009).
 - **OUT-004**: Provider capabilities / health subcollections — extension спека 006, не зависит от 008.
 - **OUT-005**: Live notifications «server изменился, посмотри» (background-listener на сервере) — НЕ нужно. Diff обнаруживается **только** при push (зафиксировано в Q2 clarify).
 - **OUT-006**: **App version compatibility management** — отдельный будущий спек (см. roadmap §Backlog `app-version-compatibility`). 008 НЕ содержит: detection несовместимых версий приложения, поля `requiredManagedAppVersion`/`managedAppVersion`/`compatibilityError` в wire-format, visibility на admin UI про устаревшее приложение Managed'а, механизмы remote-update. Обоснование (Q4 clarify): в текущей фазе все editor'ы тестируются монорелизом — schema mismatch by construction не возникает; полноценная инфраструктура версионности требует отдельной проработки (Play Store update flows, выбор конкретной версии, OEM-quirks).
+- **OUT-007**: **Config history + rollback** — встроено в spec 009 `admin-mode-flows` (Q7 clarify, 2026-05-14). 008 НЕ содержит: subcollection `/config/history/*`, UI просмотра истории, действие «откатить к версии». Восстановление после ошибочного push в эпоху 008 — только ручное (admin вспоминает, что было, и пишет заново). Обоснование: спек 008 уже большой (5-7 недель), history+rollback — это UI-фича admin'а, естественно живёт в 009 (полноценный admin UI editor). Retention: 10 версий (закрепляется в 009). См. roadmap §Spec 009.
 
 ### Key Entities
 
@@ -253,9 +254,9 @@ Admin может настраивать не только preset, но и сам
 4. ~~**Schema mismatch**~~ → **РЕШЕНО**: вынесено в отдельный будущий спек `app-version-compatibility` (см. OUT-006 и roadmap §Backlog). В 008 — out of scope, тестируется монорелизом.
 5. ~~**Concurrent admin writes**~~ → **РЕШЕНО**: optimistic concurrency на `serverUpdatedAt` + merge UI. См. FR-013/014/050-054.
 6. ~~**Migration спека 003 → 008**~~ → **РЕШЕНО**: cleanup at first launch (вариант A). См. FR-045. Обоснование: 003 не в production, mock-данные не валидны как `/config`.
-7. **Roll-back (OUT-003)**: scope 008 или backlog?
+7. ~~**Roll-back**~~ → **РЕШЕНО**: встроено в спек 009 `admin-mode-flows` как config history + rollback (retention 10 версий). См. OUT-007 и roadmap §Spec 009.
 8. **SC-001 / SC-002 / SC-004 значения**: какие конкретные числа?
 9. ~~**T-POLL для no-GMS fallback**~~ → **РЕШЕНО**: 15 минут WorkManager + RESUMED trigger throttled 2 min. См. FR-022.
 10. **Лимит размера `/config`** (edge case ~500 контактов, Firestore документ ≤ 1 MiB): какой soft-limit и UI-предупреждение?
 
-**Остаётся обсудить:** Q7, Q8, Q10.
+**Остаётся обсудить:** Q8, Q10.

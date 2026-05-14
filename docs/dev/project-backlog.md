@@ -159,6 +159,20 @@
 - **Status**: 🟡 OPEN
 - **Origin**: spec 008 `/speckit.clarify` 2026-05-14 Q4 — вынесено отдельным спеком из соображений объёма (Play Store update flows + OEM-варианты = самостоятельная глубина).
 
+### TODO-ARCH-008: Config history + rollback (встроено в spec 009) 🟡
+
+- **What**: Реализовать в spec 009 (`admin-mode-flows`) подсистему истории конфигов и отката: subcollection `/links/{linkId}/config/history/{autoId}` с retention 10 версий + UI просмотра/предпросмотра/отката.
+- **Why**: В спеке 008 (Q7 clarify, 2026-05-14) решено НЕ включать roll-back в 008 — спек и так большой (5-7 недель). При ошибочном push в эпоху 008 admin восстанавливает раскладку вручную (помнит, что было, и пишет заново). Без history admin не может откатиться к версии «месяц назад» при накопленных правках от разных editor'ов. Это **обязательно** до production-релиза, иначе один ошибочный push разрушит раскладку у бабушки.
+- **How**:
+  - Subcollection `/links/{linkId}/config/history/{autoId}` — снапшот предыдущей версии при каждом push в `/config/current`.
+  - Retention: 10 версий (11-й push вытесняет самую старую — housekeeping в момент push или через Firestore TTL).
+  - UI в admin-приложении: список истории (дата, кто писал — `lastWriterDeviceId`), предпросмотр содержимого, кнопка «откатить».
+  - «Откатить» = новый push с содержимым выбранной версии (стандартный flow 008, с conflict-check через optimistic concurrency).
+  - Security Rules: write в `/config/history/*` — только Cloud Function / server-side (не editor'ы); read — adminId + managedDeviceFirebaseUid (как `/config/current`).
+- **When**: До первого production-релиза, либо явно в плане спека 009.
+- **Status**: 🟡 OPEN
+- **Origin**: spec 008 `/speckit.clarify` 2026-05-14 Q7. Решение: встроить в 009 (Вариант X), не делать отдельным спеком.
+
 ---
 
 ## Security Hardening
