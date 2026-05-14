@@ -40,17 +40,17 @@
 - **Acceptance**: Status либо ✅ DONE, либо явный план landing до конца спека 008.
 - **Why manual**: coordination call, не code change.
 
-### T002 [P] Add Room dependencies to gradle
+### T002 [P] Wire SQLDelight dependencies in :core
 
 - **Traces to**: plan.md §Dependency Impact, FR-041, FR-042.
 - **Dependencies**: none.
-- **File(s)**: `core/build.gradle.kts` (or central version catalog `gradle/libs.versions.toml`).
-- **Action**: добавить:
-  - `androidx.room:room-runtime:2.7+`
-  - `androidx.room:room-ktx:2.7+`
-  - `androidx.room:room-compiler:2.7+` (через KSP)
-  - KSP plugin если ещё не подключён.
-- **Acceptance**: `./gradlew :core:assemble` проходит; lock files обновлены.
+- **File(s)**: `core/build.gradle.kts` (SQLDelight version + plugin already declared в `gradle/libs.versions.toml`).
+- **Action**: применить:
+  - Apply `app.cash.sqldelight` Gradle plugin к :core.
+  - В `commonMain`: implementation `sqldelight-runtime` + `sqldelight-coroutines-extensions`.
+  - В `androidMain`: implementation `sqldelight-android-driver`.
+  - SQLDelight `databases { create("ConfigStore") { packageName.set("com.launcher.adapters.config.db") } }`.
+- **Acceptance**: `./gradlew :core:generateCommonMainConfigStoreInterface` runs without error (после T050 schema создан).
 
 ### T003 [P] Update docs/compliance/permissions-and-resource-budget.md
 
@@ -344,44 +344,50 @@
 
 ---
 
-## Phase 3 — Real adapter: Room (androidMain)
+## Phase 3 — Real adapter: SQLDelight (commonMain schema + androidMain driver)
 
-**Goal**: Production-grade Room persistence with cleanup-on-first-launch for legacy spec 003 mock-storage.
+**Goal**: Production-grade SQLDelight persistence (KMP-friendly) with cleanup-on-first-launch for legacy spec 003 mock-storage.
 
-### T050 [CRIT] Create Room schema: ConfigSyncDatabase + entities + DAO
+### T050 [CRIT] Create SQLDelight schema (.sq file in commonMain)
 
 - **Traces to**: FR-041, FR-042, data-model.md §Persistence.
 - **Dependencies**: T002, T012.
 - **File(s)**:
-  - `core/src/androidMain/kotlin/com/launcher/adapters/config/RoomEntities.kt` (`@Entity` LocalAppliedConfigEntity + PendingLocalChangesEntity — PRIVATE, never leaked).
-  - `core/src/androidMain/.../ConfigDocumentDao.kt` (`@Dao` suspend functions).
-  - `core/src/androidMain/.../ConfigSyncDatabase.kt` (`@Database(version = 1, exportSchema = true)`).
-- **Action**: standard Room boilerplate. JSON serialization via kotlinx.serialization (DAO converts `String` ↔ `ConfigDocument`).
-- **Acceptance**: `./gradlew :core:assembleDebugAndroidTest` compiles; KSP generates DAO impl; `core/schemas/com.launcher.adapters.ConfigSyncDatabase/1.json` committed.
+  - `core/src/commonMain/sqldelight/com/launcher/adapters/config/db/ConfigStore.sq` (schema + queries per data-model.md).
+- **Action**: создать `.sq` file с `applied_config` + `pending_changes` таблицами и queries (readAppliedConfig, upsertAppliedConfig, readPending, upsertPending, clearPending, allPendingLinks).
+- **Acceptance**: `./gradlew :core:generateCommonMainConfigStoreInterface` generates `ConfigStoreQueries` class (commonMain).
 
-### T051 [P] Implement RoomLocalConfigStore adapter
+### T051 [P] Implement SqlDelightLocalConfigStore adapter (commonMain)
 
 - **Traces to**: data-model.md §Domain ports inventory.
+- **Dependencies**: T050, T020.
+- **File(s)**: `core/src/commonMain/kotlin/com/launcher/adapters/config/SqlDelightLocalConfigStore.kt`.
+- **Action**: implements `LocalConfigStore` (commonMain port) via generated `ConfigStoreQueries`. JSON ↔ ConfigDocument конверсия через `Json.encodeToString`/`decodeFromString`. **commonMain** — works on Android и future iOS through different drivers.
+- **Acceptance**: compile clean for both `compileCommonMainKotlinMetadata` и `compileDebugKotlinAndroid`.
+
+### T051a [P] Implement AndroidSqlDriverProvider (androidMain)
+
+- **Traces to**: plan.md §Module map.
 - **Dependencies**: T050.
-- **File(s)**: `core/src/androidMain/.../RoomLocalConfigStore.kt`.
-- **Action**: implements `LocalConfigStore` (commonMain port) via `ConfigDocumentDao`. JSON ↔ entity конверсия — внутри adapter'а, never leaked.
+- **File(s)**: `core/src/androidMain/kotlin/com/launcher/adapters/config/AndroidSqlDriverProvider.kt`.
+- **Action**: factory function `provideConfigStoreDriver(context: Context): SqlDriver` returning `AndroidSqliteDriver(ConfigStore.Schema, context, "config_sync.db")`. Lazy initialization.
 - **Acceptance**: compile clean.
 
-### T052 [P] Test: RoomLocalConfigStore parity с FakeLocalConfigStore
+### T052 [P] Test: SqlDelightLocalConfigStore behaviour contract
 
 - **Traces to**: CLAUDE.md §6 (mock-first parity).
 - **Dependencies**: T051.
-- **File(s)**: `core/src/androidUnitTest/.../RoomLocalConfigStoreContractTest.kt`.
-- **Action**: same contract test as T039, но run против Room (in-memory database via `Room.inMemoryDatabaseBuilder`).
-- **Acceptance**: tests green.
+- **File(s)**: `core/src/commonTest/kotlin/.../SqlDelightLocalConfigStoreTest.kt`.
+- **Action**: same contract test as T039, run against `JdbcSqliteDriver(IN_MEMORY)` (commonTest — uses sqldelight-jdbc-driver test dependency or platform's in-memory).
+- **Acceptance**: tests green; same assertions pass as Fake adapter.
 
-### T053 [P] Test: Room schema migration scaffolding
+### T053 [P] Migration test scaffolding
 
 - **Traces to**: data-model.md §Persistence schema versioning, wire-format CHK014.
 - **Dependencies**: T050.
-- **File(s)**: `core/src/androidUnitTest/.../ConfigSyncDatabaseMigrationTest.kt`.
-- **Action**: scaffolding test using Room's `MigrationTestHelper` — пока без migrations, но infrastructure ready. Documented comment: «add Migration_1_2 when schemaVersion bumps».
-- **Acceptance**: test green (asserts initial DB at version 1 opens).
+- **File(s)**: `core/src/commonTest/kotlin/.../ConfigStoreMigrationTest.kt`.
+- **Action**: invoke `ConfigStore.Schema.verifyMigrations()` (SQLDelight API, no migrations yet — asserts initial schema). Documented comment: «add migration test when `.sqm` files appear».
+- **Acceptance**: test green; infrastructure ready for future migrations.
 
 ### T054 [CRIT] Implement LegacyMockStorageCleanup (FR-045)
 
@@ -399,7 +405,7 @@
 - **Action**: 2nd test — `cleanupOnce_idempotent_when_no_legacy_files` (no exceptions when files don't exist).
 - **Acceptance**: test green.
 
-**Checkpoint Phase 3**: Room persistence works; Fake/Real parity verified; legacy cleanup implemented.
+**Checkpoint Phase 3**: SQLDelight persistence works; Fake/Real parity verified; legacy cleanup implemented.
 
 ---
 
@@ -420,7 +426,7 @@
 - **Traces to**: FR-021, FR-023.
 - **Dependencies**: T060.
 - **File(s)**: `core/src/androidUnitTest/.../FirebaseConfigApplierTest.kt`.
-- **Action**: tests with FakeRemoteSyncBackend (from 007) + RoomLocalConfigStore. Asserts /state write happens after Room write.
+- **Action**: tests with FakeRemoteSyncBackend (from 007) + SqlDelightLocalConfigStore. Asserts /state write happens after Room write.
 - **Acceptance**: tests green.
 
 ### T062 [CRIT] Implement DefaultConfigEditor с optimistic concurrency

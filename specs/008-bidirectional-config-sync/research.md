@@ -99,13 +99,13 @@ None significant.
 
 ### Decision
 
-**Continuous autosave**: every user edit triggers Room write through ConfigEditor, debounced 300ms for UX smoothness. No explicit «save» button. «Push на сервер» remains explicit user action.
+**Continuous autosave**: every user edit triggers SQLDelight write through ConfigEditor, debounced 300ms for UX smoothness. No explicit «save» button. «Push на сервер» remains explicit user action.
 
 ### Alternatives considered
 
 | # | Approach | Rejected because |
 |---|---|---|
-| A | Explicit save button → Room write | Risk of data loss on rotation / process death between edit and save. Senior-safe (Article VIII): пожилой пользователь забывает нажать. Project owner explicitly chose autosave. |
+| A | Explicit save button → SQLDelight write | Risk of data loss on rotation / process death between edit and save. Senior-safe (Article VIII): пожилой пользователь забывает нажать. Project owner explicitly chose autosave. |
 | B | Autosave on every edit, no debounce | Excessive writes during typing (every char). Possible flash wear (Article IX §7 — battery/storage discipline). |
 | C | Continuous autosave with 300ms debounce (chosen) | — |
 | D | Autosave on focus-loss | Doesn't survive process death mid-edit. |
@@ -125,27 +125,27 @@ interface ConfigEditor {
 
 ### Storage cost
 
-Room writes during edit session: typical session = 10-50 user actions × 1 row (single PendingLocalChanges per linkId, upsert), debounced → ~10-50 SQLite writes over session. Negligible.
+SQLDelight writes during edit session: typical session = 10-50 user actions × 1 row (single PendingLocalChanges per linkId, upsert), debounced → ~10-50 SQLite writes over session. Negligible.
 
 ---
 
 ## §4. Cleanup of legacy mock-storage (FR-045)
 
-**Context**: spec 003 introduced in-memory and/or JSON-file mock-storage for launcher rendering. Spec 008 introduces real Room storage. What to do with legacy?
+**Context**: spec 003 introduced in-memory and/or JSON-file mock-storage for launcher rendering. Spec 008 introduces real SQLDelight storage. What to do with legacy?
 
 ### Decision
 
 **Cleanup at first launch** (Variant A from clarify Q6). At Managed app first start after 008-code upgrade:
 1. Detect presence of legacy mock-storage files (specific paths from spec 003).
 2. Delete them.
-3. Continue normal startup → empty Room → wait for first `/config/current` from server.
+3. Continue normal startup → empty SQLDelight → wait for first `/config/current` from server.
 
 ### Alternatives considered
 
 | # | Approach | Rejected because |
 |---|---|---|
 | A | Cleanup-on-first-launch (chosen) | Spec 003 не reached production (per memory `project_007_operational_state`); mock data is not valid /config; migration would create fake applied-config without server pair → admin UI shows nothing. CLAUDE.md §4: no abstraction for non-existing use case. |
-| B | Migration of mock-data to Room | Pointless — mock data lacks UUID ids, server timestamps, linkId binding. |
+| B | Migration of mock-data to SQLDelight | Pointless — mock data lacks UUID ids, server timestamps, linkId binding. |
 | C | Leave legacy files in place | Disk waste; potential reader confusion in future. |
 
 ### Implementation
@@ -188,7 +188,7 @@ class LegacyMockStorageCleanup(private val context: Context) {
 | T4 | Activity#onResume throttled 2min | UX: launcher just became visible → user may notice change quickly. | Per user-RESUME of launcher with >2min idle | ~0 (user-bound, no background) |
 | Push to /config | User-initiated | n/a (one-shot) | n/a |
 | /state write | After apply | n/a (one-shot after T1-T4) | n/a |
-| Room autosave | User-edit (debounced 300ms) | Senior-safe + no data loss (FR-056) | During edit sessions only | Negligible |
+| SQLDelight autosave | User-edit (debounced 300ms) | Senior-safe + no data loss (FR-056) | During edit sessions only | Negligible |
 
 **Aggregate**: < 10 wakeups/hour (Article IX §3 cap). Well within budget.
 
@@ -196,7 +196,7 @@ class LegacyMockStorageCleanup(private val context: Context) {
 
 ## §6. R8 minification interaction (TODO-ARCH-006)
 
-**Context**: spec 007 SC-006 failed by 0.99 MiB (delta 3.99 MiB vs target 3 MiB) → TODO-ARCH-006 created для R8 enable. Spec 008 adds Room (~150-300 KiB).
+**Context**: spec 007 SC-006 failed by 0.99 MiB (delta 3.99 MiB vs target 3 MiB) → TODO-ARCH-006 created для R8 enable. Spec 008 adds SQLDelight (~150-300 KiB).
 
 ### Decision
 
@@ -273,4 +273,4 @@ No additional ADRs needed (none of these rise to «protocol or organization-wide
 
 ## TL;DR
 
-Эта папка — рабочая записка инженеров: какие развилки в дизайне 008 могут «закрыть двери» и сделать переделку дорогой. Главная развилка — как ловить параллельное редактирование (см. §1: используем «временную метку сервера», это надёжнее чем счётчик и проще чем CRDT). Остальные пункты — мелкие, без сюрпризов. Главный технический риск — APK размер: Room добавит 150-300 KB, и нам нужно включить R8 (это уже в backlog), чтобы не превысить бюджет.
+Эта папка — рабочая записка инженеров: какие развилки в дизайне 008 могут «закрыть двери» и сделать переделку дорогой. Главная развилка — как ловить параллельное редактирование (см. §1: используем «временную метку сервера», это надёжнее чем счётчик и проще чем CRDT). Остальные пункты — мелкие, без сюрпризов. Главный технический риск — APK размер: SQLDelight добавит 150-300 KB, и нам нужно включить R8 (это уже в backlog), чтобы не превысить бюджет.

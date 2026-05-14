@@ -17,12 +17,12 @@ Collaborative-editing wire format for `/links/{linkId}/config/current` (admin-si
 
 **Language/Version**: Kotlin 2.0.20+ (KMP common; UUID via `kotlin.uuid.Uuid` stdlib).
 **Primary Dependencies (new in 008)**:
-- `androidx.room:room-runtime` + `room-compiler` (KSP) + `room-ktx` — local persistence (Android adapter).
+- **SQLDelight 2.0.2** (`app.cash.sqldelight:runtime` + `coroutines-extensions` + `android-driver`) — KMP local persistence. **Pre-declared в `gradle/libs.versions.toml` именно для спека 008** (comment: «used from spec 008 onwards; declared now to fix version once»). KMP-friendly (commonMain queries), parity-ready для будущего iOS adapter per ADR-001.
 - No new vendor SDKs. Reuses Firebase BoM (Firestore / Auth / Messaging) from spec 007.
 
 **Storage**:
 - Firestore documents `/links/{linkId}/config/current`, `/links/{linkId}/state/current` (wire formats, leave device).
-- Room SQLite tables `LocalAppliedConfig`, `PendingLocalChanges` (local-only, per-link).
+- SQLDelight SQLite tables `LocalAppliedConfig`, `PendingLocalChanges` (local-only, per-link). Defined в `.sq` schema files in commonMain.
 
 **Testing**: kotlin-test (common), JUnit + Robolectric (androidUnitTest), Compose StateRestorationTester (UI), Firebase Emulator (integration), Konsist (fitness functions). Same stack as 007.
 
@@ -31,12 +31,12 @@ Collaborative-editing wire format for `/links/{linkId}/config/current` (admin-si
 **Project Type**: KMP library + Android app (existing structure; no new gradle module — see Module Layout below).
 
 **Performance Goals**:
-- SC-004a: First frame from Room ≤ 650 ms p95 (Pixel 4a class) — inherits spec 007 SC-007 budget; Room read sub-budget ≤ 50 ms p95.
+- SC-004a: First frame from SQLDelight ≤ 650 ms p95 (Pixel 4a class) — inherits spec 007 SC-007 budget; local DB read sub-budget ≤ 50 ms p95.
 - SC-002: 4 independent refresh triggers (FCM / NetworkCallback / WorkManager 15min / RESUMED 2min throttle) — event-driven, no SLO.
 - WorkManager 15-min cadence → ≤ 96 wakeups/day, well within Article IX §3 cap.
 
 **Constraints**:
-- APK delta from Room library: ~150-300 KiB; triggers TODO-ARCH-006 (R8 minification) check on top of spec 007's tight 3.99 MiB delta.
+- APK delta from SQLDelight + android-driver: ~200-400 KiB; triggers TODO-ARCH-006 (R8 minification) check on top of spec 007's tight 3.99 MiB delta.
 - No new runtime permissions (reuses INTERNET + ACCESS_NETWORK_STATE).
 - One-way door: optimistic-concurrency model on `serverUpdatedAt` (see research.md §1).
 
@@ -82,7 +82,8 @@ core/
 │   │   │   ├── ConfigDiff.kt                # value type + pure diff() function (FR-051)
 │   │   │   ├── ConfigApplier.kt             # PORT (Managed apply, FR-021)
 │   │   │   ├── ConfigEditor.kt              # PORT (save локально + push, FR-040/056)
-│   │   │   ├── LocalConfigStore.kt          # PORT (Room-backed local persistence)
+│   │   │   ├── LocalConfigStore.kt          # PORT (SQLDelight-backed local persistence)
+│   │   │   ├── ConfigStore.sq               # SQLDelight schema (commonMain — KMP-friendly)
 │   │   │   └── ConfigSyncError.kt           # sealed (extends BackendError categories)
 │   │   ├── lifecycle/                       ← NEW
 │   │   │   ├── NetworkAvailability.kt       # PORT (ConnectivityManager wrap)
@@ -101,10 +102,8 @@ core/
 │           └── FakeAppForegroundEvents.kt
 ├── src/androidMain/kotlin/com/launcher/
 │   ├── adapters/config/                     ← NEW (real adapters)
-│   │   ├── RoomLocalConfigStore.kt
-│   │   ├── RoomEntities.kt                  # @Entity (private, never leaked to commonMain)
-│   │   ├── ConfigDocumentDao.kt             # @Dao
-│   │   ├── ConfigSyncDatabase.kt            # @Database(version = 1)
+│   │   ├── SqlDelightLocalConfigStore.kt    # uses generated SQLDelight queries
+│   │   ├── AndroidSqlDriverProvider.kt      # AndroidSqliteDriver factory
 │   │   ├── FirebaseConfigApplier.kt
 │   │   └── DefaultConfigEditor.kt           # uses RemoteSyncBackend.runTransaction
 │   ├── adapters/lifecycle/                  ← NEW
@@ -135,9 +134,9 @@ push-worker/                                  ← EXISTING (spec 007 Cloudflare 
 ```
 
 **Konsist gates** (extend spec 007 Phase 10 pattern):
-- `commonMain/api/config/` MUST NOT import `com.google.firebase.*`, `androidx.room.*`, `android.*`.
+- `commonMain/api/config/` MUST NOT import `com.google.firebase.*`, `android.*` (SQLDelight runtime is KMP-pure so OK in commonMain).
 - `commonMain/api/lifecycle/` MUST NOT import `android.net.*`, `androidx.lifecycle.*`.
-- `androidMain/adapters/config/` MUST NOT export Room entity types beyond adapter boundary.
+- `androidMain/adapters/config/` MUST NOT export SQLDelight `app.cash.sqldelight.db.SqlDriver` types beyond adapter boundary (driver wrapped в `AndroidSqlDriverProvider`).
 
 ### Port-adapter shape
 
@@ -145,7 +144,7 @@ push-worker/                                  ← EXISTING (spec 007 Cloudflare 
 |---|---|---|---|
 | `ConfigApplier` | `FirebaseConfigApplier` | `FakeConfigApplier` | Managed apply flow (FR-021/023), tests of higher-level code |
 | `ConfigEditor` | `DefaultConfigEditor` | `FakeConfigEditor` | All editor flows (FR-040/056); tests |
-| `LocalConfigStore` | `RoomLocalConfigStore` | `FakeLocalConfigStore` (in-memory map) | FR-041/042/044 |
+| `LocalConfigStore` | `SqlDelightLocalConfigStore` (commonMain queries + androidMain driver) | `FakeLocalConfigStore` (in-memory map) | FR-041/042/044 |
 | `NetworkAvailability` | `ConnectivityManagerNetworkAvailability` | `FakeNetworkAvailability` (programmable Flow) | FR-022 T2 |
 | `AppForegroundEvents` | `ProcessLifecycleForegroundEvents` | `FakeAppForegroundEvents` (programmable Flow) | FR-022 T4 |
 
@@ -178,7 +177,7 @@ admin editor                                      Managed
                                                   FCM data-message received
                                                   → ConfigApplier.applyFromRemote()
                                                     read /config/current
-                                                    persist to Room (atomic)
+                                                    persist to local DB via SQLDelight (atomic transaction)
                                                     re-render launcher UI
                                                     write /state/current.appliedConfigUpdatedAt
                                                                 |
@@ -209,11 +208,11 @@ device B: ConfigEditor catches TransactionConflict
 ### Data flow — Cold start (US-5, SC-004a/b)
 
 ```text
-Application.onCreate (Koin init only; no Room access — lazy DAO)
+Application.onCreate (Koin init only; SqlDriver lazy-init — no DB open)
    ↓
 Activity#onCreate → ViewModel observes LocalConfigStore.appliedConfigFlow
    ↓
-First frame (≤650ms p95) with last-applied-config from Room
+First frame (≤650ms p95) with last-applied-config from SQLDelight
    ↓
 5 seconds after first frame (background coroutine in applicationScope, SC-004b)
    ↓
@@ -269,18 +268,21 @@ Wire-format discipline (CLAUDE.md §5, FR-005/006):
 
 | Dependency | Version | Justification | Article XIII |
 |---|---|---|---|
-| `androidx.room:room-runtime` | 2.7+ | FR-041/042 local persistence | OK — AndroidX, stable, mandatory for local-first per Article XIV §4 |
-| `androidx.room:room-ktx` | 2.7+ | Coroutines support for DAOs | OK |
-| `androidx.room:room-compiler` (KSP plugin) | 2.7+ | @Database / @Entity / @Dao codegen | OK — build-time only |
+| `app.cash.sqldelight:runtime` | 2.0.2 | FR-041/042 local persistence (KMP-friendly) | OK — already declared в `libs.versions.toml` for спека 008; KMP per ADR-001 future-parity |
+| `app.cash.sqldelight:coroutines-extensions` | 2.0.2 | Flow / suspend support | OK |
+| `app.cash.sqldelight:android-driver` | 2.0.2 | Android SqlDriver | OK — only androidMain (commonMain uses generic SqlDriver port) |
+| SQLDelight Gradle plugin | 2.0.2 | `.sq` codegen | OK — build-time only |
 
-### No new commonMain dependencies
+### Common deps already in project
 
-UUID via `kotlin.uuid.Uuid` (stdlib 2.0.20+). Serialization via existing `kotlinx-serialization-json` from spec 007.
+- UUID via `kotlin.uuid.Uuid` (stdlib 2.0.21 — project Kotlin version OK).
+- Serialization via existing `kotlinx-serialization-json` from spec 007.
+- SQLDelight runtime + coroutines-extensions: commonMain (pure KMP, no vendor SDK).
 
 ### APK delta budget
 
 - Spec 007 baseline: realBackend delta = 3.99 MiB (SC-006 of 007 failed by 0.99 MiB; TODO-ARCH-006 R8 minification planned).
-- Spec 008 addition: Room ~150-300 KiB → realBackend delta ≈ 4.15-4.30 MiB without R8.
+- Spec 008 addition: SQLDelight runtime + android-driver ~200-400 KiB → realBackend delta ≈ 4.2-4.4 MiB without R8.
 - **Action**: spec 008 Phase 12 (perf-checkpoint) re-measures; TODO-ARCH-006 (R8 enable) should land before or during spec 008 to keep delta < 4 MiB.
 
 ---
@@ -293,12 +295,12 @@ Per CLAUDE.md §6 (mock-first) and §7 (fitness functions). 8 levels mirror spec
 |---|---|---|
 | 1. Domain unit | ConfigDiff algorithm; element-by-element matching by ElementId; auto-resolve identical diffs | `commonTest/api/config/ConfigDiffTest.kt` |
 | 2. Contract | Roundtrip + backward-compat reads for ConfigDocument, StateApplied | `commonTest/api/config/ConfigDocumentWireFormatTest.kt`, `StateAppliedWireFormatTest.kt` |
-| 3. Fake-adapter | FakeLocalConfigStore behaviour parity with RoomLocalConfigStore (contract test) | `commonTest/fake/config/FakeLocalConfigStoreContractTest.kt` |
+| 3. Fake-adapter | FakeLocalConfigStore behaviour parity with SqlDelightLocalConfigStore (contract test, uses in-memory SqlDriver) | `commonTest/fake/config/FakeLocalConfigStoreContractTest.kt` |
 | 4. Firebase Emulator integration | Optimistic concurrency: T0/T0 conflict; Security Rules write authorization (admin+Managed); revoke deletes /config recursively | `androidUnitTest` or `androidInstrumentedTest` with Firebase Emulator |
 | 5. Worker unit | `config.updated` payload generation in Cloudflare Worker | `push-worker/test/` |
 | 6. UI Compose | MergeScreen state restoration (StateRestorationTester); pending badge visibility; spinner state transitions | `androidUnitTest` with Robolectric |
-| 7. Fitness (Konsist) | commonMain config/* clean of Firebase/Room/android.*; lifecycle/* clean of android.net.*; Room entities don't leak | `core/src/test/kotlin/.../KonsistConfigSyncTest.kt` |
-| 8. Smoke / manual | 2-device end-to-end: edit on device A → push → applied on device B; cold-start with Room; elderly walkthrough exempted per FR-050 | manual; documented in `smoke/008/` |
+| 7. Fitness (Konsist) | commonMain config/* clean of Firebase/android.*; lifecycle/* clean of android.net.*; SqlDriver type not leaked from androidMain adapter | `core/src/test/kotlin/.../KonsistConfigSyncTest.kt` |
+| 8. Smoke / manual | 2-device end-to-end: edit on device A → push → applied on device B; cold-start с SQLDelight; elderly walkthrough exempted per FR-050 | manual; documented in `smoke/008/` |
 
 **Test fixtures as files** (wire-format checklist CHK012): `commonTest/resources/wire-format/`:
 - `config-v1-minimal.json`, `config-v1-full.json`
@@ -312,11 +314,11 @@ Per CLAUDE.md §6 (mock-first) and §7 (fitness functions). 8 levels mirror spec
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|---|
 | R1 | **One-way door — optimistic concurrency on `serverUpdatedAt`** | — | High (changes wire format if revised) | Documented in research.md §1 with exit ramp; alternative (vector-clock / CRDT) cost-analyzed and rejected |
-| R2 | Cold start regression — Room read on hot path | Medium | Medium (SC-004a fail) | Lazy DAO init; read on Dispatchers.IO; first-frame UI from in-memory StateFlow populated async; **Phase 12 macrobenchmark gates merge** |
+| R2 | Cold start regression — SQLDelight read on hot path | Medium | Medium (SC-004a fail) | Lazy SqlDriver init; read on Dispatchers.IO; first-frame UI from in-memory StateFlow populated async; **Phase 12 macrobenchmark gates merge** |
 | R3 | APK size delta exceeds budget | Medium | Medium | R8 minification (TODO-ARCH-006) MUST land in or before this spec; measure at Phase 12 |
 | R4 | Merge UI complexity → bugs in conflict resolution | Medium | High (data loss for editor) | Extensive unit tests on ConfigDiff; integration tests for 5 acceptance scenarios (US-2 1-5); manual smoke with 2 devices |
 | R5 | Pending changes orphaned when link revoked | Medium | Low | FR-034 recursive subtree delete; new action item: clear local Room pending for revoked linkId (security checklist) |
-| R6 | Room corruption (rare) → app stuck | Low | High | catch SQLiteException at startup → wipe DB → fresh-state fallback; documented in plan §error-recovery |
+| R6 | SQLite DB corruption (rare) → app stuck | Low | High | catch SqlDriver / SQLException at startup → wipe DB file → fresh-state fallback; documented in plan §error-recovery |
 | R7 | Future schema bump breaks existing Managed (forward-compat) | Medium | High | OUT-006 carves out `app-version-compatibility` spec; in 008 monorelease testing only |
 | R8 | NetworkCallback delivers stale `onAvailable` events on some OEMs | Medium | Low | T3 (WorkManager 15min) and T4 (RESUMED) provide redundancy; documented per Article VI §6 |
 | R9 | Cloudflare Worker rate limit / quota | Low | Medium | inherits 007 risk; TODO-ARCH-002 (Cloudflare KV) deferred for accurate rate-limiting |

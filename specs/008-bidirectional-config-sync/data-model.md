@@ -214,35 +214,56 @@ data class ModifiedFlow(
 
 ---
 
-## Persistence (Room — androidMain, never leaked to commonMain)
+## Persistence (SQLDelight — commonMain `.sq` schema + androidMain driver)
 
-### `LocalAppliedConfig`
+Schema lives в `core/src/commonMain/sqldelight/com/launcher/config/ConfigStore.sq` (SQLDelight processed by Gradle plugin to generate type-safe queries in commonMain). Driver injection (`AndroidSqliteDriver`) — в androidMain.
 
-```kotlin
-@Entity(tableName = "applied_config")
-data class LocalAppliedConfigEntity(
-    @PrimaryKey val linkId: String,
-    val configJson: String,          // serialized ConfigDocument (kotlinx.serialization)
-    val appliedAt: Long,             // epoch millis
-    val schemaVersion: Int,
-)
+### `ConfigStore.sq` (schema + queries)
+
+```sql
+CREATE TABLE applied_config (
+    linkId TEXT PRIMARY KEY NOT NULL,
+    configJson TEXT NOT NULL,        -- serialized ConfigDocument (kotlinx.serialization)
+    appliedAt INTEGER NOT NULL,       -- epoch millis
+    schemaVersion INTEGER NOT NULL
+);
+
+CREATE TABLE pending_changes (
+    linkId TEXT PRIMARY KEY NOT NULL,
+    snapshotServerUpdatedAt INTEGER NOT NULL,  -- serverUpdatedAt at start of editing session
+    draftJson TEXT NOT NULL,                   -- serialized draft ConfigDocument
+    updatedAt INTEGER NOT NULL                 -- last edit timestamp
+);
+
+-- Queries (generate type-safe Kotlin)
+readAppliedConfig:
+SELECT configJson, schemaVersion FROM applied_config WHERE linkId = ?;
+
+upsertAppliedConfig:
+INSERT OR REPLACE INTO applied_config(linkId, configJson, appliedAt, schemaVersion)
+VALUES (?, ?, ?, ?);
+
+readPending:
+SELECT * FROM pending_changes WHERE linkId = ?;
+
+upsertPending:
+INSERT OR REPLACE INTO pending_changes(linkId, snapshotServerUpdatedAt, draftJson, updatedAt)
+VALUES (?, ?, ?, ?);
+
+clearPending:
+DELETE FROM pending_changes WHERE linkId = ?;
+
+allPendingLinks:
+SELECT linkId FROM pending_changes;
 ```
 
-Adapter (`RoomLocalConfigStore`) deserializes JSON ↔ commonMain `ConfigDocument`. Entity never crosses adapter boundary (Konsist-enforced).
+SQLDelight generates `ConfigStoreQueries` class in `commonMain` (KMP-pure code, no Android dependency). Adapter (`SqlDelightLocalConfigStore`) wraps queries, converts JSON ↔ commonMain `ConfigDocument`.
 
-### `PendingLocalChanges`
+**Driver injection** (Koin):
+- `commonMain`: `LocalConfigStore` port consumed by domain.
+- `androidMain`: `AndroidSqlDriverProvider` constructs `AndroidSqliteDriver(schema, context, "config_sync.db")`.
 
-```kotlin
-@Entity(tableName = "pending_changes")
-data class PendingLocalChangesEntity(
-    @PrimaryKey val linkId: String,
-    val snapshotServerUpdatedAt: Long,  // serverUpdatedAt at start of editing session
-    val draftJson: String,              // serialized current draft ConfigDocument
-    val updatedAt: Long,                // last edit timestamp (for diagnostics)
-)
-```
-
-Upserted on every autosave (FR-056, debounced 300ms). Deleted on successful push (after RemoteSyncBackend transaction commits).
+Upserted on every autosave (FR-056, debounced 300ms). Pending deleted on successful push (after RemoteSyncBackend transaction commits).
 
 ---
 
@@ -270,22 +291,17 @@ sealed interface ConfigSyncError {
 
 ---
 
-## Persistence schema versioning (Room)
+## Persistence schema versioning (SQLDelight)
 
 ```kotlin
-@Database(
-    entities = [LocalAppliedConfigEntity::class, PendingLocalChangesEntity::class],
-    version = 1,
-    exportSchema = true,
-)
-abstract class ConfigSyncDatabase : RoomDatabase() {
-    abstract fun configDao(): ConfigDocumentDao
-}
+// commonMain — Koin DI binding (androidMain side)
+val ConfigStoreSchema: SqlSchema<QueryResult.Value<Unit>> = ConfigStore.Schema
 ```
 
-- Initial version: 1.
-- Future bumps: Room `Migration` classes; tests required per wire-format CHK014.
-- Schema export (`exportSchema = true`) → `core/schemas/com.launcher.adapters.ConfigSyncDatabase/1.json` — committed to git for migration diffing.
+- Initial schema version: SQLDelight tracks via `Schema.version` (starts at 1).
+- Future migrations: `.sqm` files (e.g. `1.sqm`, `2.sqm`) в `core/src/commonMain/sqldelight/.../migrations/`. SQLDelight Gradle plugin runs migrations on driver init.
+- Migration test infrastructure: SQLDelight provides `VerifyMigrationTask` via Gradle; per-migration unit tests via `SqlSchema.verifyMigrations()` API. Required per wire-format CHK014.
+- Schema export: SQLDelight generates `.db` schema snapshot during build; committed to git for migration diffing.
 
 ---
 
@@ -321,7 +337,7 @@ Real adapter: subscribes to `ProcessLifecycleOwner.lifecycle`, debounces to per-
 |---|---|---|---|
 | `ConfigApplier` | Apply ConfigDocument to UI/storage on Managed (FR-021..023) | `FirebaseConfigApplier` (androidMain) | `FakeConfigApplier` (commonTest) |
 | `ConfigEditor` | Save локально + push с conflict check (FR-040, FR-056, FR-013) | `DefaultConfigEditor` (androidMain — uses RemoteSyncBackend) | `FakeConfigEditor` (commonTest) |
-| `LocalConfigStore` | Room-backed persistence (FR-041, FR-042) | `RoomLocalConfigStore` (androidMain) | `FakeLocalConfigStore` (commonTest — in-memory map) |
+| `LocalConfigStore` | SQLDelight-backed persistence (FR-041, FR-042) | `SqlDelightLocalConfigStore` (commonMain queries + androidMain `AndroidSqlDriverProvider`) | `FakeLocalConfigStore` (commonTest — in-memory map; OR SqlDelight in-memory SqlDriver for adapter parity) |
 | `NetworkAvailability` | OS-driven network events | `ConnectivityManagerNetworkAvailability` | `FakeNetworkAvailability` |
 | `AppForegroundEvents` | Lifecycle-driven launcher visibility | `ProcessLifecycleForegroundEvents` | `FakeAppForegroundEvents` |
 
@@ -355,4 +371,4 @@ Single source of truth — no magic numbers scattered.
 
 ## TL;DR
 
-Список «вещей» (data classes), которые программа знает в коде. Главная — `ConfigDocument` (это то, что лежит на сервере: какие плитки, контакты). У каждой плитки и контакта — свой `ElementId` (случайный UUID), чтобы при сравнении версий понимать, что «плитка Маша» это та же плитка, даже если её переименовали. Когда есть конфликт — собираем `ConfigDiff` (где что разное между моей версией и сервером). Локально на телефоне хранится в Room: `LocalAppliedConfig` (что реально показано) и `PendingLocalChanges` (что я наредактировал, но ещё не отправил).
+Список «вещей» (data classes), которые программа знает в коде. Главная — `ConfigDocument` (это то, что лежит на сервере: какие плитки, контакты). У каждой плитки и контакта — свой `ElementId` (случайный UUID), чтобы при сравнении версий понимать, что «плитка Маша» это та же плитка, даже если её переименовали. Когда есть конфликт — собираем `ConfigDiff` (где что разное между моей версией и сервером). Локально на телефоне хранится в SQLDelight (KMP-friendly база, общий код для будущего iOS): таблицы `applied_config` (что реально показано) и `pending_changes` (что я наредактировал, но ещё не отправил).
