@@ -74,6 +74,9 @@ kotlin {
             // Konsist — fitness-function tests per spec 005 §8 (domain-isolation,
             // whatsapp-residue, legacy-bridge expiry). JVM-only; lives in androidUnitTest.
             implementation(libs.konsist)
+            // SQLDelight JVM driver — in-memory SQLite для unit tests of
+            // SqlDelightLocalConfigStore (spec 008 T052).
+            implementation(libs.sqldelight.sqlite.driver)
         }
     }
 }
