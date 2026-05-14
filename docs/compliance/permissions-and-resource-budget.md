@@ -126,3 +126,46 @@ Cross-checked against shipped manifests:
   - `fcmToken` — **NOT persisted by 007 code today** (in-memory diagnostic only via `FcmRegistration.currentFcmToken`); will become `/links/{linkId}/state.fcmToken` in spec 008 (`LauncherFirebaseMessagingService.onNewToken` TODO).
   - Хранение в облаке: Firestore (Google), Cloudflare Worker Secrets (Cloudflare). Оба US/global multi-region; data processing agreements автоматические для бесплатного tier.
 - **Decision**: ✅ принято as finalized. Permissions минимальны (только INTERNET в realBackend + ACCESS_NETWORK_STATE inherited), нет dangerous permissions для managed device, no background services, no polling. Pre-production checklist (still open): `TODO-OPS-001/002` (2FA), `TODO-OPS-003` (key rotation closed 2026-05-11 per commit `c2b8490`), `TODO-ARCH-006` (R8 minification for SC-006 fix).
+
+### spec 008: bidirectional-config-sync **(planned 2026-05-14, in implementation)**
+
+- **Feature**: Collaborative-editing wire format `/links/{linkId}/config/current` с optimistic concurrency, unified diff/merge UI, `/links/{linkId}/state/current` extension. Local persistence через SQLDelight (KMP-friendly). 4 refresh triggers: FCM `config.updated`, `ConnectivityManager.NetworkCallback`, WorkManager periodic 15min, Activity#onResume throttled 2min.
+- **Permissions added**: **none new**. Reuses INTERNET + ACCESS_NETWORK_STATE из спека 007.
+  - `ACCESS_NETWORK_STATE` теперь активно используется через `ConnectivityManager.NetworkCallback` (FR-022 T2) — не только GMS detection как в 007.
+  - `INTERNET` — Firestore writes /config/current, Worker push, FCM receive (все inherited).
+- **Permissions NOT added** (deferred to future specs):
+  - `READ_CONTACTS` — spec 011 (contacts + e2e media).
+  - `READ_PHONE_STATE`, `CALL_PHONE`, `SEND_SMS` — specs 012/013.
+- **Why each shipped permission is needed** (no change from 007):
+  - `INTERNET` — Firestore /config writes + reads, FCM, Worker push trigger.
+  - `ACCESS_NETWORK_STATE` — ConnectivityManager events для FR-022 T2 (T3 WorkManager fallback при отсутствии).
+- **Fallback if denied**: normal permissions, denial невозможен.
+- **Manifest deltas vs спек 007**: **none expected** (no new declared permissions). May add WorkManager init metadata в `AndroidManifest.xml` (default WorkManager initialization).
+- **Background/runtime impact**:
+  - **NEW**: WorkManager periodic 15 min — config refresh fallback (FR-022 T3). ≤96 wakeups/day, <0.1% battery per Article IX §3 cap.
+  - **NEW**: `ConnectivityManager.NetworkCallback` — system-driven event, ~0 cost (FR-022 T2).
+  - **NEW**: `ProcessLifecycleOwner` ON_RESUME callback (throttled 2 min) — user-bound, no background cost (FR-022 T4).
+  - **NEW**: SQLDelight Android SQLite driver — disk I/O on autosave (debounced 300ms per FR-056); typical session 10-50 writes.
+  - FCM `config.updated` — managed by Android system (inherited from 007).
+- **Startup impact**:
+  - **NEW**: cold start с SQLDelight read для last-applied-config — target ≤ 50 ms p95 (subset of SC-004a общий budget ≤ 650 ms).
+  - Application.onCreate — lazy `SqlDriver` init (no DB open).
+  - 5-second post-startup `/config/current` fetch (SC-004b).
+- **Memory/storage impact**:
+  - **NEW**: SQLDelight DB `config_sync.db` — 2 tables (applied_config + pending_changes), один row на linkId; estimated <100 KiB local.
+  - APK delta **estimated**: SQLDelight runtime + android-driver = ~200-400 KiB on top of спек 007 baseline (3.99 MiB delta). With R8 (TODO-ARCH-006) — should stay under 4 MiB delta. Final measurement в Phase 12 T142.
+  - **Mandatory**: `android:allowBackup="false"` или `data_extraction_rules.xml` исключающий `config_sync.db` (PII protection — security checklist CHK024). Action item в Phase 3 T050.
+- **Network impact**:
+  - Firestore writes к `/config/current` — per push action (user-initiated). ≤1 KB per write при типичной раскладке.
+  - Firestore reads — на каждый из 4 триггеров (T1 FCM, T2 NetworkCallback, T3 WorkManager 15min, T4 RESUMED throttled).
+  - Net new: <100 KB/day typical usage.
+- **Monitoring/observability**:
+  - `Log.i("ConfigSync", ...)` для apply / push / conflict events (categorical, NO PII per security CHK004).
+  - `ConfigSyncError` sealed class — categorical errors enable rate measurement (failure-recovery CHK017).
+  - **Zero PII в логах**: никогда не логировать `contacts[]`, `flows[].slots[].args` целиком; только counts/categories.
+- **Privacy classification**:
+  - `/config.contacts[]` содержит phone numbers — это PII per Article XIV. Хранение: Firestore (Google) + SQLDelight local. Защита базы: Android app sandbox (не SQLCipher в 008 — Option A per research.md §security CHK001; revisit в спеке 011 e2e-media).
+  - `/config.lastWriterDeviceId` — pseudonym, идентифицирует which editor wrote last. **Только в /config**, НЕ в /state (security CHK019: prevent voyeurism).
+  - `/state.appliedConfigUpdatedAt` — timestamp, не PII.
+  - SQLDelight DB **deleted on uninstall** (Android default) + явно на revoke link (FR-034 + new clearLocalForLink action).
+- **Decision**: 🟡 planned. To finalize when 008 phases 4 (Firebase adapters) + 7 (lifecycle triggers) реализованы. Pre-production checklist: TODO-ARCH-006 (R8) перед или в Phase 12, TODO-ARCH-007 (app-version-compatibility — отдельный спек), TODO-ARCH-008 (config history+rollback в спек 009), TODO-ARCH-009 (size soft-limits, optional safety net).
