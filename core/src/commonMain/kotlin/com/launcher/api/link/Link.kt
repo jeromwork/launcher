@@ -40,6 +40,7 @@ data class Link(
             "capabilities",
             "health",
             "commands",
+            "configHistory",  // spec 009 FR-036 — config history snapshots.
         )
     }
 }
