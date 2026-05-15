@@ -590,6 +590,7 @@
 - **File(s)**: `core/src/androidInstrumentedTest/.../ConnectivityManagerNetworkAvailabilityTest.kt`.
 - **Action**: instrumented test — toggle airplane mode via UiAutomator (or use TestConnectivityManager в Robolectric) → assert Flow emits.
 - **Acceptance**: test green (or Robolectric variant if instrumented infra not in place).
+- **Status (2026-05-15)**: ⚠ DEFERRED — `androidInstrumentedTest/` source set is empty; live behaviour observed in logcat during 2026-05-15 emulator smoke (`WM-NetworkStateTracker: Network capabilities changed → Unregistering network callback`). Tracked in [TODO-INSTRUMENT-001](../../docs/dev/project-backlog.md#todo-instrument-001-instrumented-androidtest-test-scaffolding-для-t091t095compose-ui-).
 
 ### T092 [P] Implement ProcessLifecycleForegroundEvents
 
@@ -622,6 +623,7 @@
 - **File(s)**: `core/src/androidUnitTest/.../ConfigRefreshWorkerTest.kt` (use WorkManager-test artifact).
 - **Action**: trigger Worker; assert /config read and applied if newer.
 - **Acceptance**: test green.
+- **Status (2026-05-15)**: ⚠ DEFERRED — test file not written; live execution observed in logcat during emulator smoke (`WM-WorkerWrapper: Worker result SUCCESS for ConfigRefreshWorker`). Tracked in [TODO-INSTRUMENT-001](../../docs/dev/project-backlog.md#todo-instrument-001-instrumented-androidtest-test-scaffolding-для-t091t095compose-ui-).
 
 ### T096 [CRIT] Wire all 4 triggers in Application init
 
@@ -710,6 +712,7 @@
 - **File(s)**: `app/src/main/kotlin/.../ui/devicelist/DeviceListPendingBadgeTest.kt`.
 - **Action**: setup pending for linkId X → snapshot composition → assert badge present for X, absent для linkId Y.
 - **Acceptance**: test green.
+- **Status (2026-05-15)**: ⚠ DEFERRED — Compose UI test файла нет; underlying state-source `LocalConfigStore.allPendingLinks` покрыт `FakeLocalConfigStoreTest` (6 PASS) + `SqlDelightLocalConfigStoreTest` (7 PASS). Tracked в [TODO-INSTRUMENT-001](../../docs/dev/project-backlog.md#todo-instrument-001-instrumented-androidtest-test-scaffolding-для-t091t095compose-ui-).
 
 **Checkpoint Phase 8**: All editor UI elements implemented and unit-tested.
 
@@ -854,6 +857,7 @@
 - **File(s)**: `core/src/androidBenchmark/.../ConfigSyncStartupBenchmark.kt` (new module if not exists, or extend existing benchmark module).
 - **Action**: Macrobenchmark с `MeasureCriterion.StartupCriterion`. Simulate process death; measure time from Activity#onCreate to first frame с last-applied-config. 20 iterations, p95 ≤ 650 ms.
 - **Acceptance**: benchmark passes; results recorded in T141.
+- **Status (2026-05-15)**: ⚠ DEFERRED — `:benchmark` Gradle module не существует (settings.gradle.kts содержит только `:app`, `:core`). Tracked в [TODO-PERF-001](../../docs/dev/project-backlog.md#todo-perf-001-macrobenchmark-module-для-t140-cold-start--650-ms-p95-).
 
 ### T141 [CRIT] Create perf-checkpoint.md
 
@@ -873,6 +877,7 @@
 - **Dependencies**: T141, T001 status of R8.
 - **Action**: build `realBackend` release APK; measure delta vs спек 007 baseline (3.99 MiB); document in perf-checkpoint.md. **Gate**: if delta > 4 MiB → block merge until R8 (TODO-ARCH-006) lands.
 - **Acceptance**: delta < 4 MiB OR clear remediation plan.
+- **Status (2026-05-15)**: ✅ **MEASURED** — 3.79 MiB без R8 (под бюджетом). Detail в [perf-checkpoint.md §APK delta](perf-checkpoint.md). R8 (TODO-ARCH-006) больше не блокер для 008.
 
 ### T143 [M] Manual 2-device smoke test
 
@@ -884,6 +889,7 @@
   - Two devices edit parallel → conflict → merge UI.
   - Device A offline → save локально → banner visible → online → push.
 - **Acceptance**: manual smoke log committed; screenshots attached.
+- **Status (2026-05-15)**: ⚠ DEFERRED — попытка запуска realBackend на эмуляторе обнаружила блокер ([TODO-SMOKE-001](../../docs/dev/project-backlog.md#todo-smoke-001-wire-comgooglegmsgoogle-services-plugin-для-realbackend-flavor-) — google-services plugin не applied; FirebaseApp init крашится). После TODO-SMOKE-001 эмулятор покроет US-1/US-3/US-5; реальные девайсы остаются нужны для US-2/US-4 + OEM-coverage ([TODO-DEVICE-002](../../docs/dev/project-backlog.md#todo-device-002-t143-multi-device-manual-smoke-us-1us-5-с-реальными-oem-)).
 
 ### T144 [P] Update roadmap.md spec 008 status
 

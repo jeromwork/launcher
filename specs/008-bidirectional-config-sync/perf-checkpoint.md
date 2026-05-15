@@ -75,11 +75,16 @@ reduction → estimated final delta ≈ 1.7-2.6 MiB. **Within budget**.
 diff = sizeof(realBackend.apk) - sizeof(mockBackend.apk)
 ```
 
-**Measured value**: ⏳ pending device session + TODO-ARCH-006 coordination.
+**Measured value (2026-05-15, без R8)**:
+- realBackend release: 13 406 221 bytes ≈ 12.78 MiB
+- mockBackend release: 9 434 891 bytes ≈ 9.00 MiB
+- **Delta: 3 971 330 bytes ≈ 3.79 MiB** — **под бюджетом** (4 MiB).
+
+Это инвалидирует консервативную оценку выше (≈ 4.36 MiB) — реальный delta меньше
+ожидаемого. R8 (TODO-ARCH-006) остаётся nice-to-have, но **не блокер** релиза 008.
 
 **Pass criterion**:
-- [ ] APK delta < 4 MiB realBackend - mockBackend;
-- [ ] OR explicit waiver with reasoned APK budget exception.
+- [x] APK delta < 4 MiB realBackend - mockBackend (3.79 MiB measured 2026-05-15).
 
 ---
 
