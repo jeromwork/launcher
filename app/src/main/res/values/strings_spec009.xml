@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Spec 009 user-facing strings (admin-mode flows).
+  Russian-only per ADR-004 (i18n strategy is single-locale RU in MVP).
+  TODO(spec-followup ADR-004): externalise to per-locale resources when
+  EN locale lands.
+-->
+<resources>
+    <!-- VCard share intent receiver -->
+    <string name="vcard_receive_title">Добавить контакт</string>
+    <string name="vcard_receive_processing">Обрабатываем контакт…</string>
+    <string name="vcard_receive_error_too_large">Файл контакта слишком большой</string>
+    <string name="vcard_receive_error_invalid">Не удалось прочитать контакт</string>
+    <string name="vcard_receive_error_no_phone">У контакта нет номера телефона</string>
+
+    <!-- Contact picker / manual entry / permission rationale (FR-023, FR-023a, FR-023b) -->
+    <string name="contacts_permission_rationale_title">Доступ к контактам</string>
+    <string name="contacts_permission_rationale_body">Чтобы добавить контакт из системного списка, разрешите приложению читать контакты. Также можно ввести номер вручную.</string>
+    <string name="contacts_permission_allow">Разрешить</string>
+    <string name="contacts_permission_manual">Ввести вручную</string>
+    <string name="contacts_permission_settings">Открыть настройки</string>
+    <string name="contacts_manual_name_hint">Имя</string>
+    <string name="contacts_manual_phone_hint">Телефон</string>
+
+    <!-- ValidationError → user message -->
+    <string name="contact_error_name_empty">Введите имя</string>
+    <string name="contact_error_name_too_long">Имя длиннее 100 символов</string>
+    <string name="contact_error_name_invalid">Имя содержит недопустимые символы</string>
+    <string name="contact_error_phone_empty">Введите телефон</string>
+    <string name="contact_error_phone_invalid">Неверный формат телефона</string>
+
+    <!-- Editor mode (FR-001, FR-005, FR-015) -->
+    <string name="editor_mode_view">Просмотр</string>
+    <string name="editor_mode_edit">Редактировать</string>
+    <string name="editor_publish">Опубликовать</string>
+    <string name="editor_publish_in_progress">Публикую…</string>
+    <string name="editor_publish_applied">Применено на устройстве</string>
+    <string name="editor_publish_conflict">Конфликт изменений — кто-то редактировал параллельно</string>
+
+    <!-- History (FR-036..FR-040) -->
+    <string name="history_title">История изменений</string>
+    <string name="history_empty">История пуста — нажмите «Опубликовать», чтобы появилась первая версия</string>
+    <string name="history_rollback">Откатить</string>
+    <string name="history_rollback_confirm">Откатить к этой версии?</string>
+    <string name="history_recorded_at">Записано</string>
+
+    <!-- Phone health (FR-017..FR-022a) -->
+    <string name="health_section_title">Здоровье устройства</string>
+    <string name="health_label_battery">Заряд</string>
+    <string name="health_label_connectivity">Сеть</string>
+    <string name="health_label_audio">Звук</string>
+    <string name="health_label_last_seen">На связи</string>
+    <string name="health_severity_info">норма</string>
+    <string name="health_severity_warning">предупреждение</string>
+    <string name="health_severity_critical">критично</string>
+
+    <!-- Contacts manage (FR-031a privacy minimum) -->
+    <string name="contacts_manage_title">Управление контактами</string>
+    <string name="contacts_manage_delete">Удалить</string>
+    <string name="contacts_manage_delete_confirm">Удалить контакт у бабушки?</string>
+</resources>

@@ -14,9 +14,18 @@
     <cloud-backup>
         <exclude domain="file" path="datastore/com.launcher.capability.snapshot_v1.preferences_pb" />
         <exclude domain="file" path="datastore/com.launcher.health.snapshot_v1.preferences_pb" />
+        <!--
+          Spec 009 FR-046a: reserve namespace for any future local
+          contacts cache. In spec 009 contacts live inside
+          /config/current; if a future spec adds a SQLite/Room cache of
+          PII третьих лиц it MUST use this excluded path
+          (GDPR transfer-to-processor mitigation).
+        -->
+        <exclude domain="database" path="contacts_cache.db" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="file" path="datastore/com.launcher.capability.snapshot_v1.preferences_pb" />
         <exclude domain="file" path="datastore/com.launcher.health.snapshot_v1.preferences_pb" />
+        <exclude domain="database" path="contacts_cache.db" />
     </device-transfer>
 </data-extraction-rules>
