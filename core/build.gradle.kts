@@ -112,6 +112,12 @@ android {
             isIncludeAndroidResources = true
         }
     }
+
+    sourceSets {
+        getByName("testRealBackend") {
+            java.srcDirs("src/androidRealBackendUnitTest/kotlin")
+        }
+    }
 }
 
 // Spec 007 realBackend-only deps (FR-034): Firebase Auth, Firestore, FCM.
