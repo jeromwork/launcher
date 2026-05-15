@@ -128,7 +128,7 @@
 - **Status**: 🟢 OPEN
 - **Origin**: Spec 007 C13 = C stub.
 
-### TODO-ARCH-006: Enable R8 minification on `release` buildType 🟡
+### TODO-ARCH-006: Enable R8 minification on `release` buildType 🟡 🚨 PLAY-STORE-BLOCKER
 
 - **What**: Включить `isMinifyEnabled = true` + `isShrinkResources = true` для `release` buildType в `app/build.gradle.kts`.
 - **Why**: spec 007 SC-006 «realBackend APK ≤ mockBackend + 3 MB» сейчас **fails by 0.99 MB** (delta 3.99 MB SI, target 3.00 MB). Firebase Firestore/Auth/Messaging SDKs тянут много кода, который R8 ужмёт на 40-60%. Без минификации SC-006 нарушено постоянно.
@@ -492,7 +492,7 @@ These are tracked here (not in spec 008's `tasks.md`) because they require eithe
 
 ## Legal & Compliance
 
-### TODO-LEGAL-001: Contacts privacy compliance (GDPR / 152-ФЗ) 🟡
+### TODO-LEGAL-001: Contacts privacy compliance (GDPR / 152-ФЗ) 🟡 🚨 PLAY-STORE-BLOCKER
 
 - **What**: Полная privacy compliance pipeline для контактов админа, добавленных в раскладки Managed: экран «список добавленных контактов» в admin-Settings с возможностью удалить любой; rationale-экран перед запросом `READ_CONTACTS`; политика конфиденциальности; экспорт / удаление по запросу субъекта данных (GDPR Article 17, 20; 152-ФЗ ст. 14, 21).
 - **Why**: Сбор `READ_CONTACTS` и хранение PII (имя + номер) в Firebase затрагивает третьих лиц (контакты админа), которые согласия **не давали**. Без compliance flow:

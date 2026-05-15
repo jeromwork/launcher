@@ -174,7 +174,7 @@ Admin в редакторе плитки выбирает «Тип: открыт
 
 #### Layout editor — editing operations
 
-- **FR-008** *(уточнён C4)*: Long-press на плитку MUST активировать drag-and-drop через **`Modifier.dragAndDropSource` / `Modifier.dragAndDropTarget`** (Compose 1.6+ built-in API) как **primary** реализация. Drop targets: другая позиция в той же flow, плитка в другой flow (cross-flow), корзина внизу экрана (удаление). **Two-way door fallback**: если в `/speckit.plan` research выявит проблемы с cross-flow drag через built-in API — переходим на ручную реализацию через `Modifier.pointerInput`. Inline-TODO в коде на этот fallback.
+- **FR-008** *(уточнён C4 + core-quality 2026-05-15)*: Long-press на плитку MUST активировать drag-and-drop через **`Modifier.dragAndDropSource` / `Modifier.dragAndDropTarget`** (Compose 1.6+ built-in API) как **primary** реализация. Drop targets: другая позиция в той же flow, плитка в другой flow (cross-flow), корзина внизу экрана (удаление). **Two-way door fallback**: если в `/speckit.plan` research выявит проблемы с cross-flow drag через built-in API — переходим на ручную реализацию через `Modifier.pointerInput`. Inline-TODO в коде на этот fallback. **Window insets**: корзина-target внизу экрана MUST уважать `WindowInsets.safeContent` / `WindowInsets.navigationBars` (Android 15 edge-to-edge requirement) — не быть перекрытой system bar gestures.
 - **FR-009**: Рядом с каждой плиткой в режиме редактирования MUST быть кнопка «···» с меню «Изменить / Переместить в / Удалить». Это параллельный канал для drag-and-drop (accessibility per Article VIII; users TalkBack, на планшете без точного указания).
 - **FR-010**: Кнопка «+» в flow MUST позволять добавить новую плитку (выбор kind: Call / Sms / OpenApp).
 - **FR-011**: Кнопка «+» в `BottomFlowBar` MUST позволять добавить новую flow (если preset допускает множественные flow; конкретное ограничение per preset — захардкожено в коде).
@@ -200,6 +200,7 @@ Admin в редакторе плитки выбирает «Тип: открыт
 - **FR-020** *(переписан 2026-05-15 после performance checklist — отказ от polling)*: Update cadence — **Firestore realtime listener когда экран открыт, отписка при закрытии**, независимо от severity. Severity (Info/Warning/Critical) вычисляется **client-side** через `DEFAULT_PHONE_HEALTH_PRESET` на каждом snapshot from listener. Polling-механизм НЕ используется — Firestore listener уже доставляет каждое изменение `/health`, разделение на «poll 30s for Info» было искусственным и нарушало Article IX §3 (event-driven preferred over polling). Push admin для closed app — `TODO-ARCH-012` / `SRV-MONITOR-001` (отдельная подсистема).
 - **FR-021**: При переходе индикатора в `Critical` MUST эмититься **локальный** event `PhoneHealthCriticalEvent`. В спеке 9 — нет подписчика. Inline-TODO маршрута к Worker'у (`TODO-ARCH-012` / `SRV-MONITOR-001`).
 - **FR-022**: `lastSeen` MUST показываться человекочитаемо: «сейчас», «N мин назад», «N часов назад», «N дней назад». Если `connectivity` в последнем известном snapshot был `None` — добавлять пометку «(последняя известная)».
+- **FR-022a** *(added 2026-05-15 from accessibility checklist)*: Severity indicators (Info / Warning / Critical) MUST использовать **Material vector icons** (`Icons.Filled.CheckCircle` для Info, `Icons.Filled.Warning` для Warning, `Icons.Filled.Error` для Critical) с явным `contentDescription` на каждый. **НЕ использовать emoji** (🔴🟢) — TalkBack читает emoji неконсистентно (зависит от Android version + locale). ContentDescription формат: «Заряд: 78%, в норме» / «Заряд: 15%, низкий» / «Заряд: 3 процента, критический». Цвет иконки берётся из theme tint, дублируется иконкой формы (CheckCircle/Warning/Error) — не only-color индикатор (защита от color blindness).
 
 #### Contacts — Android Contacts picker
 
@@ -355,6 +356,26 @@ Measurable technical characteristics, не functional success criteria. SC-001..
 
 ---
 
+## Accessibility requirements *(added 2026-05-15 from accessibility checklist — WCAG 2.2 AA + Android Accessibility + Article VIII)*
+
+- **FR-A11Y-001 (ContentDescription policy)**: Каждый interactive UI element (button, tile, icon button, drag handle, severity indicator) MUST иметь explicit `contentDescription` (или `semantics { contentDescription = ... }` в Compose). НЕТ исключений «декоративные иконки» для action surfaces. Decorative-only icons рядом с подписью — `contentDescription = null` явно (semantic merge с подписью).
+- **FR-A11Y-002 (Merged semantics для list rows)**: В списке Managed-устройств каждая строка (имя + 4 health-индикатора + chevron) MUST использовать `Modifier.semantics(mergeDescendants = true)` так, чтобы TalkBack воспринимал строку **как одну единицу** (один swipe = одна строка). Без merge — admin с TalkBack делает 5 swipes на каждую из ~10 строк (50+ tap-on-tap action для простого скана).
+- **FR-A11Y-003 (LiveRegion для критичных state-changes)**: TalkBack `LiveRegion` (mode = polite) на:
+  - баннер «есть несохранённые изменения / Сохранено локально» (FR-014b autosave indicator),
+  - переход severity indicator в Critical (FR-022a),
+  - результат push'a («Опубликовано» / «Конфликт, открыть Merge UI»).
+  Без LiveRegion — слабовидящий admin не узнает о важных изменениях статуса без manual focus traversal.
+- **FR-A11Y-004 (Drag-and-drop accessibility parallel)**: Кнопка «···» (FR-009) MUST быть **полноценным** accessibility-channel для всех drag-and-drop операций (move-to-flow / delete), НЕ «fallback» статус. Acceptance: SC-007 уже требует 100% покрытие; явно зафиксировано как accessibility-обязательство, не «nice-to-have».
+- **FR-A11Y-005 (Font scaling)**: Все UI-компоненты MUST корректно отображаться при **200% font scale** (Android Settings → Display → Font size). Текст не обрезается, кнопки растягиваются. Layout MUST использовать `wrapContentHeight()` и `wrapContentWidth()` для adaptive sizing.
+- **FR-A11Y-006 (Contrast)**: Все text-on-background pairs MUST удовлетворять **WCAG 2.2 AA contrast** (4.5:1 для normal text, 3:1 для large text ≥ 18 pt). Severity icon на background — ≥ 3:1 для shape recognition. Audited через Android Accessibility Scanner в plan-фазе.
+- **FR-A11Y-007 (Focus order)**: Logical focus order для TalkBack — сверху вниз / слева направо без unexpected jumps. Modal screens (HistoryScreen preview, форма редактирования плитки) — focus возвращается на triggering element при close.
+
+#### Existing colour-vision fix (from core-quality CHK002)
+
+- **FR-046b** *(added 2026-05-15)*: Severity colors (Info / Warning / Critical) MUST иметь **distinct hue** (не только distinct lightness) — для color blindness compatibility. Light theme: Info = green-600, Warning = amber-600, Critical = red-700. Dark theme: Info = green-300, Warning = amber-300, Critical = red-400. Помимо цвета — дублирование иконкой формы (FR-022a) — это **second layer** color blindness mitigation.
+
+---
+
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
@@ -423,6 +444,17 @@ Measurable technical characteristics, не functional success criteria. SC-001..
 | C11 | ux-quality + research | Q-OPEN-1 (UX-форма «История») | FR-039 уточнён — **отдельный полноэкранный экран** `HistoryScreen` (research показал: Google Docs Version History = full screen pattern; bottom sheet не вмещает preview раскладки) |
 | C12 | spec-kit discipline | Q-OPEN-3 (точные dp размеры) | DEFERRED to plan.md — implementation detail, не spec-level. В спеке только Article VIII senior-safe tap target ≥ 56 dp constraint. |
 | C13 | performance | Нет measurable performance budgets (есть functional SC, но нет frame budget / parse latency) | NFR-001 (drag-and-drop 0 dropped frames на Pixel 4a) + NFR-002 (VCard parse < 100 ms p95). Новый раздел `## Non-Functional Requirements`. |
+
+### 2026-05-15 — Post-checklists batch 3 (accessibility / elderly-friendly / core-quality)
+
+После последнего batch'a — 2 accessibility FAILs + 2 core-quality minor edits resolved.
+
+| # | Source | Issue | Resolution |
+|---|--------|-------|------------|
+| C14 | accessibility | Emoji 🔴🟢 для severity indicator — TalkBack читает неконсистентно, color blindness risk | FR-022a — Material vector icons + explicit contentDescription, дублирование цвета формой иконки |
+| C15 | accessibility | 0 упоминаний contentDescription / TalkBack / semantics в спеке (CHK007) | Новый раздел `## Accessibility requirements` с FR-A11Y-001..007 (contentDescription policy, merged semantics, LiveRegion, font scaling 200%, WCAG 2.2 AA contrast, focus order) |
+| C16 | core-quality | Severity colors могут совпадать в hue для color blind users | FR-046b — distinct hue light/dark theme + shape duplication (icon shape) |
+| C17 | core-quality | Drag-trash target внизу может перекрываться system bars (Android 15 edge-to-edge) | FR-008 дополнен — `WindowInsets.safeContent` / `navigationBars` для drag-trash target |
 
 ### 2026-05-15 — Pre-specify mentor session (16 Q-ответов до /speckit.specify)
 
