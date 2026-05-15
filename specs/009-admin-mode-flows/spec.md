@@ -188,6 +188,7 @@ Admin в редакторе плитки выбирает «Тип: открыт
 
 - **FR-014**: App MUST иметь раздельные кнопки «Сохранить» (локально, инstant) и «Опубликовать» (push в `/config/current` через flow спека 8 FR-013/022).
 - **FR-014a** *(добавлен после C1)*: Локальный draft MUST храниться в **локальной базе данных Room** (переиспользуется `PendingLocalChanges` table из спека 8), не в памяти (ViewModel state) и не на сервере. Per-Managed (one draft per linkId). Survives process kill / app restart / экран закрылся. Не синхронизируется между admin-устройствами одного admin'a (только локально на устройстве где сделан draft).
+- **FR-014b** *(added 2026-05-15 from state-management checklist)*: Сохранение draft в Room MUST быть **continuous autosave per change** — каждое изменение в редакторе (перемещение плитки, редактирование текста, добавление/удаление flow) **немедленно** persistится в Room без необходимости явно нажимать «Сохранить локально». Кнопка «Сохранить локально» становится визуальным indicator («✓ Сохранено локально»), не triggers сохранения. Обоснование: на агрессивных OEM task-killer'ах (Xiaomi MIUI, Huawei EMUI) приложение может быть убито через 2-3 минуты в фоне — без continuous autosave admin потеряет ввод формы редактирования плитки.
 - **FR-015**: При успешном «Опубликовать» — старая `current` копируется в `/config/history/{autoId}` **тем же клиентом**, **перед** обновлением current. Атомарность не гарантирована (race condition rare loss приемлем; migration → `SRV-CONFIG-001`).
 - **FR-016**: При конфликте на push — Merge UI спека 8 FR-050 (единый, без senior-safe-варианта).
 
@@ -196,16 +197,17 @@ Admin в редакторе плитки выбирает «Тип: открыт
 - **FR-017**: App MUST читать `/links/{linkId}/health` (sample/snapshot from спек 6/7) и преобразовывать в локальный UI тип `List<PhoneHealthIndicator>` через adapter `HealthToPhoneIndicatorAdapter`.
 - **FR-018**: Severity (`Info` / `Warning` / `Critical`) MUST вычисляться по threshold'ам из инстанса `PhoneHealthPreset` (defaults: battery `<5%` Critical / `<20%` Warning, lastSeen `>24ч` Critical / `>1ч` Warning, audioMuted = Warning, connectivity None = Warning).
 - **FR-019**: Все значения threshold'ов MUST храниться **в одной структуре** `DEFAULT_PHONE_HEALTH_PRESET` (псевдо-пресет паттерн), **не разбросанные** литералами в коде. Готовность к подгрузке из `/config.presetOverrides.phoneHealthSettings` в будущем (`TODO-ARCH-010`).
-- **FR-020**: Update cadence по severity:
-  - `Info` (Wi-Fi/4G, charging, lastSeen recent) — pull раз в 30 сек **когда экран открыт**;
-  - `Warning` или `Critical` — Firestore realtime listener **когда экран открыт**, immediate UI update;
-  - При закрытии экрана listener закрывается (push admin при closed app — `TODO-ARCH-012` / `SRV-MONITOR-001`).
+- **FR-020** *(переписан 2026-05-15 после performance checklist — отказ от polling)*: Update cadence — **Firestore realtime listener когда экран открыт, отписка при закрытии**, независимо от severity. Severity (Info/Warning/Critical) вычисляется **client-side** через `DEFAULT_PHONE_HEALTH_PRESET` на каждом snapshot from listener. Polling-механизм НЕ используется — Firestore listener уже доставляет каждое изменение `/health`, разделение на «poll 30s for Info» было искусственным и нарушало Article IX §3 (event-driven preferred over polling). Push admin для closed app — `TODO-ARCH-012` / `SRV-MONITOR-001` (отдельная подсистема).
 - **FR-021**: При переходе индикатора в `Critical` MUST эмититься **локальный** event `PhoneHealthCriticalEvent`. В спеке 9 — нет подписчика. Inline-TODO маршрута к Worker'у (`TODO-ARCH-012` / `SRV-MONITOR-001`).
 - **FR-022**: `lastSeen` MUST показываться человекочитаемо: «сейчас», «N мин назад», «N часов назад», «N дней назад». Если `connectivity` в последнем известном snapshot был `None` — добавлять пометку «(последняя известная)».
 
 #### Contacts — Android Contacts picker
 
 - **FR-023**: В форме редактирования плитки `kind = Call / Sms` MUST быть кнопка «Выбрать из контактов». Запрашивает permission `READ_CONTACTS` (с rationale-экраном «зачем», стандартный Android pattern).
+- **FR-023a** *(added 2026-05-15 from failure-recovery + permissions-platform checklists)*: Если `READ_CONTACTS` denied (любой degree — одноразовый отказ или permanently denied) — UI MUST предоставить **две альтернативы**:
+  1. **Кнопка «Ввести вручную»** — открывает форму ручного ввода `displayName + phoneNumber` (те же поля валидации через `Contact.fromRaw`, как при picker-flow); admin вводит данные с клавиатуры, плитка создаётся без `READ_CONTACTS` permission.
+  2. **Информационный баннер**: «Вы также можете добавлять контакты, делясь ими из WhatsApp / Telegram / других мессенджеров — для этого разрешение на чтение контактов не нужно. Откройте мессенджер → выберите контакт → «Поделиться» → выберите наше приложение». См. FR-027 (VCard share intent). Баннер показывается **при первом отказе** и доступен как «(?)» tooltip далее.
+- **FR-023b** *(added 2026-05-15 from failure-recovery + permissions-platform checklists)*: Если `READ_CONTACTS` permanently denied (системный диалог разрешений больше не появляется) — UI MUST показать кнопку «Открыть настройки приложения», которая через `Intent.ACTION_APPLICATION_DETAILS_SETTINGS` открывает страницу разрешений нашего приложения в системных Settings (направляет пользователя на точное место, где можно вручную разрешить). Без этой кнопки denial = тупик.
 - **FR-024**: После grant — открывается системный picker (`Intent.ACTION_PICK` с `ContactsContract.CommonDataKinds.Phone.CONTENT_URI` — только контакты с номером).
 - **FR-025**: Если у выбранного контакта > 1 номера — показать диалог «Какой номер использовать?».
 - **FR-026** *(переписан C3)*: `SystemContactPickerAdapter` (anti-corruption layer per CLAUDE.md rule 2) MUST:
@@ -217,6 +219,7 @@ Admin в редакторе плитки выбирает «Тип: открыт
 #### Contacts — VCard share intent (per-provider adapter)
 
 - **FR-027**: Admin-приложение MUST зарегистрировать `<intent-filter>` на `ACTION_SEND` + MIME `text/x-vcard`, чтобы появляться в системном share sheet при «Поделиться контактом» из WhatsApp / Telegram / Viber / системных Contacts.
+- **FR-027a** *(added 2026-05-15 from state-management checklist — resolves Q-OPEN-2)*: VCard-receiving Activity MUST использовать `android:launchMode="singleTask"` в `AndroidManifest.xml` + override `onNewIntent()` в коде Activity. Если приложение уже открыто (admin был в редакторе раскладки, переключился в WhatsApp, поделился контактом) — Android **передаёт VCard intent в существующий instance** через `onNewIntent` вместо запуска новой Activity. Это даёт **одну** копию приложения в task switcher (не две), сохраняет navigation backstack admin'а, при закрытии VCard-экрана admin возвращается в свой редактор. Стандартный Android pattern для deep-link сценариев.
 - **FR-028** *(переписан C3)*: `VCardImportAdapter` (anti-corruption layer per CLAUDE.md rule 2) MUST:
   - reject payload > 10 KB как «слишком большой» (DoS защита);
   - reject не-UTF8 encoding с сообщением «Не удалось прочитать контакт»;
@@ -242,6 +245,20 @@ Admin в редакторе плитки выбирает «Тип: открыт
 
 - **FR-034**: Форма редактирования плитки `kind = OpenApp` MUST позволять указать `packageName`. Способ ввода: (а) выбор из списка приложений, установленных на админ-устройстве; (б) ручной ввод.
 - **FR-035**: На Managed при tap'е плитки `kind = OpenApp` dispatcher MUST: (а) проверить наличие приложения (требует объявленных `<queries>` в манифесте per Android 11+); (б) если есть — запустить через `LAUNCHER` intent; (в) если нет — открыть `market://details?id=<packageName>` (Play Store страница) с fallback на web URL.
+- **FR-035a** *(added 2026-05-15 from permissions-platform checklist)*: AndroidManifest.xml `<queries>` блок MUST содержать **generic intent declaration** позволяющий probing arbitrary packages для OpenApp плиток:
+  ```xml
+  <queries>
+      <intent>
+          <action android:name="android.intent.action.MAIN" />
+          <category android:name="android.intent.category.LAUNCHER" />
+      </intent>
+      <intent>
+          <action android:name="android.intent.action.VIEW" />
+          <data android:scheme="market" />
+      </intent>
+  </queries>
+  ```
+  Без этого `<queries>` на Android 11+ `PackageManager` НЕ видит произвольные packages (только whitelist из спека 6 для WhatsApp/Telegram/YouTube). Dispatcher MUST использовать `packageManager.queryIntentActivities(Intent(ACTION_MAIN).addCategory(LAUNCHER).setPackage(packageName))` вместо `getPackageInfo()` для availability check — это работает с generic queries-блоком. Без этого FR-035 случай (б) **никогда** не срабатывает для произвольных приложений (всегда уходит в Play Store fallback).
 
 #### Config history + rollback
 
@@ -254,7 +271,7 @@ Admin в редакторе плитки выбирает «Тип: открыт
   **Почему два независимых schemaVersion'a**: envelope и config эволюционируют **независимо**. Bump envelope schema (например, добавление поля `revertedFromId: String?`) — не требует transformer для config. И наоборот. При rollback используется **цепочка** транзформеров: сначала envelope vN → vCurrent, потом config vN → vCurrent (см. `TODO-ARCH-015`).
 - **FR-037**: При каждом успешном push в `/config/current` клиент MUST скопировать **предыдущую current** в `/config/history/{autoId}` **перед** обновлением current. Без batch transaction (race condition rare loss — приемлем).
 - **FR-038**: Retention 10: после успешного push клиент MUST прочитать all snapshots в history → если ≥ 11, удалить старейшие до остатка 10. Client-side housekeeping (migration → `SRV-CONFIG-002`).
-- **FR-039**: UI «История» — кнопка/меню в редакторе раскладки. Открывает список snapshot'ов по `recordedAt DESC`. Каждый item: дата/время + `recordedFromDeviceId` + бэйдж «текущая» для current.
+- **FR-039** *(уточнён 2026-05-15 — resolves Q-OPEN-1)*: UI «История» — **отдельный полноэкранный экран** (`HistoryScreen`), открывающийся из меню редактора раскладки (icon «···» → «История»). Список snapshot'ов по `recordedAt DESC`. Каждый item: дата/время + `recordedFromDeviceId` + бэйдж «текущая» для current. Обоснование выбора отдельного экрана vs bottom sheet / sidebar: rollback flow multi-step (list → preview → откатить → подтверждение), не помещается в bottom sheet; sidebar не привычен на телефоне (планшетный/desktop паттерн). Согласуется с Google Docs Version History pattern.
 - **FR-040**: Тап по snapshot → открывается **read-only** редактор раскладки с этим содержимым (preview). Кнопка «Откатить к этой версии» внизу.
 - **FR-041**: Откат = новый push в `/config/current` с содержимым выбранного snapshot. Идёт через стандартный flow спека 8 (FR-013 conflict-check; при конфликте — Merge UI).
 - **FR-042**: Откат доступен **обоим** editor'ам (admin + Managed через 7-tap+пароль) — симметрия со спеком 8 FR-050.
@@ -329,6 +346,15 @@ Domain factory function в [core/src/commonMain/kotlin/com/launcher/api/config/C
 
 ---
 
+## Non-Functional Requirements *(performance, added 2026-05-15 from performance checklist)*
+
+Measurable technical characteristics, не functional success criteria. SC-001..008 measure user task duration (90 sec для редактирования и т.д.); NFR ниже measure technical responsiveness без которой functional SCs не достижимы.
+
+- **NFR-001 (Drag-and-drop frame budget)**: На стандартном тестовом устройстве (Pixel 4a class — 60 fps) drag-and-drop плитки между flow'ами MUST НЕ пропускать кадры (0 dropped frames). Измерение через `androidx.benchmark.macro` `FrameTimingMetric` (frameDurationCpuMs p99 < 16ms). Если NFR-001 фейлится → переходим на ручную реализацию через `Modifier.pointerInput` (two-way door fallback из FR-008).
+- **NFR-002 (VCard parse latency)**: Парсинг VCard payload (≤ 10 KB, FR-028 limit) MUST завершаться за **< 100 ms p95** на Pixel 4a class. Runs on `Dispatchers.Default` (не блокирует UI thread). Защита от regex backtracking — linear-time парсер для FN + TEL fields, никаких greedy quantifiers. Измерение через microbenchmark.
+
+---
+
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
@@ -382,6 +408,21 @@ Domain factory function в [core/src/commonMain/kotlin/com/launcher/api/config/C
 | C3 | Валидация Contact — per-provider или universal? | **Universal contract + per-provider adapters** (CLAUDE.md rule 2 ACL). Домен (`core/api/config/Contact.kt`) определяет правила валидации (имя ≤ 100, no control chars, phone matches regex `^\+?\d{5,20}$`). Каждый источник (system picker, VCard, future Telegram SDK) имеет свой **адаптер**, который парсит формат и передаёт сырые строки в **общий** `Contact.fromRaw()`. См. новый раздел `## Domain validation contract` + переписанные FR-026/028-032. |
 | C4 | Drag-and-drop API: Compose built-in или ручной? | **`Modifier.dragAndDropSource/Target`** (Compose 1.6+) как primary. **Two-way door** — fallback на `pointerInput` если research в `/speckit.plan` выявит проблемы с cross-flow drag. См. FR-008 (уточнён). |
 | C5 | A-9 «existing composables pригодны к переиспользованию через mode flag» — проверено? | **Code review проведён 2026-05-15.** Verdict: расширяемо, но **не «просто флаг»** — требует 4-8 новых параметров на компонент, варьируемой иконки по SlotKind (новая работа), drag-and-drop infrastructure. **Bug discovered:** `TileCard.kt:73` иконка захардкожена `Icons.Filled.Call`, не варьируется по SlotKind — спек 9 фиксит. См. A-9 (уточнён), FR-005a (новая), FR-046 (новая). |
+
+### 2026-05-15 — Post-checklists resolution (batch 1+2 от Skill orchestrator)
+
+После batch 1 (security checklist) + batch 2 (failure-recovery / permissions-platform / state-management / performance / ux-quality) добавлены 9 новых FR + 2 NFR + resolved 3 Q-OPEN.
+
+| # | Source | Issue | Resolution |
+|---|--------|-------|------------|
+| C6 | failure-recovery + permissions-platform | READ_CONTACTS denied → admin в тупике | FR-023a (ручной ввод + информационный баннер про VCard share как альтернативу без permission) + FR-023b (deep-link в Settings для permanently denied) |
+| C7 | permissions-platform | Android 11+ `<queries>` whitelist (только WhatsApp/Telegram/YouTube) → OpenApp для произвольных packages не работает | FR-035a — generic `<queries>` блок (LAUNCHER + market:// scheme) + использование `queryIntentActivities` вместо `getPackageInfo` |
+| C8 | state-management | FR-014a говорит «Room», но не уточняет cadence сохранения | FR-014b — continuous autosave per change (не explicit «Сохранить» button); защита от OEM task-killer'ов |
+| C9 | performance | 30s polling для Info severity = искусственное разделение, нарушает Article IX §3 | FR-020 переписан — Firestore realtime listener когда экран открыт **всегда**, severity вычисляется client-side. Polling не используется. |
+| C10 | state-management | Q-OPEN-2 (VCard intent в новой Activity vs существующей) | FR-027a — `launchMode="singleTask"` + `onNewIntent()` (одна копия в task switcher, стандартный Android deep-link pattern) |
+| C11 | ux-quality + research | Q-OPEN-1 (UX-форма «История») | FR-039 уточнён — **отдельный полноэкранный экран** `HistoryScreen` (research показал: Google Docs Version History = full screen pattern; bottom sheet не вмещает preview раскладки) |
+| C12 | spec-kit discipline | Q-OPEN-3 (точные dp размеры) | DEFERRED to plan.md — implementation detail, не spec-level. В спеке только Article VIII senior-safe tap target ≥ 56 dp constraint. |
+| C13 | performance | Нет measurable performance budgets (есть functional SC, но нет frame budget / parse latency) | NFR-001 (drag-and-drop 0 dropped frames на Pixel 4a) + NFR-002 (VCard parse < 100 ms p95). Новый раздел `## Non-Functional Requirements`. |
 
 ### 2026-05-15 — Pre-specify mentor session (16 Q-ответов до /speckit.specify)
 
@@ -474,13 +515,11 @@ Domain factory function в [core/src/commonMain/kotlin/com/launcher/api/config/C
 
 ---
 
-## Open Questions *(для `/speckit.clarify` фазы — могут выявиться новые grey zones)*
+## Open Questions *(resolved during /speckit.clarify 2026-05-15)*
 
-Все 16 Q-ответов выше pre-resolved. `/speckit.clarify` будет искать missed grey zones, например:
-
-- Q-OPEN-1: Конкретная UX-форма «список snapshots в редакторе» — модальное окно, отдельный экран, side-sheet?
-- Q-OPEN-2: При write новой плитки из VCard share — открывать редактор Managed в **новой Activity** или встраивать как deep-link в существующий backstack?
-- Q-OPEN-3: Точные размеры (dp) для tile/preview/severity-icon в admin-UI с учётом Article VIII senior-safe overrides?
+- ~~Q-OPEN-1~~ → **RESOLVED**: «История» — **отдельный полноэкранный экран** (`HistoryScreen`), не bottom sheet / sidebar. См. FR-039.
+- ~~Q-OPEN-2~~ → **RESOLVED**: VCard-receiving Activity использует `launchMode="singleTask"` + `onNewIntent()`. См. FR-027a.
+- ~~Q-OPEN-3~~ → **DEFERRED to plan.md**: Точные dp размеры (tile / preview / severity-icon) — это implementation detail, не spec-level. Spec требует «senior-safe tap target ≥ 56 dp» (Article VIII override наследуется из спека 4). Точные числа задаются в `plan.md` дизайн-таблице.
 
 ---
 
