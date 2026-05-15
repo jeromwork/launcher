@@ -586,6 +586,17 @@ Measurable technical characteristics, не functional success criteria. SC-001..
 - `TODO-LEGAL-001` — privacy compliance до production.
 - `SRV-CONFIG-001/002`, `SRV-MONITOR-001` — миграция на собственный сервер.
 
-**Размер**: 46 FR, 8 SC, 20 OUT, 16 pre-resolved clarifications, 7 user stories, 12 implementation-hint TODOs.
+**Размер после /speckit.specify + /speckit.clarify 2026-05-15:** 67 FR + 7 FR-A11Y + 2 NFR = **76 требований**. 8 SC. 20 OUT. **33 pre-resolved clarifications** (16 pre-specify Q + 5 C-вопроса /speckit.clarify + 12 cross-checklist resolutions C6..C17). 7 user stories. 13 implementation-hint TODOs.
 
-**Следующие шаги**: `/speckit.clarify` (поиск missed grey zones) → `/speckit.plan` (архитектура + constitution-check) → `/speckit.tasks` (декомпозиция) → `/speckit.analyze` (финальная сверка) → имплементация.
+**Следующие шаги**: `/speckit.plan` (архитектура + constitution-check) → `/speckit.tasks` (декомпозиция T001..Txxx) → `/speckit.analyze` (финальная сверка) → имплементация.
+
+**Что было сделано в /speckit.clarify (для контекста):**
+- 13 checklist'ов прогнаны (через 3 параллельных batch'a Agent tool).
+- 2 accessibility FAILs (emoji severity, нет contentDescription policy) resolved через FR-022a + новый раздел `## Accessibility requirements`.
+- 3 security FAILs (third-party PII без deletion UI, allowBackup, subcollection rules) resolved через FR-031a/b/c, FR-046a, FR-045a/b.
+- 1 wire-format recommended edit deferred to plan.md (roundtrip tests).
+- 7 архитектурных уточнений (FR-023a/b denial recovery, FR-035a queries для arbitrary OpenApp, FR-014b continuous autosave, FR-020 переписан на listener-only, FR-027a singleTask, FR-039 отдельный экран, NFR-001/002 measurable performance budgets).
+- 3 Q-OPEN resolved (история = отдельный экран, VCard activity = singleTask, dp размеры = deferred to plan).
+- 2 backlog items помечены 🚨 PLAY-STORE-BLOCKER: TODO-LEGAL-001 + TODO-ARCH-006.
+
+Все 13 checklist'ов **PASS at spec-level**. Открытые items — plan-level / tasks-level / backlog-level. Спек 9 готов к `/speckit.plan`.
