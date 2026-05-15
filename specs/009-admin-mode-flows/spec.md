@@ -168,12 +168,13 @@ Admin в редакторе плитки выбирает «Тип: открыт
 #### Layout editor — viewing
 
 - **FR-005**: Редактор раскладки MUST использовать **тот же** rendering pipeline (Composable экраны `HomeScreen`, `FlowScreen`, `BottomFlowBar`, `TileCard`) что и Managed-режим, **без точного pixel-масштаба** под разрешение Managed. Inline-TODO про exit ramp на pixel-accurate render если визуально окажется проблемой.
+- **FR-005a** *(добавлен после code review 2026-05-15 C5)*: Существующие компоненты MUST быть расширены параметром `editMode: Boolean` (default `false`) + соответствующими edit-callback'ами (`onLongPress`, `onEditMenuClick`, `onAddSlotClick`, `onAddFlowClick`, `onDeleteFlowClick`). В view-режиме (default) — сохраняется текущее поведение спека 5; в edit-режиме — tap на плитку открывает форму редактирования (не dispatcher).
 - **FR-006**: В редакторе тап на плитку **не запускает** Action; тап = открыть форму редактирования этой плитки.
 - **FR-007**: Редактор MUST показывать **текущий локальный draft** (live draft), не applied snapshot. Кнопка «Показать текущую опубликованную» (read-only preview applied) — опционально.
 
 #### Layout editor — editing operations
 
-- **FR-008**: Long-press на плитку MUST активировать drag-and-drop. Drop targets: другая позиция в той же flow, плитка в другой flow (cross-flow), корзина внизу экрана (удаление).
+- **FR-008** *(уточнён C4)*: Long-press на плитку MUST активировать drag-and-drop через **`Modifier.dragAndDropSource` / `Modifier.dragAndDropTarget`** (Compose 1.6+ built-in API) как **primary** реализация. Drop targets: другая позиция в той же flow, плитка в другой flow (cross-flow), корзина внизу экрана (удаление). **Two-way door fallback**: если в `/speckit.plan` research выявит проблемы с cross-flow drag через built-in API — переходим на ручную реализацию через `Modifier.pointerInput`. Inline-TODO в коде на этот fallback.
 - **FR-009**: Рядом с каждой плиткой в режиме редактирования MUST быть кнопка «···» с меню «Изменить / Переместить в / Удалить». Это параллельный канал для drag-and-drop (accessibility per Article VIII; users TalkBack, на планшете без точного указания).
 - **FR-010**: Кнопка «+» в flow MUST позволять добавить новую плитку (выбор kind: Call / Sms / OpenApp).
 - **FR-011**: Кнопка «+» в `BottomFlowBar` MUST позволять добавить новую flow (если preset допускает множественные flow; конкретное ограничение per preset — захардкожено в коде).
@@ -186,6 +187,7 @@ Admin в редакторе плитки выбирает «Тип: открыт
 #### Save / publish flow
 
 - **FR-014**: App MUST иметь раздельные кнопки «Сохранить» (локально, инstant) и «Опубликовать» (push в `/config/current` через flow спека 8 FR-013/022).
+- **FR-014a** *(добавлен после C1)*: Локальный draft MUST храниться в **локальной базе данных Room** (переиспользуется `PendingLocalChanges` table из спека 8), не в памяти (ViewModel state) и не на сервере. Per-Managed (one draft per linkId). Survives process kill / app restart / экран закрылся. Не синхронизируется между admin-устройствами одного admin'a (только локально на устройстве где сделан draft).
 - **FR-015**: При успешном «Опубликовать» — старая `current` копируется в `/config/history/{autoId}` **тем же клиентом**, **перед** обновлением current. Атомарность не гарантирована (race condition rare loss приемлем; migration → `SRV-CONFIG-001`).
 - **FR-016**: При конфликте на push — Merge UI спека 8 FR-050 (единый, без senior-safe-варианта).
 
@@ -206,20 +208,29 @@ Admin в редакторе плитки выбирает «Тип: открыт
 - **FR-023**: В форме редактирования плитки `kind = Call / Sms` MUST быть кнопка «Выбрать из контактов». Запрашивает permission `READ_CONTACTS` (с rationale-экраном «зачем», стандартный Android pattern).
 - **FR-024**: После grant — открывается системный picker (`Intent.ACTION_PICK` с `ContactsContract.CommonDataKinds.Phone.CONTENT_URI` — только контакты с номером).
 - **FR-025**: Если у выбранного контакта > 1 номера — показать диалог «Какой номер использовать?».
-- **FR-026**: Создаваемый `Contact` объект имеет `photoRef = null` (фото — `spec 011 contacts-and-e2e-encrypted-media`, не в этом спеке). На плитке отображаются **инициалы** имени или абстрактная иконка.
+- **FR-026** *(переписан C3)*: `SystemContactPickerAdapter` (anti-corruption layer per CLAUDE.md rule 2) MUST:
+  - принять URI из picker'a → прочитать `ContactsContract.CommonDataKinds.Phone` → извлечь raw `displayName: String` и `phoneNumber: String`;
+  - передать сырые значения в **доменный валидатор** `Contact.fromRaw(name, phone)` (см. `## Domain validation contract`);
+  - при `ValidationError` показать пользователю «Не удалось добавить контакт: <причина>», не пытаться «починить» данные.
+  Создаваемый `Contact` объект имеет `photoRef = null` (фото — `spec 011`). На плитке — **инициалы** или абстрактная иконка.
 
-#### Contacts — VCard share intent
+#### Contacts — VCard share intent (per-provider adapter)
 
 - **FR-027**: Admin-приложение MUST зарегистрировать `<intent-filter>` на `ACTION_SEND` + MIME `text/x-vcard`, чтобы появляться в системном share sheet при «Поделиться контактом» из WhatsApp / Telegram / Viber / системных Contacts.
-- **FR-028**: При получении VCard intent — extract `FN` (full name) + `TEL` (phone numbers) из VCard. Игнорировать `PHOTO`, `EMAIL`, `ADR`, custom fields.
-- **FR-029**: При получении VCard intent app MUST показать промежуточный экран «Добавить контакт <displayName>/<phoneNumber> в раскладку: <выпадающий список Managed>». Preselect — если у админа один Managed.
-- **FR-030**: При выборе Managed — переход в её редактор раскладки с **предзаполненной формой** новой плитки `Call` с этим contact. Admin выбирает flow и подтверждает (или отменяет).
-- **FR-031**: Если VCard не содержит `TEL` (контакт LINE/WeChat/KakaoTalk без публичного номера, или только email) — показать «Контакт без номера не может быть добавлен в текущей версии». См. `TODO-ARCH-014` + `TODO-FUTURE-SPEC-003`.
-- **FR-032**: VCard parser MUST отвергать payload > 10 KB как «слишком большой / подозрительный».
+- **FR-028** *(переписан C3)*: `VCardImportAdapter` (anti-corruption layer per CLAUDE.md rule 2) MUST:
+  - reject payload > 10 KB как «слишком большой» (DoS защита);
+  - reject не-UTF8 encoding с сообщением «Не удалось прочитать контакт»;
+  - parse VCard text → extract `FN` (full name) + `TEL[n]` (phone numbers, may be multiple);
+  - **игнорировать** все остальные VCard поля: `PHOTO`, `EMAIL`, `ADR`, `URL`, `BDAY`, custom fields, X-* extensions (нулевая attack surface);
+  - передать сырые строки `displayName + phoneNumber` в **доменный валидатор** `Contact.fromRaw()`.
+- **FR-029**: При успешном parse VCard adapter MUST показать промежуточный экран «Добавить контакт <displayName>/<phoneNumber> в раскладку: <выпадающий список Managed>». Preselect — если у админа один Managed.
+- **FR-030**: При выборе Managed — переход в её редактор раскладки с **предзаполненной формой** новой плитки `Call` с этим contact. Admin выбирает flow и подтверждает.
+- **FR-031** *(уточнён C3)*: Если в распарсенном VCard нет `TEL` (контакт LINE/WeChat/KakaoTalk без публичного номера, или только email) — adapter MUST отвергнуть VCard с сообщением «Контакт без номера телефона не может быть добавлен в текущей версии». См. `TODO-ARCH-014` + `TODO-FUTURE-SPEC-003`.
+- **FR-032** *(перенесён в FR-028)*: -- (правила payload validation теперь часть FR-028 как единого adapter contract).
 
-#### Contacts — deduplication
+#### Contacts — deduplication (domain level, после adapter validation)
 
-- **FR-033**: При добавлении контакта (через picker ИЛИ VCard) — проверка дубликата по **строгому совпадению `phoneNumber`** с существующими в `/config.contacts[]`. Если совпадение есть — переиспользуем существующий `Contact.id` для нового Slot, новый Contact не создаётся.
+- **FR-033**: После успешной валидации Contact через `Contact.fromRaw()` (независимо от того, какой adapter его создал) — проверка дубликата по **строгому совпадению `phoneNumber`** с существующими в `/config.contacts[]`. Если совпадение есть — переиспользуем существующий `Contact.id` для нового Slot, новый Contact не создаётся.
 
 #### Application tiles
 
@@ -228,7 +239,13 @@ Admin в редакторе плитки выбирает «Тип: открыт
 
 #### Config history + rollback
 
-- **FR-036**: Subcollection `/links/{linkId}/config/history/{autoId}` хранит snapshot'ы предыдущих успешных push'ей в `/config/current`. Каждый snapshot содержит: full snapshot прошлой `current`, `recordedAt: Long`, `recordedFromDeviceId: String`, `schemaVersion: Int`.
+- **FR-036** *(уточнён C2)*: Subcollection `/links/{linkId}/config/history/{autoId}` хранит snapshot'ы предыдущих успешных push'ей в `/config/current`. Каждый snapshot содержит:
+  - `snapshotSchemaVersion: Int` — версия **envelope-схемы** этого snapshot record (отдельно от config внутри);
+  - `config: ConfigCurrent` — полный конфиг **с его собственным `schemaVersion`** внутри (не дубликат, не агрегат);
+  - `recordedAt: Long` — epoch millis момента push'a;
+  - `recordedFromDeviceId: String` — какое устройство пушило.
+
+  **Почему два независимых schemaVersion'a**: envelope и config эволюционируют **независимо**. Bump envelope schema (например, добавление поля `revertedFromId: String?`) — не требует transformer для config. И наоборот. При rollback используется **цепочка** транзформеров: сначала envelope vN → vCurrent, потом config vN → vCurrent (см. `TODO-ARCH-015`).
 - **FR-037**: При каждом успешном push в `/config/current` клиент MUST скопировать **предыдущую current** в `/config/history/{autoId}` **перед** обновлением current. Без batch transaction (race condition rare loss — приемлем).
 - **FR-038**: Retention 10: после успешного push клиент MUST прочитать all snapshots в history → если ≥ 11, удалить старейшие до остатка 10. Client-side housekeeping (migration → `SRV-CONFIG-002`).
 - **FR-039**: UI «История» — кнопка/меню в редакторе раскладки. Открывает список snapshot'ов по `recordedAt DESC`. Каждый item: дата/время + `recordedFromDeviceId` + бэйдж «текущая» для current.
@@ -241,6 +258,48 @@ Admin в редакторе плитки выбирает «Тип: открыт
 
 - **FR-044**: Read `/links/{linkId}/config/history/*` MUST разрешать adminId AND managedDeviceFirebaseUid (как `/config/current` спека 8).
 - **FR-045**: Write в `/links/{linkId}/config/history/*` MUST разрешать те же UID-ы (клиент пишет history). Inline-TODO на migration к server-only через `SRV-CONFIG-001`.
+
+#### Existing component bug fixes (discovered in 2026-05-15 code review)
+
+- **FR-046** *(добавлен после C5)*: Existing `TileCard` ([core/.../components/TileCard.kt:73](../../core/src/commonMain/kotlin/com/launcher/ui/components/TileCard.kt#L73)) MUST варьировать иконку в зависимости от `SlotKind`: `Call` → `Icons.Filled.Call`, `Sms` → `Icons.Filled.Sms` (или подобная message-иконка), `OpenApp` → иконка приложения из packageManager (с fallback на `Icons.Filled.Apps`). Текущий код **захардкоживает** `Icons.Filled.Call` для всех типов — это **существующий баг**, не обнаруженный в спеках 5/8. Спек 9 фиксит как часть FR-005a edit-mode расширения.
+
+---
+
+## Domain validation contract
+
+> Anti-Corruption Layer per CLAUDE.md rule 2. Универсальные правила, применяемые **ко всем** Contact'ам независимо от источника. Per-provider адаптеры (system picker, VCard, future Telegram/LINE SDKs) парсят свой формат и передают сырые данные в этот **общий** валидатор.
+
+### `Contact.fromRaw(rawName: String, rawPhone: String): Result<Contact>`
+
+Domain factory function в [core/src/commonMain/kotlin/com/launcher/api/config/Contact.kt](../../core/src/commonMain/kotlin/com/launcher/api/config/Contact.kt). Возвращает `Result<Contact>` (либо валидный Contact, либо ValidationError).
+
+**Правила валидации:**
+
+| Поле | Правило | Reason |
+|---|---|---|
+| `rawName` | trim + remove ASCII control chars (`\x00-\x1F`, `\x7F`), но **сохранить** Unicode letters/digits/punctuation/emoji | Бабушка может назвать контакт «Маша 😍» — это нормально. Control chars ломают Firestore writes. |
+| `rawName` | max 100 символов **после** trim/cleanup | Защита от DoS (огромное имя ломает UI). Под Unicode-длину (`.length` Kotlin), не byte-length. |
+| `rawName` | non-empty после trim | Пустой displayName бессмыслен — пользователь не поймёт, кому звонит. |
+| `rawPhone` | strip whitespace, dashes, parentheses, dots; оставить только `[0-9+]` | Системные picker'ы возвращают «+7 (916) 123-45-67» — нормализуем. |
+| `rawPhone` | matches regex `^\+?\d{5,20}$` | Минимум 5 цифр (короткие SMS-сервисы), максимум 20 (международные с extensions). Защита от инъекций. |
+
+**Ошибки** возвращаются typed: `ValidationError.NameTooLong`, `ValidationError.PhoneInvalid`, etc. UI показывает локализованное сообщение по типу.
+
+### Per-provider adapter contract
+
+Каждый adapter (FR-026 system picker, FR-028 VCard, future Telegram/LINE) MUST:
+
+1. **Парсить** свой формат (URI / VCard text / SDK callback) → извлечь raw `displayName` и `phoneNumber` как строки.
+2. **Игнорировать** все поля, которые `Contact` не использует (photo, email, address, custom fields, X-* extensions). Никаких extra полей в Contact «потенциально пригодится».
+3. **Передать** сырые строки в `Contact.fromRaw()`. Не «чинить» данные локально (если phone в неожиданном формате — это работа domain validator, не adapter).
+4. **При `ValidationError`** — показать пользователю причину, не пытаться повторно вызвать adapter с подправленными данными.
+
+**Тестирование:**
+- Domain validator тестируется **отдельно** (unit-тесты на `Contact.fromRaw` по правилам).
+- Каждый adapter тестируется **отдельно** (на парсинг своего формата, с моком validator'а).
+- Контрактный roundtrip тест: для каждого adapter взять «реальный» вход (sample VCard от WhatsApp, sample URI от system Contacts) → прогнать через adapter → проверить, что результат — валидный Contact или предсказуемая ValidationError.
+
+---
 
 ### Key Entities
 
@@ -298,9 +357,21 @@ Admin в редакторе плитки выбирает «Тип: открыт
 
 ---
 
-## Clarifications *(pre-resolved during 2026-05-15 mentor pre-specify session)*
+## Clarifications
 
-> Перед `/speckit.clarify` фазой все «серые зоны» прошли через mentor-обсуждение. Решения зафиксированы ниже. Запуск `/speckit.clarify` всё равно выполняется — может найти missed grey zones.
+### 2026-05-15 — Post-specify clarification pass (`/speckit.clarify` run)
+
+После draft spec.md проведён formal `/speckit.clarify` — найдены 5 grey zones, **не покрытых** pre-specify session. Резолюции вплетены в FR ниже + новый раздел `## Domain validation contract`.
+
+| # | Question (plain language) | Resolution |
+|---|---------------------------|------------|
+| C1 | Где живёт черновик правок до push'a? | **Локальная база данных** (Room) — переиспользуем `PendingLocalChanges` из спека 8. Per-Managed draft, не синхронизируется между admin-устройствами одного admin'a (sync — backlog если понадобится). Survives process kill / app restart. См. FR-014a (новая). |
+| C2 | Как версионируется `ConfigSnapshot` относительно `ConfigCurrent`? | **Два независимых номера версии**: `ConfigSnapshot.schemaVersion` (envelope schema истории) + `ConfigSnapshot.config.schemaVersion` (config schema внутри). Транзформеры — два независимых, при необходимости. См. FR-036 (уточнён) + TODO-ARCH-015 (расширен). |
+| C3 | Валидация Contact — per-provider или universal? | **Universal contract + per-provider adapters** (CLAUDE.md rule 2 ACL). Домен (`core/api/config/Contact.kt`) определяет правила валидации (имя ≤ 100, no control chars, phone matches regex `^\+?\d{5,20}$`). Каждый источник (system picker, VCard, future Telegram SDK) имеет свой **адаптер**, который парсит формат и передаёт сырые строки в **общий** `Contact.fromRaw()`. См. новый раздел `## Domain validation contract` + переписанные FR-026/028-032. |
+| C4 | Drag-and-drop API: Compose built-in или ручной? | **`Modifier.dragAndDropSource/Target`** (Compose 1.6+) как primary. **Two-way door** — fallback на `pointerInput` если research в `/speckit.plan` выявит проблемы с cross-flow drag. См. FR-008 (уточнён). |
+| C5 | A-9 «existing composables pригодны к переиспользованию через mode flag» — проверено? | **Code review проведён 2026-05-15.** Verdict: расширяемо, но **не «просто флаг»** — требует 4-8 новых параметров на компонент, варьируемой иконки по SlotKind (новая работа), drag-and-drop infrastructure. **Bug discovered:** `TileCard.kt:73` иконка захардкожена `Icons.Filled.Call`, не варьируется по SlotKind — спек 9 фиксит. См. A-9 (уточнён), FR-005a (новая), FR-046 (новая). |
+
+### 2026-05-15 — Pre-specify mentor session (16 Q-ответов до /speckit.specify)
 
 **Q1 (density mismatch).** Admin рендерит раскладку на своём устройстве. Что значит «полностью отображать телефон Managed»?
 → **Решение**: декоративная рамка телефона (FR-005), без точного pixel-масштаба. Подпись «экран ~Y" / N плиток в ряду». **Exit ramp**: pixel-accurate render если визуально не подойдёт (inline-TODO в коде, не в спеке 9).
@@ -362,7 +433,7 @@ Admin в редакторе плитки выбирает «Тип: открыт
 - **A-6**: Android-устройство admin'a поддерживает `<intent-filter>` на `text/x-vcard` (Android 5+).
 - **A-7**: Android-устройство Managed имеет `<queries>` блок в манифесте для intent resolution `OpenApp`/Play Store (Android 11+).
 - **A-8**: WhatsApp / Telegram / Viber выдают VCard через `ACTION_SEND` MIME `text/x-vcard` (подтверждено в pre-specify research; см. Telegram open-source `LaunchActivity.java`).
-- **A-9**: Существующие composable экраны (`HomeScreen`, `FlowScreen`, `BottomFlowBar`, `TileCard`) пригодны к переиспользованию в edit-mode через mode flag (без полного перерендера UI).
+- **A-9** *(уточнён после code review 2026-05-15 C5)*: Существующие composable экраны переиспользуются как rendering pipeline, **но компоненты требуют значительного расширения**: TileCard (+`editMode`, +`onLongPress`, +`onEditMenuClick`, +варьируемая иконка по SlotKind), FlowScreen (+drag-and-drop infrastructure, +«+» кнопка для добавления плитки), BottomFlowBar (+«+» tab, +удаление flow), HomeScreen (+mode-баннер). Это **не «полный перерендер»**, но и **не «просто mode flag»** — это значительное расширение API существующих компонентов. См. FR-005a/FR-046. Drag-and-drop остаётся ~1-2 недели работы (FR-008).
 - **A-10**: `schemaVersion = 1` для `/config` и `/config/history/*` стабилен на протяжении эпохи спека 9. Первый bump — отдельный спек.
 
 ---
