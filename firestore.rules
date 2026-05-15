@@ -158,6 +158,37 @@ service cloud.firestore {
         allow delete: if isLinkManaged(linkId);
       }
 
+      // ─── /links/{linkId}/configHistory/{autoId} ──────────────────
+      // Spec 009 (FR-036..FR-045b): config history + rollback.
+      // Both admin and Managed are link parties; both can record snapshots
+      // before publishing (FR-036). History is immutable — no update.
+      // Delete is allowed via client-orchestrated housekeeping
+      // (FR-038, ≤10 snapshots) until SRV-CONFIG-001 migrates to
+      // server-side cron. Anti-spoof: recordedFromDeviceId MUST equal
+      // request.auth.uid (FR-045a) — server-enforced integrity gate.
+      //
+      // Path note: spec 009 contracts/config-history.md prints the path
+      // as `/links/{linkId}/config/history/{autoId}` (shorthand), but
+      // raw Firestore requires alternating collection/doc segments, so
+      // the canonical implementation uses a sibling top-level collection
+      // `configHistory`. See docs/dev/project-backlog.md for the doc-fix
+      // task.
+      //
+      // TODO(server-roadmap SRV-CONFIG-001): migrate history writes
+      // to server-side (eliminate client recordedFromDeviceId trust,
+      // atomic publish+history via Cloud Function or own server).
+      match /configHistory/{autoId} {
+        allow read: if isLinkParty(linkId);
+        allow create: if isLinkParty(linkId)
+                       && request.resource.data.recordedFromDeviceId == request.auth.uid
+                       && request.resource.data.snapshotSchemaVersion is int
+                       && request.resource.data.snapshotSchemaVersion >= 1;
+        allow update: if false;
+        // Housekeeping deletes oldest entries when count exceeds 10.
+        // Client-orchestrated until SRV-CONFIG-001.
+        allow delete: if isLinkParty(linkId);
+      }
+
       // ─── /links/{linkId}/capabilities/{capId} ─────────────────────
       // Managed writes provider snapshot; admin reads.
       match /capabilities/{capId} {

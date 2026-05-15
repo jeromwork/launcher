@@ -507,6 +507,29 @@ These are tracked here (not in spec 008's `tasks.md`) because they require eithe
 
 ---
 
+### TODO-UI-001: Заменить health-indicator icons на семантически правильные 🟢
+
+- **What**: В спека 9 Phase 7 `PhoneHealthIndicatorRow.iconFor()` использует приблизительные icons из `material-icons-core` (Star для battery, Refresh для connectivity, Notifications для audio, Phone для lastSeen) — потому что spec 9 plan §5 запрещает новые gradle deps. Это ухудшает UX для пожилых пользователей (Article VIII).
+- **Why**: Семантическая иконка → лучшее распознавание. Сейчас "Звезда" для зарядки — неинтуитивно.
+- **How**: один из вариантов:
+  (a) Добавить `androidx.compose.material:material-icons-extended` (~10 MiB APK delta — нарушает Article XIII budget). NOT RECOMMENDED.
+  (b) Положить ~10 кастомных vector drawables в `res/drawable/` (battery_24, signal_cellular_24, volume_up_24, watch_24) — APK delta ≤ 50 KB. RECOMMENDED.
+  (c) Использовать Material Symbols через downloaded SVG → vector resource.
+- **When**: до Play Store upload (Article VIII senior-safe гейт).
+- **Origin**: spec 009 Phase 7 implementation 2026-05-15 (deliberate trade-off, plan §5 dep budget vs Article VIII UX).
+- **Status**: 🟢 OPEN
+
+### TODO-DOC-001: Fix `/config/history/{autoId}` path notation в спека 009 contracts 🟢
+
+- **What**: `specs/009-admin-mode-flows/contracts/config-history.md` пишет путь как `/links/{linkId}/config/history/{autoId}` — это невалидно для Firestore (нельзя иметь `history` как doc и `{autoId}` сразу как doc в том же сегменте без коллекции между ними). Реализация использует sibling-collection: `/links/{linkId}/configHistory/{autoId}` (см. `firestore.rules`, `Link.KNOWN_SUBCOLLECTIONS`, `FirestoreConfigHistoryAdapter`). Сам data-model.md §3 уже использует `configHistory` — несостыковка только в `contracts/config-history.md`.
+- **Why**: docs/code rift; будущие читатели спека увидят несуществующий путь и попытаются запросить `/config/history`, получат пермишен-deny.
+- **How**: search-replace `/config/history/` → `/configHistory/` в `contracts/config-history.md`, добавить note про historical naming.
+- **When**: при следующем редактировании спека 009 (документация).
+- **Origin**: spec 009 Phase 5 implementation 2026-05-15 (mentor critical review).
+- **Status**: 🟢 OPEN
+
+---
+
 ## Closed items (✅ historical reference)
 
 *(пусто; добавлять по мере закрытия с датой и reference)*
