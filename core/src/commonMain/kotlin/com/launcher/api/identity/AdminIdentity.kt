@@ -1,5 +1,7 @@
 package com.launcher.api.identity
 
+import kotlin.jvm.JvmInline
+
 /**
  * The admin device (e.g. телефон внука). Same UID-shape as [ManagedIdentity];
  * the role split is enforced at the Koin DI scope (admin-mode vs Managed-mode
