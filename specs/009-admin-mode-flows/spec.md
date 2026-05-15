@@ -232,6 +232,12 @@ Admin в редакторе плитки выбирает «Тип: открыт
 
 - **FR-033**: После успешной валидации Contact через `Contact.fromRaw()` (независимо от того, какой adapter его создал) — проверка дубликата по **строгому совпадению `phoneNumber`** с существующими в `/config.contacts[]`. Если совпадение есть — переиспользуем существующий `Contact.id` для нового Slot, новый Contact не создаётся.
 
+#### Contacts — privacy compliance minimum (added 2026-05-15 from /speckit.clarify security checklist)
+
+- **FR-033a**: В admin Settings MUST быть экран «Добавленные контакты» — список всех `Contact` из `/config.contacts[]` всех управляемых Managed (group by Managed), с возможностью удалить любой контакт (приводит к удалению Contact из `/config.contacts[]` + всех ссылающихся Slot'ов в `/config.flows[].slots[]`, через стандартный push спека 8).
+- **FR-033b**: Удаление контакта через FR-033a MUST быть **немедленным** (no «soft delete» с recovery period) — соответствует GDPR ст.17 «right to erasure». При оффлайн — pending action, применяется при первом online.
+- **FR-033c**: Расширенный `READ_CONTACTS` rationale-экран (FR-023) MUST явно сообщать: «Контакты, которые вы добавите, сохраняются в облаке Firebase и видны на устройстве вашего родственника. Вы можете удалить их в любой момент через Settings → Добавленные контакты».
+
 #### Application tiles
 
 - **FR-034**: Форма редактирования плитки `kind = OpenApp` MUST позволять указать `packageName`. Способ ввода: (а) выбор из списка приложений, установленных на админ-устройстве; (б) ручной ввод.
@@ -258,6 +264,12 @@ Admin в редакторе плитки выбирает «Тип: открыт
 
 - **FR-044**: Read `/links/{linkId}/config/history/*` MUST разрешать adminId AND managedDeviceFirebaseUid (как `/config/current` спека 8).
 - **FR-045**: Write в `/links/{linkId}/config/history/*` MUST разрешать те же UID-ы (клиент пишет history). Inline-TODO на migration к server-only через `SRV-CONFIG-001`.
+- **FR-045a** *(added 2026-05-15 from security checklist)*: Security Rule MUST enforce field-level constraint: `recordedFromDeviceId == request.auth.uid` (anti-spoofing — клиент не может выдать write за другое устройство). Без этого rule клиентский spoofing возможен (admin может писать с `recordedFromDeviceId = managedDeviceFirebaseUid`, выдавая правку за бабушкину).
+- **FR-045b** *(added 2026-05-15 from security checklist)*: `firestore.rules` MUST содержать **explicit subcollection rules** для `/links/{linkId}/config/{configId}/history/{autoId}` — Firestore НЕ наследует rules от parent collection на subcollections автоматически. Без этого FR-044/045 не работают (вся история inaccessible). Acceptance: `firestore-tests/` имеет тесты на read/write для admin / Managed / unauthorized попыток.
+
+#### Android backup exclusion
+
+- **FR-046a** *(added 2026-05-15 from security checklist; не путать с FR-046 icon fix)*: `app/src/main/AndroidManifest.xml` MUST включать reference на `data_extraction_rules.xml`, исключающий Room database с контактами (`/data/data/<app>/databases/<contacts-db>`) из Android Auto Backup и Device-to-Device Transfer. Без этого PII третьих лиц (Маша) автоматически попадает в Google Drive админа без её consent — нарушение GDPR transfer-to-processor. Проверить: возможно `allowBackup` issue уже частично адресован в спеке 8 mandatory action — если нет, фиксить здесь.
 
 #### Existing component bug fixes (discovered in 2026-05-15 code review)
 
@@ -455,7 +467,10 @@ Domain factory function в [core/src/commonMain/kotlin/com/launcher/api/config/C
 | `ContactAddedFlow.kt` (после успешного добавления контакта) | `// TODO(spec-followup TODO-LEGAL-001): privacy log — добавить в список «added contacts» доступный для удаления через admin Settings.` | FR-023..033, OUT-014, TODO-LEGAL-001 |
 | `VCardParser.kt` (при отказе по отсутствию TEL) | `// TODO(spec-followup TODO-ARCH-014): когда добавим Contact без phone — пропускать таких через альтернативный flow (LINE/WeChat/KakaoTalk).` | FR-031, OUT-008 |
 | `OpenAppDispatcher.kt` (на fallback в Play Store) | `// TODO(spec-followup): web fallback `https://play.google.com/store/apps/details?id=...` при отсутствии Play Store на устройстве (нужно для не-GMS Huawei).` | FR-035 |
-| `EditorContactPickerScreen.kt` (где `READ_CONTACTS` request) | `// TODO(spec-followup TODO-LEGAL-001): расширить rationale-экран до полноценного privacy disclosure для Play Store compliance.` | FR-023, TODO-LEGAL-001 |
+| `EditorContactPickerScreen.kt` (где `READ_CONTACTS` request) | `// TODO(spec-followup TODO-LEGAL-001): полноценный privacy disclosure (FR-031a минимум сделан в спеке 9; полное GDPR/152-ФЗ — в backlog).` | FR-023, FR-033a, TODO-LEGAL-001 |
+| `ConfigCurrentRoundtripTest.kt`, `ConfigSnapshotRoundtripTest.kt`, `VCardAdapterContractTest.kt` (новые тесты в plan.md) | (нет inline-TODO; это **mandatory plan-level requirement** от wire-format checklist — 4 roundtrip теста: `/config` с `presetOverrides = null`, `/config` с non-null, `/config/history/{autoId}` envelope, VCard adapter contract) | wire-format checklist CHK010 |
+| `firestore.rules` (subcollection rules для history) | `// TODO(server-roadmap SRV-CONFIG-001): когда переедем на server-side history writes — заменить client-write rules на server-only.` | FR-045a/b, SRV-CONFIG-001 |
+| `AndroidManifest.xml` + `data_extraction_rules.xml` (backup exclusion) | (нет inline-TODO; FR-046a — straightforward XML config) | FR-046a |
 
 ---
 
