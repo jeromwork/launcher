@@ -289,22 +289,80 @@ describe("/links/{linkId}/state", () => {
 
 });
 
-describe("/links/{linkId}/config", () => {
+describe("/links/{linkId}/config (spec 008 collaborative editing)", () => {
 
-  test("admin_can_write_config", async () => {
+  // Spec 008 FR-010, FR-011: BOTH admin AND Managed are equal editors.
+
+  test("admin_can_create_config", async () => {
     await seedLink();
     await assertSucceeds(setDoc(doc(adminCtx().firestore(), `links/${LINK_ID}/config/current`), {
       schemaVersion: 1,
-      payload: {},
+      presetId: "simple-launcher",
     }));
   });
 
-  test("managed_cannot_write_config", async () => {
+  test("managed_can_create_config_spec_008", async () => {
+    // Spec 008 grants Managed-as-editor write privileges (FR-011, US-3).
     await seedLink();
-    await assertFails(setDoc(doc(managedCtx().firestore(), `links/${LINK_ID}/config/current`), {
+    await assertSucceeds(setDoc(doc(managedCtx().firestore(), `links/${LINK_ID}/config/current`), {
       schemaVersion: 1,
-      payload: {},
+      presetId: "simple-launcher",
     }));
+  });
+
+  test("foreign_uid_cannot_create_config", async () => {
+    await seedLink();
+    await assertFails(setDoc(doc(strangerCtx().firestore(), `links/${LINK_ID}/config/current`), {
+      schemaVersion: 1,
+      presetId: "simple-launcher",
+    }));
+  });
+
+  test("schemaVersion_must_be_1_on_create", async () => {
+    // Schema invariant from contracts/config.md §Security Rules.
+    await seedLink();
+    await assertFails(setDoc(doc(adminCtx().firestore(), `links/${LINK_ID}/config/current`), {
+      schemaVersion: 999,
+      presetId: "simple-launcher",
+    }));
+  });
+
+  test("schemaVersion_cannot_decrease_on_update", async () => {
+    // Spec 008 contract: update preserves invariant `newSchemaVersion >= existingSchemaVersion`.
+    await seedLink();
+    await setDoc(doc(adminCtx().firestore(), `links/${LINK_ID}/config/current`), {
+      schemaVersion: 1,
+      presetId: "simple-launcher",
+    });
+    // Attempt to downgrade — must fail.
+    await assertFails(updateDoc(doc(adminCtx().firestore(), `links/${LINK_ID}/config/current`), {
+      schemaVersion: 0,
+    }));
+  });
+
+  test("managed_can_update_config_after_admin_created", async () => {
+    // Bidirectional: admin creates, managed updates (US-3 scenario).
+    await seedLink();
+    await setDoc(doc(adminCtx().firestore(), `links/${LINK_ID}/config/current`), {
+      schemaVersion: 1,
+      presetId: "simple-launcher",
+    });
+    await assertSucceeds(updateDoc(doc(managedCtx().firestore(), `links/${LINK_ID}/config/current`), {
+      presetId: "medium-launcher",
+    }));
+  });
+
+  test("only_managed_can_delete_config_via_revoke", async () => {
+    // Revoke path — only managed deletes (matches /links delete invariant).
+    await seedLink();
+    await setDoc(doc(adminCtx().firestore(), `links/${LINK_ID}/config/current`), {
+      schemaVersion: 1,
+      presetId: "simple-launcher",
+    });
+    // Admin cannot delete.
+    await assertFails(deleteDoc(doc(adminCtx().firestore(), `links/${LINK_ID}/config/current`)));
+    // Managed can.
+    await assertSucceeds(deleteDoc(doc(managedCtx().firestore(), `links/${LINK_ID}/config/current`)));
   });
 
 });

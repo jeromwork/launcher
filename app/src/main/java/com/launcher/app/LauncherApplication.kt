@@ -1,6 +1,9 @@
 package com.launcher.app
 
 import android.app.Application
+import androidx.work.Configuration
+import com.launcher.adapters.lifecycle.ConfigRefreshWorker
+import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
 import com.launcher.app.di.appAndroidModule
 import com.launcher.app.di.pairingModule
 import com.launcher.app.di.spec006Module
@@ -21,9 +24,21 @@ import org.koin.core.logger.Level
  * (KMP-compatible service locator) instead of manual constructor wiring in
  * Application.onCreate.
  */
-class LauncherApplication : Application() {
+class LauncherApplication : Application(), Configuration.Provider {
 
     private val core: LauncherCore by inject()
+    private val workerFactory: ConfigSyncWorkerFactory by inject()
+
+    /**
+     * Configuration.Provider override (spec 008 FR-022 T3) — uses our custom
+     * [ConfigSyncWorkerFactory] so WorkManager can construct DI-injected
+     * [ConfigRefreshWorker].
+     */
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .setMinimumLoggingLevel(android.util.Log.INFO)
+            .build()
 
     override fun onCreate() {
         super.onCreate()
@@ -42,6 +57,12 @@ class LauncherApplication : Application() {
             )
         }
         core.start()
+
+        // Spec 008 FR-022 T3: schedule periodic config-refresh WorkManager job.
+        // Idempotent via ExistingPeriodicWorkPolicy.KEEP — safe to call on every
+        // Application.onCreate. Worker fires every 15 minutes when network is
+        // available, fetching /config/current and applying if newer.
+        ConfigRefreshWorker.schedulePeriodicRefresh(this)
     }
 
     override fun onTerminate() {

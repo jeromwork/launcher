@@ -4,6 +4,9 @@ plugins {
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.kotlin.serialization)
+    // Spec 008 — SQLDelight для local persistence (LocalConfigStore).
+    // Schema lives в commonMain/sqldelight/, queries generated в commonMain.
+    alias(libs.plugins.sqldelight)
 }
 
 kotlin {
@@ -39,6 +42,10 @@ kotlin {
 
             // kotlinx.serialization — used for Decompose Config persistence + future config files
             implementation(libs.kotlinx.serialization.json)
+
+            // SQLDelight — KMP local persistence для spec 008 LocalConfigStore.
+            implementation(libs.sqldelight.runtime)
+            implementation(libs.sqldelight.coroutines.extensions)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -52,6 +59,10 @@ kotlin {
             implementation(libs.androidx.datastore.preferences)
             // ProcessLifecycleOwner — spec 006 RESUMED hooks для capability/health collectors.
             implementation(libs.androidx.lifecycle.process)
+            // SQLDelight Android driver — spec 008 LocalConfigStore.
+            implementation(libs.sqldelight.android.driver)
+            // WorkManager — spec 008 FR-022 T3 (fallback periodic config refresh).
+            implementation(libs.androidx.work.runtime.ktx)
         }
         getByName("androidUnitTest").dependencies {
             implementation(libs.kotlinx.coroutines.test)
@@ -65,6 +76,9 @@ kotlin {
             // Konsist — fitness-function tests per spec 005 §8 (domain-isolation,
             // whatsapp-residue, legacy-bridge expiry). JVM-only; lives in androidUnitTest.
             implementation(libs.konsist)
+            // SQLDelight JVM driver — in-memory SQLite для unit tests of
+            // SqlDelightLocalConfigStore (spec 008 T052).
+            implementation(libs.sqldelight.sqlite.driver)
         }
     }
 }
@@ -98,6 +112,12 @@ android {
             isIncludeAndroidResources = true
         }
     }
+
+    sourceSets {
+        getByName("testRealBackend") {
+            java.srcDirs("src/androidRealBackendUnitTest/kotlin")
+        }
+    }
 }
 
 // Spec 007 realBackend-only deps (FR-034): Firebase Auth, Firestore, FCM.
@@ -110,4 +130,15 @@ dependencies {
     "realBackendImplementation"(libs.firebase.firestore.ktx)
     "realBackendImplementation"(libs.firebase.auth.ktx)
     "realBackendImplementation"(libs.firebase.messaging.ktx)
+}
+
+// Spec 008 — SQLDelight schema setup.
+// Schema lives в `core/src/commonMain/sqldelight/com/launcher/adapters/config/db/ConfigStore.sq`.
+// Plugin generates type-safe Kotlin queries в commonMain (KMP-pure code).
+sqldelight {
+    databases {
+        create("ConfigStore") {
+            packageName.set("com.launcher.adapters.config.db")
+        }
+    }
 }

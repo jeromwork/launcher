@@ -1,0 +1,56 @@
+-- Spec 008 local persistence schema (per data-model.md §Persistence).
+-- SQLDelight generates type-safe Kotlin queries in commonMain — KMP-pure code,
+-- shared between Android adapter (AndroidSqliteDriver) и future iOS adapter
+-- (NativeSqliteDriver) per ADR-001 Platform Parity Gate.
+--
+-- Two tables:
+--   applied_config — last config that Managed actually rendered (US-5 fast bootstrap);
+--   pending_changes — local-only edits not yet pushed to server (US-4 pending state).
+--
+-- Both keyed by linkId (TEXT). One row per link.
+
+CREATE TABLE applied_config (
+    linkId TEXT NOT NULL PRIMARY KEY,
+    configJson TEXT NOT NULL,
+    appliedAt INTEGER NOT NULL,
+    schemaVersion INTEGER NOT NULL
+);
+
+CREATE TABLE pending_changes (
+    linkId TEXT NOT NULL PRIMARY KEY,
+    snapshotEpochSeconds INTEGER NOT NULL,
+    snapshotNanoseconds INTEGER NOT NULL,
+    draftJson TEXT NOT NULL,
+    updatedAt INTEGER NOT NULL
+);
+
+-- ─── applied_config queries ───────────────────────────────────────────────
+
+readAppliedConfig:
+SELECT configJson, schemaVersion
+FROM applied_config
+WHERE linkId = ?;
+
+upsertAppliedConfig:
+INSERT OR REPLACE INTO applied_config(linkId, configJson, appliedAt, schemaVersion)
+VALUES (?, ?, ?, ?);
+
+deleteAppliedConfig:
+DELETE FROM applied_config WHERE linkId = ?;
+
+-- ─── pending_changes queries ──────────────────────────────────────────────
+
+readPending:
+SELECT snapshotEpochSeconds, snapshotNanoseconds, draftJson, updatedAt
+FROM pending_changes
+WHERE linkId = ?;
+
+upsertPending:
+INSERT OR REPLACE INTO pending_changes(linkId, snapshotEpochSeconds, snapshotNanoseconds, draftJson, updatedAt)
+VALUES (?, ?, ?, ?, ?);
+
+clearPending:
+DELETE FROM pending_changes WHERE linkId = ?;
+
+allPendingLinks:
+SELECT linkId FROM pending_changes;

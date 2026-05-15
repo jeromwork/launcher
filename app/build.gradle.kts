@@ -88,6 +88,11 @@ dependencies {
     // with expect/actual impls per checklist domain-isolation note 1).
     implementation(libs.zxing.core)
 
+    // Spec 008 FR-022 T3 — WorkManager Configuration.Provider в LauncherApplication
+    // ссылается на androidx.work.Configuration. Transitively pulled from :core
+    // but :app's compilation needs it as direct dep.
+    implementation(libs.androidx.work.runtime.ktx)
+
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.robolectric)

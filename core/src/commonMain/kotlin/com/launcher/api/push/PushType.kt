@@ -15,6 +15,12 @@ package com.launcher.api.push
 sealed interface PushType {
     val wireValue: String
 
+    /**
+     * Активирован в спеке 008: emitted Cloudflare Worker after admin или
+     * Managed-as-editor writes `/links/{linkId}/config/current` (FR-020).
+     * Managed reads /config/current и вызывает ConfigApplier.applyFromRemote().
+     * Wire value «config-changed» pre-declared в спеке 007 для forward-compat.
+     */
     data object ConfigChanged : PushType { override val wireValue: String = "config-changed" }
     data object CommandIssued : PushType { override val wireValue: String = "command-issued" }
     data object Revoke : PushType { override val wireValue: String = "revoke" }

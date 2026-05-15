@@ -138,11 +138,24 @@ service cloud.firestore {
       }
 
       // ─── /links/{linkId}/config/{configId} ────────────────────────
-      // Admin writes the layout config; both sides read.
-      // Full schema lands in spec 008; spec 007 ships just push consumer.
+      // Spec 008 (FR-010, FR-011): collaborative editing. Both admin AND
+      // managed device are equal editors (FR-050 «единый editor pattern»).
+      // Write authorization: any link party. Optimistic concurrency on
+      // serverUpdatedAt is enforced client-side через
+      // RemoteSyncBackend.runTransaction (Firestore Rules can't see the
+      // client's prior read-set; transaction-based check is standard
+      // Firestore pattern, see specs/008-.../research.md §1).
+      //
+      // Schema invariant: schemaVersion is set on create and cannot
+      // decrease on update (per contract/config.md §Security Rules).
       match /config/{configId} {
-        allow read:  if isLinkParty(linkId);
-        allow write: if isLinkAdmin(linkId);
+        allow read:   if isLinkParty(linkId);
+        allow create: if isLinkParty(linkId)
+                       && newDoc().schemaVersion == 1;
+        allow update: if isLinkParty(linkId)
+                       && newDoc().schemaVersion >= existingDoc().schemaVersion;
+        // Delete only via revoke path (Managed side, deletes whole subtree).
+        allow delete: if isLinkManaged(linkId);
       }
 
       // ─── /links/{linkId}/capabilities/{capId} ─────────────────────

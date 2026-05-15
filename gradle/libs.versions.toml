@@ -38,6 +38,9 @@ koin = "4.0.0"
 # SQLDelight — KMP persistence (used from spec 008 onwards; declared now to fix version once)
 sqldelight = "2.0.2"
 
+# WorkManager — Android background scheduling (spec 008 FR-022 T3 fallback poll)
+workManager = "2.10.0"
+
 # multiplatform-settings — KMP key-value preferences (replaces DataStore in commonMain)
 multiplatformSettings = "1.2.0"
 
@@ -99,6 +102,10 @@ sqldelight-runtime = { group = "app.cash.sqldelight", name = "runtime", version.
 sqldelight-coroutines-extensions = { group = "app.cash.sqldelight", name = "coroutines-extensions", version.ref = "sqldelight" }
 sqldelight-android-driver = { group = "app.cash.sqldelight", name = "android-driver", version.ref = "sqldelight" }
 sqldelight-native-driver = { group = "app.cash.sqldelight", name = "native-driver", version.ref = "sqldelight" }
+sqldelight-sqlite-driver = { group = "app.cash.sqldelight", name = "sqlite-driver", version.ref = "sqldelight" }
+
+# WorkManager — Android KTX
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
 
 # multiplatform-settings
 multiplatform-settings = { group = "com.russhwolf", name = "multiplatform-settings", version.ref = "multiplatformSettings" }

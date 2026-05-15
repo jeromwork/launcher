@@ -147,6 +147,45 @@
 - **Status**: 🟡 OPEN (one-time follow-up for spec 007 ship-readiness).
 - **Origin**: Spec 007 T108 measurement; SC-006 fail.
 
+### TODO-ARCH-007: App version compatibility management (вынесено из 008) 🟡
+
+- **What**: Реализовать отдельный спек `app-version-compatibility` (см. roadmap §Backlog) — detection несовместимых версий приложения admin↔Managed, поля `requiredManagedAppVersion`/`managedAppVersion`/`compatibilityError`, visibility на admin UI, remote-update mechanism.
+- **Why**: В спеке 008 (Q4 clarify, 2026-05-14) решено протестировать collaborative-edit монорелизом — все editor'ы одной версии, schema mismatch by construction не возникает. Но как только мы пойдём в реальные обновления (часть пользователей на v1, часть на v2) — admin v2 пушит `/config` с новыми полями, Managed v1 не понимает. Это **обязательно** к реализации до первого update'а после релиза, иначе бабушкины телефоны получат частично-применённый или сломанный конфиг.
+- **How**:
+  - В 008 wire format уже стабилизирован — добавление полей будет additive (не bump schemaVersion).
+  - Спек должен покрыть: detection (Managed читает schemaVersion, понимает или нет), reject-behavior (last-applied остаётся), `/state.compatibilityError`, visibility на admin UI (значок + детали), Security Rules (write `requiredManagedAppVersion` только adminId), remote update mechanism (Play Store update intent / выбор версии / force-install).
+  - One-way door: UX «admin удалённо ставит версию приложения» — пользователь привыкает.
+- **When**: До первого update'а после production-релиза 008 (т.е. ещё до того, как у части пользователей появятся разные версии).
+- **Status**: 🟡 OPEN
+- **Origin**: spec 008 `/speckit.clarify` 2026-05-14 Q4 — вынесено отдельным спеком из соображений объёма (Play Store update flows + OEM-варианты = самостоятельная глубина).
+
+### TODO-ARCH-008: Config history + rollback (встроено в spec 009) 🟡
+
+- **What**: Реализовать в spec 009 (`admin-mode-flows`) подсистему истории конфигов и отката: subcollection `/links/{linkId}/config/history/{autoId}` с retention 10 версий + UI просмотра/предпросмотра/отката.
+- **Why**: В спеке 008 (Q7 clarify, 2026-05-14) решено НЕ включать roll-back в 008 — спек и так большой (5-7 недель). При ошибочном push в эпоху 008 admin восстанавливает раскладку вручную (помнит, что было, и пишет заново). Без history admin не может откатиться к версии «месяц назад» при накопленных правках от разных editor'ов. Это **обязательно** до production-релиза, иначе один ошибочный push разрушит раскладку у бабушки.
+- **How**:
+  - Subcollection `/links/{linkId}/config/history/{autoId}` — снапшот предыдущей версии при каждом push в `/config/current`.
+  - Retention: 10 версий (11-й push вытесняет самую старую — housekeeping в момент push или через Firestore TTL).
+  - UI в admin-приложении: список истории (дата, кто писал — `lastWriterDeviceId`), предпросмотр содержимого, кнопка «откатить».
+  - «Откатить» = новый push с содержимым выбранной версии (стандартный flow 008, с conflict-check через optimistic concurrency).
+  - Security Rules: write в `/config/history/*` — только Cloud Function / server-side (не editor'ы); read — adminId + managedDeviceFirebaseUid (как `/config/current`).
+- **When**: До первого production-релиза, либо явно в плане спека 009.
+- **Status**: 🟡 OPEN
+- **Origin**: spec 008 `/speckit.clarify` 2026-05-14 Q7. Решение: встроить в 009 (Вариант X), не делать отдельным спеком.
+
+### TODO-ARCH-009: Config size soft-limits and proactive warnings 🟢
+
+- **What**: Ввести client-side soft-limit на размер `/config` (например, 500 KiB = 50% от Firestore 1 MiB hard-limit) с проактивным баннером при ~80% заполнении и блокировкой save при превышении soft-limit. Сообщения на простом русском («ваш конфиг становится большим, удалите что-нибудь или вынесите фото в облако»).
+- **Why**: В спеке 008 (Q10 clarify, 2026-05-14) решено НЕ вводить soft-limits — при типичном использовании (30-50 контактов) до 1 MiB далеко, и спек 011 (`contacts-and-e2e-encrypted-media`) выносит фото в Firebase Storage, что снимает основной риск. Однако: если по каким-то причинам спек 011 задержится, либо у юзера экзотический кейс (много контактов с большими подписями), он может упереться в Firestore `INVALID_ARGUMENT` без понятного объяснения. Soft-limit + баннер — UX-страховка.
+- **How**:
+  - Измерение размера через serialize-and-count перед save локально (Kotlin Serialization → ByteArray → size).
+  - Banner в Settings при ~80% заполнении: «конфиг занимает 400 KiB из 500 KiB; уберите медиа или контакты».
+  - Hard-block save при превышении soft-limit (500 KiB) с понятным сообщением.
+  - Никаких изменений wire-format — это чисто client-side проверка.
+- **When**: 🟢 Nice-to-have. Если в реальной эксплуатации увидим достижение 1 MiB → повышаем приоритет. До этого момента — общий error-path FR-013 спека 008 покрывает.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 008 `/speckit.clarify` 2026-05-14 Q10. В 008 явно отложено (OUT-008), сохраняем здесь как страховка.
+
 ---
 
 ## Security Hardening
@@ -243,6 +282,97 @@
 - **When**: После T006 (Phase 0 спека 007).
 - **Status**: 🟢 OPEN
 - **Origin**: `/speckit.analyze` cross-artifact-trace note 8.
+
+---
+
+## Spec 008 — device-dependent verification gaps
+
+These are tracked here (not in spec 008's `tasks.md`) because they require either physical hardware, additional Gradle scaffolding, or a separate Firebase project — work outside the spec's own scope but needed before spec 008 can be declared production-ready.
+
+### TODO-SMOKE-001: Wire `com.google.gms.google-services` plugin для realBackend flavor 🟡
+
+- **What**: Применить плагин `com.google.gms.google-services` к app модулю с per-flavor config: `app/src/realBackend/google-services.json` для real Firebase, либо stub/skip для mockBackend.
+- **Why**: Сейчас `app/google-services.json` лежит в корне модуля, но плагин не applied (явный `TODO(spec 007 Phase 4)` в `app/build.gradle.kts:27`). При запуске realBackend APK — `FirebaseApp.initializeApp()` падает с `Default FirebaseApp failed to initialize because no default options were found`, далее Koin не может создать `FirebaseFirestore` → `LauncherApplication` крашится. Это **блокер** для T143 manual smoke на эмуляторе/девайсе и для любого тестирования спека 008 с реальным Firebase.
+- **How**:
+  1. Переместить `app/google-services.json` → `app/src/realBackend/google-services.json`.
+  2. Создать `app/src/mockBackend/google-services.json` с stub-схемой (package `com.launcher.app.mock`, fake project_id) — плагин требует валидный JSON для каждого flavor'а.
+  3. Применить плагин в `app/build.gradle.kts`: `id("com.google.gms.google-services")` (alias уже есть в `gradle/libs.versions.toml:143`).
+  4. Альтернативно: применить плагин условно через `androidComponents.onVariants(selector().withFlavor("backend" to "realBackend"))` — без stub mock-config'а.
+  5. Verify: `assembleRealBackendDebug` встраивает Firebase config, app не падает на старте.
+- **When**: Перед T143 manual smoke. Это технически унаследованный TODO спека 007, но фактически блокирует любую end-to-end проверку 008.
+- **Status**: 🟡 OPEN
+- **Origin**: 2026-05-15 emulator session — попытка запустить realBackend на Medium_Phone_API_36.1, FATAL EXCEPTION при старте `LauncherApplication`.
+
+### TODO-SMOKE-002: Firebase Emulator Suite wiring for in-process app testing 🟢
+
+- **What**: Hook в `LauncherApplication` (или DI module) для realBackend debug-build: при наличии env-флага `FIREBASE_EMULATOR_HOST=10.0.2.2` вызывать `FirebaseFirestore.useEmulator(host, 8080)` + `FirebaseAuth.useEmulator(host, 9099)` — чтобы app на эмуляторе ходил в локальный Firebase Emulator вместо реального dev-проекта.
+- **Why**: Альтернатива TODO-SMOKE-001 для local-only тестирования: позволяет прогнать T143 (US-1..US-5) без загрязнения dev Firestore данными со смок-сессий, без необходимости создавать pairing tokens вручную, и без риска hit Firestore quotas. Особенно полезно для CI и для разработчиков без доступа к боевому Firebase project.
+- **How**:
+  1. В `LauncherApplication.onCreate()` (только debug variant): прочитать `BuildConfig.FIREBASE_EMULATOR_HOST` (если задан в `build.gradle.kts` через `buildConfigField`).
+  2. Если задан — настроить эмуляторы для `FirebaseFirestore.getInstance()` и `FirebaseAuth.getInstance()`. **Важно**: вызывать ДО первой операции с этими сервисами, иначе ошибка.
+  3. Документировать в `specs/008-bidirectional-config-sync/smoke/README.md` команду запуска: `firebase emulators:start --only firestore,auth --project demo-test`, затем `./gradlew :app:installRealBackendDebug -PfirebaseEmulator=10.0.2.2`.
+  4. Exit ramp inline TODO: при переходе на named auth (TODO-AUTH-* из спека 007 backlog) — заменить wiring на per-environment config.
+- **When**: 🟢 Nice-to-have. Полезно когда spec 008 entry-points стабилизируются и smoke регрессии станут регулярными.
+- **Status**: 🟢 OPEN
+- **Origin**: 2026-05-15 emulator session — обсуждение альтернатив для T143 без real Firebase.
+
+### TODO-INSTRUMENT-001: Instrumented (`androidTest`) test scaffolding для T091/T095/Compose UI 🟡
+
+- **What**: Создать `core/src/androidInstrumentedTest/` (KMP) или `core/src/androidTest/` (AGP) с тестами:
+  - **T091**: `ConnectivityManagerNetworkAvailabilityIntegrationTest` — toggle airplane mode через UiAutomator или TestConnectivityManager → assert Flow эмитит.
+  - **T095**: `ConfigRefreshWorkerIntegrationTest` — через `WorkManagerTestInitHelper` запустить worker → assert /config read + apply.
+  - **Compose UI tests** для PendingBanner, MergeScreen, DiscardConfirmDialog — через `createAndroidComposeRule()` с реальным Context (Robolectric не работает с `stringResource()` в Compose Multiplatform — см. perf-checkpoint.md §«Compose UI tests»).
+- **Why**: Сейчас `tasks.md` спека 008 заявляет T091/T095/T108 готовыми, но фактически:
+  - Под `core/src/androidInstrumentedTest/` или `androidTest/` нет ни одного `.kt` файла.
+  - `connectedMockBackendDebugAndroidTest` отрабатывает «0 tests» (verified 2026-05-15).
+  - State-machine PushIndicatorPresenter/MergeResolver покрыты юнит-тестами, но **сама Composable UI** не верифицирована — текстовое содержимое из `strings_config_sync.xml`, контентдескрипшены, focus order для TalkBack — не тестируется.
+- **How**:
+  1. В `core/build.gradle.kts`: `androidTest.dependencies { implementation(libs.androidx.test.runner); implementation(libs.androidx.compose.ui.test.junit4); implementation(libs.androidx.work.testing) }`.
+  2. Написать 3 тест-файла (T091 + T095 + хотя бы один Compose tests file).
+  3. Запуск: `./gradlew :core:connectedMockBackendDebugAndroidTest` на запущенном эмуляторе.
+- **When**: До production-релиза (Article §7 fitness functions требует регрессий на UI слое).
+- **Status**: 🟡 OPEN
+- **Origin**: 2026-05-15 emulator session — попытка прогнать T091/T095/Compose-UI на эмуляторе обнаружила, что androidTest source set пуст. Spec 008 `analyze-report.md` уже отмечал «Compose UI tests deferred to instrumented session», но без конкретного TODO.
+
+### TODO-PERF-001: Macrobenchmark module для T140 (cold start ≤ 650 ms p95) 🟡
+
+- **What**: Создать `:benchmark` Gradle module с `androidx.benchmark.macro` для измерения SC-004a: cold start с last-applied config из SQLDelight ≤ 650 ms p95 (20 итераций после process kill).
+- **Why**: Сейчас `settings.gradle.kts` содержит только `:app` и `:core`. Macrobenchmark требует отдельный модуль с типом `com.android.test`, package'ом и `targetProjectPath` на `:app`. Без этого спек 008 §SC-004a не имеет measurable evidence — `perf-checkpoint.md` зафиксировал «⏳ pending device measurement», но даже на эмуляторе нечего запустить.
+- **How**:
+  1. Создать `benchmark/build.gradle.kts` с `com.android.test` plugin + `androidx.benchmark:benchmark-macro-junit4`.
+  2. Добавить в `settings.gradle.kts`: `include(":benchmark")`.
+  3. Написать `ConfigSyncStartupBenchmark.kt` — `MacrobenchmarkRule` с `MeasureCriterion.StartupCriterion`, 20 iterations, `CompilationMode.Partial(BaselineProfileMode.Require)`.
+  4. Запуск: `./gradlew :benchmark:connectedMockBackendBenchmarkAndroidTest`.
+  5. Записать измеренные p95 в `specs/008-bidirectional-config-sync/perf-checkpoint.md` §SC-004a (Pixel 4a baseline target — на эмуляторе цифры менее надёжны, документировать как indicative).
+- **When**: Перед production-релизом 008. На эмуляторе цифры indicative, но позволяют отловить регрессии порядка величины.
+- **Status**: 🟡 OPEN
+- **Origin**: 2026-05-15 emulator session — попытка прогнать T140 обнаружила, что `:benchmark` модуля нет.
+
+### TODO-DEVICE-001: 24-hour wakeups trial via Battery Historian 🟢
+
+- **What**: На реальном физическом девайсе (не эмуляторе) — установить realBackend APK, оставить на 24 часа в естественном использовании, снять Battery Historian dump, измерить wakeups/hour агрегированно по 4 trigger'ам спека 008 (FCM + NetworkCallback + WorkManager + RESUMED).
+- **Why**: Спек 008 §`perf-checkpoint.md` §«Background wakeups» заявляет ожидаемое значение ~9/hour worst case (4 от WorkManager + ~5 от NetworkCallback spikes), Article IX §3 cap = 10/hour. Без реального трейса нельзя подтвердить. Эмулятор не даёт реалистичных данных: нет реального network state churn, нет doze mode цикла, нет Background-restricted OEM-вмешательства (Samsung/Xiaomi/Huawei).
+- **How**:
+  1. Реальный Android-девайс (желательно Pixel + Samsung — два разных OEM behaviour).
+  2. Realbackend APK (после TODO-SMOKE-001) с paired admin device.
+  3. `adb shell dumpsys batterystats --reset` → 24 часа активного использования → `adb bugreport` → upload в [Battery Historian](https://developer.android.com/topic/performance/power/battery-historian).
+  4. Аггрегировать wakeups по `WAKE_LOCK_ACQUIRED` + `JobScheduler` + `Alarm` events.
+  5. Записать в `perf-checkpoint.md`.
+- **When**: 🟢 Nice-to-have, перед public Play Store release. Internal alpha без этого можно. Если у пользователей появятся жалобы на батарею раньше — приоритет ↑.
+- **Status**: 🟢 OPEN
+- **Origin**: 2026-05-15 — `perf-checkpoint.md` `⏳ pending 24h-trial`, эмулятор не подходит.
+
+### TODO-DEVICE-002: T143 multi-device manual smoke (US-1..US-5) с реальными OEM 🟡
+
+- **What**: Прогнать 5 сценариев из `specs/008-bidirectional-config-sync/smoke/README.md` на двух физических девайсах с разными OEM (минимум: Samsung + Pixel; идеально + Xiaomi/Huawei). Снять скриншоты, записать pass/fail в таблицу sign-off.
+- **Why**: Эмуляторный smoke (даже после TODO-SMOKE-001) не покроет:
+  - Реальную FCM-латентность (Google Play Services на эмуляторе работают локально).
+  - OEM-специфичные background restrictions (Samsung Smart Manager, Xiaomi Autostart, Huawei PowerGenie) — могут блокировать `ConfigRefreshWorker` и `NetworkCallback`.
+  - Реальный pairing flow с QR-сканом (камера эмулятора эмулирует, но геометрия/освещение не реальные).
+- **How**: Per `smoke/README.md`. Можно частично закрыть эмуляторами (US-1, US-3, US-5 в основном завязаны на app-логику), но US-2 (merge с двумя editor'ами) и US-4 (pending warning через background restart) требуют реальные device lifecycle конкурентно.
+- **When**: До production-релиза.
+- **Status**: 🟡 OPEN
+- **Origin**: spec 008 T143 — изначально помечен `[M]` (manual). 2026-05-15 emulator session: TODO-SMOKE-001 — блокер для эмуляторного варианта; OEM-coverage в принципе требует физических девайсов.
 
 ---
 

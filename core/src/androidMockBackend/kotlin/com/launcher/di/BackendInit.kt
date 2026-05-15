@@ -1,13 +1,24 @@
 package com.launcher.di
 
+import com.launcher.api.config.ConfigApplier
+import com.launcher.api.config.ConfigEditor
+import com.launcher.api.config.LocalConfigStore
 import com.launcher.api.identity.DeviceIdProvider
 import com.launcher.api.identity.IdentityProvider
+import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
+import com.launcher.api.lifecycle.AppForegroundEvents
+import com.launcher.api.lifecycle.NetworkAvailability
 import com.launcher.api.link.LinkRegistry
 import com.launcher.api.push.PushReceiver
 import com.launcher.api.push.PushSender
 import com.launcher.api.sync.RemoteSyncBackend
+import com.launcher.fake.config.FakeConfigApplier
+import com.launcher.fake.config.FakeConfigEditor
+import com.launcher.fake.config.FakeLocalConfigStore
 import com.launcher.fake.identity.FakeDeviceIdProvider
 import com.launcher.fake.identity.FakeIdentityProvider
+import com.launcher.fake.lifecycle.FakeAppForegroundEvents
+import com.launcher.fake.lifecycle.FakeNetworkAvailability
 import com.launcher.fake.link.FakeLinkRegistry
 import com.launcher.fake.push.FakePushReceiver
 import com.launcher.fake.push.FakePushSender
@@ -43,4 +54,26 @@ val backendModule: Module = module {
     single<LinkRegistry> { FakeLinkRegistry(backend = get()) }
     single<PushSender> { FakePushSender() }
     single<PushReceiver> { FakePushReceiver() }
+
+    // ─── Spec 008 mockBackend wiring ──────────────────────────────────────
+
+    single<LocalConfigStore> { FakeLocalConfigStore() }
+    single<ConfigApplier> {
+        FakeConfigApplier(
+            localStore = get(),
+            selfDeviceId = "fake-managed-uid-0001",
+        )
+    }
+    single<ConfigEditor> {
+        FakeConfigEditor(
+            localStore = get(),
+            selfDeviceId = "fake-managed-uid-0001",
+        )
+    }
+    single<NetworkAvailability> { FakeNetworkAvailability() }
+    single<AppForegroundEvents> { FakeAppForegroundEvents() }
+
+    // WorkerFactory — needed by Application.Configuration.Provider even в
+    // mockBackend flavor (WorkManager itself is still active в mockBackend).
+    single { ConfigSyncWorkerFactory(linkRegistry = get(), configApplier = get()) }
 }
