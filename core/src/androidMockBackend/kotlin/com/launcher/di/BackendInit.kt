@@ -64,7 +64,23 @@ val backendModule: Module = module {
         )
     }
     single<DeviceIdProvider> { FakeDeviceIdProvider() }
-    single<LinkRegistry> { FakeLinkRegistry(backend = get()) }
+    // Spec 009 G10 — seed mockBackend с pre-paired link so the admin
+    // entry в Settings → "Сопряжённые устройства" surfaces a device row,
+    // and Editor / History / Contacts / Health navigation is reachable
+    // without going through the real pairing flow. Real backend stays
+    // empty until QR-pair completes.
+    single<LinkRegistry> {
+        FakeLinkRegistry(
+            backend = get(),
+            initial = com.launcher.api.link.Link(
+                linkId = "mock-link-0001",
+                adminId = com.launcher.api.identity.AdminIdentity("fake-admin-uid-0001"),
+                managedDeviceId = "mock-managed-device-0001",
+                managedDeviceFirebaseUid = "fake-managed-uid-0001",
+                createdAt = 1747166400000L,
+            ),
+        )
+    }
     single<PushSender> { FakePushSender() }
     single<PushReceiver> { FakePushReceiver() }
 
