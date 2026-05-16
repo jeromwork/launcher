@@ -3,52 +3,80 @@ package com.launcher.ui.admin
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import com.launcher.api.config.ElementId
 
 /**
  * State + intent surface for tile drag-and-drop (spec 009 FR-008, NFR-001).
  *
- * Plan §7 R1 + plan §11: Compose `Modifier.dragAndDropSource/Target` API
- * (foundation 1.6+) is the chosen primary path; if frame-budget gate
- * NFR-001 (0 dropped frames Pixel 4a class p99 < 16 ms) fails, fall
- * back to `pointerInput` (two-way door per FR-008).
+ * Plan §7 R1: `pointerInput { detectDragGesturesAfterLongPress }` chosen
+ * over `Modifier.dragAndDropSource` per FR-008 two-way door — keeps
+ * commonMain free of Android `ClipData` / `DragAndDropTransferData` types
+ * (CLAUDE.md rule 1) и avoids experimental opt-in on foundation 1.6.
  *
- * This file ships the **state** + **intents** so the wire-up between
- * EditorViewModel ↔ Compose dragAndDrop is plumbing-only when Phase 9
- * physical-device testing wraps. The actual `Modifier.dragAndDropSource`
- * invocation lives in [TileDragAndDropModifiers] (Compose Multiplatform
- * stable API).
- *
- * TODO(physical-device): NFR-001 macrobenchmark — `androidx.benchmark.macro`
- * FrameTimingMetric for drag scenario on Pixel 4a class. p99 < 16ms across
- * 20 drag operations. Локально на ноутбуке не проверить.
+ * Drop targets register their bounds on every layout via
+ * [tileDropTarget]; on drag release [finishDrag] resolves the target that
+ * contains the current pointer position and invokes its callback.
  */
 @Stable
 class TileDragAndDropState {
     private val _activeDrag = mutableStateOf<DragInProgress?>(null)
     val activeDrag: DragInProgress? get() = _activeDrag.value
 
-    fun startDrag(slotId: ElementId, fromFlowId: ElementId, fromIndex: Int) {
+    private val _dragPosition = mutableStateOf<Offset?>(null)
+    val dragPosition: Offset? get() = _dragPosition.value
+
+    private val dropTargets = mutableMapOf<TileDropTargetId, RegisteredDropTarget>()
+
+    fun startDrag(slotId: ElementId, fromFlowId: ElementId, fromIndex: Int, position: Offset) {
         _activeDrag.value = DragInProgress(
             slotId = slotId,
             fromFlowId = fromFlowId,
             fromIndex = fromIndex,
         )
+        _dragPosition.value = position
+    }
+
+    fun updateDrag(position: Offset) {
+        if (_activeDrag.value != null) {
+            val current = _dragPosition.value ?: Offset.Zero
+            _dragPosition.value = current + position
+        }
     }
 
     fun cancelDrag() {
         _activeDrag.value = null
+        _dragPosition.value = null
     }
 
     /**
-     * Drop event — caller is the target zone. Returns the [DragInProgress]
-     * that was active so callers can dispatch the move; or null if no
-     * drag was in progress (defensive against duplicate drop events).
+     * Drop event fired by [tileDragSource] on pointer release. Resolves
+     * the drop target containing the current pointer position and invokes
+     * its callback with the in-flight drag payload.
      */
-    fun consumeDrop(): DragInProgress? {
+    fun finishDrag() {
         val active = _activeDrag.value
+        val position = _dragPosition.value
         _activeDrag.value = null
-        return active
+        _dragPosition.value = null
+        if (active == null || position == null) return
+        val hit = dropTargets.values.firstOrNull { it.bounds.contains(position) }
+        hit?.onDrop?.invoke(active)
+    }
+
+    /** Registered by [tileDropTarget] on every layout pass. */
+    fun registerDropTarget(
+        id: TileDropTargetId,
+        bounds: Rect,
+        onDrop: (DragInProgress) -> Unit,
+    ) {
+        dropTargets[id] = RegisteredDropTarget(bounds = bounds, onDrop = onDrop)
+    }
+
+    /** Disambiguator for tests + housekeeping; not called from UI. */
+    fun clearDropTargets() {
+        dropTargets.clear()
     }
 }
 
@@ -57,4 +85,23 @@ data class DragInProgress(
     val slotId: ElementId,
     val fromFlowId: ElementId,
     val fromIndex: Int,
+)
+
+/**
+ * Stable identifier for a registered drop target. Use a stable type
+ * (slot id, "trash", "before-flow-X") so target re-registration via
+ * onGloballyPositioned doesn't accumulate stale entries.
+ */
+@Immutable
+sealed interface TileDropTargetId {
+    data class Slot(val slotId: ElementId) : TileDropTargetId
+    data class FlowEdge(val flowId: ElementId, val edge: Edge) : TileDropTargetId {
+        enum class Edge { Before, After }
+    }
+    data object Trash : TileDropTargetId
+}
+
+private data class RegisteredDropTarget(
+    val bounds: Rect,
+    val onDrop: (DragInProgress) -> Unit,
 )
