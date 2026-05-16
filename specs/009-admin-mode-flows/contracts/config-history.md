@@ -1,8 +1,10 @@
-# Wire format: `/links/{linkId}/config/history/{autoId}`
+# Wire format: `/links/{linkId}/configHistory/{autoId}`
 
 **Source of truth**: this document.
 **Used by**: spec 009 §FR-036..045 (history + restore), FR-045a (anti-spoofing rule).
 **Schema version**: `snapshotSchemaVersion = 1` (first commit).
+
+**Path note** (was TODO-DOC-001, resolved 2026-05-16): the canonical Firestore path uses a sibling collection name `configHistory` — NOT a nested subcollection under `/config/history`. Earlier drafts of this doc used `/configHistory/{autoId}` as shorthand, but Firestore requires alternating collection/doc segments so a single-level subcollection with auto-generated doc IDs needs a flat collection name. See `firestore.rules` (`match /configHistory/{autoId}`) and `core/.../adapters/history/FirestoreConfigHistoryAdapter.kt` for the implementation.
 **Lifetime**: до 10 версий per `linkId`, FIFO ротация (FR-038). Удаляется вместе с `/links/{linkId}/` на revoke (spec 007 FR-033).
 **Subcollection root**: NEW в спеке 009 — расширяет spec 008 `/links/{linkId}/config/current` тем, что выносит историю в отдельный subcollection (OUT-007 спека 008 → in scope 009).
 
@@ -10,7 +12,7 @@
 
 ## Document path
 
-`/links/{linkId}/config/history/{autoId}` — Firestore subcollection с auto-generated document IDs. Каждый документ — immutable snapshot предыдущей `/config/current` (записывается **до** очередного push'a, чтобы текущая версия всегда оставалась откатываемой).
+`/links/{linkId}/configHistory/{autoId}` — Firestore subcollection с auto-generated document IDs. Каждый документ — immutable snapshot предыдущей `/config/current` (записывается **до** очередного push'a, чтобы текущая версия всегда оставалась откатываемой).
 
 ## Field schema (envelope)
 
@@ -54,7 +56,7 @@
 ```text
 Created    ── before each /config/current push by editor (FR-036):
    │            1. read current /config/current
-   │            2. write snapshot of THAT into /config/history/{autoId}
+   │            2. write snapshot of THAT into /configHistory/{autoId}
    │            3. write new /config/current (optimistic concurrency)
    │            4. housekeeping: list all history → if ≥ 11, delete oldest (FR-038)
    │
@@ -85,7 +87,7 @@ Created    ── before each /config/current push by editor (FR-036):
 ## Retention policy
 
 - **Limit**: 10 snapshots per `linkId` (FR-038).
-- **Algorithm**: client-side housekeeping — после успешного push в `/config/current` клиент читает все snapshots в `/config/history/` (ordered by `recordedAt`), и если их ≥ 11, удаляет старейшие до остатка 10.
+- **Algorithm**: client-side housekeeping — после успешного push в `/config/current` клиент читает все snapshots в `/configHistory/` (ordered by `recordedAt`), и если их ≥ 11, удаляет старейшие до остатка 10.
 - **Migration path**: `// TODO(server-roadmap SRV-CONFIG-002): housekeeping должен стать server cron job. Сейчас — клиент при каждом push.`
 - **Race condition note**: при одновременных push'ах с двух устройств housekeeping каждого может попытаться удалить overlapping snapshots — это benign (idempotent delete), не баг.
 
@@ -96,7 +98,7 @@ Created    ── before each /config/current push by editor (FR-036):
 Расширяет `firestore.rules` спека 008:
 
 ```text
-match /links/{linkId}/config/history/{snapshotId} {
+match /links/{linkId}/configHistory/{snapshotId} {
   allow read:   if isAdmin(linkId) || isManaged(linkId);
   allow create: if (isAdmin(linkId) || isManaged(linkId))
                 && request.resource.data.snapshotSchemaVersion is int

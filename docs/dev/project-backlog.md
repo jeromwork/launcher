@@ -230,6 +230,21 @@
 - **Status**: 🟢 OPEN
 - **Origin**: spec 009 pre-specify discovery (пункт 4 роадмапа, FR-25/FR-36).
 
+### TODO-ARCH-016: Switch launcher home tiles to render from `/config/current` 🟡
+
+- **What**: Сейчас launcher (`HomeComponent` → `FlowScreen` → `TileCard`) рендерит тайлы из локального `FlowRepository` (FlowDescriptor + SlotDescriptor — спек 003/005 модель). После спеков 008/009 источник истины для раскладки — `/config/current` ConfigDocument (Flow + Slot — спек 008 модель). Эти два деревья пока **независимы** — admin editor правит `ConfigDocument`, но launcher это не подхватывает.
+- **Why**: Без миграции:
+  - Admin editor «работает в вакууме» — push в Firestore проходит, history заполняется, но раскладка у пожилого пользователя не меняется (он всё ещё видит FlowRepository defaults / spec 005 mock data).
+  - Preview-tap в editor View mode не запускает реальное действие (FR-005 не выполняется) — slot→Action mapping не существует, потому что Action живёт в FlowDescriptor, а editor работает с ConfigDocument.Slot.
+- **How**:
+  1. Добавить SlotToActionMapper в `core/commonMain/api/action/`: `fun Slot.toAction(contacts: List<Contact>): Action?` — мапит SlotKind+args на Action+payload.
+  2. Заменить `FlowRepository` в HomeComponent на observable adapter поверх `ConfigEditor.appliedConfig` + `ConfigEditor.pendingDraft` (с draft-приоритетом для admin device, applied-only для Managed).
+  3. Очистить mock `flows_mock_*.json` после переноса (spec 005 артефакты).
+  4. Обновить spec 009 Phase 14 emulator smoke — admin push → Managed home reflects change.
+- **When**: После того как пользователи начинают редактировать раскладку (т.е. сразу — без этого спек 9 функционально incomplete для real users). До Play Store upload — обязательно.
+- **Status**: 🟡 OPEN
+- **Origin**: spec 009 Phase G implementation 2026-05-16 — discovered when wiring EditorScreen preview-tap (FR-005).
+
 ### TODO-ARCH-015: Config schema transformers (lazy migration) 🟢
 
 - **What**: При каждом breaking schema bump для `/config` (`schemaVersion: N → N+1`) — написать **транзформер** `vN → vN+1`, который применяется при чтении старых snapshot'ов из `/config/history/`. Цепочка транзформеров покрывает rollback на любую старую версию (`v1 → v2 → ... → current`).
@@ -528,14 +543,12 @@ These are tracked here (not in spec 008's `tasks.md`) because they require eithe
 - **Origin**: spec 009 Phase 7 implementation 2026-05-15 (deliberate trade-off, plan §5 dep budget vs Article VIII UX).
 - **Status**: 🟢 OPEN
 
-### TODO-DOC-001: Fix `/config/history/{autoId}` path notation в спека 009 contracts 🟢
+### TODO-DOC-001: Fix `/config/history/{autoId}` path notation в спека 009 contracts ✅
 
-- **What**: `specs/009-admin-mode-flows/contracts/config-history.md` пишет путь как `/links/{linkId}/config/history/{autoId}` — это невалидно для Firestore (нельзя иметь `history` как doc и `{autoId}` сразу как doc в том же сегменте без коллекции между ними). Реализация использует sibling-collection: `/links/{linkId}/configHistory/{autoId}` (см. `firestore.rules`, `Link.KNOWN_SUBCOLLECTIONS`, `FirestoreConfigHistoryAdapter`). Сам data-model.md §3 уже использует `configHistory` — несостыковка только в `contracts/config-history.md`.
-- **Why**: docs/code rift; будущие читатели спека увидят несуществующий путь и попытаются запросить `/config/history`, получат пермишен-deny.
-- **How**: search-replace `/config/history/` → `/configHistory/` в `contracts/config-history.md`, добавить note про historical naming.
-- **When**: при следующем редактировании спека 009 (документация).
+- **What**: `specs/009-admin-mode-flows/contracts/config-history.md` пишет путь как `/links/{linkId}/config/history/{autoId}` — это невалидно для Firestore (нельзя иметь `history` как doc и `{autoId}` сразу как doc в том же сегменте без коллекции между ними). Реализация использует sibling-collection: `/links/{linkId}/configHistory/{autoId}` (см. `firestore.rules`, `Link.KNOWN_SUBCOLLECTIONS`, `FirestoreConfigHistoryAdapter`).
+- **Resolved**: 2026-05-16 в спека 009 Phase G — contract doc обновлён, path-note добавлена в `contracts/config-history.md` поясняющая historical drift. plan.md / spec.md сохраняют исторический путь — это снапшоты процесса проектирования, не source-of-truth.
 - **Origin**: spec 009 Phase 5 implementation 2026-05-15 (mentor critical review).
-- **Status**: 🟢 OPEN
+- **Status**: ✅ Closed
 
 ---
 

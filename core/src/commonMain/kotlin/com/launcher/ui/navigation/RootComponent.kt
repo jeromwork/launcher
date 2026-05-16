@@ -169,14 +169,14 @@ class RootComponent(
                         // FR-005 preview tap: dispatch the slot's action via
                         // ActionDispatcher in View mode.
                         //
-                        // TODO(spec-followup): the launcher itself currently
-                        // renders from FlowRepository (local), not from
-                        // /config/current. A Slot→Action mapping needs to
-                        // land first (spec-followup TODO-ARCH-013 — switch
-                        // home tiles to /config/current ConfigDocument). Until
-                        // then, editor preview-tap is a no-op so the action
-                        // dispatch surface stays consistent (no half-broken
-                        // path that fires only for some slot kinds).
+                        // TODO(spec-followup TODO-ARCH-016): the launcher
+                        // itself currently renders from FlowRepository
+                        // (local), not from /config/current. A Slot→Action
+                        // mapping needs to land first — switch home tiles
+                        // to /config/current ConfigDocument. Until then,
+                        // editor preview-tap is a no-op so the action
+                        // dispatch surface stays consistent (no half-
+                        // broken path that fires only for some slot kinds).
                     },
                 )
             )
