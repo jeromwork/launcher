@@ -513,11 +513,20 @@ These are tracked here (not in spec 008's `tasks.md`) because they require eithe
 - **Why**: Сбор `READ_CONTACTS` и хранение PII (имя + номер) в Firebase затрагивает третьих лиц (контакты админа), которые согласия **не давали**. Без compliance flow:
   - Высокий риск Play Store reject при публикации (Google проверяет permission rationale + privacy policy).
   - Юридические риски в EU (GDPR fines) и в РФ (152-ФЗ).
-- **How**:
-  - **Минимум:** экран `app/admin/settings/AddedContactsScreen` — список из `/config.contacts[]` всех управляемых Managed + кнопка «удалить». ~0.5 дня.
-  - **Полный путь:** rationale-экран перед `READ_CONTACTS` запросом; политика конфиденциальности; GDPR data export endpoint (через Cloud Function); процедура удаления данных при запросе субъекта.
-- **When**: Минимум — **до production-релиза с реальными пользователями**. Полный путь — до публикации в Play Store ЕС/РФ.
-- **Status**: 🟡 OPEN
+- **Progress** (spec 009 implementation 2026-05-16):
+  - ✅ **Минимум** — `ContactsManageScreen` + `ContactsManageComponent` + confirmation dialog. Reachable через Settings → Сопряжённые устройства → device row → Контакты. Verified on emulator (screenshot `spec009-g-11-contacts.png`). FR-031a closed.
+  - ✅ **Rationale Composable** — `ContactPermissionRationaleScreen` написан (Phase 10). НЕ wired в navigation: system contact picker flow ещё не интегрирован в editor (часть TODO-ARCH-016). Когда picker подключится — rationale screen wires автоматически перед `ContextCompat.requestPermissions`.
+  - ❌ **Privacy policy** (юр. документ) — не написан.
+  - ❌ **GDPR Article 17/20 endpoints** — требует Cloud Functions = Spark→Blaze upgrade (TODO-ARCH-003 dependency).
+  - ❌ **Subject-driven deletion** (Маша сама удаляет, без админа) — server-side endpoint, depends on TODO-ARCH-003.
+- **How** для оставшейся части:
+  - **Privacy policy** — markdown + статическая страница (~0.5 дня).
+  - **Server-side GDPR endpoints** — Cloud Function `requestDataExport(managedDeviceUid)` + `requestDataDeletion(managedDeviceUid)` + email pipeline. Зависит от TODO-ARCH-003 Blaze upgrade.
+- **When**:
+  - Минимум: ✅ done 2026-05-16.
+  - Privacy policy: **до публикации в Play Store** (Data Safety form требует ссылку).
+  - Server-side endpoints: **до публикации в EU / РФ** (GDPR fines / 152-ФЗ).
+- **Status**: 🟡 IN PROGRESS — минимум закрыт; remaining (privacy policy + server endpoints) остаётся **🚨 PLAY-STORE-BLOCKER**.
 - **Origin**: spec 009 pre-specify discovery 2026-05-15 (mentor возражал, пользователь отложил). Privacy compliance — **обязательное** условие production-релиза.
 
 ---
