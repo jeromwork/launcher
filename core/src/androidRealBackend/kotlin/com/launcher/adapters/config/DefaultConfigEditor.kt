@@ -81,6 +81,9 @@ class DefaultConfigEditor(
     override fun pendingDraft(linkId: String): Flow<ConfigDocument?> =
         getOrCreateFlow(linkId).asStateFlow()
 
+    override suspend fun appliedConfig(linkId: String): ConfigDocument? =
+        localStore.readAppliedConfig(linkId)
+
     override suspend fun pushPending(linkId: String): Outcome<Unit, ConfigSyncError> {
         // Flush any pending debounce.
         mutex.withLock { debounceJobs[linkId] }?.join()
