@@ -81,6 +81,9 @@ class FakeConfigEditor(
         pendingFlows.getOrPut(linkId) { MutableStateFlow(null) }
             .map { it }
 
+    override suspend fun appliedConfig(linkId: String): ConfigDocument? =
+        localStore.readAppliedConfig(linkId)
+
     override suspend fun pushPending(linkId: String): Outcome<Unit, ConfigSyncError> {
         val pending = localStore.readPending(linkId)
             ?: return Outcome.Success(Unit) // Nothing to push.
