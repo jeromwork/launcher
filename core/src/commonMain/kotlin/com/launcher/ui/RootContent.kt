@@ -10,6 +10,7 @@ import com.launcher.ui.admin.EditorActions
 import com.launcher.ui.admin.EditorScreen
 import com.launcher.ui.admin.HistoryScreen
 import com.launcher.ui.admin.OpenAppTilePicker
+import com.launcher.ui.admin.TileEditForm
 import com.launcher.ui.contacts.ContactsManageScreen
 import com.launcher.ui.health.PhoneHealthIndicatorScreen
 import com.launcher.ui.navigation.RootChild
@@ -58,10 +59,20 @@ fun RootContent(
                 EditorScreen(
                     state = state,
                     actions = EditorActions(
-                        onSlotTap = { /* preview action — TODO when wired with ActionDispatcher */ },
-                        onSlotLongPress = { /* drag — Phase F */ },
-                        onSlotEditMenu = { /* edit menu — TODO Phase E follow-up */ },
+                        onSlotTap = { slotId -> child.component.onPreviewTile(slotId) },
+                        onSlotLongPress = { /* drag — TileCard wires tileDragSource directly */ },
+                        onSlotEditMenu = { slotId ->
+                            val flowId = state.draft.flows
+                                .firstOrNull { f -> f.slots.any { it.id.value == slotId } }
+                                ?.id?.value
+                            if (flowId != null) child.component.onEditTile(flowId, slotId)
+                        },
                         onPublish = { child.component.publish() },
+                        onReorder = { fromFlowId, slotId, toFlowId, toIndex ->
+                            child.component.reorderTile(fromFlowId, slotId, toFlowId, toIndex)
+                        },
+                        onToggleMode = { child.component.toggleMode() },
+                        onHistoryClick = { child.component.onHistoryClick() },
                     ),
                 )
             }
@@ -70,7 +81,6 @@ fun RootContent(
                 HistoryScreen(
                     snapshots = state.snapshots,
                     rollbackAllowed = child.component.rollbackAllowed,
-                    onPreview = { /* TODO: preview screen Phase 14 follow-up */ },
                     onRollback = { snap -> child.component.rollback(snap) },
                     formatTimestamp = { millis -> formatTimestampDefault(millis) },
                 )
@@ -95,6 +105,19 @@ fun RootContent(
                     title = "Здоровье устройства",
                     indicators = indicators,
                 )
+            }
+            is RootChild.TileEdit -> {
+                val state by child.component.state.collectAsState()
+                if (state.ready) {
+                    TileEditForm(
+                        initialSlot = state.effectiveSlot,
+                        availableContacts = state.contacts,
+                        initialOpenAppPackage = state.pendingOpenAppPackage,
+                        onSave = { child.component.save(it) },
+                        onCancel = { child.component.onCancel() },
+                        onPickApp = { child.component.onPickApp() },
+                    )
+                }
             }
         }
     }

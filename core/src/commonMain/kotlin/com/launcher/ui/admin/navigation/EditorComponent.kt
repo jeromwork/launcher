@@ -44,6 +44,8 @@ class EditorComponent(
     private val nowMillis: () -> Long,
     val onBack: () -> Unit,
     val onHistoryClick: () -> Unit,
+    val onEditTile: (flowId: String, slotId: String) -> Unit = { _, _ -> },
+    val onPreviewTile: (slotId: String) -> Unit = {},
 ) : ComponentContext by componentContext {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -142,6 +144,42 @@ class EditorComponent(
 
     fun dismissMergeConflict() {
         _state.update { it.copy(mergeConflict = null) }
+    }
+
+    /**
+     * Re-order a slot within or across flows (spec 009 FR-006/008).
+     * Mutates the draft through [ConfigEditor.updateDraft] — autosave
+     * picks up the change. Same flow → reorder; cross-flow → move +
+     * remove from source.
+     */
+    fun reorderTile(fromFlowId: String, slotId: String, toFlowId: String, toIndex: Int) {
+        scope.launch {
+            configEditor.updateDraft(linkId) { current ->
+                val flows = current.flows.toMutableList()
+                val fromIdx = flows.indexOfFirst { it.id.value == fromFlowId }
+                val toIdx = flows.indexOfFirst { it.id.value == toFlowId }
+                if (fromIdx < 0 || toIdx < 0) return@updateDraft current
+                val fromFlow = flows[fromIdx]
+                val movedSlot = fromFlow.slots.firstOrNull { it.id.value == slotId }
+                    ?: return@updateDraft current
+                if (fromFlow.id.value == toFlowId) {
+                    val withoutMoved = fromFlow.slots.filterNot { it.id.value == slotId }
+                    val safeIndex = toIndex.coerceIn(0, withoutMoved.size)
+                    val reordered = withoutMoved.toMutableList().also { it.add(safeIndex, movedSlot) }
+                    flows[fromIdx] = fromFlow.copy(slots = reordered)
+                } else {
+                    flows[fromIdx] = fromFlow.copy(
+                        slots = fromFlow.slots.filterNot { it.id.value == slotId },
+                    )
+                    val toFlow = flows[toIdx]
+                    val safeIndex = toIndex.coerceIn(0, toFlow.slots.size)
+                    flows[toIdx] = toFlow.copy(
+                        slots = toFlow.slots.toMutableList().also { it.add(safeIndex, movedSlot) },
+                    )
+                }
+                current.copy(flows = flows)
+            }
+        }
     }
 
     /**

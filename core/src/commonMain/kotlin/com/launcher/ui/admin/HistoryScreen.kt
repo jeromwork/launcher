@@ -45,12 +45,12 @@ import com.launcher.api.history.ConfigSnapshotWithId
 fun HistoryScreen(
     snapshots: List<ConfigSnapshotWithId>,
     rollbackAllowed: Boolean,
-    onPreview: (ConfigSnapshotWithId) -> Unit,
     onRollback: (ConfigSnapshotWithId) -> Unit,
     formatTimestamp: (Long) -> String,
     modifier: Modifier = Modifier,
 ) {
     var confirmRollback by remember { mutableStateOf<ConfigSnapshotWithId?>(null) }
+    var preview by remember { mutableStateOf<ConfigSnapshotWithId?>(null) }
 
     Column(modifier = modifier.fillMaxSize()) {
         Text(
@@ -77,7 +77,7 @@ fun HistoryScreen(
                         snap = snap,
                         rollbackAllowed = rollbackAllowed,
                         formatTimestamp = formatTimestamp,
-                        onPreview = { onPreview(snap) },
+                        onPreview = { preview = snap },
                         onRollback = { confirmRollback = snap },
                     )
                 }
@@ -108,6 +108,57 @@ fun HistoryScreen(
             },
         )
     }
+
+    val previewSnap = preview
+    if (previewSnap != null) {
+        SnapshotPreviewDialog(
+            snapshot = previewSnap,
+            formatTimestamp = formatTimestamp,
+            onDismiss = { preview = null },
+        )
+    }
+}
+
+@Composable
+private fun SnapshotPreviewDialog(
+    snapshot: ConfigSnapshotWithId,
+    formatTimestamp: (Long) -> String,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Снимок от ${'$'}{formatTimestamp(snapshot.snapshot.recordedAt)}")
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Пресет: ${'$'}{snapshot.snapshot.config.presetId}",
+                    fontSize = 16.sp,
+                )
+                Text(
+                    text = "Экранов: ${'$'}{snapshot.snapshot.config.flows.size}",
+                    fontSize = 16.sp,
+                )
+                Text(
+                    text = "Тайлов: ${'$'}{snapshot.snapshot.config.flows.sumOf { it.slots.size }}",
+                    fontSize = 16.sp,
+                )
+                Text(
+                    text = "Контактов: ${'$'}{snapshot.snapshot.config.contacts.size}",
+                    fontSize = 16.sp,
+                )
+                Text(
+                    text = "ID версии: ${'$'}{snapshot.autoId}",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Закрыть") }
+        },
+    )
 }
 
 @Composable

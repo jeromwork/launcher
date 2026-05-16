@@ -17,6 +17,7 @@ import com.launcher.api.action.DispatchResult
 import com.launcher.api.action.ProviderRegistry
 import com.launcher.api.apps.InstalledAppsCatalog
 import com.launcher.api.config.ConfigEditor
+import com.launcher.api.config.ElementId
 import com.launcher.api.history.ConfigHistoryRepository
 import com.launcher.api.link.LinkRegistry
 import com.launcher.api.sync.RemoteSyncBackend
@@ -25,6 +26,7 @@ import com.launcher.ui.admin.navigation.EditorComponent
 import com.launcher.ui.admin.navigation.HistoryComponent
 import com.launcher.ui.admin.navigation.OpenAppPickerComponent
 import com.launcher.ui.admin.navigation.PhoneHealthComponent
+import com.launcher.ui.admin.navigation.TileEditComponent
 import com.launcher.ui.health.HealthToPhoneIndicatorAdapter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -154,6 +156,28 @@ class RootComponent(
                     nowMillis = nowMillis,
                     onBack = { nav.pop() },
                     onHistoryClick = { nav.push(RootConfig.History(config.linkId)) },
+                    onEditTile = { flowId, slotId ->
+                        nav.push(
+                            RootConfig.TileEdit(
+                                linkId = config.linkId,
+                                flowId = flowId,
+                                slotId = slotId,
+                            ),
+                        )
+                    },
+                    onPreviewTile = { _ ->
+                        // FR-005 preview tap: dispatch the slot's action via
+                        // ActionDispatcher in View mode.
+                        //
+                        // TODO(spec-followup): the launcher itself currently
+                        // renders from FlowRepository (local), not from
+                        // /config/current. A Slot→Action mapping needs to
+                        // land first (spec-followup TODO-ARCH-013 — switch
+                        // home tiles to /config/current ConfigDocument). Until
+                        // then, editor preview-tap is a no-op so the action
+                        // dispatch surface stays consistent (no half-broken
+                        // path that fires only for some slot kinds).
+                    },
                 )
             )
             is RootConfig.History -> RootChild.History(
@@ -189,11 +213,23 @@ class RootComponent(
                     componentContext = context,
                     installedAppsCatalog = requireDep("installedAppsCatalog", installedAppsCatalog),
                     onBack = { nav.pop() },
-                    onSelected = { _ ->
-                        // Selection wiring is per-call — set by the caller
-                        // who pushed this RootConfig (Phase E: VCard flow,
-                        // Phase 12: tile-edit flow). Current default just pops.
-                        nav.pop()
+                    onSelected = { app ->
+                        when (val ret = config.returnTo) {
+                            null -> nav.pop()  // browse-only.
+                            is RootConfig.OpenAppPickerReturn.TileEditReturn -> {
+                                // Pop the picker, then re-push TileEdit с
+                                // pendingOpenAppPackage so the form pre-fills.
+                                nav.pop()
+                                nav.push(
+                                    RootConfig.TileEdit(
+                                        linkId = ret.linkId,
+                                        flowId = ret.flowId,
+                                        slotId = ret.slotId,
+                                        pendingOpenAppPackage = app.packageName,
+                                    ),
+                                )
+                            }
+                        }
                     },
                 )
             )
@@ -205,6 +241,36 @@ class RootComponent(
                     indicatorAdapter = requireDep("healthIndicatorAdapter", healthIndicatorAdapter),
                     onBack = { nav.pop() },
                 )
+            )
+            is RootConfig.TileEdit -> RootChild.TileEdit(
+                TileEditComponent(
+                    componentContext = context,
+                    linkId = config.linkId,
+                    flowId = ElementId(config.flowId),
+                    slotId = ElementId(config.slotId),
+                    configEditor = requireDep("configEditor", configEditor),
+                    onSaved = { nav.pop() },
+                    onCancel = { nav.pop() },
+                    onPickApp = {
+                        // Push an OpenAppPicker with a TileEditReturn —
+                        // on selection RootConfig re-pushes TileEdit with
+                        // pendingOpenAppPackage so the form pre-fills.
+                        nav.push(
+                            RootConfig.OpenAppPicker(
+                                linkId = config.linkId,
+                                returnTo = RootConfig.OpenAppPickerReturn.TileEditReturn(
+                                    linkId = config.linkId,
+                                    flowId = config.flowId,
+                                    slotId = config.slotId,
+                                ),
+                            ),
+                        )
+                    },
+                ).also { tileEditComponent ->
+                    if (config.pendingOpenAppPackage != null) {
+                        tileEditComponent.applyPickedApp(config.pendingOpenAppPackage)
+                    }
+                }
             )
         }
 

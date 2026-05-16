@@ -17,4 +17,13 @@ data class EditorActions(
     val onSlotEditMenu: (slotId: String) -> Unit = {},
     /** Publish CTA — triggers ConfigPublishUseCase chain (FR-015, spec 008). */
     val onPublish: () -> Unit = {},
+    /** Toggle View ↔ Edit mode (FR-005). */
+    val onToggleMode: () -> Unit = {},
+    /** Open history viewer for this link (FR-037). */
+    val onHistoryClick: () -> Unit = {},
+    /**
+     * Drop-target callback: re-order [slotId] from [fromFlowId] to be at
+     * position [toIndex] inside [toFlowId] (G5 — DnD reorder).
+     */
+    val onReorder: (fromFlowId: String, slotId: String, toFlowId: String, toIndex: Int) -> Unit = { _, _, _, _ -> },
 )

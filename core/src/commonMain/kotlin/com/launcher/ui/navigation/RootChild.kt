@@ -39,4 +39,8 @@ sealed interface RootChild {
     data class PhoneHealth(
         val component: com.launcher.ui.admin.navigation.PhoneHealthComponent,
     ) : RootChild
+
+    data class TileEdit(
+        val component: com.launcher.ui.admin.navigation.TileEditComponent,
+    ) : RootChild
 }

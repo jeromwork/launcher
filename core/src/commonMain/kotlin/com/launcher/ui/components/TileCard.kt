@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.launcher.api.config.SlotKind
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -56,6 +57,7 @@ fun TileCard(
     modifier: Modifier = Modifier,
     slotKind: SlotKind? = null,
     editMode: Boolean = false,
+    dragged: Boolean = false,
     onLongPress: (() -> Unit)? = null,
     onEditMenuClick: (() -> Unit)? = null,
 ) {
@@ -71,19 +73,32 @@ fun TileCard(
     } else {
         Modifier  // Card composable below uses its own onClick when not editMode.
     }
+    // G5 — visual drag decoration: while dragged, scale up + raise elevation
+    // so admin sees that the tile is "lifted off the grid" (FR-008).
+    val dragModifier = if (dragged) {
+        Modifier.graphicsLayer {
+            scaleX = 1.05f
+            scaleY = 1.05f
+            alpha = 0.85f
+            shadowElevation = 12.dp.toPx()
+        }
+    } else {
+        Modifier
+    }
     Card(
         onClick = if (!editMode) debouncedOnClick else { -> },
         modifier = modifier
             .heightIn(min = TapTargets.tile)
             .fillMaxWidth()
+            .then(dragModifier)
             .then(rootClickModifier)
             .semantics { role = Role.Button },
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
-            containerColor = if (editMode) {
-                MaterialTheme.colorScheme.tertiaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
+            containerColor = when {
+                dragged -> MaterialTheme.colorScheme.primaryContainer
+                editMode -> MaterialTheme.colorScheme.tertiaryContainer
+                else -> MaterialTheme.colorScheme.surfaceVariant
             },
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ),
