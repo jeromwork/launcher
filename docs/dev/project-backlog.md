@@ -507,6 +507,15 @@ These are tracked here (not in spec 008's `tasks.md`) because they require eithe
 
 ---
 
+### TODO-PHYS-001: VCard share intent — реальная проверка content-URI 🟢
+
+- **What**: `VCardReceiveActivity` (spec 9 Phase 6) проверен эмулятором: intent-filter резолвится, Activity launches, `launchMode=singleTask` + `onNewIntent` работают, error UI рендерится. Но **реальный content-URI парс не воспроизводится через adb-shell** — MediaProvider на Android 14+ блокирует `am start` с file:// (FileUriExposed-аналог) и с `content://media/external/file/...` (адб-shell не пробрасывает URI grants, наше приложение не имеет READ_MEDIA_* permissions и не должно — compliance budget). Реальный поток: WhatsApp/Telegram создают `content://<app>.fileprovider/...` с `FLAG_GRANT_READ_URI_PERMISSION` на стороне sender'а — это работает в production, но локально невоспроизводимо.
+- **Why**: единственный остающийся pre-production gate для FR-027/027a/028 — covered unit tests'ом (9 real-bytes VCard samples), не covered end-to-end.
+- **How**: на реальном устройстве (или эмуляторе с установленным WhatsApp/Telegram через apkmirror) — отправить контакт из WhatsApp Share contact → выбрать наш лончер → проверить parse + display. Затем повторить из system Contacts + Telegram.
+- **When**: до Play Store upload (Article VIII senior-safe gate + OEM matrix).
+- **Origin**: spec 009 Phase 14 emulator smoke 2026-05-16 — adb-shell limitation discovered.
+- **Status**: 🟢 OPEN
+
 ### TODO-UI-001: Заменить health-indicator icons на семантически правильные 🟢
 
 - **What**: В спека 9 Phase 7 `PhoneHealthIndicatorRow.iconFor()` использует приблизительные icons из `material-icons-core` (Star для battery, Refresh для connectivity, Notifications для audio, Phone для lastSeen) — потому что spec 9 plan §5 запрещает новые gradle deps. Это ухудшает UX для пожилых пользователей (Article VIII).
