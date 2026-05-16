@@ -60,6 +60,23 @@ This forces port shapes to be domain-driven, unblocks testing without provisioni
 
 When an architectural invariant can be checked automatically, prefer that to manual review. Examples: import-restriction lint rules, module-dependency-graph checks, contract roundtrip tests, secret-leak pre-commit hooks. Manual review for things a machine cannot judge; automation for things it can.
 
+## 8. Server migration tracking
+
+Любое решение, использующее «бесплатный обход» вместо собственного серверного компонента, обязано быть зафиксировано в [`docs/dev/server-roadmap.md`](docs/dev/server-roadmap.md) с маршрутом миграции на собственный сервер.
+
+Сейчас мы используем:
+- **Cloudflare Worker** (бесплатный tier `*.workers.dev`) вместо собственного API.
+- **Firestore Security Rules + клиентские транзакции** вместо Cloud Functions или нашего backend'а.
+- **In-memory rate-limit** в Worker'е вместо persistent KV / БД.
+- **Firebase Spark plan** (без Cloud Functions, без Cloud Storage at scale).
+- **Client-side housekeeping** (например, retention для config history) вместо server-side cron / triggers.
+
+Каждый раз, когда мы выбираем client-side / no-server путь там, где «правильное» решение — server-side (integrity, atomicity, no spoofing), обязательно:
+1. **Записать в `docs/dev/server-roadmap.md`** конкретную задачу под «когда поедем на свой сервер».
+2. **Inline-TODO в коде/спеке**: `// TODO(server-roadmap): <операция> должна перейти на сервер ради <integrity | atomicity | privacy | scale>`.
+
+Это даёт **specific exit ramp destination** для one-way door'ов (rule 3) — куда именно мы отступаем, а не «как-нибудь потом».
+
 ## Refuse and propose alternative if you see
 
 1. Vendor or system type embedded in a domain value.
@@ -98,3 +115,19 @@ For tests:
 ## Conflict resolution
 
 When a user instruction would violate a rule above, surface the conflict in one sentence — for example: *"this would couple a vendor SDK type into the domain — proceed anyway, or wrap as a port?"* — and continue based on the answer.
+
+## Discussion mode → invoke `mentor` skill
+
+Когда сообщение пользователя — **обсуждение, а не исполнение**, обязательно вызвать skill `mentor` (`.claude/skills/mentor/SKILL.md`) ДО любого содержательного ответа.
+
+Discussion-сигналы (любой достаточен):
+- «я новичок в [X]», «не знаю X», «помоги разобраться с X», «X — что это?», «объясни X»;
+- выбор / оценка: «что лучше — A или B?», «стоит ли...?», «можно ли заменить X на Y?», «какие альтернативы?»;
+- how-it-works: «как работает X?», «почему X себя ведёт так?»;
+- вставленный mentor-промт («веди себя как наставник», «составь карту темы», «задай N уточняющих вопросов»);
+- **архитектурное / one-way-door решение** в середине разговора (выбор технологии, SDK, схемы данных, identity-модели, payment provider, persistence, deployment target) — даже без явного вопроса;
+- **пользователь выбрал что-то из предложенных вариантов** — это сигнал перепроверить выбор, а не зафиксировать. Mentor запускается на «ок, берём A» так же, как на «что лучше?».
+
+НЕ вызывать `mentor` для task-сообщений: «сделай X», «запусти Y», «исправь Z», «закоммить», «создай PR», «обнови файл», `/speckit.*` и иные явные slash-команды.
+
+Если граница нечёткая или пользователь делает архитектурный выбор — предпочесть `mentor`. Лучше лишний раз обсудить, чем молча выполнить решение, которое потом дорого откатывать. Escape: пользователь может явно написать «без mentor, коротко» — тогда пропустить шаги 1-5 и дать рекомендацию сразу с пометкой best-guess.

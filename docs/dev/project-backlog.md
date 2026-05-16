@@ -128,7 +128,7 @@
 - **Status**: 🟢 OPEN
 - **Origin**: Spec 007 C13 = C stub.
 
-### TODO-ARCH-006: Enable R8 minification on `release` buildType 🟡
+### TODO-ARCH-006: Enable R8 minification on `release` buildType 🟡 🚨 PLAY-STORE-BLOCKER
 
 - **What**: Включить `isMinifyEnabled = true` + `isShrinkResources = true` для `release` buildType в `app/build.gradle.kts`.
 - **Why**: spec 007 SC-006 «realBackend APK ≤ mockBackend + 3 MB» сейчас **fails by 0.99 MB** (delta 3.99 MB SI, target 3.00 MB). Firebase Firestore/Auth/Messaging SDKs тянут много кода, который R8 ужмёт на 40-60%. Без минификации SC-006 нарушено постоянно.
@@ -159,19 +159,18 @@
 - **Status**: 🟡 OPEN
 - **Origin**: spec 008 `/speckit.clarify` 2026-05-14 Q4 — вынесено отдельным спеком из соображений объёма (Play Store update flows + OEM-варианты = самостоятельная глубина).
 
-### TODO-ARCH-008: Config history + rollback (встроено в spec 009) 🟡
+### TODO-ARCH-008: Config history + rollback (in progress — spec 009 FR-37..FR-46) 🟡 IN PROGRESS
 
 - **What**: Реализовать в spec 009 (`admin-mode-flows`) подсистему истории конфигов и отката: subcollection `/links/{linkId}/config/history/{autoId}` с retention 10 версий + UI просмотра/предпросмотра/отката.
-- **Why**: В спеке 008 (Q7 clarify, 2026-05-14) решено НЕ включать roll-back в 008 — спек и так большой (5-7 недель). При ошибочном push в эпоху 008 admin восстанавливает раскладку вручную (помнит, что было, и пишет заново). Без history admin не может откатиться к версии «месяц назад» при накопленных правках от разных editor'ов. Это **обязательно** до production-релиза, иначе один ошибочный push разрушит раскладку у бабушки.
-- **How**:
-  - Subcollection `/links/{linkId}/config/history/{autoId}` — снапшот предыдущей версии при каждом push в `/config/current`.
-  - Retention: 10 версий (11-й push вытесняет самую старую — housekeeping в момент push или через Firestore TTL).
-  - UI в admin-приложении: список истории (дата, кто писал — `lastWriterDeviceId`), предпросмотр содержимого, кнопка «откатить».
-  - «Откатить» = новый push с содержимым выбранной версии (стандартный flow 008, с conflict-check через optimistic concurrency).
-  - Security Rules: write в `/config/history/*` — только Cloud Function / server-side (не editor'ы); read — adminId + managedDeviceFirebaseUid (как `/config/current`).
-- **When**: До первого production-релиза, либо явно в плане спека 009.
-- **Status**: 🟡 OPEN
-- **Origin**: spec 008 `/speckit.clarify` 2026-05-14 Q7. Решение: встроить в 009 (Вариант X), не делать отдельным спеком.
+- **Status**: 🟡 IN PROGRESS — scope зафиксирован 2026-05-15 в mentor pre-specify session спека 9. FR-37..FR-46 в `specs/009-admin-mode-flows/spec.md` (когда будет написан).
+- **Decisions taken (2026-05-15):**
+  - Write strategy: **client-side** перед push в `/config/current` (без batch transaction; race condition rare loss принимаем). Migration на server-side → `SRV-CONFIG-001` в [server-roadmap.md](server-roadmap.md).
+  - Housekeeping: **client-side** при каждом push (читает all snapshots → удаляет старейшие при ≥11). Migration → `SRV-CONFIG-002`.
+  - Schema mismatch при rollback: **lazy transformer** `vN → vCurrent` (см. TODO-ARCH-015). При `schemaVersion = 1` (сейчас) — работы 0.
+  - Editor symmetry: **оба** editor'a (admin + Managed через Settings 7-tap+пароль) могут откатывать. Симметрично спеку 8 FR-050.
+  - UI: список snapshot'ов в редакторе раскладки → тап → read-only preview → кнопка «откатить» (= новый push содержимого).
+  - Security Rules: read history — adminId + managedDeviceFirebaseUid (как current); write — те же (client-side; migration на server-only через `SRV-CONFIG-001`).
+- **Origin**: spec 008 `/speckit.clarify` 2026-05-14 Q7. Scope-discovery 2026-05-15 mentor session для спека 9.
 
 ### TODO-ARCH-009: Config size soft-limits and proactive warnings 🟢
 
@@ -185,6 +184,79 @@
 - **When**: 🟢 Nice-to-have. Если в реальной эксплуатации увидим достижение 1 MiB → повышаем приоритет. До этого момента — общий error-path FR-013 спека 008 покрывает.
 - **Status**: 🟢 OPEN
 - **Origin**: spec 008 `/speckit.clarify` 2026-05-14 Q10. В 008 явно отложено (OUT-008), сохраняем здесь как страховка.
+
+### TODO-ARCH-010: Phone health threshold editor 🟢
+
+- **What**: UI в admin-Settings для редактирования полей `PhoneHealthPreset` (например, «battery critical at X%»).
+- **Why**: В спеке 9 значения `PhoneHealthPreset` захардкожены (battery `<5%` Critical / `<20%` Warning, lastSeen `>24ч` / `>1ч`). Один админ хочет реагировать на 10%, другой на 3%. Пресет уже data-class'ом, готов к замене значений — нужно только UI и подгрузка из `/config.presetOverrides.phoneHealthSettings`.
+- **How**: Форма редактирования в Settings → wire format `PhoneHealthSettings` внутри `presetOverrides: PresetSettings?` (additive, без bump schemaVersion) → adapter подгружает из `/config`, fallback на `DEFAULT_PHONE_HEALTH_PRESET`.
+- **When**: При первой жалобе пользователя «у моей бабушки экзотический сценарий, дефолты не подходят».
+- **Status**: 🟢 OPEN
+- **Origin**: spec 009 pre-specify discovery (пункт 2 роадмапа, mentor-сессия 2026-05-15). Структура (`PhoneHealthPreset`) уже готова в спеке 9 — расширение чистое дописывание.
+
+### TODO-ARCH-011: Phone health named presets (default / medical / minimum / ...) 🟢
+
+- **What**: Несколько готовых наборов `PhoneHealthPreset` + UI выбора, какой применить к конкретному Managed.
+- **Why**: Дефолтный preset подходит обычной бабушке. Для медицински-уязвимых сценариев (кардиостимулятор, диабет) пороги battery / lastSeen агрессивнее. Возможны minimum / maximum / silent profiles.
+- **How**: Constants `DEFAULT_`, `MEDICAL_`, `MINIMUM_` рядом с data class. UI selector в admin-режиме per-Managed. Запись `presetId` health-настроек в `/config.presetOverrides.phoneHealthPresetId`.
+- **When**: После TODO-ARCH-010 или вместе с ним.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 009 pre-specify discovery.
+
+### TODO-ARCH-012: Phone health critical → push admin 🟡
+
+- **What**: Подписчик на локальное событие `PhoneHealthCriticalEvent` (эмитится в спеке 9), который через Cloudflare Worker (спек 7) отправляет FCM push на телефон админа.
+- **Why**: Без push админ узнаёт о Critical health (3% батарея, 24ч без выхода, выключенный звонок) только когда заглянет в приложение. Если бабушка в опасности — это слишком поздно. В спеке 9 событие **эмитится** (поле `pushAdminOnCritical: Boolean` в `PhoneHealthPreset` готово), но подписчик отсутствует.
+- **How**: Сервис в admin-приложении подписан на `PhoneHealthCriticalEvent`. При срабатывании + `preset.pushAdminOnCritical == true` → POST в Worker → FCM-push админу. Дедупликация (один push на инцидент, не на каждый snapshot). Уважение к DND админа.
+- **When**: Обязательно до production-релиза с реальными пожилыми пользователями. 🟡.
+- **Status**: 🟡 OPEN
+- **Origin**: spec 009 pre-specify discovery (пункт 2 роадмапа).
+
+### TODO-ARCH-013: Contact drift detection 🟢
+
+- **What**: Авто-детект расхождения между системными контактами админа и контактами в `/config.contacts[]`. Если у Маши в системе номер поменялся — баннер «обновить?».
+- **Why**: В спеке 9 контакты — снапшоты (FR-30): копия имя+номер на момент добавления. Если у Маши поменялся номер, в `/config` бабушки останется старый, она наберёт чужого человека. Сейчас (по решению Q5 спека 9) — игнорируем, админ обновляет вручную.
+- **How**: Раз в N дней (например при запуске admin-приложения) — для каждого `Contact` в `/config.contacts[]` сверить с локальной адресной книгой админа по `displayName`. При расхождении — баннер с предложением «обновить номер».
+- **When**: При появлении реальных жалоб «бабушка набирает чужой номер».
+- **Status**: 🟢 OPEN
+- **Origin**: spec 009 pre-specify discovery (пункт 4 роадмапа, Q5).
+
+### TODO-ARCH-014: Contact без phone number 🟢
+
+- **What**: Расширить `Contact` для поддержки идентификаторов **без** phone number — например LINE ID, WeChat ID, Telegram username, email.
+- **Why**: В спеке 9 контакты без phone отвергаются (FR-36). Это закрывает закрытые азиатские мессенджеры (LINE / WeChat / KakaoTalk), у friend'ов которых нет публичного phone number. Когда будем интегрировать их (`TODO-FUTURE-SPEC-003`) — понадобится контакт **без** phone, только с messenger-specific ID.
+- **How**: Additive поля в `Contact` (без bump schemaVersion): `lineId: String?`, `wechatId: String?`, `telegramUsername: String?`, или generic `messengerIdentifiers: Map<String, String>?`. Slot.kind расширяется на `LineCall`, `WeChatCall`, ... через провайдеры спека 6.
+- **When**: Связан с `TODO-FUTURE-SPEC-003: messenger-contact-integration` — делать вместе.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 009 pre-specify discovery (пункт 4 роадмапа, FR-25/FR-36).
+
+### TODO-ARCH-016: Switch launcher home tiles to render from `/config/current` 🟡
+
+- **What**: Сейчас launcher (`HomeComponent` → `FlowScreen` → `TileCard`) рендерит тайлы из локального `FlowRepository` (FlowDescriptor + SlotDescriptor — спек 003/005 модель). После спеков 008/009 источник истины для раскладки — `/config/current` ConfigDocument (Flow + Slot — спек 008 модель). Эти два деревья пока **независимы** — admin editor правит `ConfigDocument`, но launcher это не подхватывает.
+- **Why**: Без миграции:
+  - Admin editor «работает в вакууме» — push в Firestore проходит, history заполняется, но раскладка у пожилого пользователя не меняется (он всё ещё видит FlowRepository defaults / spec 005 mock data).
+  - Preview-tap в editor View mode не запускает реальное действие (FR-005 не выполняется) — slot→Action mapping не существует, потому что Action живёт в FlowDescriptor, а editor работает с ConfigDocument.Slot.
+- **How**:
+  1. Добавить SlotToActionMapper в `core/commonMain/api/action/`: `fun Slot.toAction(contacts: List<Contact>): Action?` — мапит SlotKind+args на Action+payload.
+  2. Заменить `FlowRepository` в HomeComponent на observable adapter поверх `ConfigEditor.appliedConfig` + `ConfigEditor.pendingDraft` (с draft-приоритетом для admin device, applied-only для Managed).
+  3. Очистить mock `flows_mock_*.json` после переноса (spec 005 артефакты).
+  4. Обновить spec 009 Phase 14 emulator smoke — admin push → Managed home reflects change.
+- **When**: После того как пользователи начинают редактировать раскладку (т.е. сразу — без этого спек 9 функционально incomplete для real users). До Play Store upload — обязательно.
+- **Status**: 🟡 OPEN
+- **Origin**: spec 009 Phase G implementation 2026-05-16 — discovered when wiring EditorScreen preview-tap (FR-005).
+
+### TODO-ARCH-015: Config schema transformers (lazy migration) 🟢
+
+- **What**: При каждом breaking schema bump для `/config` (`schemaVersion: N → N+1`) — написать **транзформер** `vN → vN+1`, который применяется при чтении старых snapshot'ов из `/config/history/`. Цепочка транзформеров покрывает rollback на любую старую версию (`v1 → v2 → ... → current`).
+- **Why**: Без транзформеров spec 9 FR-44 ведёт к (А) drop-incompatible — старые snapshot'ы при schema bump становятся неоткатываемы. Это **обнуляет историю** при каждом breaking change. CLAUDE.md rule 5 требует «backward-compatible reads MUST be possible for at least one major release» — это и есть транзформер.
+- **How**:
+  - Каждый транзформер — pure function `JsonObject (vN) → JsonObject (vN+1)`. Расположение: `core/api/config/migrations/Vn_To_Vn1.kt`.
+  - При rollback читаем snapshot'a `schemaVersion = N`, текущий код — `schemaVersion = M`, где `M > N`. Применяем `Vn_To_Vn1`, потом `V(n+1)_To_V(n+2)`, ..., до `V(m-1)_To_Vm`. Результат отдаётся в rollback flow.
+  - Roundtrip-тест на каждый транзформер: «синтетический snapshot vN → транзформ до vM → проверка инвариантов».
+  - Server-side eager миграция — `SRV-CONFIG-003` в [server-roadmap.md](server-roadmap.md).
+- **When**: При **первом** breaking schema change `schemaVersion: 1 → 2`. До этого момента — работы 0 (вся история в `v1`).
+- **Status**: 🟢 OPEN (триггер: первый schema bump)
+- **Origin**: spec 009 pre-specify discovery (пункт 6 роадмапа, schema invalidation Q).
 
 ---
 
@@ -373,6 +445,119 @@ These are tracked here (not in spec 008's `tasks.md`) because they require eithe
 - **When**: До production-релиза.
 - **Status**: 🟡 OPEN
 - **Origin**: spec 008 T143 — изначально помечен `[M]` (manual). 2026-05-15 emulator session: TODO-SMOKE-001 — блокер для эмуляторного варианта; OEM-coverage в принципе требует физических девайсов.
+
+---
+
+## Future Specs (отдельные spec'и)
+
+Спеки, которые **не** делаются в текущей итерации, но имеют достаточно понятный scope, чтобы зафиксировать как «будет отдельным спеком».
+
+### TODO-FUTURE-SPEC-001: wearable-monitor (часы — пульс, давление, шаги) 🟢
+
+- **What**: Отдельная подсистема мониторинга для умных часов / медицинских носимых устройств (heart rate, blood pressure, SpO2, steps, sleep). Отдельный flow в раскладке бабушки + отдельный раздел health-сводки у админа.
+- **Why**: В пункт 2 спека 9 явно решено НЕ обобщать `MonitorIndicator` под часы. Часы семантически отличаются — медицинский домен, event-stream (HRV alerts), pairing через Bluetooth, sync через Google Fit / Samsung Health / Apple Health bridge. Generic-абстракция = слабый UX. Лучше отдельная подсистема.
+- **How**: Новый wire format `WearableSnapshot` в `/links/{linkId}/wearable/{deviceId}`. Свой adapter в admin-UI. Свой Settings flow для pairing.
+- **When**: Когда появится конкретный пользователь / клинический партнёр.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 009 pre-specify discovery 2026-05-15 (отвергнут вариант (В) generic `MonitorIndicator`).
+
+### TODO-FUTURE-SPEC-002: security-sensor-monitor (охранная сигнализация, smart home) 🟢
+
+- **What**: Отдельная подсистема мониторинга для датчиков охранной сигнализации, smart home (door opened, motion detected, smoke alarm).
+- **Why**: Event-stream wire format вместо snapshot — фундаментально другая модель данных. Объединение с phone health = слабый UX.
+- **How**: Новый wire format с event stream в `/links/{linkId}/securityEvents/{eventId}`. Свой adapter. Push admin'у на каждый critical event.
+- **When**: Конкретная потребность.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 009 pre-specify discovery 2026-05-15.
+
+### TODO-FUTURE-SPEC-003: messenger-contact-integration (LINE / WeChat / KakaoTalk / закрытые мессенджеры) 🟢
+
+- **What**: Интеграция с закрытыми азиатскими мессенджерами, у которых friend'ы не имеют публичного phone number и не отдают `text/x-vcard` через `ACTION_SEND`.
+- **Why**: В спеке 9 покрываются мессенджеры через VCard share intent (WhatsApp, Telegram, Viber — `text/x-vcard` работает). LINE / WeChat / KakaoTalk имеют свои SDK и **не** отдают VCard. Без отдельной работы их контакты в раскладку не попадут.
+- **How**:
+  - LINE — LINE Login SDK + LINE share API.
+  - WeChat — WeChat Open SDK (требует registered developer account).
+  - KakaoTalk — Kakao Share SDK (см. `https://developers.kakao.com/docs/latest/en/kakaotalk-share/android-link`).
+  - Каждый — свой OAuth/deep-link/QR flow для импорта контакта.
+  - Зависит от `TODO-ARCH-014` (Contact без phone number).
+  - Зависит от расширения провайдеров спека 6 (`LineCall`, `WeChatCall`, `KakaoCall` SlotKind).
+- **When**: При появлении реальных пользователей из соответствующих регионов (Япония / Китай / Корея).
+- **Status**: 🟢 OPEN
+- **Origin**: spec 009 pre-specify discovery 2026-05-15 (Q про мессенджеры).
+
+### TODO-FUTURE-SPEC-004: shared-admin-contact-book (общая адресная книга админа) 🟢
+
+- **What**: Общая адресная книга админа (Firebase коллекция `/admins/{adminId}/contacts/`), на которую ссылаются `/config.contacts[]` у каждого Managed-устройства.
+- **Why**: В спеке 9 контакты per-Managed (если админ управляет бабушкой и дедушкой, Маша добавляется дважды). Это проще и privacy-friendly («дедушке нельзя знать про Машу»). Если позже окажется неудобным — заведём общую книгу как отдельный wire format слой.
+- **How**: Новая Firestore коллекция, новая модель ссылок (по UUID на shared contact). Миграция per-Managed contacts опциональная (можно оставить inline-контакты для backward-compat).
+- **When**: Когда появятся жалобы «достало добавлять одного и того же контакта в раскладки разных Managed».
+- **Status**: 🟢 OPEN
+- **Origin**: spec 009 pre-specify discovery 2026-05-15 (Q4 пункта 4).
+
+### TODO-FUTURE-SPEC-005: preset-editor (полное редактирование preset settings) 🟢
+
+- **What**: Полный редактор preset (`PresetSettings`) — цвет фона, шрифт, размер плиток, расположение тулбара (top/bottom/none), переключение flow свайпами vs табами, кастомные пресеты.
+- **Why**: В спеке 9 preset = ссылка на захардкоженный шаблон (workspace / simple-launcher / launcher). Сам шаблон редактировать нельзя. Wire format `presetOverrides: PresetSettings?` зарезервирован (FR-10 спека 9), но всегда null. Этот спек — UI + полная wire-format-схема `PresetSettings`.
+- **How**: Расширить `PresetSettings` всеми настраиваемыми полями. UI редактирования. Selector кастомных пресетов. Хранение либо inline в `/config.presetOverrides`, либо в shared библиотеке пресетов админа.
+- **When**: После того, как сам спек 9 устоится в production и появится реальный спрос на кастомизацию.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 009 pre-specify discovery 2026-05-15 (пункт 3 — preset как форвард-совместимая концепция).
+
+---
+
+## Legal & Compliance
+
+### TODO-LEGAL-001: Contacts privacy compliance (GDPR / 152-ФЗ) 🟡 🚨 PLAY-STORE-BLOCKER
+
+- **What**: Полная privacy compliance pipeline для контактов админа, добавленных в раскладки Managed: экран «список добавленных контактов» в admin-Settings с возможностью удалить любой; rationale-экран перед запросом `READ_CONTACTS`; политика конфиденциальности; экспорт / удаление по запросу субъекта данных (GDPR Article 17, 20; 152-ФЗ ст. 14, 21).
+- **Why**: Сбор `READ_CONTACTS` и хранение PII (имя + номер) в Firebase затрагивает третьих лиц (контакты админа), которые согласия **не давали**. Без compliance flow:
+  - Высокий риск Play Store reject при публикации (Google проверяет permission rationale + privacy policy).
+  - Юридические риски в EU (GDPR fines) и в РФ (152-ФЗ).
+- **Progress** (spec 009 implementation 2026-05-16):
+  - ✅ **Минимум** — `ContactsManageScreen` + `ContactsManageComponent` + confirmation dialog. Reachable через Settings → Сопряжённые устройства → device row → Контакты. Verified on emulator (screenshot `spec009-g-11-contacts.png`). FR-031a closed.
+  - ✅ **Rationale Composable** — `ContactPermissionRationaleScreen` написан (Phase 10). НЕ wired в navigation: system contact picker flow ещё не интегрирован в editor (часть TODO-ARCH-016). Когда picker подключится — rationale screen wires автоматически перед `ContextCompat.requestPermissions`.
+  - ❌ **Privacy policy** (юр. документ) — не написан.
+  - ❌ **GDPR Article 17/20 endpoints** — требует Cloud Functions = Spark→Blaze upgrade (TODO-ARCH-003 dependency).
+  - ❌ **Subject-driven deletion** (Маша сама удаляет, без админа) — server-side endpoint, depends on TODO-ARCH-003.
+- **How** для оставшейся части:
+  - **Privacy policy** — markdown + статическая страница (~0.5 дня).
+  - **Server-side GDPR endpoints** — Cloud Function `requestDataExport(managedDeviceUid)` + `requestDataDeletion(managedDeviceUid)` + email pipeline. Зависит от TODO-ARCH-003 Blaze upgrade.
+- **When**:
+  - Минимум: ✅ done 2026-05-16.
+  - Privacy policy: **до публикации в Play Store** (Data Safety form требует ссылку).
+  - Server-side endpoints: **до публикации в EU / РФ** (GDPR fines / 152-ФЗ).
+- **Status**: 🟡 IN PROGRESS — минимум закрыт; remaining (privacy policy + server endpoints) остаётся **🚨 PLAY-STORE-BLOCKER**.
+- **Origin**: spec 009 pre-specify discovery 2026-05-15 (mentor возражал, пользователь отложил). Privacy compliance — **обязательное** условие production-релиза.
+
+---
+
+### TODO-PHYS-001: VCard share intent — реальная проверка content-URI 🟢
+
+- **What**: `VCardReceiveActivity` (spec 9 Phase 6) проверен эмулятором: intent-filter резолвится, Activity launches, `launchMode=singleTask` + `onNewIntent` работают, error UI рендерится. Но **реальный content-URI парс не воспроизводится через adb-shell** — MediaProvider на Android 14+ блокирует `am start` с file:// (FileUriExposed-аналог) и с `content://media/external/file/...` (адб-shell не пробрасывает URI grants, наше приложение не имеет READ_MEDIA_* permissions и не должно — compliance budget). Реальный поток: WhatsApp/Telegram создают `content://<app>.fileprovider/...` с `FLAG_GRANT_READ_URI_PERMISSION` на стороне sender'а — это работает в production, но локально невоспроизводимо.
+- **Why**: единственный остающийся pre-production gate для FR-027/027a/028 — covered unit tests'ом (9 real-bytes VCard samples), не covered end-to-end.
+- **How**: на реальном устройстве (или эмуляторе с установленным WhatsApp/Telegram через apkmirror) — отправить контакт из WhatsApp Share contact → выбрать наш лончер → проверить parse + display. Затем повторить из system Contacts + Telegram.
+- **When**: до Play Store upload (Article VIII senior-safe gate + OEM matrix).
+- **Origin**: spec 009 Phase 14 emulator smoke 2026-05-16 — adb-shell limitation discovered.
+- **Status**: 🟢 OPEN
+
+### TODO-UI-001: Заменить health-indicator icons на семантически правильные 🟢
+
+- **What**: В спека 9 Phase 7 `PhoneHealthIndicatorRow.iconFor()` использует приблизительные icons из `material-icons-core` (Star для battery, Refresh для connectivity, Notifications для audio, Phone для lastSeen) — потому что spec 9 plan §5 запрещает новые gradle deps. Это ухудшает UX для пожилых пользователей (Article VIII).
+- **Why**: Семантическая иконка → лучшее распознавание. Сейчас "Звезда" для зарядки — неинтуитивно.
+- **How**: один из вариантов:
+  (a) Добавить `androidx.compose.material:material-icons-extended` (~10 MiB APK delta — нарушает Article XIII budget). NOT RECOMMENDED.
+  (b) Положить ~10 кастомных vector drawables в `res/drawable/` (battery_24, signal_cellular_24, volume_up_24, watch_24) — APK delta ≤ 50 KB. RECOMMENDED.
+  (c) Использовать Material Symbols через downloaded SVG → vector resource.
+- **When**: до Play Store upload (Article VIII senior-safe гейт).
+- **Origin**: spec 009 Phase 7 implementation 2026-05-15 (deliberate trade-off, plan §5 dep budget vs Article VIII UX).
+- **Status**: 🟢 OPEN
+
+### TODO-DOC-001: Fix `/config/history/{autoId}` path notation в спека 009 contracts ✅
+
+- **What**: `specs/009-admin-mode-flows/contracts/config-history.md` пишет путь как `/links/{linkId}/config/history/{autoId}` — это невалидно для Firestore (нельзя иметь `history` как doc и `{autoId}` сразу как doc в том же сегменте без коллекции между ними). Реализация использует sibling-collection: `/links/{linkId}/configHistory/{autoId}` (см. `firestore.rules`, `Link.KNOWN_SUBCOLLECTIONS`, `FirestoreConfigHistoryAdapter`).
+- **Resolved**: 2026-05-16 в спека 009 Phase G — contract doc обновлён, path-note добавлена в `contracts/config-history.md` поясняющая historical drift. plan.md / spec.md сохраняют исторический путь — это снапшоты процесса проектирования, не source-of-truth.
+- **Origin**: spec 009 Phase 5 implementation 2026-05-15 (mentor critical review).
+- **Status**: ✅ Closed
 
 ---
 

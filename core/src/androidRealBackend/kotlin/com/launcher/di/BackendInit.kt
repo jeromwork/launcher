@@ -3,10 +3,15 @@ package com.launcher.di
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessaging
+import com.launcher.adapters.apps.InstalledAppsCatalogAdapter
+import com.launcher.adapters.apps.OpenAppDispatcherAdapter
 import com.launcher.adapters.config.AndroidSqlDriverProvider
 import com.launcher.adapters.config.DefaultConfigEditor
 import com.launcher.adapters.config.FirebaseConfigApplier
 import com.launcher.adapters.config.SqlDelightLocalConfigStore
+import com.launcher.adapters.contacts.SystemContactPickerAdapter
+import com.launcher.adapters.contacts.VCardImporterAdapter
+import com.launcher.adapters.history.FirestoreConfigHistoryAdapter
 import com.launcher.adapters.identity.DataStoreDeviceIdProvider
 import com.launcher.adapters.identity.FirebaseIdentityProvider
 import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
@@ -19,9 +24,14 @@ import com.launcher.adapters.push.LauncherPushReceiver
 import com.launcher.adapters.push.WorkerPushSender
 import com.launcher.adapters.sync.FirebaseRemoteSyncBackend
 import com.launcher.adapters.config.db.ConfigStore
+import com.launcher.api.apps.InstalledAppsCatalog
+import com.launcher.api.apps.OpenAppDispatcher
 import com.launcher.api.config.ConfigApplier
 import com.launcher.api.config.ConfigEditor
 import com.launcher.api.config.LocalConfigStore
+import com.launcher.api.contacts.SystemContactPicker
+import com.launcher.api.contacts.VCardImporter
+import com.launcher.api.history.ConfigHistoryRepository
 import com.launcher.api.identity.DeviceIdProvider
 import com.launcher.api.identity.IdentityProvider
 import com.launcher.api.lifecycle.AppForegroundEvents
@@ -166,4 +176,36 @@ val backendModule: Module = module {
     // Custom WorkerFactory для DI-injected ConfigRefreshWorker. App's
     // Configuration.Provider implementation must reference this via Koin.
     single { ConfigSyncWorkerFactory(linkRegistry = get(), configApplier = get()) }
+
+    // ─── Spec 009 — admin-mode-flows wiring (Phase A) ─────────────────────
+
+    // ConfigHistoryRepository → Firestore /links/{linkId}/configHistory.
+    // FR-036/037/038. TODO(SRV-CONFIG-001): server-side write migration.
+    single<ConfigHistoryRepository> { FirestoreConfigHistoryAdapter(firestore = get()) }
+
+    // InstalledAppsCatalog → PackageManager.queryIntentActivities (FR-034).
+    // Own package filtered via applicationId (mock flavour adds .mock suffix —
+    // we use BuildConfig.APPLICATION_ID at the call site? Here we pass the
+    // canonical id; if a future mock-flavour-specific filter is needed,
+    // override via Koin scope).
+    single<InstalledAppsCatalog> {
+        InstalledAppsCatalogAdapter(
+            context = androidContext(),
+            ownPackageName = androidContext().packageName,
+        )
+    }
+
+    // OpenAppDispatcher → 3-step fallback (FR-034/035/035a).
+    single<OpenAppDispatcher> { OpenAppDispatcherAdapter(context = androidContext()) }
+
+    // SystemContactPicker → ContactsContract resolver (FR-024). Two-step
+    // protocol: UI launches ActivityResultContracts.PickContact directly;
+    // adapter resolves the returned URI via SystemContactPickerAdapter.resolveUri.
+    // UI consumes the concrete adapter (needs resolveUri()) — also bound
+    // by port for tests + non-Android callers.
+    single { SystemContactPickerAdapter(context = androidContext()) }
+    single<SystemContactPicker> { get<SystemContactPickerAdapter>() }
+
+    // VCardImporter → hand-written FN/TEL parser (FR-028, plan §5).
+    single<VCardImporter> { VCardImporterAdapter() }
 }

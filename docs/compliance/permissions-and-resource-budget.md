@@ -169,3 +169,39 @@ Cross-checked against shipped manifests:
   - `/state.appliedConfigUpdatedAt` — timestamp, не PII.
   - SQLDelight DB **deleted on uninstall** (Android default) + явно на revoke link (FR-034 + new clearLocalForLink action).
 - **Decision**: 🟡 planned. To finalize when 008 phases 4 (Firebase adapters) + 7 (lifecycle triggers) реализованы. Pre-production checklist: TODO-ARCH-006 (R8) перед или в Phase 12, TODO-ARCH-007 (app-version-compatibility — отдельный спек), TODO-ARCH-008 (config history+rollback в спек 009), TODO-ARCH-009 (size soft-limits, optional safety net).
+
+### spec 009: admin-mode-flows
+
+- **Feature**: Admin-mode UI (editor, history+rollback, phone health monitoring, contacts management via picker + VCard share intent, OpenApp tiles). Расширяет «мотор» спека 008 (config sync) UI слоем редактирования; добавляет subcollection `/config/history/*` для rollback; добавляет VCard share intent receiver.
+- **Permissions added**: **`READ_CONTACTS`** (dangerous, runtime — Android 6+). **Admin-only flavour** — Managed-устройство НЕ требует и НЕ запрашивает этого permission.
+- **Why each permission is needed**:
+  - `READ_CONTACTS` — нужен **только** для `ACTION_PICK` с `ContactsContract` URI (FR-024). Без permission picker возвращает empty cursor на части OEM (Samsung One UI, Xiaomi MIUI). Запрашивается **лениво** при первом нажатии «+ контакт» в editor (FR-023), с rationale-экраном объясняющим зачем.
+- **Fallback if denied**:
+  - FR-023a — ручной ввод имени + телефона через `ManualContactEntryForm` (всегда доступен, не требует permission).
+  - FR-023b — после «Don't ask again» rationale показывает deep-link на System Settings (`ACTION_APPLICATION_DETAILS_SETTINGS`) с инструкцией.
+  - FR-027 — VCard share intent (`ACTION_SEND` + `text/x-vcard`) — НЕ требует `READ_CONTACTS` (адресатор VCard'а — другое приложение, user-initiated).
+- **Manifest deltas**:
+  - `<uses-permission android:name="android.permission.READ_CONTACTS" />` — добавляется в admin flavour manifest (если будет flavour split) или в основной manifest с TODO-flavour-split note. В спеке 9 — основной manifest (flavour split = follow-up).
+  - `<intent-filter>` на `VCardReceiveActivity` для `ACTION_SEND` + MIME `text/x-vcard`, `launchMode="singleTask"` (FR-027a).
+  - `<queries>` block расширяется generic `<intent>` тегами: MAIN/LAUNCHER (для `InstalledAppsCatalog` enumeration FR-034) + VIEW/scheme=market (для Play Store fallback FR-035a). Конкретные `<package>` теги per-app НЕ нужны (generic queries — FR-035a).
+  - `<application android:dataExtractionRules="@xml/data_extraction_rules">` — backup exclusion для contacts DB (FR-046a, GDPR transfer-to-processor mitigation).
+- **Background/runtime impact**:
+  - **Zero new background work** в спеке 9. Phone health monitoring — Firestore listener-only when admin screen is open (FR-020); закрывается на `onStop()`. Никаких WorkManager / AlarmManager / BroadcastReceiver feature-modules.
+  - VCard intent receiver — explicit user-initiated через системный share sheet, не background.
+  - Continuous autosave editor draft (FR-014b) — Room local writes на main app process; debounced; нет background процесса.
+- **Startup impact**:
+  - **Zero cold-start delta** для Managed (нет нового кода на Managed flow).
+  - Admin cold-start delta — lazy DI init for `SystemContactPicker` / `VCardImporter` / `InstalledAppsCatalog` (≤ 5 ms target).
+- **Memory/storage impact**:
+  - APK delta estimated < 100 KiB (Compose components extension + pure-Kotlin VCard parser ~100 LOC, no new gradle deps per plan.md §5).
+  - Firestore storage: `/links/{linkId}/config/history/{autoId}` — max 10 snapshots × ~5 KB = ~50 KB per link (FR-038 housekeeping cap).
+  - Room contacts cache (если будет добавлен в спек 009; в спеке 9 contacts хранятся внутри `/config/current.contacts[]`, отдельной Room таблицы НЕТ).
+- **Network impact**:
+  - Phone health listener — inherits спек 008 budget (4 triggers).
+  - History writes/reads — per admin publish (≤ 1 KB write) + history-screen open (≤ 50 KB read).
+  - Net new vs спек 008: < 100 KB / admin session typical.
+- **Privacy classification**:
+  - Contacts через `READ_CONTACTS` — **PII третьих лиц** (Маша). Critical: Android Auto Backup MUST exclude contacts DB per FR-046a — `data_extraction_rules.xml` exclude rule. 🚨 **TODO-LEGAL-001 PLAY-STORE-BLOCKER**: Data Safety form Play Store + Privacy Policy update до первого upload.
+  - `recordedFromDeviceId` в `/config/history/*` — pseudonym (auth uid), server-enforced anti-spoof via Security Rule (FR-045a).
+  - Минимум privacy в спеке 9: FR-031a `ContactsManageScreen` (list + delete only), FR-031b/c — deferred TODO-LEGAL-001.
+- **Decision**: 🟡 planned. Pre-Play-Store gates: TODO-LEGAL-001 closed (privacy policy + Data Safety form), TODO-ARCH-006 R8 done. Spec 9 PR ships без публикации в Play Store — internal smoke + manual OEM matrix (Samsung One UI / Xiaomi MIUI / Pixel) перед merge.

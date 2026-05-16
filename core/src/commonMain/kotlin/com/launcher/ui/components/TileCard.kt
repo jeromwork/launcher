@@ -8,17 +8,28 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.launcher.api.config.SlotKind
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -38,25 +49,60 @@ import kotlin.time.TimeSource
  * widget. The debounce is local per-instance (each [TileCard] keeps its
  * own last-tap timestamp).
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TileCard(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    slotKind: SlotKind? = null,
+    editMode: Boolean = false,
+    dragged: Boolean = false,
+    onLongPress: (() -> Unit)? = null,
+    onEditMenuClick: (() -> Unit)? = null,
 ) {
     val debouncedOnClick = rememberDebouncedClick(intervalMs = 500L, onClick = onClick)
+    val rootClickModifier = if (editMode) {
+        // FR-008 / FR-A11Y-004 — long-press triggers drag-anchor or
+        // bottom-sheet alternative; short tap опционально проигрывает то
+        // же действие что и view mode (для preview).
+        Modifier.combinedClickable(
+            onClick = debouncedOnClick,
+            onLongClick = onLongPress ?: {},
+        )
+    } else {
+        Modifier  // Card composable below uses its own onClick when not editMode.
+    }
+    // G5 — visual drag decoration: while dragged, scale up + raise elevation
+    // so admin sees that the tile is "lifted off the grid" (FR-008).
+    val dragModifier = if (dragged) {
+        Modifier.graphicsLayer {
+            scaleX = 1.05f
+            scaleY = 1.05f
+            alpha = 0.85f
+            shadowElevation = 12.dp.toPx()
+        }
+    } else {
+        Modifier
+    }
     Card(
-        onClick = debouncedOnClick,
+        onClick = if (!editMode) debouncedOnClick else { -> },
         modifier = modifier
             .heightIn(min = TapTargets.tile)
             .fillMaxWidth()
+            .then(dragModifier)
+            .then(rootClickModifier)
             .semantics { role = Role.Button },
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            containerColor = when {
+                dragged -> MaterialTheme.colorScheme.primaryContainer
+                editMode -> MaterialTheme.colorScheme.tertiaryContainer
+                else -> MaterialTheme.colorScheme.surfaceVariant
+            },
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (editMode) 2.dp else 1.dp),
     ) {
         Column(
             modifier = Modifier
@@ -70,7 +116,9 @@ fun TileCard(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Call,
+                    // FR-046 fix: vary icon by SlotKind. Falls back to
+                    // Call when kind is null (legacy callers).
+                    imageVector = iconForSlotKind(slotKind),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(40.dp),
@@ -83,8 +131,32 @@ fun TileCard(
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
             )
+            // FR-009 / FR-A11Y-004 — alternative to drag for elderly /
+            // limited-motor: "···" button surfaces edit menu without
+            // requiring a precise long-press.
+            if (editMode && onEditMenuClick != null) {
+                IconButton(onClick = onEditMenuClick) {
+                    Icon(
+                        imageVector = Icons.Filled.MoreVert,
+                        contentDescription = "Меню тайла",
+                    )
+                }
+            }
         }
     }
+}
+
+/**
+ * Spec 009 FR-046 fix — TileCard icon now varies by [SlotKind] instead
+ * of being hardcoded to `Icons.Filled.Call`. Uses only icons available
+ * в `material-icons-core` (plan §5 no new deps); semantic icon proxies
+ * tracked в TODO-UI-001 (project-backlog).
+ */
+internal fun iconForSlotKind(slotKind: SlotKind?): ImageVector = when (slotKind) {
+    SlotKind.Call -> Icons.Filled.Phone
+    SlotKind.Sms -> Icons.Filled.Send
+    SlotKind.OpenApp -> Icons.Filled.Star
+    null -> Icons.Filled.Call
 }
 
 /**

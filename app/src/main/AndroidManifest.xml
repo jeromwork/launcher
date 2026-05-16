@@ -11,6 +11,17 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!--
+      Spec 009 FR-023: READ_CONTACTS for admin-only ACTION_PICK flow
+      (system contact picker in EditorScreen). Permission is requested
+      lazily at first picker tap, with rationale (FR-023a) + manual-entry
+      alternative (FR-023a) + deep-link to system settings on deny
+      (FR-023b). Managed-устройство НЕ запрашивает этот permission.
+      TODO(flavour-split): isolate this в admin-only build variant once
+      Managed/admin flavours land.
+    -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
+    <!--
       Package visibility (Android 11+, per spec 005 plan §Risks row 2 + permissions-platform CHK-008):
       - <intent> with MAIN/LAUNCHER lets AppIndex enumerate every launchable app (Workspace catalog).
       - explicit <package> entries let provider availability check resolve known target packages
@@ -57,6 +68,15 @@
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="http" />
+        </intent>
+
+        <!--
+          Spec 009 FR-035a: market://details?id=<pkg> resolution for
+          OpenAppDispatcher Play Store fallback chain.
+        -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="market" />
         </intent>
     </queries>
 
@@ -116,6 +136,31 @@
             android:name=".ui.pairing.PairingActivity"
             android:exported="true"
             android:label="@string/pairing_toggle_title" />
+
+        <!--
+          Spec 009 FR-027 / FR-027a: VCard share intent receiver.
+          launchMode="singleTask" + handleNewIntent ensures a second share
+          while the activity is already open delivers via onNewIntent
+          rather than spawning a duplicate task entry.
+
+          Accepts ACTION_SEND with MIME text/x-vcard. The launcher does not
+          export ACTION_VIEW для vCard URIs (we don't want to be a default
+          handler — only catch explicit shares).
+        -->
+        <activity
+            android:name=".contacts.VCardReceiveActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:label="@string/vcard_receive_title"
+            android:taskAffinity=""
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/x-vcard" />
+                <data android:mimeType="text/vcard" />
+            </intent-filter>
+        </activity>
 
         <!--
           Spec 008 FR-022 T3: disable default WorkManager auto-init so our

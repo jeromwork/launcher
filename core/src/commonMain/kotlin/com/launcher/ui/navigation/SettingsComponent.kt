@@ -24,6 +24,7 @@ class SettingsComponent(
     val onBack: () -> Unit,
     val onPresetChanged: () -> Unit,
     val onResetData: () -> Unit,
+    val onAdminDevicesClick: () -> Unit = {},
 ) : ComponentContext by componentContext {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)

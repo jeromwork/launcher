@@ -1,5 +1,7 @@
 package com.launcher.api.identity
 
+import kotlin.jvm.JvmInline
+
 /**
  * The Managed device (e.g. бабушкин телефон). Do not confuse with
  * `managedDeviceId` (stable UUIDv4 in DataStore, FR-001) — `firebaseAuthUid`

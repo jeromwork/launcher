@@ -47,6 +47,11 @@ object ConfigDocumentWireFormat {
         put("presetId", config.presetId)
         put("flows", JsonArray(config.flows.map { serializeFlow(it) }))
         put("contacts", JsonArray(config.contacts.map { serializeContact(it) }))
+        // Spec 009 FR-013 — additive field. Omit when null so spec-008
+        // readers see exactly the same wire as before (CHK forward-compat).
+        if (config.presetOverrides != null) {
+            put("presetOverrides", serializePresetSettings(config.presetOverrides))
+        }
     }
 
     fun deserialize(json: JsonElement): Outcome<ConfigDocument, BackendError> {
@@ -97,6 +102,16 @@ object ConfigDocumentWireFormat {
             }
         }
 
+        // Spec 009 FR-013 — additive field. Absence ⇒ null (default).
+        // Unknown content inside presetOverrides is itself additive
+        // per spec 008 FR-006 (fields unknown to this reader are skipped).
+        val presetOverrides = (obj["presetOverrides"] as? JsonObject)?.let { ps ->
+            when (val r = deserializePresetSettings(ps)) {
+                is Outcome.Success -> r.value
+                is Outcome.Failure -> return r
+            }
+        }
+
         return Outcome.Success(
             ConfigDocument(
                 schemaVersion = version,
@@ -105,7 +120,75 @@ object ConfigDocumentWireFormat {
                 presetId = presetId,
                 flows = flows.toList(),
                 contacts = contacts.toList(),
+                presetOverrides = presetOverrides,
             )
+        )
+    }
+
+    // ─── PresetSettings serialization (spec 009 FR-013) ──────────────────
+
+    private fun serializePresetSettings(ps: PresetSettings): JsonObject = buildJsonObject {
+        if (ps.phoneHealthSettings != null) {
+            put("phoneHealthSettings", serializePhoneHealthSettings(ps.phoneHealthSettings))
+        }
+    }
+
+    private fun deserializePresetSettings(obj: JsonObject): Outcome<PresetSettings, BackendError> {
+        val phs = (obj["phoneHealthSettings"] as? JsonObject)?.let {
+            when (val r = deserializePhoneHealthSettings(it)) {
+                is Outcome.Success -> r.value
+                is Outcome.Failure -> return r
+            }
+        }
+        return Outcome.Success(PresetSettings(phoneHealthSettings = phs))
+    }
+
+    private fun serializePhoneHealthSettings(s: PhoneHealthSettings): JsonObject = buildJsonObject {
+        put("batteryWarningPercent", s.batteryWarningPercent)
+        put("batteryCriticalPercent", s.batteryCriticalPercent)
+        put("lastSeenWarningHours", s.lastSeenWarningHours)
+        put("lastSeenCriticalHours", s.lastSeenCriticalHours)
+        put("audioMutedSeverity", s.audioMutedSeverity.wireValue)
+        put("connectivityNoneSeverity", s.connectivityNoneSeverity.wireValue)
+        put("updateCadenceInfoSec", s.updateCadenceInfoSec)
+        put("pushAdminOnCritical", s.pushAdminOnCritical)
+    }
+
+    private fun deserializePhoneHealthSettings(obj: JsonObject): Outcome<PhoneHealthSettings, BackendError> {
+        fun missing(name: String) = Outcome.Failure<BackendError>(
+            BackendError.Unknown("phoneHealthSettings missing $name"),
+        )
+        val batteryWarn = obj["batteryWarningPercent"]?.jsonPrimitive?.intOrNull
+            ?: return missing("batteryWarningPercent")
+        val batteryCrit = obj["batteryCriticalPercent"]?.jsonPrimitive?.intOrNull
+            ?: return missing("batteryCriticalPercent")
+        val lastSeenWarn = obj["lastSeenWarningHours"]?.jsonPrimitive?.intOrNull
+            ?: return missing("lastSeenWarningHours")
+        val lastSeenCrit = obj["lastSeenCriticalHours"]?.jsonPrimitive?.intOrNull
+            ?: return missing("lastSeenCriticalHours")
+        val audioStr = obj["audioMutedSeverity"]?.jsonPrimitive?.takeIf { it.isString }?.content
+            ?: return missing("audioMutedSeverity")
+        val audio = SeverityWire.entries.firstOrNull { it.wireValue == audioStr }
+            ?: return Outcome.Failure(BackendError.Unknown("audioMutedSeverity unknown: $audioStr"))
+        val connStr = obj["connectivityNoneSeverity"]?.jsonPrimitive?.takeIf { it.isString }?.content
+            ?: return missing("connectivityNoneSeverity")
+        val conn = SeverityWire.entries.firstOrNull { it.wireValue == connStr }
+            ?: return Outcome.Failure(BackendError.Unknown("connectivityNoneSeverity unknown: $connStr"))
+        val cadence = obj["updateCadenceInfoSec"]?.jsonPrimitive?.intOrNull
+            ?: return missing("updateCadenceInfoSec")
+        val push = obj["pushAdminOnCritical"]?.jsonPrimitive?.booleanOrNull
+            ?: return missing("pushAdminOnCritical")
+        return Outcome.Success(
+            PhoneHealthSettings(
+                batteryWarningPercent = batteryWarn,
+                batteryCriticalPercent = batteryCrit,
+                lastSeenWarningHours = lastSeenWarn,
+                lastSeenCriticalHours = lastSeenCrit,
+                audioMutedSeverity = audio,
+                connectivityNoneSeverity = conn,
+                updateCadenceInfoSec = cadence,
+                pushAdminOnCritical = push,
+            ),
         )
     }
 

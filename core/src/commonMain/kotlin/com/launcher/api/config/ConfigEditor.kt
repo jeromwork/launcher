@@ -42,6 +42,17 @@ interface ConfigEditor {
     fun pendingDraft(linkId: String): Flow<ConfigDocument?>
 
     /**
+     * Read-only snapshot of the last-applied config (spec 009 FR-001/005).
+     * Admin UI uses this for the editor baseline before any local edits.
+     * Returns null если apply ещё не происходил (cold start право после
+     * pairing).
+     *
+     * Exposed here (not through [LocalConfigStore]) so UI never imports
+     * the persistence port directly — spec 008 isolation gate T123.
+     */
+    suspend fun appliedConfig(linkId: String): ConfigDocument?
+
+    /**
      * Push current pending to `/config/current` с optimistic-concurrency check
      * против `clientSnapshotUpdatedAt` (FR-012, FR-013).
      *

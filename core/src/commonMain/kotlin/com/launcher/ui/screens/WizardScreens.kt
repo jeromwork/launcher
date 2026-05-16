@@ -3,11 +3,16 @@ package com.launcher.ui.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -17,6 +22,8 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -198,6 +205,7 @@ private fun notApplicableLabel(reason: NotApplicableReason): String = when (reas
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminDevicesScreen(component: AdminDevicesComponent, modifier: Modifier = Modifier) {
+    val links by component.links.collectAsState()
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -212,28 +220,82 @@ fun AdminDevicesScreen(component: AdminDevicesComponent, modifier: Modifier = Mo
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { /* spec 009 will wire pairing here */ },
+                onClick = { /* pairing wired through spec 007 PairingActivity launch */ },
                 modifier = Modifier.testTag("admin_add_device"),
             ) {
                 Icon(Icons.Filled.Add, contentDescription = "Добавить устройство")
             }
         },
     ) { padding ->
+        if (links.isEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(padding).padding(Spacing.xl),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    "Нет сопряжённых устройств",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Text(
+                    "Подключите телефон пожилого пользователя через QR-код в Настройках.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentPadding = PaddingValues(Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            ) {
+                items(links, key = { it.linkId }) { link ->
+                    AdminLinkRow(
+                        linkId = link.linkId,
+                        onEdit = { component.onEditLink(link.linkId) },
+                        onHistory = { component.onHistoryLink(link.linkId) },
+                        onContacts = { component.onContactsLink(link.linkId) },
+                        onHealth = { component.onHealthLink(link.linkId) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AdminLinkRow(
+    linkId: String,
+    onEdit: () -> Unit,
+    onHistory: () -> Unit,
+    onContacts: () -> Unit,
+    onHealth: () -> Unit,
+) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(Spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             Text(
-                "Нет сопряжённых устройств",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onBackground,
+                text = "Устройство",
+                style = MaterialTheme.typography.titleMedium,
             )
             Text(
-                "Подключите телефон пожилого пользователя через QR-код. Реальная привязка появится в spec 009.",
-                style = MaterialTheme.typography.bodyLarge,
+                text = linkId.take(8) + "…",
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                OutlinedButton(onClick = onEdit) { Text("Раскладка") }
+                OutlinedButton(onClick = onHistory) { Text("История") }
+                OutlinedButton(onClick = onContacts) { Text("Контакты") }
+                OutlinedButton(onClick = onHealth) { Text("Здоровье") }
+            }
         }
     }
 }

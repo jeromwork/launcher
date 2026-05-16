@@ -1,8 +1,14 @@
 package com.launcher.di
 
+import com.launcher.api.apps.InstalledApp
+import com.launcher.api.apps.InstalledAppsCatalog
+import com.launcher.api.apps.OpenAppDispatcher
 import com.launcher.api.config.ConfigApplier
 import com.launcher.api.config.ConfigEditor
 import com.launcher.api.config.LocalConfigStore
+import com.launcher.api.contacts.SystemContactPicker
+import com.launcher.api.contacts.VCardImporter
+import com.launcher.api.history.ConfigHistoryRepository
 import com.launcher.api.identity.DeviceIdProvider
 import com.launcher.api.identity.IdentityProvider
 import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
@@ -12,9 +18,14 @@ import com.launcher.api.link.LinkRegistry
 import com.launcher.api.push.PushReceiver
 import com.launcher.api.push.PushSender
 import com.launcher.api.sync.RemoteSyncBackend
+import com.launcher.fake.apps.FakeInstalledAppsCatalog
+import com.launcher.fake.apps.FakeOpenAppDispatcher
 import com.launcher.fake.config.FakeConfigApplier
 import com.launcher.fake.config.FakeConfigEditor
 import com.launcher.fake.config.FakeLocalConfigStore
+import com.launcher.fake.contacts.FakeSystemContactPicker
+import com.launcher.fake.contacts.FakeVCardImporter
+import com.launcher.fake.history.FakeConfigHistoryRepository
 import com.launcher.fake.identity.FakeDeviceIdProvider
 import com.launcher.fake.identity.FakeIdentityProvider
 import com.launcher.fake.lifecycle.FakeAppForegroundEvents
@@ -23,6 +34,8 @@ import com.launcher.fake.link.FakeLinkRegistry
 import com.launcher.fake.push.FakePushReceiver
 import com.launcher.fake.push.FakePushSender
 import com.launcher.fake.sync.FakeRemoteSyncBackend
+import com.launcher.api.result.Outcome
+import com.launcher.api.contacts.ImportError
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -51,7 +64,23 @@ val backendModule: Module = module {
         )
     }
     single<DeviceIdProvider> { FakeDeviceIdProvider() }
-    single<LinkRegistry> { FakeLinkRegistry(backend = get()) }
+    // Spec 009 G10 — seed mockBackend с pre-paired link so the admin
+    // entry в Settings → "Сопряжённые устройства" surfaces a device row,
+    // and Editor / History / Contacts / Health navigation is reachable
+    // without going through the real pairing flow. Real backend stays
+    // empty until QR-pair completes.
+    single<LinkRegistry> {
+        FakeLinkRegistry(
+            backend = get(),
+            initial = com.launcher.api.link.Link(
+                linkId = "mock-link-0001",
+                adminId = com.launcher.api.identity.AdminIdentity("fake-admin-uid-0001"),
+                managedDeviceId = "mock-managed-device-0001",
+                managedDeviceFirebaseUid = "fake-managed-uid-0001",
+                createdAt = 1747166400000L,
+            ),
+        )
+    }
     single<PushSender> { FakePushSender() }
     single<PushReceiver> { FakePushReceiver() }
 
@@ -76,4 +105,26 @@ val backendModule: Module = module {
     // WorkerFactory — needed by Application.Configuration.Provider even в
     // mockBackend flavor (WorkManager itself is still active в mockBackend).
     single { ConfigSyncWorkerFactory(linkRegistry = get(), configApplier = get()) }
+
+    // ─── Spec 009 mockBackend wiring (Phase A) ────────────────────────────
+
+    single<ConfigHistoryRepository> { FakeConfigHistoryRepository() }
+    single<InstalledAppsCatalog> {
+        FakeInstalledAppsCatalog(
+            apps = listOf(
+                InstalledApp(packageName = "com.whatsapp", label = "WhatsApp", iconResource = null),
+                InstalledApp(packageName = "org.telegram.messenger", label = "Telegram", iconResource = null),
+                InstalledApp(packageName = "com.google.android.youtube", label = "YouTube", iconResource = null),
+            ),
+        )
+    }
+    single<OpenAppDispatcher> { FakeOpenAppDispatcher() }
+    single<SystemContactPicker> { FakeSystemContactPicker() }
+    // VCardImporter fake needs a default scripted RawVCard — mock-mode share
+    // flow uses this. Tests scope their own instance with custom scripted.
+    single<VCardImporter> {
+        FakeVCardImporter(
+            scripted = Outcome.Failure(ImportError.MissingFn),
+        )
+    }
 }

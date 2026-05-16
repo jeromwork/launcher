@@ -32,6 +32,12 @@ data class ConfigDocument(
     val presetId: String,
     val flows: List<Flow>,
     val contacts: List<Contact>,
+    /**
+     * Spec 009 FR-013: forward-compat seam for per-link preset overrides.
+     * Always null in spec 009 (additive change — no schemaVersion bump per
+     * spec 008 FR-006). Spec 012 will populate.
+     */
+    val presetOverrides: PresetSettings? = null,
 ) {
     companion object {
         const val SCHEMA_VERSION: Int = 1
