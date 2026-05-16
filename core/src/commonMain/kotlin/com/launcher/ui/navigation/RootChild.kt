@@ -17,4 +17,26 @@ sealed interface RootChild {
     data class AddSlotWizard(val component: AddSlotWizardComponent) : RootChild
 
     data class AdminDevices(val component: AdminDevicesComponent) : RootChild
+
+    // ─── Spec 009 admin-mode-flows ─────────────────────────────────────
+
+    data class Editor(
+        val component: com.launcher.ui.admin.navigation.EditorComponent,
+    ) : RootChild
+
+    data class History(
+        val component: com.launcher.ui.admin.navigation.HistoryComponent,
+    ) : RootChild
+
+    data class ContactsManage(
+        val component: com.launcher.ui.admin.navigation.ContactsManageComponent,
+    ) : RootChild
+
+    data class OpenAppPicker(
+        val component: com.launcher.ui.admin.navigation.OpenAppPickerComponent,
+    ) : RootChild
+
+    data class PhoneHealth(
+        val component: com.launcher.ui.admin.navigation.PhoneHealthComponent,
+    ) : RootChild
 }

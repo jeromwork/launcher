@@ -139,7 +139,14 @@ class WizardScreensTest {
                 AdminDevicesScreen(
                     component = AdminDevicesComponent(
                         componentContext = newContext(),
+                        linkRegistry = com.launcher.fake.link.FakeLinkRegistry(
+                            backend = com.launcher.fake.sync.FakeRemoteSyncBackend(),
+                        ),
                         onBack = {},
+                        onEditLink = {},
+                        onHistoryLink = {},
+                        onContactsLink = {},
+                        onHealthLink = {},
                     ),
                 )
             }

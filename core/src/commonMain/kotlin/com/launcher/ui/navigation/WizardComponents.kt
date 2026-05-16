@@ -71,10 +71,35 @@ class AddSlotWizardComponent(
 }
 
 /**
- * AdminDevices placeholder component (spec 003 §Phase 7 mock).
- * Real paired-device list arrives in spec 009 (admin-mode-flows).
+ * Paired-device list component (spec 003 placeholder superseded by spec
+ * 009 wiring). Reads [com.launcher.api.link.LinkRegistry.currentLink] and
+ * exposes a list of admin actions per link: edit layout, view history,
+ * manage contacts, monitor phone health.
+ *
+ * Spec 007 currently models a single managed link per admin device. The
+ * UI surface here is list-shaped to match the data-model.md §1 expectation
+ * that multi-link support is additive in a follow-up spec.
  */
 class AdminDevicesComponent(
     componentContext: ComponentContext,
+    private val linkRegistry: com.launcher.api.link.LinkRegistry,
     val onBack: () -> Unit,
-) : ComponentContext by componentContext
+    val onEditLink: (String) -> Unit,
+    val onHistoryLink: (String) -> Unit,
+    val onContactsLink: (String) -> Unit,
+    val onHealthLink: (String) -> Unit,
+) : ComponentContext by componentContext {
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val _links = MutableStateFlow<List<com.launcher.api.link.Link>>(emptyList())
+    val links: StateFlow<List<com.launcher.api.link.Link>> = _links.asStateFlow()
+
+    init {
+        lifecycle.doOnDestroy { scope.cancel() }
+        scope.launch {
+            linkRegistry.currentLink().collect { link ->
+                _links.value = listOfNotNull(link)
+            }
+        }
+    }
+}

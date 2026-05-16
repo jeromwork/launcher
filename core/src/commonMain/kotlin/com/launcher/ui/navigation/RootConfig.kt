@@ -34,4 +34,21 @@ sealed interface RootConfig {
 
     @Serializable
     data object AdminDevices : RootConfig
+
+    // ─── Spec 009 admin-mode-flows screens ─────────────────────────────
+
+    @Serializable
+    data class Editor(val linkId: String) : RootConfig
+
+    @Serializable
+    data class History(val linkId: String, val rollbackAllowed: Boolean = true) : RootConfig
+
+    @Serializable
+    data class ContactsManage(val linkId: String) : RootConfig
+
+    @Serializable
+    data class OpenAppPicker(val linkId: String) : RootConfig
+
+    @Serializable
+    data class PhoneHealth(val linkId: String) : RootConfig
 }

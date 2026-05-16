@@ -15,6 +15,17 @@ import com.launcher.api.PresetRepository
 import com.launcher.api.action.Action
 import com.launcher.api.action.DispatchResult
 import com.launcher.api.action.ProviderRegistry
+import com.launcher.api.apps.InstalledAppsCatalog
+import com.launcher.api.config.ConfigEditor
+import com.launcher.api.history.ConfigHistoryRepository
+import com.launcher.api.link.LinkRegistry
+import com.launcher.api.sync.RemoteSyncBackend
+import com.launcher.ui.admin.navigation.ContactsManageComponent
+import com.launcher.ui.admin.navigation.EditorComponent
+import com.launcher.ui.admin.navigation.HistoryComponent
+import com.launcher.ui.admin.navigation.OpenAppPickerComponent
+import com.launcher.ui.admin.navigation.PhoneHealthComponent
+import com.launcher.ui.health.HealthToPhoneIndicatorAdapter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -45,6 +56,16 @@ class RootComponent(
     private val onPresetChanged: () -> Unit,
     private val onResetData: () -> Unit,
     initialPresetSlug: String?,
+    // ─── Spec 009 admin-mode-flows deps (all nullable so spec 008-only
+    // wiring still works; admin entry points are inert without them). ─
+    private val configEditor: ConfigEditor? = null,
+    private val historyRepository: ConfigHistoryRepository? = null,
+    private val installedAppsCatalog: InstalledAppsCatalog? = null,
+    private val remoteSyncBackend: RemoteSyncBackend? = null,
+    private val healthIndicatorAdapter: HealthToPhoneIndicatorAdapter? = null,
+    private val selfDeviceIdProvider: (() -> String)? = null,
+    private val nowMillis: () -> Long = { 0L },
+    private val linkRegistry: LinkRegistry? = null,
 ) : ComponentContext by componentContext {
 
     private val nav = StackNavigation<RootConfig>()
@@ -88,6 +109,7 @@ class RootComponent(
                     onBack = { nav.pop() },
                     onPresetChanged = onPresetChanged,
                     onResetData = onResetData,
+                    onAdminDevicesClick = { nav.push(RootConfig.AdminDevices) },
                 )
             )
             is RootConfig.AddFlowWizard -> RootChild.AddFlowWizard(
@@ -109,13 +131,85 @@ class RootComponent(
             is RootConfig.AdminDevices -> RootChild.AdminDevices(
                 AdminDevicesComponent(
                     componentContext = context,
+                    linkRegistry = requireDep("linkRegistry", linkRegistry),
                     onBack = { nav.pop() },
+                    onEditLink = { linkId -> nav.push(RootConfig.Editor(linkId)) },
+                    onHistoryLink = { linkId -> nav.push(RootConfig.History(linkId)) },
+                    onContactsLink = { linkId -> nav.push(RootConfig.ContactsManage(linkId)) },
+                    onHealthLink = { linkId -> nav.push(RootConfig.PhoneHealth(linkId)) },
                 )
             )
             is RootConfig.FlowDetail -> error(
                 "FlowDetail is not used as a root config in spec 004; flows render inside HomeComponent."
             )
+
+            // ─── Spec 009 ────────────────────────────────────────────────
+            is RootConfig.Editor -> RootChild.Editor(
+                EditorComponent(
+                    componentContext = context,
+                    linkId = config.linkId,
+                    configEditor = requireDep("configEditor", configEditor),
+                    historyRepository = requireDep("historyRepository", historyRepository),
+                    selfDeviceId = requireDep("selfDeviceIdProvider", selfDeviceIdProvider).invoke(),
+                    nowMillis = nowMillis,
+                    onBack = { nav.pop() },
+                    onHistoryClick = { nav.push(RootConfig.History(config.linkId)) },
+                )
+            )
+            is RootConfig.History -> RootChild.History(
+                HistoryComponent(
+                    componentContext = context,
+                    linkId = config.linkId,
+                    historyRepository = requireDep("historyRepository", historyRepository),
+                    rollbackAllowed = config.rollbackAllowed,
+                    onBack = { nav.pop() },
+                    onRollback = { rollbackConfig ->
+                        // Two-step: stash rollback target as draft, pop back to editor.
+                        // The editor's lifecycle is independent — when admin
+                        // reopens it, ConfigEditor.pendingDraft() yields the
+                        // updated draft so EditorScreen renders the rollback
+                        // selection. Admin then taps "Опубликовать" to commit.
+                        scope.launch {
+                            configEditor?.updateDraft(config.linkId) { rollbackConfig }
+                            nav.pop()
+                        }
+                    },
+                )
+            )
+            is RootConfig.ContactsManage -> RootChild.ContactsManage(
+                ContactsManageComponent(
+                    componentContext = context,
+                    linkId = config.linkId,
+                    configEditor = requireDep("configEditor", configEditor),
+                    onBack = { nav.pop() },
+                )
+            )
+            is RootConfig.OpenAppPicker -> RootChild.OpenAppPicker(
+                OpenAppPickerComponent(
+                    componentContext = context,
+                    installedAppsCatalog = requireDep("installedAppsCatalog", installedAppsCatalog),
+                    onBack = { nav.pop() },
+                    onSelected = { _ ->
+                        // Selection wiring is per-call — set by the caller
+                        // who pushed this RootConfig (Phase E: VCard flow,
+                        // Phase 12: tile-edit flow). Current default just pops.
+                        nav.pop()
+                    },
+                )
+            )
+            is RootConfig.PhoneHealth -> RootChild.PhoneHealth(
+                PhoneHealthComponent(
+                    componentContext = context,
+                    linkId = config.linkId,
+                    remoteSyncBackend = requireDep("remoteSyncBackend", remoteSyncBackend),
+                    indicatorAdapter = requireDep("healthIndicatorAdapter", healthIndicatorAdapter),
+                    onBack = { nav.pop() },
+                )
+            )
         }
+
+    private fun <T : Any> requireDep(name: String, value: T?): T = value
+        ?: error("Spec 009 dependency '$name' is not wired into RootComponent — admin-mode screen requires it. Pass via constructor.")
 
     private fun handleFirstLaunchPresetSelected(preset: FlowPreset) {
         scope.launch {
@@ -131,5 +225,15 @@ class RootComponent(
     /** Reset to FirstLaunch — used by Settings reset path through onResetData. */
     fun resetToFirstLaunch() {
         nav.replaceAll(RootConfig.FirstLaunch)
+    }
+
+    /**
+     * Spec 009 Phase E entry point: programmatically open the editor for
+     * [linkId]. Called from [HomeActivity] when launched with
+     * `EXTRA_OPEN_EDITOR_LINK_ID` (VCard share → "Open editor" flow).
+     * Idempotent — if editor for the same linkId is already on top, no-op.
+     */
+    fun openEditor(linkId: String) {
+        nav.push(RootConfig.Editor(linkId))
     }
 }

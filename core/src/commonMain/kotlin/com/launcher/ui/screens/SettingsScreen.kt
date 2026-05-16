@@ -130,6 +130,28 @@ fun SettingsScreen(
                 )
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            // Spec 009 — entry into admin-mode flows (paired-device list,
+            // layout editor, history+rollback, contacts management, phone
+            // health monitoring).
+            ListItem(
+                headlineContent = { Text("Сопряжённые устройства", style = MaterialTheme.typography.titleMedium) },
+                supportingContent = {
+                    Text(
+                        "Редактирование раскладки и контактов на устройстве пожилого пользователя",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                },
+                trailingContent = {
+                    OutlinedButton(
+                        onClick = component.onAdminDevicesClick,
+                        modifier = Modifier.testTag("settings_admin_devices"),
+                    ) {
+                        Text("Открыть", style = MaterialTheme.typography.labelLarge)
+                    }
+                },
+                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.size(Spacing.lg))
             Box(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md),
