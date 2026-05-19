@@ -202,6 +202,7 @@
 
 - **FR-007**: First-launch wizard (`FirstLaunchActivity`, спек 3) MUST содержать **новый шаг** «Сделать лончер главным» после preset-picker'a: кнопка → `RoleManager.createRequestRoleIntent(ROLE_HOME)`. Пропускаемый (кнопка «Позже»).
 - **FR-008**: На Android 13+ first-launch wizard MUST содержать **новый шаг** «Разрешить уведомления»: rationale → системный запрос `POST_NOTIFICATIONS`. На Android < 13 шаг автоматически пропускается.
+- **FR-008a**: First-launch wizard MUST содержать visual progress indicator (текст «Шаг N из M» + visual dots / bar) над содержимым каждого шага. На Android 13+ M = 4 (language, preset, ROLE_HOME, POST_NOTIFICATIONS), на Android < 13 M = 3 (POST_NOTIFICATIONS step skipped — M уменьшается automatically). Indicator updates after each completed / skipped step. Closes Article VIII §7 «≤ 3 шага OR progress indicator» (см. checklist `elderly-friendly.md` CHK007).
 - **FR-009**: Wizard MUST НЕ содержать role-picker (Managed vs Admin) — устройство играет обе роли симметрично.
 - **FR-010**: Wizard MUST НЕ содержать pairing-предложение — pairing доступен через Settings (спек 7 UI).
 
@@ -221,6 +222,7 @@
 - **FR-019**: Settings screen MUST показывать **два badge** рядом с заголовком: `[!] N` красный (N = число невыполненных Required checks) + `[?] M` жёлтый (M = число невыполненных Recommended). Каждый badge сопровождается: **(a)** text label рядом («критично» / «рекомендуется») для пользователей не различающих цвет; **(b)** shape-different icon (treugольник `!` для Required, круг `?` для Recommended) — distinct shape независимо от цвета; **(c)** TalkBack `contentDescription` («Критичных проблем N», «Рекомендованных проблем M»). Если N == 0 — `[!]` badge не показывается; если M == 0 — `[?]` badge не показывается; если оба == 0 — никаких badge.
 - **FR-020**: Settings → «Что не настроено» — отдельный экран со списком невыполненных checks, **две секции**: «Срочно настроить» (Required first) и «Можно настроить позже» (Recommended); у каждого пункта — описание + кнопка «Настроить» (запускает `resolveIntent()`).
 - **FR-020a (execution model)**: System MUST выполнять `check()` всех зарегистрированных `SetupCheck` со следующей моделью: (a) один прогон при app cold-start (warm cache, results доступны для UI); (b) re-run всех check'ов с `surfaces.contains(Settings)` при каждом `Lifecycle.RESUMED` Settings screen Activity / Composable. **НЕТ** background polling, **НЕТ** проактивных subscriptions. Покрывает главный сценарий: пользователь тапнул «Настроить» → системные Settings → дал permission → вернулся в наш Settings → `!N`/`?M` обновляется немедленно.
+- **FR-020b (exception handling)**: Если `SetupCheck.check()` бросает exception (например, OEM-specific API quirk: `PowerManager.isIgnoringBatteryOptimizations()` SecurityException на Xiaomi, или GMS API недоступна), System MUST интерпретировать как `CheckStatus.NotConfigured(reason = exception.message)` и логировать diagnostic event `setupCheckException(checkId, reason)`. Settings UI MUST продолжать функционировать; единичный failing check НЕ должен crash'ить весь Settings экран. `!N` / `?M` badge учитывают такой check как NotConfigured (обычный путь).
 
 #### Part E — 7-tap gate + rotating challenge (US-7)
 
@@ -239,7 +241,14 @@
 - **FR-029**: Settings MUST содержать раздел «Сопряжённые устройства» с **двумя списками**: «Кто помогает мне» (paired-устройства, где это устройство — Managed) и «Кому я помогаю» (paired-устройства, где это устройство — Admin).
 - **FR-030**: Каждый пункт списка MUST содержать: имя устройства (из `/links/{linkId}` метаданных спека 7), дату привязки, кнопку «Прекратить помощь».
 - **FR-031**: По нажатию «Прекратить помощь» MUST показываться двухступенчатое подтверждение (Article VIII senior-safe destructive-action paradigm): «Прекратить помощь от Маши? Маша больше не сможет менять твою раскладку» → ДА/НЕТ.
-- **FR-032**: При подтверждении System MUST вызывать `LinkRegistry.deactivate(linkId)` (спек 7); запись `/links/{linkId}` помечается revoked, push другой стороне уходит.
+- **FR-032**: При подтверждении System MUST mark link as **locally revoked немедленно** (persistent state, переживает app kill / restart). Local app сразу: (a) перестаёт слушать `/config` push'и для этого link, (b) не публикует `/state` updates, (c) UI обновляется — запись Маши исчезает из «Кто помогает мне». **Server-side cleanup queued per FR-032a** (eventually-consistent).
+- **FR-032a (local-first revocation pattern)**: System MUST queue server-side `LinkRegistry.deactivate(linkId)` для каждого locally-revoked link'a. Очередь обрабатывается **при наличии интернета** (first reconnect after revoke, либо immediate если интернет был во время confirm):
+  - **(a) Online path** (интернет есть в момент confirm): попытка `deactivate(linkId)` сразу. Если success → cascade delete `/config/{linkId}`, `/state/{linkId}`, push admin'у через FCM. Queue entry clears.
+  - **(b) Offline path** (нет интернета): non-blocking toast «Не получилось отвязать сразу — повторим автоматически когда появится сеть». Локально Маша **уже исчезла** из списка (FR-032 local revoke happened immediately). Server-side deactivation queued.
+  - **(c) Reconnect path** (queued entry, интернет вернулся): check `/links/{linkId}.revoked` flag на сервере. Если ещё active — `deactivate(linkId)` → cascade cleanup. Если уже revoked (admin тоже удалил параллельно) — queue clears no-op (idempotent).
+  - **(d) Retry path**: если `deactivate()` fails по сетевой ошибке снова — exponential backoff retry на следующий reconnect cycle.
+  
+  **Rationale**: бабушка должна быть уверена что «нажала Прекратить → Маша больше не имеет влияния», даже без интернета. Local revoke даёт **immediate UX guarantee**; server cleanup — eventual.
 - **FR-033**: Если оба списка пусты, System MUST показывать empty-state «Никто пока тобой не помогает — попроси внука отсканировать QR-код» с кнопкой «Показать QR» (запускает QR-flow спека 7).
 
 #### Part H — GMS availability hard-block (Bonus B clarify)
@@ -276,7 +285,6 @@
 - **SC-003**: Бабушка может позвонить контакту с главного экрана в **2 нажатия** (тап тайл + ПОЗВОНИТЬ) при granted `CALL_PHONE`, или в **3 нажатия** (тап + ПОЗВОНИТЬ + зелёная кнопка системного dialer'a) при denied permission.
 - **SC-004**: 100% свежеустановленных приложений на чистом устройстве показывают `!N` индикатор в Settings с `N >= 2` (минимум: ROLE_HOME + POST_NOTIFICATIONS на Android 13+).
 - **SC-005**: После полного прохождения first-launch wizard'a + grant всех Required permissions значение `N` снижается до 0 в 100% случаев на тестовом устройстве.
-- **SC-006**: Поиск Settings бабушкой — **out-of-scope** для спека 10 (US-8 удалена, обучение → спек 014). Заменяющий критерий: admin (внук), знающий про 7-tap, заходит в Settings бабушкиного устройства за ≤ 3 секунды от стартового экрана в 100% случаев.
 - **SC-007**: Бабушка тапнувшая случайно 7 раз в пустой области экрана **НЕ попадает в admin-mode** в ≥ 99% случаев — challenge screen блокирует её (она нажимает ОТМЕНА или не понимает что нужно вводить). Метрика: false-positive rate проходов challenge при random taps на цифровой клавиатуре / sequence-tap кнопках — должна быть ≤ 1% (по unit-test'у с симулируемым random input'ом).
 - **SC-008**: Удаление `flows_mock_*.json` не ломает CI: все unit/integration/Robolectric тесты спеков 3, 4, 5, 6, 7, 8, 9 продолжают зелёными после Phase 0.
 - **SC-009**: APK size delta после спека 10 (Phase 0 ARCH-016 + soft-checks engine + новые экраны) ≤ +500 KB к release build спека 9.
@@ -321,6 +329,7 @@
 - **A-10**: `ConfigRefreshWorker` спека 8 продолжает работать при background-restrictions OEM-специфично (Samsung, Xiaomi, Huawei). Полная OEM-matrix — `TODO-DEVICE-002` спека 8.
 - **A-11**: **Видимость Settings — функция пресета.** В `simple-launcher` (senior-safe) пресете Settings скрыт за 7-tap + challenge; в других пресетах (workspace, launcher) Settings может быть напрямую видимым. Архитектурно Settings всегда доступен — discoverability в senior-safe пресетах низкая намеренно. Бабушка теоретически может пройти gate и отвязаться сама → **GDPR Article 7 / 152-ФЗ ст. 9 ч. 2 agency сохранена**. Преcет-зависимость challenge (например, workspace без challenge) — out-of-scope, см. OUT-010.
 - **A-12**: GMS availability — обязательное precondition для всего стека (FCM спека 7, Firestore спека 8). GMS-less устройства (Huawei после 2019, китайские OEM без AOSP-GMS) — hard-block при first launch (FR-042). Alternative paths (WorkManager polling вместо FCM, REST вместо Firestore SDK) — `TODO-ARCH-005` в backlog, не блокирующий спек 10.
+- **A-13**: **Challenge text ≤ 14sp — намеренное нарушение senior-safe baseline ≥ 18sp** (Article VIII §7). Это **core mechanic** soft barrier: visual difficulty для elderly is the point — бабушка не должна различить число чтобы случайно не ввести. Documented Article VIII §7 «documented product constraint says otherwise» exception clause invoked. **НЕ повышать** этот размер в будущих правках / refactor'ах — это сломает barrier mechanic полностью (бабушка прочитает число → пройдёт challenge → попадёт в admin-mode → испугается / поломает). Если в будущем real security понадобится (см. OUT-011), отдельный спек заменит challenge на PIN с recovery — но пока это soft barrier с intentional visual cost.
 
 ---
 
