@@ -1,16 +1,13 @@
 package com.launcher.di
 
+import com.launcher.adapters.setup.BatteryOptimizationCheckAdapter
 import com.launcher.adapters.setup.CallPhoneCheckAdapter
 import com.launcher.adapters.setup.GmsAvailabilityAdapter
 import com.launcher.adapters.setup.NetworkOnlineCheckAdapter
 import com.launcher.adapters.setup.PostNotificationsCheckAdapter
 import com.launcher.adapters.setup.RoleHomeCheckAdapter
-import com.launcher.api.setup.CheckStatus
-import com.launcher.api.setup.Criticality
 import com.launcher.api.setup.GmsAvailabilityPort
-import com.launcher.api.setup.IntentSpec
 import com.launcher.api.setup.SetupCheck
-import com.launcher.api.setup.Surface
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -48,19 +45,12 @@ val setupModule: Module = module {
             PostNotificationsCheckAdapter(context = androidContext()),
             // T060 (Phase 4) — real.
             CallPhoneCheckAdapter(context = androidContext()),
-            // Final stub replaced in Phase 5:
-            stub(id = "battery_optimization", criticality = Criticality.Recommended),
+            // T074 (Phase 5) — real (with Xiaomi MIUI SecurityException catch).
+            BatteryOptimizationCheckAdapter(context = androidContext()),
         )
     }
 }
 
-private fun stub(id: String, criticality: Criticality): SetupCheck =
-    object : SetupCheck {
-        override val id: String = id
-        override val criticality: Criticality = criticality
-        override val surfaces: Set<Surface> = setOf(Surface.Settings)
-        override suspend fun check(): CheckStatus =
-            CheckStatus.NotConfigured(reason = "stub_${id}_pending_phase_implementation")
-        override fun resolveIntent(): IntentSpec =
-            IntentSpec(category = "stub.$id", action = "open")
-    }
+// All five real adapters wired above (T037 / T038 / T048 / T060 / T074). The
+// `stub` helper from earlier phases is retired — kept commented for one major
+// release как reference for plan §11 C-3 (no Registry; injected via List<>).

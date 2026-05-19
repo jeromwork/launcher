@@ -41,6 +41,16 @@
     <!-- Settings badge + WhatNeedsConfiguring (FR-019, FR-020, Phase 5) -->
     <string name="setup_badge_required_label">critical</string>
     <string name="setup_badge_recommended_label">recommended</string>
+
+    <!-- Spec 010 T068 / T069 — English baseline (only 'one' / 'other' forms). -->
+    <plurals name="setup_badge_required_count_a11y">
+        <item quantity="one">%d critical setup item</item>
+        <item quantity="other">%d critical setup items</item>
+    </plurals>
+    <plurals name="setup_badge_recommended_count_a11y">
+        <item quantity="one">%d recommended setup item</item>
+        <item quantity="other">%d recommended setup items</item>
+    </plurals>
     <string name="setup_what_needs_section_required">Configure urgently</string>
     <string name="setup_what_needs_section_recommended">Can be configured later</string>
     <string name="setup_what_needs_configure_button">Configure</string>

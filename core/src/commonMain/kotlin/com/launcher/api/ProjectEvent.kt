@@ -46,6 +46,22 @@ sealed class ProjectEvent {
             Failure,
         }
     }
+
+    /**
+     * Spec 010 T073 / FR-020b — emitted when a [com.launcher.api.setup.SetupCheck.check]
+     * invocation throws an exception (typically Xiaomi MIUI `SecurityException`
+     * on `PowerManager.isIgnoringBatteryOptimizations`, see [TODO-SPEC010-EMU-009]
+     * + R5 risk).
+     *
+     * Categorical contents only — no PII. The [reason] is the exception's
+     * `message` string truncated to 200 chars (which is implementation-controlled
+     * по контракту: never contains user identifiers).
+     */
+    data class SetupCheckException(
+        val checkId: String,
+        val reason: String,
+        val timestampMs: Long,
+    ) : ProjectEvent()
 }
 
 enum class PackageChangeReason {

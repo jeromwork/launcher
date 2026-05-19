@@ -29,6 +29,25 @@
 
     <string name="setup_badge_required_label">критично</string>
     <string name="setup_badge_recommended_label">рекомендуется</string>
+
+    <!-- Spec 010 T068 / T069 / FR-019 / C-8 — Russian 4-form plurals for the
+         Settings setup-checks badge accessibility description. ICU rules:
+         one — 1, 21, 31, …
+         few — 2-4, 22-24, …
+         many — 0, 5-20, 25-30, …
+         other — fractional (won't occur here, kept для completeness).  -->
+    <plurals name="setup_badge_required_count_a11y">
+        <item quantity="one">%d критичный пункт настроек</item>
+        <item quantity="few">%d критичных пункта настроек</item>
+        <item quantity="many">%d критичных пунктов настроек</item>
+        <item quantity="other">%d критичных пунктов настроек</item>
+    </plurals>
+    <plurals name="setup_badge_recommended_count_a11y">
+        <item quantity="one">%d рекомендуемый пункт настроек</item>
+        <item quantity="few">%d рекомендуемых пункта настроек</item>
+        <item quantity="many">%d рекомендуемых пунктов настроек</item>
+        <item quantity="other">%d рекомендуемых пунктов настроек</item>
+    </plurals>
     <string name="setup_what_needs_section_required">Срочно настроить</string>
     <string name="setup_what_needs_section_recommended">Можно настроить позже</string>
     <string name="setup_what_needs_configure_button">Настроить</string>
