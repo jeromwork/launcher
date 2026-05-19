@@ -87,6 +87,22 @@
 
 **11/16 ✓, 5 observations** (CHK001+CHK002+CHK003+CHK015 связанные с GMS port introduction → plan-level fix; CHK010+CHK011+CHK012 — fake/real adapter enumeration → plan-level detail). **Не blocker для `/speckit.plan`** — все findings адресуются на plan-уровне, не требуют пересмотра спека. **CRITICAL для plan**: GMS port introduction до Phase 1 implementation.
 
+## Plan-level re-run (2026-05-19, post /speckit.plan)
+
+**Status**: **16/16 ✓** — все findings closed.
+
+Plan.md addresses:
+- **CHK001/CHK002/CHK003/CHK015** — Phase 0 introduces `GmsAvailabilityPort` в `core/commonMain/api/setup/` + `GmsAvailabilityAdapter` в `androidMain` wrapping `GoogleApiAvailability`. Spec.md FR-042 references replaced via plan-time decision (recorded in plan §10 Phase 0).
+- **CHK010** — Phase 1 explicit fake adapters: `FakeSetupCheck` (configurable), `FakeGmsAvailabilityPort`, etc. Mock-first per CLAUDE.md rule 6.
+- **CHK011** — Phase 1+2 explicit real adapters: 5 SetupCheck implementations + GmsAvailabilityAdapter. All в `:core/androidMain`.
+- **CHK012** — Plan §2 explicit Koin module wiring (`mockBackend` flavor fakes, `realBackend` flavor real). Pattern inherited from спек 7.
+
+**4 Konsist gates** registered в Phase 0 enforce continued isolation:
+1. `api/setup/*.kt` MUST NOT import `android.*` / `androidx.*` / `com.google.android.gms.*`.
+2. `api/gate/*.kt` MUST NOT import `android.*` / `androidx.*`.
+3. `api/setup/IntentSpec` MUST contain only String / primitive fields.
+4. `:app/androidMain` Activity classes MUST have `android:exported="false"`.
+
 ---
 
 ## Краткое содержание (для не-разработчика)

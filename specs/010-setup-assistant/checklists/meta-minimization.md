@@ -92,6 +92,24 @@ Inventory of new types introduced:
 
 **10/13 ✓, 3 observations** (CHK001+CHK010 связанные про `Surface.MainScreen`; CHK002+CHK004 связанные про registry patterns; CHK012 audit pending). **Не blocker для `/speckit.plan`** — все findings — soft architectural choices, не critical issues. Plan должен явно принять решение по каждому open item.
 
+## Plan-level re-run (2026-05-19, post /speckit.plan)
+
+**Status**: **12/13 ✓** — 2 closed, 1 watch item documented.
+
+Plan.md addresses:
+- **CHK002+CHK004 (Registry patterns)** — **CLOSED** by plan D-2/D-3 decisions:
+  - **D-2**: `SetupCheckRegistry` **collapsed** to `List<SetupCheck>` Koin injection. No registry class. Listed в plan §11 C-3 as binding constraint.
+  - **D-3**: `ChallengeRegistry` **collapsed** to free function `generateRandomChallenge(random)`. No interface. Listed в plan §11 C-4.
+- **CHK001+CHK010 (Surface.MainScreen)** — **WATCH ITEM** with documented mitigation (D-1 plan decision):
+  - Surface enum **kept** с `Settings` + `MainScreen` variants.
+  - Anticipated consumer: **спек 013 `offline-detection-and-emergency-reachability`** main-screen banner pattern (per roadmap §Spec 013).
+  - Exit ramp: 5-minute rename refactor если спек 013 откажется от main-screen banner pattern.
+  - Constraint plan §11 C-5: inline-TODO в `Surface.kt` documents anticipated consumer.
+  - **Не strict CHK010 fail** — у нас есть named anticipated consumer in same roadmap horizon, not abstract «for future flexibility».
+- **CHK012 (flows_mock removal audit)** — **CLOSED** by plan Phase 2: explicit task переписать 3-5 Robolectric tests на `FakeRemoteSyncBackend` в той же phase (SC-008 verifies CI green).
+
+**Verdict**: D-1 watch item — accepted per rule 4 (anticipated consumer documented, exit ramp tiny). D-2/D-3/CHK012 closed.
+
 ---
 
 ## Краткое содержание (для не-разработчика)

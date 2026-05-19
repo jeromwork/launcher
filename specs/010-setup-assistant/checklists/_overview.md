@@ -1,7 +1,8 @@
 # Checklists Overview: Setup Assistant and Launcher Bootstrap
 
 **Created**: 2026-05-19 (post `/speckit.clarify` + 13 triggered checklists)
-**Spec**: [spec.md](../spec.md)
+**Updated**: 2026-05-19 (post `/speckit.plan` — 3 critical findings closed at plan-level + 13 enumerations addressed across plan phases)
+**Spec**: [spec.md](../spec.md) | **Plan**: [plan.md](../plan.md)
 
 ## Coverage
 
@@ -103,6 +104,38 @@ Findings которые plan.md должен enumerate (но не require spec e
 - **13 plan-level enumerations** — normal `/speckit.plan` work.
 
 **Strength of спека**: clarify session 2026-05-19 resolved fundamental ambiguities (PIN→challenge, Settings preset visibility, GMS hard-block, tutorial removal) что dramatically simplified spec. Result — relatively clean checklist passes across all 13 dimensions.
+
+## Post-`/speckit.plan` update (2026-05-19)
+
+**4 spec.md additions made** (commit `6cabfaa`): FR-008a (wizard progress), FR-020b (SetupCheck exception), FR-032/32a rewrite (local-first revocation), A-13 (challenge ≤14sp explicit exception). SC-006 removed.
+
+**`plan.md` created** (Constitution Check 8/8 PASS) with 8 phases (~7 weeks total):
+- Phase 0 (preflight, CRITICAL) — closes 3 critical findings: `<queries>` для tel:, `GmsAvailabilityPort`, plurals для Russian a11y.
+- Phase 1-2 — ports, fake adapters, ARCH-016 closure (TODO-ARCH-016 closed).
+- Phase 3-7 — wizard extension, call dialog, settings/badges, paired devices, challenge gate.
+- Phase 8 — verification (senior-safe walkthrough, OEM matrix, /speckit.analyze).
+
+**Plan-level checklist re-runs**:
+- domain-isolation: 16/16 ✓ (GMS port introduction в Phase 0, 4 Konsist gates registered).
+- wire-format: 18/18 ✓ (confirmed no new wire formats).
+- meta-minimization: 12/13 ✓ (D-2/D-3 collapsed registries; D-1 Surface seam watch item with documented anticipated consumer спек 013 + exit ramp).
+
+**Plan-level enumerations addressed**:
+- Challenge gate state scope — `rememberSaveable` (plan §11 C-1).
+- Yellow badge color `#D97706` (plan §11 C-7).
+- TalkBack focus order: CANCEL first via `traversalIndex` (plan §6 a11y).
+- 7-tap gesture D-pad equivalent — accessibility-admin-entry future-spec (плein C-6 inline TODO).
+- Macrobenchmark SC-002, APK delta SC-009 — Phase 8.
+- Senior-safe walkthrough на 5 elder users — Phase 8.
+- Phone number formatting (libphonenumber) — Phase 4 plan-level decision.
+- Locale-aware date format — Phase 6 plan-level decision.
+- 30% expansion testing — Phase 8.
+- ROLE_HOME legacy fallback для API 26-28 (plan §11 C-6).
+- Non-exported activities — Konsist gate #4 (plan Phase 0).
+- Avatar placeholder — initials (plan §6 mention).
+- Diagnostic events «no PII» policy — plan-level convention.
+
+**Verdict**: spec 010 готов к `/speckit.tasks`. Все 13 checklist findings + 3 critical + 4 spec edits resolved.
 
 ---
 

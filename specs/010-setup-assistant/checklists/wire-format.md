@@ -70,6 +70,22 @@
 
 **18/18 ✓ effectively** (большая часть N/A с обоснованием — спек 010 by-design не вводит wire-format изменений). CHK015 — soft check, plan-level verification. **Самый чистый checklist для спека 010** — FR-040 explicit «no wire-format changes» закрывает всю эту область by construction.
 
+## Plan-level re-run (2026-05-19, post /speckit.plan)
+
+**Status**: **18/18 ✓** — confirmed, no new findings.
+
+Plan.md §4 explicitly enumerates wire formats touched:
+- `/config/current` (спек 8) — read-only (ARCH-016).
+- `/state/applied` (спек 8) — not touched.
+- `/links/{linkId}` (спек 7) — read + `LinkRegistry.deactivate()`.
+- QR-deeplink, FCM payload — not touched.
+
+**No `contracts/` folder created** — confirmed nothing new to contract.
+
+**LocalLinkRevocationStore (new в плане)** — local DataStore, NOT wire format per definition (doesn't leave device, doesn't cross app-version boundary как persistent contract). Backup exclusion inherited from спек 1/9 patterns.
+
+**Audit CHK015** — confirmed по `git log --all --grep='EncryptedSharedPreferences' specs/010-*`: пусто. Никаких ранее закоммиченных PIN/tutorial-state файлов — nothing to cleanup.
+
 ---
 
 ## Краткое содержание (для не-разработчика)
