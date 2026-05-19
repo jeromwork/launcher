@@ -63,6 +63,10 @@ kotlin {
             implementation(libs.sqldelight.android.driver)
             // WorkManager — spec 008 FR-022 T3 (fallback periodic config refresh).
             implementation(libs.androidx.work.runtime.ktx)
+            // Google Play Services base — spec 010 GmsAvailabilityAdapter
+            // (FR-042..FR-044 hard-block on missing GMS). Tiny module (~100 KB),
+            // safe in both backend flavors.
+            implementation(libs.google.play.services.base)
         }
         getByName("androidUnitTest").dependencies {
             implementation(libs.kotlinx.coroutines.test)

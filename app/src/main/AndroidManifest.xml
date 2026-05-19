@@ -22,6 +22,21 @@
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
     <!--
+      Spec 010 FR-012 / FR-013 (T001 + Phase 0 critical):
+      ACTION_CALL one-tap path. Runtime-prompted on first call-tile tap; rationale
+      shown в spec 010 CallPhoneRationaleScreen («Чтобы звонок шёл сразу одной
+      кнопкой»). On deny → PhoneHandler falls back to ACTION_DIAL.
+    -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+
+    <!--
+      Spec 010 T002 (Phase 0 critical): declare telephony as optional so
+      tablets / Wear / Chromebooks without dialer hardware still install. App
+      handles absence gracefully (PhoneHandler returns failure result).
+    -->
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+
+    <!--
       Package visibility (Android 11+, per spec 005 plan §Risks row 2 + permissions-platform CHK-008):
       - <intent> with MAIN/LAUNCHER lets AppIndex enumerate every launchable app (Workspace catalog).
       - explicit <package> entries let provider availability check resolve known target packages
@@ -48,9 +63,19 @@
         <package android:name="com.google.android.youtube" />
         <package android:name="com.google.android.youtube.tv" />
 
-        <!-- Phone dial handlers -->
+        <!--
+          Spec 010 T003 (Phase 0 CRITICAL — CHK-permissions-008/020):
+          Both DIAL and CALL intents are needed for tel: scheme resolution on
+          Android 11+. Without CALL declaration, packageManager.queryIntentActivities
+          returns empty for ACTION_CALL even with CALL_PHONE permission granted —
+          breaks FR-012 / FR-014 (two-tap call from confirmation dialog).
+        -->
         <intent>
             <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.CALL" />
             <data android:scheme="tel" />
         </intent>
 
