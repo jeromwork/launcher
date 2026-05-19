@@ -1,5 +1,6 @@
 package com.launcher.di
 
+import com.launcher.adapters.setup.CallPhoneCheckAdapter
 import com.launcher.adapters.setup.GmsAvailabilityAdapter
 import com.launcher.adapters.setup.NetworkOnlineCheckAdapter
 import com.launcher.adapters.setup.PostNotificationsCheckAdapter
@@ -45,8 +46,9 @@ val setupModule: Module = module {
             NetworkOnlineCheckAdapter(context = androidContext()),
             // T048 (Phase 3) — real (skip-on-API<33 internal).
             PostNotificationsCheckAdapter(context = androidContext()),
-            // Following stubs replaced in Phases 4-5:
-            stub(id = "call_phone", criticality = Criticality.Required),
+            // T060 (Phase 4) — real.
+            CallPhoneCheckAdapter(context = androidContext()),
+            // Final stub replaced in Phase 5:
             stub(id = "battery_optimization", criticality = Criticality.Recommended),
         )
     }

@@ -67,28 +67,31 @@ class PhoneHandlerTest {
     }
 
     /**
-     * Source-level assertion: phone handler must NEVER actually call code paths
-     * that require `CALL_PHONE` (spec §7.5). Greps the source for runtime
-     * usages — references to the Android API symbols, not the spec/comment
-     * mention. If a future edit imports `Manifest.permission.CALL_PHONE` or
-     * starts using `Intent.ACTION_CALL`, this test fails.
+     * Spec 010 FR-012 update: PhoneHandler now uses ACTION_CALL when
+     * CALL_PHONE is granted (user explicitly consented via the spec 010
+     * CallConfirmationDialog), falls back to ACTION_DIAL otherwise. The
+     * spec-005 grep invariant has been retired and replaced with a structural
+     * check that the conditional branch exists.
      */
     @Test
-    fun handlerSource_doesNotReferenceCallPhonePermission() {
+    fun handlerSource_supports_conditional_action_call() {
         val source = File("src/androidMain/kotlin/com/launcher/core/actions/handlers/PhoneHandler.kt")
             .readText()
-        // Strip comment lines so we test code references, not documentation.
         val codeOnly = source.lineSequence()
             .map { it.substringBefore("//") }
             .joinToString("\n")
             .let { it.replace(Regex("(?s)/\\*.*?\\*/"), "") }
-        assertFalse(
-            "PhoneHandler must not reference Manifest.permission.CALL_PHONE",
+        assertTrue(
+            "Spec 010 FR-012: PhoneHandler must reference Manifest.permission.CALL_PHONE",
             codeOnly.contains("permission.CALL_PHONE"),
         )
-        assertFalse(
-            "PhoneHandler must not use Intent.ACTION_CALL",
+        assertTrue(
+            "Spec 010 FR-012: PhoneHandler must use Intent.ACTION_CALL",
             codeOnly.contains("ACTION_CALL"),
+        )
+        assertTrue(
+            "Spec 010 FR-012: PhoneHandler must retain ACTION_DIAL fallback",
+            codeOnly.contains("ACTION_DIAL"),
         )
     }
 }

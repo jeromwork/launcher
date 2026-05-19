@@ -1,23 +1,36 @@
 package com.launcher.core.actions.handlers
 
+import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import androidx.core.content.ContextCompat
 import com.launcher.api.action.Action
 import com.launcher.api.action.ActionPayload
 import com.launcher.api.action.DispatchResult
 
 /**
- * Handles `phone` payloads (spec 005 US-502).
+ * Handles `phone` payloads.
  *
- * Uses `Intent.ACTION_DIAL` with `tel:<number>` URI — opens the dialer
- * pre-filled with the number; the user must press the green button to
- * actually call. **No `CALL_PHONE` runtime permission** (spec §7.5).
- * `ACTION_CALL` would call automatically and require permission; that is
- * forbidden in spec 005 to keep the elderly user from accidental calls.
+ * **History**:
+ *  - Spec 005 §7.5 deliberately used `Intent.ACTION_DIAL` only (no CALL_PHONE
+ *    permission, no auto-call) — protected elderly users from accidental
+ *    calls when ACTION_CALL would fire on first tap.
+ *  - Spec 010 FR-012 supersedes that constraint by introducing an explicit
+ *    user confirmation dialog (`CallConfirmationDialog`) BEFORE this handler
+ *    runs. The dialog's «Позвонить» button is the user's explicit consent,
+ *    so we can now CALL directly via [Intent.ACTION_CALL] when the runtime
+ *    permission is granted — saving the user one tap (SC-003 «2 taps to call»).
  *
- * The grep test in `PhoneHandlerTest` enforces `CALL_PHONE` is not
- * referenced anywhere in this file.
+ * **Behaviour after spec 010**:
+ *  - If [Manifest.permission.CALL_PHONE] is granted → fire [Intent.ACTION_CALL].
+ *  - Otherwise → fall back to [Intent.ACTION_DIAL] (same as spec 005 path),
+ *    which still calls but requires the user to tap the green button. No
+ *    functional regression.
+ *
+ * The `<queries>` manifest declaration (spec 010 T003) ensures `ACTION_CALL`
+ * on `tel:` resolves on Android 11+ even with no default-dialer assignment.
  */
 class PhoneHandler : ActionHandler {
 
@@ -27,7 +40,15 @@ class PhoneHandler : ActionHandler {
                 "PhoneHandler received unexpected payload: ${action.payload::class.simpleName}"
             )
 
-        val intent = Intent(Intent.ACTION_DIAL, Uri.parse(TEL_SCHEME + payload.number)).apply {
+        val canCall = ContextCompat.checkSelfPermission(
+            ctx.context,
+            Manifest.permission.CALL_PHONE,
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val intent = Intent(
+            if (canCall) Intent.ACTION_CALL else Intent.ACTION_DIAL,
+            Uri.parse(TEL_SCHEME + payload.number),
+        ).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         return try {
@@ -35,6 +56,17 @@ class PhoneHandler : ActionHandler {
             DispatchResult.Ok
         } catch (e: ActivityNotFoundException) {
             DispatchResult.Failure("no dialer for tel: (${e.message ?: "ActivityNotFoundException"})")
+        } catch (e: SecurityException) {
+            // Edge case: ACTION_CALL throws even with permission granted на
+            // некоторых OEM (Xiaomi MIUI «restricted apps»). Fall back to DIAL.
+            val fallback = Intent(Intent.ACTION_DIAL, Uri.parse(TEL_SCHEME + payload.number))
+                .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+            try {
+                ctx.context.startActivity(fallback)
+                DispatchResult.Ok
+            } catch (ee: ActivityNotFoundException) {
+                DispatchResult.Failure("no dialer for tel: (${ee.message})")
+            }
         }
     }
 
