@@ -503,6 +503,20 @@ These are tracked here (not in spec 008's `tasks.md`) because they require eithe
 - **Status**: 🟢 OPEN
 - **Origin**: spec 009 pre-specify discovery 2026-05-15 (пункт 3 — preset как форвард-совместимая концепция).
 
+### TODO-FUTURE-SPEC-006: onboarding-and-tutorials (внутреннее обучение admin + Managed) 🟢
+
+- **What**: Отдельный спек, покрывающий обучающий слой продукта целиком — несколько направлений:
+  - **Admin onboarding**: как pair'иться (расширение QR-flow спека 7 с пошаговыми подсказками), что такое admin-mode и как туда зайти на бабушкином устройстве (7-tap gesture, см. спек 10 FR-021), walkthrough редактора раскладки (плитки, drag-and-drop из спека 9), типичные действия (поменять контакт, добавить плитку «Аптека»).
+  - **Managed (бабушка) first-launch polish**: расширение wizard'a спека 3 (language → preset → ROLE_HOME → POST_NOTIFICATIONS из спека 10) — большие иллюстрации, voice-over, проверка понимания.
+  - **In-app contextual help**: первый раз admin зашёл в editor → большая подсказка «потяни плитку чтобы переставить»; первый раз бабушка получила обновление раскладки → toast «внук обновил твой телефон».
+  - **Видеоинструкции / Lottie-анимации**: ассеты для wizard'ов и contextual help.
+  - **Help-screen для admin'a**: «как настроить ROLE_HOME» с скриншотами, «что делать если push'и не приходят» (battery optimization OEM-quirks), «как добавить второго admin'a» (после спека 011).
+- **Why**: В clarify-сессии спека 10 (2026-05-19) US-8 (tutorial overlay для бабушки про 7-tap) был **удалён** — решено, что бабушка вообще не должна попадать в Settings (admin-only поверхность), tutorial для неё не нужен, а обучение admin'a — отдельная задача со собственной глубиной. Эта работа большая (видео-съёмка, иллюстрации, copywriting, accessibility-aware voice-over), не помещается в спек 10 «связующий».
+- **How (high-level)**: После того, как admin-mode (спек 9) и Setup Assistant (спек 10) стабилизируются — собрать реальные pain points через UX walkthrough'и на 5-10 admin'ах + 5 бабушках, выделить топ-5 confusing moment'ов, под них написать спек.
+- **When**: После production-релиза спеков 7-10 и сбора первой telemetry / observation data. Не раньше Q3 2026.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 010 clarify session 2026-05-19 — изначально US-8 (tutorial overlay для бабушки про 7-tap), решено вынести в отдельный спек с большим scope.
+
 ---
 
 ## Legal & Compliance

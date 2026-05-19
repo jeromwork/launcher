@@ -31,7 +31,8 @@
 
 ## Notes
 
-- Items marked incomplete require spec updates before `/speckit.clarify` or `/speckit.plan`
-- **Pre-specify mentor session 2026-05-17** уже разрешила 6 ключевых вопросов scope (role-picker отсутствие, PIN-стратегия, CALL_PHONE conditional, ARCH-016 inclusion, tutorial overlay frequency, TalkBack awareness). Поэтому `/speckit.clarify` ожидается коротким — основные open questions уже закрыты.
-- **Затрагиваемые внешние артефакты** (раздел в spec.md) — modifications вне `specs/010-*/` явно перечислены. `/speckit.plan` должен подтвердить план их обновления.
-- **Adjacent concerns** (6 пунктов) — surface'нуты из mentor session, должны быть проверены `procedure-assess-spec-complexity` → checklists.
+- Items marked incomplete require spec updates before `/speckit.plan`
+- **Pre-specify mentor session 2026-05-17** разрешила 6 ключевых вопросов scope.
+- **Clarify session 2026-05-19** разрешила 7 дополнительных вопросов (5 plus 2 bonus) — SetupCheck execution model, PIN → challenge replacement, badge layout, 7-tap zone, tutorial removal, Settings preset visibility, GMS hard-block. Clarifications зафиксированы в `spec.md` §Clarifications.
+- **Затрагиваемые внешние артефакты** — modifications вне `specs/010-*/` явно перечислены. `/speckit.plan` должен подтвердить план их обновления.
+- **Adjacent concerns** (8 пунктов) — surface'нуты из mentor + clarify sessions, должны быть проверены `procedure-assess-spec-complexity` → checklists.
