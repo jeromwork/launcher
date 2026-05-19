@@ -149,22 +149,22 @@ VERDICT: READY-WITH-CAVEATS
 
 ### Open items (must address or accept-as-risk before implementation)
 
-1. **🔴 CRITICAL: `LauncherCore.kt` consumer of MockFlowRepository** — expand T032 acceptance OR add T032a task для explicit cleanup of:
+1. **🟢 RESOLVED: `LauncherCore.kt` consumer of MockFlowRepository** — **fixed post-analyze** via insertion of **T032a** task в tasks.md (commit pending). T032a explicitly covers:
    - `LauncherCore.kt:23` import removal
-   - `LauncherCore.kt:49` default fallback removal — replace с DI-provided flowRepository
+   - `LauncherCore.kt:49` default fallback removal — replaced с required DI parameter sourced from ConfigEditor
    - `MockFlowRepositoryTest.kt` deletion
    - `CoreKoinModule.kt:8` docstring update
-   - Verify `LegacyMockStorageCleanup.kt` not affected (likely about other legacy storage, not flows_mock — quick check)
+   - `LegacyMockStorageCleanup.kt` comment verification (file is no-op marker per spec 008; comments may be updated to note ARCH-016 closure но это optional)
    
-   **Without this fix**: Phase 2 implementation crashes at compile (LauncherCore.kt can't find MockFlowRepository).
+   **Acceptance**: `./gradlew :core:compileDebugKotlinAndroid` succeeds after T032 + T032a.
 
-2. **🟡 COSMETIC: Linkify Article VIII / ADR-004 references в spec.md** — 5+ bare prose mentions should be markdown links. Low priority; не блокирует implementation. Можно сделать в Phase 8 final review.
+2. **🟡 COSMETIC (OPEN): Linkify Article VIII / ADR-004 references в spec.md** — 5+ bare prose mentions should be markdown links. Low priority; не блокирует implementation. Можно сделать в Phase 8 final review (T112 territory).
 
 ### Recommendation
 
-**Apply Finding #1 fix** (T032 expansion) **сейчас** — это compile-time blocker для Phase 2. Finding #2 — cosmetic, можно отложить.
+After T032a insertion (this commit) → **READY for implementation**, начинать с Phase 0 (T001-T012).
 
-After Finding #1 fix → **READY for implementation**, начинать с Phase 0 (T001-T012).
+**Final verdict (post-fix)**: ✅ **READY** — single cosmetic open item (Finding #2) accepted-as-risk для Phase 8 cleanup.
 
 ---
 

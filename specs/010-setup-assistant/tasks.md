@@ -7,7 +7,7 @@
 
 ## Conventions
 
-- **ID** `T0NN` (`T001`..`T116`). Phase boundaries: T001-T012 (Phase 0), T013-T028 (Phase 1), T029-T040 (Phase 2), T041-T053 (Phase 3), T054-T065 (Phase 4), T066-T080 (Phase 5), T081-T093 (Phase 6), T094-T103 (Phase 7), T104-T116 (Phase 8).
+- **ID** `T0NN` (`T001`..`T116`, **plus T032a** inserted post-analyze for Finding #1 closure — 117 tasks total). Phase boundaries: T001-T012 (Phase 0), T013-T028 (Phase 1), T029-T040 inc. T032a (Phase 2), T041-T053 (Phase 3), T054-T065 (Phase 4), T066-T080 (Phase 5), T081-T093 (Phase 6), T094-T103 (Phase 7), T104-T116 (Phase 8).
 - **[P]** parallel-safe (no file conflict, no logical dependency on adjacent tasks).
 - **Trace**: `(FR-NNN | US-NN | Plan §X | C-N | CHK-NNN)` — non-optional.
 - **Acceptance**: test name OR manual check OR command result.
@@ -71,8 +71,9 @@ Goal: HomeScreen renders from `/config/current`, не mock. Closes the spec's bl
 | **T029** | Refactor `core/commonMain/.../ui/screens/HomeScreen.kt`: collect `ConfigEditor.appliedConfig: Flow<ConfigCurrent>` as State; remove `FlowRepository` dependency | FR-001, FR-002, FR-005, FR-006, ARCH-016, Plan §10 Phase 2 | requires: Phase 1 | UI test T039 passes; manual smoke shows раскладка renders from /config not flows_mock |
 | **T030** | Wire `SlotToActionMapper` в FlowScreen/TileCard rendering: convert `Slot` → `Action` using `appliedConfig.contacts` | FR-003 | requires: T029, T020 | TileCard renders correct Action для each Slot variant; integration test |
 | **T031** | **Delete** `app/src/main/assets/flows_mock_*.json` files (4-5 files based on existing) | FR-004, SC-008 | requires: T029 | Files removed from working tree; `git status` shows deletion |
-| **T032** | **Delete** `MockFlowRepository` class + related imports | FR-004 | requires: T031 | Class removed; build still compiles |
-| **T033** [P] | **Grep verification**: `grep -r "flows_mock" .` empty; `grep -r "MockFlowRepository" .` empty | FR-004, CHK-meta-012 | requires: T031, T032 | Both grep commands return empty result; CI step added to prevent regression |
+| **T032** | **Delete** `core/src/androidMain/kotlin/com/launcher/core/flows/MockFlowRepository.kt` (the class file itself) | FR-004 | requires: T031 | File removed; интегральная компиляция требует T032a для consumers |
+| **T032a** | **Update consumers of MockFlowRepository** (per analyze-report.md Finding #1): (a) `core/src/androidMain/.../core/LauncherCore.kt:23` — remove `import com.launcher.core.flows.MockFlowRepository`; (b) `LauncherCore.kt:49` — remove default fallback `?: MockFlowRepository(...)`. Replace with required DI parameter sourced from `ConfigEditor` adapter (Spec 8 port). Constructor signature change: `flowRepository: FlowRepository?` → `flowRepository: FlowRepository` (mandatory); (c) **Delete** `core/src/androidUnitTest/kotlin/com/launcher/core/flows/MockFlowRepositoryTest.kt`; (d) Update `core/src/commonMain/kotlin/com/launcher/ui/di/CoreKoinModule.kt:8` docstring — remove «MockFlowRepository» mention from facade-classes list; (e) Verify `core/src/androidMain/.../adapters/config/LegacyMockStorageCleanup.kt` comments still valid (file is no-op marker; comments reference MockFlowRepository historically — update to note spec 010 ARCH-016 closure if needed) | FR-004, CHK-meta-012, analyze Finding #1 | requires: T032, T029 | `./gradlew :core:compileDebugKotlinAndroid` succeeds после T032+T032a; `MockFlowRepositoryTest.kt` removed; LauncherCore.kt has no MockFlowRepository imports; CoreKoinModule.kt docstring updated |
+| **T033** [P] | **Grep verification**: `grep -r "flows_mock" .` empty (excluding historical specs); `grep -r "MockFlowRepository" --include="*.kt"` returns ноль matches в коде (only historical spec doc mentions). CI step added to prevent regression | FR-004, CHK-meta-012 | requires: T031, T032, T032a | Grep on `.kt` files returns no matches; spec docs (003/004/005/006/008 historical references) acceptable |
 | **T034** | Rewrite Robolectric test `HomeActivityTest` (спек 3) на `FakeRemoteSyncBackend` (спек 7 pattern) — identify exact test file перед start, document path | SC-008, concern #6 | requires: T029 | Test passes against fake backend; old mock-data assertions replaced |
 | **T035** | Rewrite Robolectric test `FlowScreenTest` (спек 3/4) на `FakeRemoteSyncBackend` | SC-008, concern #6 | requires: T029 | Test passes |
 | **T036** | Rewrite additional 1-3 Robolectric tests affected by `flows_mock` removal (audit all spec 3/4 tests перед start) | SC-008, concern #6 | requires: T029 | All identified tests passing; SC-008 verified (CI green) |
@@ -273,7 +274,7 @@ Verified в T114 cross-artifact trace. All 44 FR от спека 10 traced to at
 
 ## Что внутри (TL;DR на русском)
 
-Это **116 конкретных задач** для реализации спека 010, разложенных по 8 фазам (~7 недель). Каждая задача имеет ID (`T001`..`T116`), traceability на FR/SC/Plan/Constraint, dependencies, и acceptance criteria (тест name или manual check).
+Это **117 конкретных задач** (T001..T116 + T032a inserted post-analyze) для реализации спека 010, разложенных по 8 фазам (~7 недель). Каждая задача имеет ID, traceability на FR/SC/Plan/Constraint, dependencies, и acceptance criteria (тест name или manual check).
 
 **Phase 0 (T001-T012) — CRITICAL preflight** — 3 critical fixes из checklists: `<queries>` для tel: в AndroidManifest (без него call broken на Android 11+), GmsAvailabilityPort port introduction (чтобы domain не видел vendor API), Konsist gates × 4 для domain isolation. Также — обновление compliance documents.
 
