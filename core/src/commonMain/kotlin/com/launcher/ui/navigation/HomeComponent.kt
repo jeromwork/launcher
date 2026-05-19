@@ -18,6 +18,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
@@ -58,12 +60,21 @@ class HomeComponent(
 
     init {
         lifecycle.doOnDestroy { scope.cancel() }
-        scope.launch {
-            val flows = flowRepository.loadFlows()
-            val firstId = flows.firstOrNull()?.id
-            _state.value = HomeUiState(flows = flows, activeFlowId = firstId)
-            firstId?.let { flowSlotNav.activate(FlowSlotConfig(it)) }
-        }
+        // Spec 010 T029 — collect `observeFlows()` as Hot Flow (ARCH-016
+        // closure: HomeScreen reactively re-renders from /config/current
+        // pushes; preserves the активный tab when the layout updates.
+        flowRepository.observeFlows()
+            .onEach { flows ->
+                val previousActive = _state.value.activeFlowId
+                val activeId = previousActive
+                    ?.takeIf { id -> flows.any { it.id == id } }
+                    ?: flows.firstOrNull()?.id
+                _state.value = HomeUiState(flows = flows, activeFlowId = activeId)
+                if (activeId != null && activeId != previousActive) {
+                    flowSlotNav.activate(FlowSlotConfig(activeId))
+                }
+            }
+            .launchIn(scope)
     }
 
     fun selectFlow(flowId: String) {

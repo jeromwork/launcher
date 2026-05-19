@@ -6,6 +6,7 @@ import com.launcher.api.config.PendingLocalChanges
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -22,13 +23,21 @@ class FakeLocalConfigStore : LocalConfigStore {
     private val appliedConfigs = mutableMapOf<String, ConfigDocument>()
     private val pendingChanges = mutableMapOf<String, PendingLocalChanges>()
     private val pendingLinksFlow = MutableStateFlow<Set<String>>(emptySet())
+    // Spec 010 T029 — Flow over applied config per link.
+    private val appliedConfigFlows = mutableMapOf<String, MutableStateFlow<ConfigDocument?>>()
 
     override suspend fun readAppliedConfig(linkId: String): ConfigDocument? =
         mutex.withLock { appliedConfigs[linkId] }
 
+    override fun observeAppliedConfig(linkId: String): Flow<ConfigDocument?> =
+        appliedConfigFlows.getOrPut(linkId) {
+            MutableStateFlow(appliedConfigs[linkId])
+        }.asStateFlow()
+
     override suspend fun writeAppliedConfig(linkId: String, config: ConfigDocument) {
         mutex.withLock {
             appliedConfigs[linkId] = config
+            appliedConfigFlows.getOrPut(linkId) { MutableStateFlow(null) }.value = config
         }
     }
 

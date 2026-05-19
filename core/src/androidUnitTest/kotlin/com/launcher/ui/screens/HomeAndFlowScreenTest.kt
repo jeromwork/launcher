@@ -37,6 +37,8 @@ class HomeAndFlowScreenTest {
     private class FakeFlowRepository(private val flows: List<FlowDescriptor>) : FlowRepository {
         override suspend fun loadFlows(): List<FlowDescriptor> = flows
         override fun availableTemplates(presetId: String): List<FlowTemplate> = emptyList()
+        override fun observeFlows(): kotlinx.coroutines.flow.Flow<List<FlowDescriptor>> =
+            kotlinx.coroutines.flow.flowOf(flows)
     }
 
     private val sampleFlow = FlowDescriptor(

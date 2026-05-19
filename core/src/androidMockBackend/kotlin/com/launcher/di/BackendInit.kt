@@ -1,5 +1,7 @@
 package com.launcher.di
 
+import com.launcher.adapters.config.ConfigBackedFlowRepository
+import com.launcher.api.FlowRepository
 import com.launcher.api.apps.InstalledApp
 import com.launcher.api.apps.InstalledAppsCatalog
 import com.launcher.api.apps.OpenAppDispatcher
@@ -125,6 +127,19 @@ val backendModule: Module = module {
     single<VCardImporter> {
         FakeVCardImporter(
             scripted = Outcome.Failure(ImportError.MissingFn),
+        )
+    }
+
+    // ─── Spec 010 ARCH-016 closure — HomeScreen reads /config/current ─────
+
+    // FlowRepository → ConfigBackedFlowRepository (replaces deleted
+    // MockFlowRepository). Reads layout reactively from FakeConfigEditor's
+    // observeAppliedConfig, mapping Slot → Action via SlotToActionMapper.
+    // No bundled flows_mock_*.json — empty until QA/test seeds applied config.
+    single<FlowRepository> {
+        ConfigBackedFlowRepository(
+            configEditor = get(),
+            linkRegistry = get(),
         )
     }
 }

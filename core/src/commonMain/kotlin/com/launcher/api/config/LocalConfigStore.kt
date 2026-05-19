@@ -25,6 +25,16 @@ interface LocalConfigStore {
     suspend fun readAppliedConfig(linkId: String): ConfigDocument?
 
     /**
+     * Hot Flow over the last-applied config for [linkId]. Emits the current
+     * value on subscribe, then re-emits whenever [writeAppliedConfig] is
+     * called for the same link (spec 010 T029 — ARCH-016 closure: HomeScreen
+     * collects this as State so layout updates without explicit refresh).
+     *
+     * Emits `null` while no config has been applied yet for [linkId].
+     */
+    fun observeAppliedConfig(linkId: String): Flow<ConfigDocument?>
+
+    /**
      * Atomic upsert of applied-config. Called by [ConfigApplier] after
      * successful remote read + local layout switch.
      */

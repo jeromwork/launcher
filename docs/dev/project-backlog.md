@@ -448,6 +448,101 @@ These are tracked here (not in spec 008's `tasks.md`) because they require eithe
 
 ---
 
+## Spec 010 — emulator-deferred tasks (defer until emulator session)
+
+Tasks from spec 010 implementation that need an emulator or device to verify.
+Code in main is complete; these only need *running* against a build.
+
+### TODO-SPEC010-EMU-001: Wizard manual smoke на Android 8.0 emulator (T051) 🟡
+
+- **What**: Запустить `assembleMockBackendDebug` APK на Android 8.0 (API 26) AVD, пройти wizard, проверить legacy ROLE_HOME chooser opens correctly per FR-007 / plan §11 C-6 fallback.
+- **Why**: API 26-28 не имеет `RoleManager` — `RoleHomeStep` использует `Intent.CATEGORY_HOME` chooser. Это branching код, который Robolectric не покрывает: только Реальная среда.
+- **How**: `./gradlew :app:assembleMockBackendDebug && adb install ... && adb shell am start -n com.launcher.app/.firstlaunch.FirstLaunchActivity`. Tap «Сделать главным» → verify chooser opens с launcher в списке.
+- **When**: Emulator session — Phase 3 verification.
+- **Origin**: spec 010 T051.
+
+### TODO-SPEC010-EMU-002: POST_NOTIFICATIONS smoke на Android 13+ emulator (T052) 🟡
+
+- **What**: Wizard walkthrough на Android 13+ (API 33+) AVD — `PostNotificationsStep` должен appear, grant/deny paths работать.
+- **Why**: POST_NOTIFICATIONS runtime permission introduced API 33. На <33 step skipped автоматически — но grant flow exercise требует API 33+.
+- **How**: API 33 AVD, install mockBackend debug, launch FirstLaunchActivity, tap «Разрешить» / «Позже» — verify system dialog shows, deny path не блокирует завершение wizard'а.
+- **When**: Emulator session — Phase 3 verification.
+- **Origin**: spec 010 T052.
+
+### TODO-SPEC010-EMU-003: GMS-less hard-block screen smoke (T053) 🟡
+
+- **What**: Симулировать GMS-less девайс (например, AVD без Google APIs — «Android x.x» image, не «Google APIs»), запустить launcher, verify hard-block screen shown + «Понятно» closes app affinity.
+- **Why**: FR-042 hard-block нельзя проверить на стандартных Google-emulators — GMS всегда есть. Нужен no-GApps system image.
+- **How**: Создать AVD с system image «Android 13.0 (Google Play)» БЕЗ Google Play Services компонента, или загрузить vendor image без GMS. Запустить launcher; verify `GmsHardBlockActivity` shows; URL link clickable; «Понятно» вызывает `finishAffinity()`.
+- **When**: Emulator session — Phase 3 verification.
+- **Origin**: spec 010 T053.
+
+### TODO-SPEC010-EMU-004: Call confirmation 2-tap smoke (T064) 🟡
+
+- **What**: Verify SC-003: with CALL_PHONE granted, tap call-tile → tap CALL button → reaches «ringing» state in **2 taps total**. Without CALL_PHONE, fallback to dialer (3 taps).
+- **Why**: Per spec FR-012/FR-013 — one-tap CALL replacing dialer's two-tap. The grant-permission Step happens once on first call-tile tap; subsequent calls are 2-tap. Robolectric cannot verify the **2-tap UX** end-to-end (real dialer state observable only on device).
+- **How**: Emulator session — emulate a paired link, seed a Call slot to a real test number (or to emulator's own number), exercise the flow on API 33 AVD.
+- **When**: Emulator session — Phase 4 verification.
+- **Origin**: spec 010 T064.
+
+### TODO-SPEC010-EMU-005: TalkBack walkthrough — CANCEL focused first (T065) 🟡
+
+- **What**: Enable TalkBack on AVD, open call confirmation dialog, verify TalkBack reads CANCEL first (per CHK-accessibility-011), CALL second.
+- **Why**: `Modifier.semantics { traversalIndex = -1f }` enforces focus order at the platform layer — only TalkBack on real env can verify.
+- **When**: Emulator session — Phase 4 verification.
+- **Origin**: spec 010 T065.
+
+### TODO-SPEC010-EMU-006: Fresh install `!N≥2` (T079) + `N==0` after grants (T080) 🟡
+
+- **What**: SC-004 / SC-005 — fresh install на Android 13+ AVD, navigate to Settings, expect badge `[!] N` с N ≥ 2 (ROLE_HOME + POST_NOTIFICATIONS). После grant всех Required → N == 0.
+- **Why**: Cold-start state + system grant integration — Robolectric не может симулировать реальные permission flows.
+- **When**: Emulator session — Phase 5 verification.
+- **Origin**: spec 010 T079/T080.
+
+### TODO-SPEC010-EMU-007: Unlink while offline → Firestore eventual revoke (T093) 🟡
+
+- **What**: Smoke FR-032 / FR-032a path (a)+(b)+(c)+(d) на AVD: unlink в offline mode → Маша disappears immediately → toggle WiFi on → verify Firestore `/links/{linkId}.revoked = true` within 60 sec.
+- **Why**: WorkManager CONNECTED constraint + Firestore reconnection — emulator-only behaviour.
+- **How**: AVD с realBackend flavor + dev Firestore project. Pair, then offline mode, then unlink, then verify Firestore via console.
+- **When**: Emulator session — Phase 6 verification.
+- **Origin**: spec 010 T093.
+
+### TODO-SPEC010-EMU-008: TalkBack 7-tap → challenge walkthrough (T102) 🟡
+
+- **What**: US-7 #7 — TalkBack reads challenge text aloud, CANCEL focusable first, full flow 7-tap → challenge → CANCEL returns to home.
+- **Why**: Same as TODO-SPEC010-EMU-005 — accessibility verification requires real TalkBack.
+- **When**: Emulator session — Phase 7 verification.
+- **Origin**: spec 010 T102.
+
+### TODO-SPEC010-EMU-009: Macrobenchmark module + SC-002 cold-start ≤ 1 sec (T040, T107) 🟡
+
+- **What**: Создать новый Gradle module `:macrobenchmark` (`com.android.test` plugin + benchmark library), реализовать `HomeStartupBenchmark.startup()` test measuring `MeasureUnit.MEDIAN` cold-start frame timing на baseline AVD class (Pixel 4a target).
+- **Why**: Macrobenchmark module needs separate APK (benchmark target + benchmark code) — significant Gradle setup that goes beyond pure-code spec 010 work. Defer to emulator session где есть AVD для измерений.
+- **How**:
+  1. Create `:macrobenchmark` module с `androidTest` source set;
+  2. `build.gradle.kts` apply `com.android.test` plugin + `androidx.benchmark:benchmark-macro-junit4`;
+  3. Add `HomeStartupBenchmark` Kotlin class с `@StartupTimingMetric` annotated test;
+  4. Run via `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest`;
+  5. Save p95 result в `specs/010-setup-assistant/perf-checkpoint.md`.
+- **When**: Emulator session — Phase 2 T040 + Phase 8 T107 final pass.
+- **Origin**: spec 010 T040 / T107.
+
+### TODO-SPEC010-DEV-001: OEM matrix smoke (Samsung One UI / Xiaomi MIUI / Pixel) (T106) 🔴 PHYSICAL DEVICE
+
+- **What**: Smoke на 3 physical devices: Samsung One UI (CALL flow), Xiaomi MIUI (BatteryOptimization exception path FR-020b — Xiaomi sometimes throws `SecurityException` on `PowerManager.isIgnoringBatteryOptimizations`), Pixel emulator (baseline).
+- **Why**: OEM quirks вокруг battery optimization, ROLE_HOME flow, and notification scheduling — нельзя поверить эмулятором. Particularly Xiaomi MIUI's «autostart» + battery-quirks layer hides standard Android behaviour.
+- **When**: При наличии physical-devices. Сейчас devices недоступны — fence task.
+- **Origin**: spec 010 T106.
+
+### TODO-SPEC010-DEV-002: Senior-safe walkthrough на 5 elder users (T105) 🔴 PHYSICAL USERS
+
+- **What**: 5 elder-user test scenarios (fresh install wizard, tile→call, accidental 7-tap+cancel, TalkBack admin entry).
+- **Why**: User-research task, не tech verification.
+- **When**: Pre-Play-Store gate — отдельная research session.
+- **Origin**: spec 010 T105.
+
+---
+
 ## Future Specs (отдельные spec'и)
 
 Спеки, которые **не** делаются в текущей итерации, но имеют достаточно понятный scope, чтобы зафиксировать как «будет отдельным спеком».

@@ -214,6 +214,7 @@ class EditorComponentTest {
         val applied: ConfigDocument?,
     ) : LocalConfigStore {
         override suspend fun readAppliedConfig(linkId: String): ConfigDocument? = applied
+        override fun observeAppliedConfig(linkId: String): Flow<ConfigDocument?> = flowOf(applied)
         override suspend fun writeAppliedConfig(linkId: String, config: ConfigDocument) = Unit
         override suspend fun readPending(linkId: String): PendingLocalChanges? = null
         override suspend fun writePending(linkId: String, pending: PendingLocalChanges) = Unit
@@ -230,6 +231,7 @@ class EditorComponentTest {
         override suspend fun updateDraft(linkId: String, mutator: (ConfigDocument) -> ConfigDocument) = Unit
         override fun pendingDraft(linkId: String): Flow<ConfigDocument?> = pendingFlow
         override suspend fun appliedConfig(linkId: String): ConfigDocument? = appliedSource()
+        override fun observeAppliedConfig(linkId: String): Flow<ConfigDocument?> = flowOf(appliedSource())
         override suspend fun pushPending(linkId: String): Outcome<Unit, ConfigSyncError> {
             pushCalls.add(linkId); return pushOutcome
         }

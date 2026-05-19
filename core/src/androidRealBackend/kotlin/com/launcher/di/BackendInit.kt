@@ -6,6 +6,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.launcher.adapters.apps.InstalledAppsCatalogAdapter
 import com.launcher.adapters.apps.OpenAppDispatcherAdapter
 import com.launcher.adapters.config.AndroidSqlDriverProvider
+import com.launcher.adapters.config.ConfigBackedFlowRepository
 import com.launcher.adapters.config.DefaultConfigEditor
 import com.launcher.adapters.config.FirebaseConfigApplier
 import com.launcher.adapters.config.SqlDelightLocalConfigStore
@@ -24,6 +25,7 @@ import com.launcher.adapters.push.LauncherPushReceiver
 import com.launcher.adapters.push.WorkerPushSender
 import com.launcher.adapters.sync.FirebaseRemoteSyncBackend
 import com.launcher.adapters.config.db.ConfigStore
+import com.launcher.api.FlowRepository
 import com.launcher.api.apps.InstalledAppsCatalog
 import com.launcher.api.apps.OpenAppDispatcher
 import com.launcher.api.config.ConfigApplier
@@ -208,4 +210,18 @@ val backendModule: Module = module {
 
     // VCardImporter → hand-written FN/TEL parser (FR-028, plan §5).
     single<VCardImporter> { VCardImporterAdapter() }
+
+    // ─── Spec 010 ARCH-016 closure — HomeScreen reads /config/current ─────
+
+    // FlowRepository → ConfigBackedFlowRepository (replaces deleted
+    // MockFlowRepository). Reads layout reactively from DefaultConfigEditor's
+    // observeAppliedConfig (SqlDelight-backed), mapping Slot → Action via
+    // SlotToActionMapper. No bundled flows_mock_*.json — admin pushes seed
+    // /config/current; preset picker seeds layout for unpaired devices.
+    single<FlowRepository> {
+        ConfigBackedFlowRepository(
+            configEditor = get(),
+            linkRegistry = get(),
+        )
+    }
 }
