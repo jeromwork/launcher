@@ -19,3 +19,5 @@ actual object DateFormatter {
         }.getOrElse { "" }
     }
 }
+
+actual fun nowEpochMillis(): Long = System.currentTimeMillis()

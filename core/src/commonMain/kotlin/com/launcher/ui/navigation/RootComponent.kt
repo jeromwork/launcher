@@ -102,6 +102,20 @@ class RootComponent(
                     onAddFlowClick = { nav.push(RootConfig.AddFlowWizard) },
                     onAdminDevicesClick = { nav.push(RootConfig.AdminDevices) },
                     onAddSlotClick = { flowId -> nav.push(RootConfig.AddSlotWizard(flowId)) },
+                    // Spec 010 T100 — 7-tap detector fires this; we push the
+                    // challenge gate, which on success pops itself and pushes
+                    // AdminDevices (admin-mode entry).
+                    onSevenTapTriggered = { nav.push(RootConfig.ChallengeGate) },
+                )
+            )
+            is RootConfig.ChallengeGate -> RootChild.ChallengeGate(
+                ChallengeGateComponent(
+                    componentContext = context,
+                    onSuccess = {
+                        nav.pop()
+                        nav.push(RootConfig.AdminDevices)
+                    },
+                    onCancel = { nav.pop() },
                 )
             )
             is RootConfig.Settings -> RootChild.Settings(

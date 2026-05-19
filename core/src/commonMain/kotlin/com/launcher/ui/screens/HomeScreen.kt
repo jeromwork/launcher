@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import com.launcher.ui.components.BottomFlowBar
+import com.launcher.ui.gate.sevenTapAdminGate
 import com.launcher.ui.navigation.HomeComponent
 import com.launcher.ui.theme.Spacing
 
@@ -46,7 +47,16 @@ fun HomeScreen(
             )
         },
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                // Spec 010 T100 — 7-tap admin gate. Tile clicks inside
+                // FlowScreen consume the touch via their own pointerInput, so
+                // the gate only fires on whitespace taps (FR-021 non-
+                // interactive constraint).
+                .sevenTapAdminGate(onTriggered = component.onSevenTapTriggered),
+        ) {
             // Spec 006 banner stack. Empty slot when no banners visible — нулевая высота.
             topSlot()
             Box(modifier = Modifier.weight(1f).fillMaxSize()) {

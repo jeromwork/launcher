@@ -21,3 +21,16 @@ expect object DateFormatter {
     /** Formats epoch millis as a short-locale date string. */
     fun formatShortDate(epochMillis: Long): String
 }
+
+/**
+ * Spec 010 T094 — platform `currentTimeMillis` helper. Lives next to
+ * DateFormatter because both lean on epoch-millis platform APIs.
+ *
+ *  - androidMain → `System.currentTimeMillis()`
+ *  - iosMain → `(NSDate().timeIntervalSince1970 * 1000).toLong()` stub.
+ *
+ * Used by the 7-tap detector / Modifier where a [Long] timestamp is needed
+ * but `kotlinx.datetime` is not on the dependency list (keeps the core
+ * artefact lean).
+ */
+expect fun nowEpochMillis(): Long

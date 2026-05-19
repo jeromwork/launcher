@@ -36,6 +36,7 @@ class HomeComponent(
     val onAddFlowClick: () -> Unit,
     val onAdminDevicesClick: () -> Unit,
     val onAddSlotClick: (flowId: String) -> Unit,
+    val onSevenTapTriggered: () -> Unit = {},
 ) : ComponentContext by componentContext {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
