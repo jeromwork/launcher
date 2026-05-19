@@ -17,6 +17,7 @@ import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
 import com.launcher.api.lifecycle.AppForegroundEvents
 import com.launcher.api.lifecycle.NetworkAvailability
 import com.launcher.api.link.LinkRegistry
+import com.launcher.api.paired.LocalLinkRevocationStore
 import com.launcher.api.push.PushReceiver
 import com.launcher.api.push.PushSender
 import com.launcher.api.sync.RemoteSyncBackend
@@ -33,6 +34,7 @@ import com.launcher.fake.identity.FakeIdentityProvider
 import com.launcher.fake.lifecycle.FakeAppForegroundEvents
 import com.launcher.fake.lifecycle.FakeNetworkAvailability
 import com.launcher.fake.link.FakeLinkRegistry
+import com.launcher.fake.paired.InMemoryLocalLinkRevocationStore
 import com.launcher.fake.push.FakePushReceiver
 import com.launcher.fake.push.FakePushSender
 import com.launcher.fake.sync.FakeRemoteSyncBackend
@@ -104,9 +106,21 @@ val backendModule: Module = module {
     single<NetworkAvailability> { FakeNetworkAvailability() }
     single<AppForegroundEvents> { FakeAppForegroundEvents() }
 
+    // ─── Spec 010 mockBackend wiring ─────────────────────────────────────
+
+    // FR-032 local revocation store: in-memory for mockBackend — survives
+    // process for the session but not across reinstalls (acceptable in QA).
+    single<LocalLinkRevocationStore> { InMemoryLocalLinkRevocationStore() }
+
     // WorkerFactory — needed by Application.Configuration.Provider even в
     // mockBackend flavor (WorkManager itself is still active в mockBackend).
-    single { ConfigSyncWorkerFactory(linkRegistry = get(), configApplier = get()) }
+    single {
+        ConfigSyncWorkerFactory(
+            linkRegistry = get(),
+            configApplier = get(),
+            revocationStore = get(),
+        )
+    }
 
     // ─── Spec 009 mockBackend wiring (Phase A) ────────────────────────────
 
@@ -140,6 +154,7 @@ val backendModule: Module = module {
         ConfigBackedFlowRepository(
             configEditor = get(),
             linkRegistry = get(),
+            revocationStore = get(),
         )
     }
 }

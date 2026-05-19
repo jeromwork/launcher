@@ -8,8 +8,10 @@ import com.launcher.api.action.toAction
 import com.launcher.api.config.ConfigDocument
 import com.launcher.api.config.ConfigEditor
 import com.launcher.api.link.LinkRegistry
+import com.launcher.api.paired.LocalLinkRevocationStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
@@ -43,25 +45,44 @@ import kotlinx.coroutines.flow.map
 class ConfigBackedFlowRepository(
     private val configEditor: ConfigEditor,
     private val linkRegistry: LinkRegistry,
+    private val revocationStore: LocalLinkRevocationStore? = null,
 ) : FlowRepository {
 
     override suspend fun loadFlows(): List<FlowDescriptor> {
-        val linkId = linkRegistry.currentLink().first()?.linkId ?: return emptyList()
+        val linkId = activeLinkId() ?: return emptyList()
         val applied = configEditor.appliedConfig(linkId) ?: return emptyList()
         return applied.toFlowDescriptors()
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeFlows(): Flow<List<FlowDescriptor>> =
-        linkRegistry.currentLink()
-            .flatMapLatest { link ->
-                if (link == null) {
+        activeLinkFlow()
+            .flatMapLatest { linkId ->
+                if (linkId == null) {
                     flowOf(emptyList())
                 } else {
-                    configEditor.observeAppliedConfig(link.linkId)
+                    configEditor.observeAppliedConfig(linkId)
                         .map { it?.toFlowDescriptors().orEmpty() }
                 }
             }
+
+    /**
+     * Spec 010 FR-032: фильтрует locally-revoked link out so HomeScreen
+     * перестаёт получать `/config` push'и для отозванного линка ещё до того,
+     * как WorkManager успел добежать до server-side `LinkRegistry.revoke()`.
+     */
+    private fun activeLinkFlow(): Flow<String?> {
+        val store = revocationStore ?: return linkRegistry.currentLink().map { it?.linkId }
+        return combine(linkRegistry.currentLink(), store.revokedLinkIds()) { link, revoked ->
+            link?.takeIf { it.linkId !in revoked }?.linkId
+        }
+    }
+
+    private suspend fun activeLinkId(): String? {
+        val current = linkRegistry.currentLink().first()?.linkId ?: return null
+        val revoked = revocationStore?.revokedLinkIds()?.first().orEmpty()
+        return current.takeIf { it !in revoked }
+    }
 
     override fun availableTemplates(presetId: String): List<FlowTemplate> =
         ALL_TEMPLATES.filter { presetId in it.availableInPresets }

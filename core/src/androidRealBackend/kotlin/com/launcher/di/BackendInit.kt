@@ -19,6 +19,7 @@ import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
 import com.launcher.adapters.lifecycle.ConnectivityManagerNetworkAvailability
 import com.launcher.adapters.lifecycle.ProcessLifecycleForegroundEvents
 import com.launcher.adapters.link.FirestoreLinkRegistry
+import com.launcher.adapters.paired.DataStoreLocalLinkRevocationStore
 import com.launcher.adapters.push.FcmRegistration
 import com.launcher.adapters.push.FirebaseTokenSupplier
 import com.launcher.adapters.push.LauncherPushReceiver
@@ -39,6 +40,7 @@ import com.launcher.api.identity.IdentityProvider
 import com.launcher.api.lifecycle.AppForegroundEvents
 import com.launcher.api.lifecycle.NetworkAvailability
 import com.launcher.api.link.LinkRegistry
+import com.launcher.api.paired.LocalLinkRevocationStore
 import com.launcher.api.push.PushReceiver
 import com.launcher.api.push.PushSender
 import com.launcher.api.sync.RemoteSyncBackend
@@ -175,9 +177,22 @@ val backendModule: Module = module {
     // AppForegroundEvents — ProcessLifecycleOwner throttled (FR-022 T4).
     single<AppForegroundEvents> { ProcessLifecycleForegroundEvents() }
 
-    // Custom WorkerFactory для DI-injected ConfigRefreshWorker. App's
-    // Configuration.Provider implementation must reference this via Koin.
-    single { ConfigSyncWorkerFactory(linkRegistry = get(), configApplier = get()) }
+    // ─── Spec 010 — local-first revocation wiring (FR-032 / FR-032a) ─────
+
+    // DataStore-backed flag set; survives kill/restart so the locally-revoked
+    // link stays hidden even before the WorkManager cleanup worker runs.
+    single<LocalLinkRevocationStore> { DataStoreLocalLinkRevocationStore(androidContext()) }
+
+    // Custom WorkerFactory для DI-injected workers (ConfigRefreshWorker +
+    // UnlinkCleanupWorker). App's Configuration.Provider implementation
+    // references this via Koin.
+    single {
+        ConfigSyncWorkerFactory(
+            linkRegistry = get(),
+            configApplier = get(),
+            revocationStore = get(),
+        )
+    }
 
     // ─── Spec 009 — admin-mode-flows wiring (Phase A) ─────────────────────
 
@@ -222,6 +237,7 @@ val backendModule: Module = module {
         ConfigBackedFlowRepository(
             configEditor = get(),
             linkRegistry = get(),
+            revocationStore = get(),
         )
     }
 }
