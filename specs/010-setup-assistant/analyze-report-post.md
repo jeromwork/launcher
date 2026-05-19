@@ -189,17 +189,24 @@ SCANS:
   C. Source-set placement          : ✓ PASS (Konsist gates green)
   D. Required-context links        : ⚠ cosmetic (unchanged from pre-impl)
   E. Vague language sweep          : ✓ PASS
-  F. FR-039 localization audit     : 🔴 3 violations (RootContent Russian fallbacks)
+  F. FR-039 localization audit     : ✓ RESOLVED 2026-05-20 (commit 004a8f7)
+                                      3 спек-010 violations закрыты; pre-existing
+                                      RootContent legacy → TODO-LOCALE-002
   G. Source-set isolation post-impl: ✓ PASS
 
 KONSIST GATES: 4/4 GREEN (T007/T008/T009/T010)
 
-VERDICT: READY-WITH-CAVEATS
+VERDICT: READY-WITH-CAVEATS (после FR-039 fix — все спек-010-attributable
+        findings закрыты; remaining caveats = deferred physical-device
+        smoke + macrobenchmark + APK delta)
 ```
 
 ### Open items (must address or accept-as-risk before ship)
 
-1. **🔴 OPEN: FR-039 localization (3 violations)** — RootContent + NumericEntryChallenge hardcoded Russian strings. **Codebase-wide refactor required** (RootContent already has prior 009-era violations). **Recommendation**: accept-as-risk + open `TODO-LOCALE-002` in project-backlog for proper refactor pass.
+1. **✅ RESOLVED 2026-05-20 (commit `004a8f7`): FR-039 localization** — все 3 net-new violations спека 010 закрыты:
+   - `NumericEntryChallenge.kt:78` — убран префикс "введено: ", TalkBack читает сами цифры.
+   - `RootContent.kt:63-64` — введён `ChallengeGateLabels` data class parameter; `HomeActivity` resolves через `R.string.challenge_gate_cancel` + `R.string.challenge_gate_sequence_instruction` (оба уже есть в values/ + values-ru/).
+   - Pre-existing спек 009 violation (`RootContent.kt:120` "Здоровье устройства") escalated → `TODO-LOCALE-002` в [project-backlog.md](../../docs/dev/project-backlog.md).
 2. **⚠ DEFERRED: physical-device smoke (T052/T053/T065/T093/T102/T106 OEM matrix)** — все 6 пунктов задокументированы в [smoke-checkpoint.md](smoke-checkpoint.md) с adb-командами + inline-TODO markers (`physical-device:*`). **Recommendation**: schedule QA pass на Pixel 4a + Samsung One UI + Xiaomi MIUI до first public release.
 3. **⚠ DEFERRED: macrobenchmark SC-002 (T107) + APK delta SC-009 (T108)** — задокументированы в [perf-checkpoint.md](perf-checkpoint.md) с methodology. **Recommendation**: run после первого Play Store internal track upload.
 4. **🟡 COSMETIC: spec.md bare ADR/Article references (5+)** — unchanged from pre-impl analyze. Low priority.
