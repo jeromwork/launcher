@@ -242,7 +242,12 @@
   3. Очистить mock `flows_mock_*.json` после переноса (spec 005 артефакты).
   4. Обновить spec 009 Phase 14 emulator smoke — admin push → Managed home reflects change.
 - **When**: После того как пользователи начинают редактировать раскладку (т.е. сразу — без этого спек 9 функционально incomplete для real users). До Play Store upload — обязательно.
-- **Status**: 🟡 OPEN
+- **Status**: ✅ DONE 2026-05-19 (spec 010 Phase 2 + T029-T040). Implementation commits:
+  - `5659664` feat(010): Phase 2 ARCH-016 closure (T029..T040) — SlotToActionMapper,
+    ConfigBackedFlowRepository, deletion of MockFlowRepository + `flows_mock_*.json`,
+    HomeComponent observable flow.
+  - Spec 010 Phase 6 (commit `408d9f0`) added LocalLinkRevocationStore filter so
+    locally-revoked links stop emitting через ConfigBackedFlowRepository.
 - **Origin**: spec 009 Phase G implementation 2026-05-16 — discovered when wiring EditorScreen preview-tap (FR-005).
 
 ### TODO-ARCH-015: Config schema transformers (lazy migration) 🟢
