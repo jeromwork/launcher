@@ -327,6 +327,34 @@
 
 ---
 
+## Localization
+
+### TODO-LOCALE-002: Refactor `RootContent` legacy hardcoded Russian strings → string-table 🟡
+
+- **What**: `core/src/commonMain/kotlin/com/launcher/ui/RootContent.kt` содержит ≥ 3 hardcoded Russian string literals в Composable вызовах (FR-039 violation pattern):
+  - `title = "Здоровье устройства"` (PhoneHealthIndicatorScreen invocation, спек 009 era).
+  - `text = "Реальный QR будет здесь после реализации pairing (spec 007)."` (placeholder dialog).
+  - Various `"Закрыть"` / `"Понятно"` fallback labels в SettingsScreen et al.
+
+  Спек 010 закрыл свою часть (`ChallengeGateLabels` data class threaded via `RootContent` parameter; HomeActivity resolves Android `stringResource(R.string.challenge_gate_cancel)` / `challenge_gate_sequence_instruction`). Остальные violations — pre-existing pattern, требует separate refactor pass.
+
+- **Why**: CLAUDE.md rule 1 + спек 010 FR-039 запрещают hardcoded user-facing strings в commonMain UI. Каждый violation увеличивает cost'а добавления второго языка (en, kk, uk и т.д.) и нарушает Article XII §3 Required Context.
+
+- **How**:
+  1. Найти все `text = "<кириллица>"` / `title = "<кириллица>"` в `RootContent.kt` + downstream Composables через `Grep -E '"[А-Яа-я]+[^"]*"' core/src/commonMain`.
+  2. Для каждого: добавить ресурс в `app/src/main/res/values/strings.xml` + `values-ru/strings.xml`.
+  3. Расширить `RootContent` parameter list по `ChallengeGateLabels` pattern: `screenLabels: ScreenLabels` data class содержит все необходимые localized strings.
+  4. Host (HomeActivity) resolves через `getString(R.string.…)`.
+  5. Konsist gate: добавить `RootContentLocalizationTest` который grep'ит RootContent.kt на Cyrillic literals в `Text(text = ...)` / `Text(...)` invocations.
+
+- **When**: До onboarding'а второй локали (en) для Play Store global rollout. **Не блокирует** спек 010 ship — current launcher single-locale ru-RU production target.
+
+- **Status**: 🟡 OPEN
+
+- **Origin**: спек 010 `/speckit.analyze` post-implementation (2026-05-20) Scan F — 3 net-new violations introduced by спека 010 closed via `ChallengeGateLabels` parameter; pre-existing RootContent legacy strings escalated to this entry для proper codebase-wide refactor.
+
+---
+
 ## Reliability / Resilience
 
 ### TODO-REL-001: FCM topic subscribe retry 🟡

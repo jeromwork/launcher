@@ -75,7 +75,9 @@ fun NumericEntryChallenge(
             fontSize = 28.sp,
             modifier = Modifier
                 .testTag("challenge_typed")
-                .semantics { contentDescription = "введено: $typed" },
+                // FR-039: no localized prefix — TalkBack reads typed digits
+                // directly (which are themselves descriptive).
+                .semantics { contentDescription = typed },
         )
 
         for (row in keypadOrder.chunked(3)) {
