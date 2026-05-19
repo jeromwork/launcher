@@ -2,6 +2,7 @@ package com.launcher.di
 
 import com.launcher.adapters.setup.GmsAvailabilityAdapter
 import com.launcher.adapters.setup.NetworkOnlineCheckAdapter
+import com.launcher.adapters.setup.PostNotificationsCheckAdapter
 import com.launcher.adapters.setup.RoleHomeCheckAdapter
 import com.launcher.api.setup.CheckStatus
 import com.launcher.api.setup.Criticality
@@ -42,8 +43,9 @@ val setupModule: Module = module {
             RoleHomeCheckAdapter(context = androidContext()),
             // T038 (Phase 2) — real.
             NetworkOnlineCheckAdapter(context = androidContext()),
-            // Following stubs replaced in Phases 3-5:
-            stub(id = "post_notifications", criticality = Criticality.Recommended),
+            // T048 (Phase 3) — real (skip-on-API<33 internal).
+            PostNotificationsCheckAdapter(context = androidContext()),
+            // Following stubs replaced in Phases 4-5:
             stub(id = "call_phone", criticality = Criticality.Required),
             stub(id = "battery_optimization", criticality = Criticality.Recommended),
         )

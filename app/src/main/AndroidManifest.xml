@@ -30,6 +30,15 @@
     <uses-permission android:name="android.permission.CALL_PHONE" />
 
     <!--
+      Spec 010 FR-008 / T044 — POST_NOTIFICATIONS runtime permission (Android
+      13+). Requested via wizard step «Чтобы внук видел, что у тебя всё в
+      порядке». On <33 platforms the permission isn't honoured — declaration
+      is harmless. Recommended-criticality в SetupCheck engine (denial does
+      not break core launcher; surfaces as `?M` badge in Settings).
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!--
       Spec 010 T002 (Phase 0 critical): declare telephony as optional so
       tablets / Wear / Chromebooks without dialer hardware still install. App
       handles absence gracefully (PhoneHandler returns failure result).
@@ -186,6 +195,17 @@
                 <data android:mimeType="text/vcard" />
             </intent-filter>
         </activity>
+
+        <!--
+          Spec 010 T046 — GMS hard-block screen (FR-042). Launched explicitly
+          by FirstLaunchActivity when GoogleApiAvailability reports MissingFatal.
+          NEVER reachable from outside the app: android:exported="false" enforced
+          by Spec010IsolationTest.T010 (plan §11 C-9, CHK-security-009).
+        -->
+        <activity
+            android:name=".setup.GmsHardBlockActivity"
+            android:exported="false"
+            android:label="@string/setup_gms_hard_block_title" />
 
         <!--
           Spec 008 FR-022 T3: disable default WorkManager auto-init so our

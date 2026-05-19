@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Spec 010 setup-assistant + bootstrap UI strings (FR-039 — all user-facing
+  strings live in resources, never hardcoded in Compose / Activity bodies).
+
+  English default; Russian forms in values-ru/strings_spec010.xml.
+-->
+<resources>
+
+    <!-- WizardProgressIndicator (FR-008a, CHK-elderly-007) -->
+    <!-- "Step %1$d of %2$d" — used by all wizard step composables -->
+    <string name="setup_wizard_progress_step">Step %1$d of %2$d</string>
+
+    <!-- RoleHomeStep (FR-007, US-2) -->
+    <string name="setup_role_home_title">Make this app your home screen</string>
+    <string name="setup_role_home_body">When you press Home, this app will open. You can change this later in your phone settings.</string>
+    <string name="setup_role_home_make_default">Make it home</string>
+    <string name="setup_role_home_skip">Later</string>
+
+    <!-- PostNotificationsStep (FR-008, US-4) -->
+    <string name="setup_post_notifications_title">Let the app send notifications</string>
+    <string name="setup_post_notifications_body">So your grandchild can see that everything is fine with you.</string>
+    <string name="setup_post_notifications_allow">Allow</string>
+    <string name="setup_post_notifications_skip">Later</string>
+
+    <!-- GmsHardBlockActivity (FR-042, FR-043, US-9) -->
+    <string name="setup_gms_hard_block_title">This device is not supported</string>
+    <string name="setup_gms_hard_block_body">The app needs Google Play Services, which are missing on this device.</string>
+    <string name="setup_gms_hard_block_learn_more">Why? https://support.google.com/googleplay/answer/9037938</string>
+    <string name="setup_gms_hard_block_ok">Got it</string>
+
+    <!-- Call confirmation dialog (Phase 4 FR-011..016, Senior-safe ≥56dp buttons) -->
+    <string name="call_confirm_action_call">Call</string>
+    <string name="call_confirm_action_cancel">Cancel</string>
+    <string name="call_confirm_invalid_number">This number is invalid</string>
+    <string name="call_confirm_rationale_title">Quick one-tap calling</string>
+    <string name="call_confirm_rationale_body">So calls go right through with a single button.</string>
+    <string name="call_confirm_rationale_allow">Allow</string>
+    <string name="call_confirm_rationale_skip">Later</string>
+
+    <!-- Settings badge + WhatNeedsConfiguring (FR-019, FR-020, Phase 5) -->
+    <string name="setup_badge_required_label">critical</string>
+    <string name="setup_badge_recommended_label">recommended</string>
+    <string name="setup_what_needs_section_required">Configure urgently</string>
+    <string name="setup_what_needs_section_recommended">Can be configured later</string>
+    <string name="setup_what_needs_configure_button">Configure</string>
+
+    <!-- Paired devices (Phase 6 FR-029..033, Russian-first per spec) -->
+    <string name="paired_section_helps_me">Who helps me</string>
+    <string name="paired_section_i_help">Whom I help</string>
+    <string name="paired_unlink_button">Stop receiving help</string>
+    <string name="paired_unlink_confirm_title">Stop receiving help from %1$s?</string>
+    <string name="paired_unlink_confirm_body">%1$s will no longer be able to change your screens.</string>
+    <string name="paired_unlink_confirm_yes">Yes</string>
+    <string name="paired_unlink_confirm_no">No</string>
+    <string name="paired_empty_state">No one is helping you yet — ask your grandchild to scan a QR code.</string>
+    <string name="paired_show_qr_button">Show QR</string>
+
+    <!-- Challenge gate (Phase 7 FR-022..027) -->
+    <string name="challenge_gate_numeric_instruction">Enter the number shown above.</string>
+    <string name="challenge_gate_sequence_instruction">Tap buttons %1$s in order.</string>
+    <string name="challenge_gate_cancel">Cancel</string>
+</resources>
