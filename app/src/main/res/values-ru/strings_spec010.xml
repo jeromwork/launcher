@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spec 010 — Russian (FR-039 + senior-safe wording). -->
+<resources>
+
+    <string name="setup_wizard_progress_step">Шаг %1$d из %2$d</string>
+
+    <string name="setup_role_home_title">Сделать это приложение главным экраном</string>
+    <string name="setup_role_home_body">Когда нажимаешь «Домой», будет открываться это приложение. Можно изменить позже в настройках телефона.</string>
+    <string name="setup_role_home_make_default">Сделать главным</string>
+    <string name="setup_role_home_skip">Позже</string>
+
+    <string name="setup_post_notifications_title">Разрешить приложению присылать уведомления</string>
+    <string name="setup_post_notifications_body">Чтобы внук видел, что у тебя всё в порядке.</string>
+    <string name="setup_post_notifications_allow">Разрешить</string>
+    <string name="setup_post_notifications_skip">Позже</string>
+
+    <string name="setup_gms_hard_block_title">Это устройство не поддерживается</string>
+    <string name="setup_gms_hard_block_body">Для работы приложения нужны Google Play Services, которых нет на этом устройстве.</string>
+    <string name="setup_gms_hard_block_learn_more">Подробнее: https://support.google.com/googleplay/answer/9037938</string>
+    <string name="setup_gms_hard_block_ok">Понятно</string>
+
+    <string name="call_confirm_action_call">Позвонить</string>
+    <string name="call_confirm_action_cancel">Отмена</string>
+    <string name="call_confirm_invalid_number">Номер некорректен</string>
+    <string name="call_confirm_rationale_title">Звонок одной кнопкой</string>
+    <string name="call_confirm_rationale_body">Чтобы звонок шёл сразу одной кнопкой.</string>
+    <string name="call_confirm_rationale_allow">Разрешить</string>
+    <string name="call_confirm_rationale_skip">Позже</string>
+
+    <string name="setup_badge_required_label">критично</string>
+    <string name="setup_badge_recommended_label">рекомендуется</string>
+
+    <!-- Spec 010 T068 / T069 / FR-019 / C-8 — Russian 4-form plurals for the
+         Settings setup-checks badge accessibility description. ICU rules:
+         one — 1, 21, 31, …
+         few — 2-4, 22-24, …
+         many — 0, 5-20, 25-30, …
+         other — fractional (won't occur here, kept для completeness).  -->
+    <plurals name="setup_badge_required_count_a11y">
+        <item quantity="one">%d критичный пункт настроек</item>
+        <item quantity="few">%d критичных пункта настроек</item>
+        <item quantity="many">%d критичных пунктов настроек</item>
+        <item quantity="other">%d критичных пунктов настроек</item>
+    </plurals>
+    <plurals name="setup_badge_recommended_count_a11y">
+        <item quantity="one">%d рекомендуемый пункт настроек</item>
+        <item quantity="few">%d рекомендуемых пункта настроек</item>
+        <item quantity="many">%d рекомендуемых пунктов настроек</item>
+        <item quantity="other">%d рекомендуемых пунктов настроек</item>
+    </plurals>
+    <string name="setup_what_needs_section_required">Срочно настроить</string>
+    <string name="setup_what_needs_section_recommended">Можно настроить позже</string>
+    <string name="setup_what_needs_configure_button">Настроить</string>
+
+    <string name="paired_section_helps_me">Кто помогает мне</string>
+    <string name="paired_section_i_help">Кому я помогаю</string>
+    <string name="paired_unlink_button">Прекратить помощь</string>
+    <string name="paired_unlink_confirm_title">Прекратить помощь от %1$s?</string>
+    <string name="paired_unlink_confirm_body">%1$s больше не сможет менять твои экраны.</string>
+    <string name="paired_unlink_confirm_yes">Да</string>
+    <string name="paired_unlink_confirm_no">Нет</string>
+    <string name="paired_empty_state">Никто пока тобой не помогает — попроси внука отсканировать QR-код.</string>
+    <string name="paired_show_qr_button">Показать QR</string>
+
+    <string name="challenge_gate_numeric_instruction">Введи число, показанное выше.</string>
+    <string name="challenge_gate_sequence_instruction">Нажми кнопки %1$s по порядку.</string>
+    <string name="challenge_gate_cancel">Отмена</string>
+</resources>

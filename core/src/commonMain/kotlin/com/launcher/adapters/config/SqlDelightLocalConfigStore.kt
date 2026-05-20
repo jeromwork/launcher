@@ -2,6 +2,8 @@ package com.launcher.adapters.config
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import app.cash.sqldelight.coroutines.mapToOneOrNull
+import kotlinx.coroutines.flow.flowOn
 import com.launcher.adapters.config.db.ConfigStore
 import com.launcher.adapters.config.db.ConfigStoreQueries
 import com.launcher.api.config.ConfigDocument
@@ -45,6 +47,13 @@ class SqlDelightLocalConfigStore(
             val row = queries.readAppliedConfig(linkId).executeAsOneOrNull() ?: return@withContext null
             decodeConfig(row.configJson)
         }
+
+    override fun observeAppliedConfig(linkId: String): Flow<ConfigDocument?> =
+        queries.observeAppliedConfig(linkId)
+            .asFlow()
+            .mapToOneOrNull(ioDispatcher)
+            .map { row -> row?.configJson?.let(::decodeConfig) }
+            .flowOn(ioDispatcher)
 
     override suspend fun writeAppliedConfig(linkId: String, config: ConfigDocument) {
         val encoded = ConfigDocumentWireFormat.serialize(config).toString()

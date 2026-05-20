@@ -1,6 +1,5 @@
 package com.launcher.ui.di
 
-import com.launcher.api.FlowRepository
 import com.launcher.api.ModuleDescriptor
 import com.launcher.api.PresetRepository
 import com.launcher.api.action.ActionDispatcher
@@ -26,9 +25,15 @@ const val MODULE_DESCRIPTORS_QUALIFIER = "com.launcher.core.moduleDescriptors"
 const val PRESET_REPOSITORY_OVERRIDE_QUALIFIER = "com.launcher.core.presetRepositoryOverride"
 
 val androidPlatformModule = module {
+    // Spec 010 T032a — FlowRepository is now bound by the flavor's backend module
+    // (ConfigBackedFlowRepository over ConfigEditor + LinkRegistry); LauncherCore
+    // takes it as a constructor parameter. The Koin graph passes `get()` here, so
+    // a missing FlowRepository binding fails at startup with a clear DI error
+    // rather than silently falling back to the deleted MockFlowRepository.
     single<LauncherCore> {
         LauncherCore(
             context = androidContext(),
+            flowRepository = get(),
             moduleDescriptors = getOrNull<List<ModuleDescriptor>>(named(MODULE_DESCRIPTORS_QUALIFIER))
                 ?: emptyList(),
             presetRepository = getOrNull<PresetRepository>(named(PRESET_REPOSITORY_OVERRIDE_QUALIFIER)),
@@ -41,7 +46,6 @@ val androidPlatformModule = module {
         getOrNull<PresetRepository>(named(PRESET_REPOSITORY_OVERRIDE_QUALIFIER))
             ?: get<LauncherCore>().presetRepository
     }
-    single<FlowRepository> { get<LauncherCore>().flowRepository }
     single<EventRouter> { get<LauncherCore>().eventRouter }
     single<AppIndex> { get<LauncherCore>().appIndex }
     single<ActionDispatcher> { get<LauncherCore>().androidActionDispatcher }

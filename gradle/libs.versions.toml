@@ -61,6 +61,12 @@ googleServicesPlugin = "4.4.2"
 # Pure JVM, no Android dep — works in both flavors.
 zxingCore = "3.5.3"
 
+# Google Play Services base — GMS availability check (spec 010 FR-042..FR-044
+# GmsAvailabilityPort). play-services-base is a tiny module (~100 KB) and
+# is required in BOTH flavors: even mockBackend builds must detect missing
+# GMS to show the senior-safe hard-block screen.
+playServicesBase = "18.5.0"
+
 [libraries]
 # Existing
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -130,6 +136,11 @@ firebase-messaging-ktx = { group = "com.google.firebase", name = "firebase-messa
 
 # ZXing — QR encode for /pairings/{token} display (spec 007 FR-004).
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxingCore" }
+
+# Google Play Services base — used by spec 010 GmsAvailabilityAdapter.
+# Belongs in androidMain (both flavors) so the wizard can detect missing GMS
+# in mockBackend builds too.
+google-play-services-base = { group = "com.google.android.gms", name = "play-services-base", version.ref = "playServicesBase" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

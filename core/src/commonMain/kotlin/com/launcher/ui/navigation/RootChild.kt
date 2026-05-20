@@ -18,6 +18,9 @@ sealed interface RootChild {
 
     data class AdminDevices(val component: AdminDevicesComponent) : RootChild
 
+    /** Spec 010 T100 — 7-tap admin gate (FR-022). */
+    data class ChallengeGate(val component: ChallengeGateComponent) : RootChild
+
     // ─── Spec 009 admin-mode-flows ─────────────────────────────────────
 
     data class Editor(

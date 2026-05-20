@@ -35,6 +35,15 @@ sealed interface RootConfig {
     @Serializable
     data object AdminDevices : RootConfig
 
+    /**
+     * Spec 010 T100 — 7-tap admin gate (FR-021, FR-022). Pushed by
+     * HomeScreen когда 7-tap detector fires; on success Pop'аем back и
+     * push'аем admin-mode (currently AdminDevices); on cancel — простой
+     * nav.pop() возвращает на Home.
+     */
+    @Serializable
+    data object ChallengeGate : RootConfig
+
     // ─── Spec 009 admin-mode-flows screens ─────────────────────────────
 
     @Serializable

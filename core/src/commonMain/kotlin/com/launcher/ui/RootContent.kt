@@ -12,6 +12,8 @@ import com.launcher.ui.admin.HistoryScreen
 import com.launcher.ui.admin.OpenAppTilePicker
 import com.launcher.ui.admin.TileEditForm
 import com.launcher.ui.contacts.ContactsManageScreen
+import com.launcher.ui.gate.ChallengeGateLabels
+import com.launcher.ui.gate.ChallengeGateScreen
 import com.launcher.ui.health.PhoneHealthIndicatorScreen
 import com.launcher.ui.navigation.RootChild
 import com.launcher.ui.navigation.RootComponent
@@ -40,6 +42,7 @@ fun RootContent(
     presetUiModels: List<PresetUiModel>,
     modifier: Modifier = Modifier,
     homeTopSlot: @Composable () -> Unit = {},
+    challengeGateLabels: ChallengeGateLabels = ChallengeGateLabels.DefaultRussianFallback,
 ) {
     Children(stack = component.stack, modifier = modifier.fillMaxSize()) { childCreated ->
         when (val child = childCreated.instance) {
@@ -52,6 +55,18 @@ fun RootContent(
             is RootChild.AddFlowWizard -> AddFlowWizardScreen(component = child.component)
             is RootChild.AddSlotWizard -> AddSlotWizardScreen(component = child.component)
             is RootChild.AdminDevices -> AdminDevicesScreen(component = child.component)
+
+            // Spec 010 T100 — 7-tap admin gate screen (FR-022 / FR-039).
+            // Labels come from [challengeGateLabels] — host (HomeActivity)
+            // resolves Android stringResource на ChallengeGateLabels; tests
+            // и commonMain previews fall back на ChallengeGateLabels
+            // .DefaultRussianFallback.
+            is RootChild.ChallengeGate -> ChallengeGateScreen(
+                cancelLabel = challengeGateLabels.cancelLabel,
+                sequenceInstructionTemplate = challengeGateLabels.sequenceInstructionTemplate,
+                onSuccess = child.component.onSuccess,
+                onCancel = child.component.onCancel,
+            )
 
             // ─── Spec 009 admin-mode-flows screens ─────────────────────
             is RootChild.Editor -> {

@@ -242,7 +242,12 @@
   3. Очистить mock `flows_mock_*.json` после переноса (spec 005 артефакты).
   4. Обновить spec 009 Phase 14 emulator smoke — admin push → Managed home reflects change.
 - **When**: После того как пользователи начинают редактировать раскладку (т.е. сразу — без этого спек 9 функционально incomplete для real users). До Play Store upload — обязательно.
-- **Status**: 🟡 OPEN
+- **Status**: ✅ DONE 2026-05-19 (spec 010 Phase 2 + T029-T040). Implementation commits:
+  - `5659664` feat(010): Phase 2 ARCH-016 closure (T029..T040) — SlotToActionMapper,
+    ConfigBackedFlowRepository, deletion of MockFlowRepository + `flows_mock_*.json`,
+    HomeComponent observable flow.
+  - Spec 010 Phase 6 (commit `408d9f0`) added LocalLinkRevocationStore filter so
+    locally-revoked links stop emitting через ConfigBackedFlowRepository.
 - **Origin**: spec 009 Phase G implementation 2026-05-16 — discovered when wiring EditorScreen preview-tap (FR-005).
 
 ### TODO-ARCH-015: Config schema transformers (lazy migration) 🟢
@@ -319,6 +324,34 @@
 - **When**: Phase 8 спека 007 (T086 enhancement).
 - **Status**: 🟢 OPEN
 - **Origin**: `/speckit.analyze` elderly-friendly note (QR countdown).
+
+---
+
+## Localization
+
+### TODO-LOCALE-002: Refactor `RootContent` legacy hardcoded Russian strings → string-table 🟡
+
+- **What**: `core/src/commonMain/kotlin/com/launcher/ui/RootContent.kt` содержит ≥ 3 hardcoded Russian string literals в Composable вызовах (FR-039 violation pattern):
+  - `title = "Здоровье устройства"` (PhoneHealthIndicatorScreen invocation, спек 009 era).
+  - `text = "Реальный QR будет здесь после реализации pairing (spec 007)."` (placeholder dialog).
+  - Various `"Закрыть"` / `"Понятно"` fallback labels в SettingsScreen et al.
+
+  Спек 010 закрыл свою часть (`ChallengeGateLabels` data class threaded via `RootContent` parameter; HomeActivity resolves Android `stringResource(R.string.challenge_gate_cancel)` / `challenge_gate_sequence_instruction`). Остальные violations — pre-existing pattern, требует separate refactor pass.
+
+- **Why**: CLAUDE.md rule 1 + спек 010 FR-039 запрещают hardcoded user-facing strings в commonMain UI. Каждый violation увеличивает cost'а добавления второго языка (en, kk, uk и т.д.) и нарушает Article XII §3 Required Context.
+
+- **How**:
+  1. Найти все `text = "<кириллица>"` / `title = "<кириллица>"` в `RootContent.kt` + downstream Composables через `Grep -E '"[А-Яа-я]+[^"]*"' core/src/commonMain`.
+  2. Для каждого: добавить ресурс в `app/src/main/res/values/strings.xml` + `values-ru/strings.xml`.
+  3. Расширить `RootContent` parameter list по `ChallengeGateLabels` pattern: `screenLabels: ScreenLabels` data class содержит все необходимые localized strings.
+  4. Host (HomeActivity) resolves через `getString(R.string.…)`.
+  5. Konsist gate: добавить `RootContentLocalizationTest` который grep'ит RootContent.kt на Cyrillic literals в `Text(text = ...)` / `Text(...)` invocations.
+
+- **When**: До onboarding'а второй локали (en) для Play Store global rollout. **Не блокирует** спек 010 ship — current launcher single-locale ru-RU production target.
+
+- **Status**: 🟡 OPEN
+
+- **Origin**: спек 010 `/speckit.analyze` post-implementation (2026-05-20) Scan F — 3 net-new violations introduced by спека 010 closed via `ChallengeGateLabels` parameter; pre-existing RootContent legacy strings escalated to this entry для proper codebase-wide refactor.
 
 ---
 
@@ -448,6 +481,121 @@ These are tracked here (not in spec 008's `tasks.md`) because they require eithe
 
 ---
 
+## Spec 010 — emulator-deferred tasks (defer until emulator session)
+
+Tasks from spec 010 implementation that need an emulator or device to verify.
+Code in main is complete; these only need *running* against a build.
+
+### TODO-SPEC010-PHYS-001: Full physical-device QA pass перед публичным релизом 🔴 PHYSICAL DEVICE
+
+- **What**: Прогнать спек 010 на **реальном устройстве** (минимум Pixel 4a-class + один Samsung + один Xiaomi). Это umbrella-задача — конкретные сценарии описаны в [smoke-checkpoint.md](../../specs/010-setup-assistant/smoke-checkpoint.md), [perf-checkpoint.md](../../specs/010-setup-assistant/perf-checkpoint.md), [senior-safe-walkthrough.md](../../specs/010-setup-assistant/senior-safe-walkthrough.md).
+- **Why**: Phase 8 спека 010 закрыт code-complete, но 6+ smoke-задач (T052/T053/T065/T093/T102/T106) + macrobenchmark SC-002 (T107) + APK delta SC-009 (T108) + senior-safe walkthrough (T105) **deferred** из-за отсутствия физических устройств. Эмулятор покрывает не всё: 2-tap call UX, TalkBack focus order, OEM-specific battery quirks (Xiaomi `SecurityException`), real cold-start timing, физический haptic feedback при 7-tap — всё это observable только на реальном железе.
+- **Checklist** (когда появится устройство):
+  - [ ] T052/T053 — wizard end-to-end Android 13+ + GMS-less fallback (см. TODO-SPEC010-EMU-002/003)
+  - [ ] T064/T065 — call 2-tap UX + TalkBack CANCEL-first (см. TODO-SPEC010-EMU-004/005)
+  - [ ] T079/T080 — fresh install `!N≥2` + grants → `N=0` (см. TODO-SPEC010-EMU-006)
+  - [ ] T093 — unlink offline → reconnect → Firestore revoke ≤ 60 sec (см. TODO-SPEC010-EMU-007)
+  - [ ] T102 — TalkBack 7-tap → challenge walkthrough (см. TODO-SPEC010-EMU-008)
+  - [ ] T106 — OEM matrix Samsung/Xiaomi/Pixel (см. TODO-SPEC010-DEV-001)
+  - [ ] T107 — macrobenchmark SC-002 cold-start ≤ 1 sec p95 на Pixel 4a (см. TODO-SPEC010-EMU-009)
+  - [ ] T108 — APK delta SC-009 release build ≤ +500 KB vs спек 9
+  - [ ] T105 — senior-safe walkthrough на 5 elder users (см. TODO-SPEC010-DEV-002)
+  - [ ] Update [smoke-checkpoint.md](../../specs/010-setup-assistant/smoke-checkpoint.md) — заменить inline-TODO `physical-device:*` на actual smoke log entries с device model + Android version + дата.
+  - [ ] Update [perf-checkpoint.md](../../specs/010-setup-assistant/perf-checkpoint.md) — записать измеренные p95 cold-start + APK delta.
+- **When**: До first public release. Pre-Play-Store gate.
+- **Status**: 🔴 OPEN
+- **Origin**: спек 010 Phase 8, post-impl analyze 2026-05-20 (`/speckit.analyze` deferred items), memory `reference_testing_environment.md`.
+
+### TODO-SPEC010-EMU-001: Wizard manual smoke на Android 8.0 emulator (T051) 🟡
+
+- **What**: Запустить `assembleMockBackendDebug` APK на Android 8.0 (API 26) AVD, пройти wizard, проверить legacy ROLE_HOME chooser opens correctly per FR-007 / plan §11 C-6 fallback.
+- **Why**: API 26-28 не имеет `RoleManager` — `RoleHomeStep` использует `Intent.CATEGORY_HOME` chooser. Это branching код, который Robolectric не покрывает: только Реальная среда.
+- **How**: `./gradlew :app:assembleMockBackendDebug && adb install ... && adb shell am start -n com.launcher.app/.firstlaunch.FirstLaunchActivity`. Tap «Сделать главным» → verify chooser opens с launcher в списке.
+- **When**: Emulator session — Phase 3 verification.
+- **Origin**: spec 010 T051.
+
+### TODO-SPEC010-EMU-002: POST_NOTIFICATIONS smoke на Android 13+ emulator (T052) 🟡
+
+- **What**: Wizard walkthrough на Android 13+ (API 33+) AVD — `PostNotificationsStep` должен appear, grant/deny paths работать.
+- **Why**: POST_NOTIFICATIONS runtime permission introduced API 33. На <33 step skipped автоматически — но grant flow exercise требует API 33+.
+- **How**: API 33 AVD, install mockBackend debug, launch FirstLaunchActivity, tap «Разрешить» / «Позже» — verify system dialog shows, deny path не блокирует завершение wizard'а.
+- **When**: Emulator session — Phase 3 verification.
+- **Origin**: spec 010 T052.
+
+### TODO-SPEC010-EMU-003: GMS-less hard-block screen smoke (T053) 🟡
+
+- **What**: Симулировать GMS-less девайс (например, AVD без Google APIs — «Android x.x» image, не «Google APIs»), запустить launcher, verify hard-block screen shown + «Понятно» closes app affinity.
+- **Why**: FR-042 hard-block нельзя проверить на стандартных Google-emulators — GMS всегда есть. Нужен no-GApps system image.
+- **How**: Создать AVD с system image «Android 13.0 (Google Play)» БЕЗ Google Play Services компонента, или загрузить vendor image без GMS. Запустить launcher; verify `GmsHardBlockActivity` shows; URL link clickable; «Понятно» вызывает `finishAffinity()`.
+- **When**: Emulator session — Phase 3 verification.
+- **Origin**: spec 010 T053.
+
+### TODO-SPEC010-EMU-004: Call confirmation 2-tap smoke (T064) 🟡
+
+- **What**: Verify SC-003: with CALL_PHONE granted, tap call-tile → tap CALL button → reaches «ringing» state in **2 taps total**. Without CALL_PHONE, fallback to dialer (3 taps).
+- **Why**: Per spec FR-012/FR-013 — one-tap CALL replacing dialer's two-tap. The grant-permission Step happens once on first call-tile tap; subsequent calls are 2-tap. Robolectric cannot verify the **2-tap UX** end-to-end (real dialer state observable only on device).
+- **How**: Emulator session — emulate a paired link, seed a Call slot to a real test number (or to emulator's own number), exercise the flow on API 33 AVD.
+- **When**: Emulator session — Phase 4 verification.
+- **Origin**: spec 010 T064.
+
+### TODO-SPEC010-EMU-005: TalkBack walkthrough — CANCEL focused first (T065) 🟡
+
+- **What**: Enable TalkBack on AVD, open call confirmation dialog, verify TalkBack reads CANCEL first (per CHK-accessibility-011), CALL second.
+- **Why**: `Modifier.semantics { traversalIndex = -1f }` enforces focus order at the platform layer — only TalkBack on real env can verify.
+- **When**: Emulator session — Phase 4 verification.
+- **Origin**: spec 010 T065.
+
+### TODO-SPEC010-EMU-006: Fresh install `!N≥2` (T079) + `N==0` after grants (T080) 🟡
+
+- **What**: SC-004 / SC-005 — fresh install на Android 13+ AVD, navigate to Settings, expect badge `[!] N` с N ≥ 2 (ROLE_HOME + POST_NOTIFICATIONS). После grant всех Required → N == 0.
+- **Why**: Cold-start state + system grant integration — Robolectric не может симулировать реальные permission flows.
+- **When**: Emulator session — Phase 5 verification.
+- **Origin**: spec 010 T079/T080.
+
+### TODO-SPEC010-EMU-007: Unlink while offline → Firestore eventual revoke (T093) 🟡
+
+- **What**: Smoke FR-032 / FR-032a path (a)+(b)+(c)+(d) на AVD: unlink в offline mode → Маша disappears immediately → toggle WiFi on → verify Firestore `/links/{linkId}.revoked = true` within 60 sec.
+- **Why**: WorkManager CONNECTED constraint + Firestore reconnection — emulator-only behaviour.
+- **How**: AVD с realBackend flavor + dev Firestore project. Pair, then offline mode, then unlink, then verify Firestore via console.
+- **When**: Emulator session — Phase 6 verification.
+- **Origin**: spec 010 T093.
+
+### TODO-SPEC010-EMU-008: TalkBack 7-tap → challenge walkthrough (T102) 🟡
+
+- **What**: US-7 #7 — TalkBack reads challenge text aloud, CANCEL focusable first, full flow 7-tap → challenge → CANCEL returns to home.
+- **Why**: Same as TODO-SPEC010-EMU-005 — accessibility verification requires real TalkBack.
+- **When**: Emulator session — Phase 7 verification.
+- **Origin**: spec 010 T102.
+
+### TODO-SPEC010-EMU-009: Macrobenchmark module + SC-002 cold-start ≤ 1 sec (T040, T107) 🟡
+
+- **What**: Создать новый Gradle module `:macrobenchmark` (`com.android.test` plugin + benchmark library), реализовать `HomeStartupBenchmark.startup()` test measuring `MeasureUnit.MEDIAN` cold-start frame timing на baseline AVD class (Pixel 4a target).
+- **Why**: Macrobenchmark module needs separate APK (benchmark target + benchmark code) — significant Gradle setup that goes beyond pure-code spec 010 work. Defer to emulator session где есть AVD для измерений.
+- **How**:
+  1. Create `:macrobenchmark` module с `androidTest` source set;
+  2. `build.gradle.kts` apply `com.android.test` plugin + `androidx.benchmark:benchmark-macro-junit4`;
+  3. Add `HomeStartupBenchmark` Kotlin class с `@StartupTimingMetric` annotated test;
+  4. Run via `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest`;
+  5. Save p95 result в `specs/010-setup-assistant/perf-checkpoint.md`.
+- **When**: Emulator session — Phase 2 T040 + Phase 8 T107 final pass.
+- **Origin**: spec 010 T040 / T107.
+
+### TODO-SPEC010-DEV-001: OEM matrix smoke (Samsung One UI / Xiaomi MIUI / Pixel) (T106) 🔴 PHYSICAL DEVICE
+
+- **What**: Smoke на 3 physical devices: Samsung One UI (CALL flow), Xiaomi MIUI (BatteryOptimization exception path FR-020b — Xiaomi sometimes throws `SecurityException` on `PowerManager.isIgnoringBatteryOptimizations`), Pixel emulator (baseline).
+- **Why**: OEM quirks вокруг battery optimization, ROLE_HOME flow, and notification scheduling — нельзя поверить эмулятором. Particularly Xiaomi MIUI's «autostart» + battery-quirks layer hides standard Android behaviour.
+- **When**: При наличии physical-devices. Сейчас devices недоступны — fence task.
+- **Origin**: spec 010 T106.
+
+### TODO-SPEC010-DEV-002: Senior-safe walkthrough на 5 elder users (T105) 🔴 PHYSICAL USERS
+
+- **What**: 5 elder-user test scenarios (fresh install wizard, tile→call, accidental 7-tap+cancel, TalkBack admin entry).
+- **Why**: User-research task, не tech verification.
+- **When**: Pre-Play-Store gate — отдельная research session.
+- **Origin**: spec 010 T105.
+
+---
+
 ## Future Specs (отдельные spec'и)
 
 Спеки, которые **не** делаются в текущей итерации, но имеют достаточно понятный scope, чтобы зафиксировать как «будет отдельным спеком».
@@ -502,6 +650,20 @@ These are tracked here (not in spec 008's `tasks.md`) because they require eithe
 - **When**: После того, как сам спек 9 устоится в production и появится реальный спрос на кастомизацию.
 - **Status**: 🟢 OPEN
 - **Origin**: spec 009 pre-specify discovery 2026-05-15 (пункт 3 — preset как форвард-совместимая концепция).
+
+### TODO-FUTURE-SPEC-006: onboarding-and-tutorials (внутреннее обучение admin + Managed) 🟢
+
+- **What**: Отдельный спек, покрывающий обучающий слой продукта целиком — несколько направлений:
+  - **Admin onboarding**: как pair'иться (расширение QR-flow спека 7 с пошаговыми подсказками), что такое admin-mode и как туда зайти на бабушкином устройстве (7-tap gesture, см. спек 10 FR-021), walkthrough редактора раскладки (плитки, drag-and-drop из спека 9), типичные действия (поменять контакт, добавить плитку «Аптека»).
+  - **Managed (бабушка) first-launch polish**: расширение wizard'a спека 3 (language → preset → ROLE_HOME → POST_NOTIFICATIONS из спека 10) — большие иллюстрации, voice-over, проверка понимания.
+  - **In-app contextual help**: первый раз admin зашёл в editor → большая подсказка «потяни плитку чтобы переставить»; первый раз бабушка получила обновление раскладки → toast «внук обновил твой телефон».
+  - **Видеоинструкции / Lottie-анимации**: ассеты для wizard'ов и contextual help.
+  - **Help-screen для admin'a**: «как настроить ROLE_HOME» с скриншотами, «что делать если push'и не приходят» (battery optimization OEM-quirks), «как добавить второго admin'a» (после спека 011).
+- **Why**: В clarify-сессии спека 10 (2026-05-19) US-8 (tutorial overlay для бабушки про 7-tap) был **удалён** — решено, что бабушка вообще не должна попадать в Settings (admin-only поверхность), tutorial для неё не нужен, а обучение admin'a — отдельная задача со собственной глубиной. Эта работа большая (видео-съёмка, иллюстрации, copywriting, accessibility-aware voice-over), не помещается в спек 10 «связующий».
+- **How (high-level)**: После того, как admin-mode (спек 9) и Setup Assistant (спек 10) стабилизируются — собрать реальные pain points через UX walkthrough'и на 5-10 admin'ах + 5 бабушках, выделить топ-5 confusing moment'ов, под них написать спек.
+- **When**: После production-релиза спеков 7-10 и сбора первой telemetry / observation data. Не раньше Q3 2026.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 010 clarify session 2026-05-19 — изначально US-8 (tutorial overlay для бабушки про 7-tap), решено вынести в отдельный спек с большим scope.
 
 ---
 

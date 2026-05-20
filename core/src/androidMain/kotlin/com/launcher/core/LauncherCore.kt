@@ -20,7 +20,6 @@ import com.launcher.core.bridge.SystemEventBridge
 import com.launcher.core.catalog.AppIndex
 import com.launcher.core.contacts.MockContactsRepository
 import com.launcher.core.events.EventRouter
-import com.launcher.core.flows.MockFlowRepository
 import com.launcher.core.modules.ModuleRegistry
 import com.launcher.core.preset.InMemoryPresetRepository
 import com.launcher.core.profile.ProfileEngine
@@ -36,9 +35,14 @@ import kotlinx.coroutines.cancelChildren
  */
 class LauncherCore(
     context: Context,
+    // Spec 010 T032a (ARCH-016 closure): flowRepository is **mandatory** —
+    // MockFlowRepository default removed. Caller (Application / Koin DI) must
+    // supply the `ConfigBackedFlowRepository` adapter from spec 008
+    // ConfigEditor + LinkRegistry. Tests inject a FakeRemoteSyncBackend-wired
+    // editor + registry; production wires the Firestore-backed pair.
+    flowRepository: FlowRepository,
     moduleDescriptors: List<ModuleDescriptor> = emptyList(),
     skipPackageScan: Boolean = false,
-    flowRepository: FlowRepository? = null,
     presetRepository: PresetRepository? = null,
 ) {
     private val appContext = context.applicationContext
@@ -46,7 +50,7 @@ class LauncherCore(
     private val scope = CoroutineScope(job + Dispatchers.Main.immediate)
 
     val presetRepository: PresetRepository = presetRepository ?: InMemoryPresetRepository()
-    val flowRepository: FlowRepository = flowRepository ?: MockFlowRepository(appContext, this.presetRepository)
+    val flowRepository: FlowRepository = flowRepository
     val eventRouter = EventRouter(scope)
     val moduleRegistry = ModuleRegistry(moduleDescriptors)
     val profileEngine = ProfileEngine(appContext, moduleRegistry, eventRouter)

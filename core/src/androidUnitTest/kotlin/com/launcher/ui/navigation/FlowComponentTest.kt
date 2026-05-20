@@ -67,6 +67,9 @@ class FlowComponentTest {
     private class FakeRepo(private val flows: List<FlowDescriptor>) : FlowRepository {
         override suspend fun loadFlows() = flows
         override fun availableTemplates(presetId: String) = emptyList<FlowTemplate>()
+        // Spec 010 T029 — observeFlows emits the seeded list once.
+        override fun observeFlows(): kotlinx.coroutines.flow.Flow<List<FlowDescriptor>> =
+            kotlinx.coroutines.flow.flowOf(flows)
     }
 
     @Test

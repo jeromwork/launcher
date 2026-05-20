@@ -13,6 +13,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 /**
@@ -41,13 +43,18 @@ class FlowComponent(
 
     init {
         lifecycle.doOnDestroy { scope.cancel() }
-        scope.launch {
-            val flow = flowRepository.loadFlows().firstOrNull { it.id == flowId }
-            _state.value = _state.value.copy(
-                flowName = flow?.name.orEmpty(),
-                slots = flow?.slots.orEmpty(),
-            )
-        }
+        // Spec 010 T030 — observe Flow, не одноразовый loadFlows().
+        // When admin pushes new config (ARCH-016 closure), the matching flow's
+        // slots arrive without explicit refresh.
+        flowRepository.observeFlows()
+            .onEach { flows ->
+                val flow = flows.firstOrNull { it.id == flowId }
+                _state.value = _state.value.copy(
+                    flowName = flow?.name.orEmpty(),
+                    slots = flow?.slots.orEmpty(),
+                )
+            }
+            .launchIn(scope)
     }
 
     fun onSlotTap(slot: SlotDescriptor) {

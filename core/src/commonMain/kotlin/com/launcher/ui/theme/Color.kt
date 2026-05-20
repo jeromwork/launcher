@@ -6,6 +6,22 @@ import androidx.compose.ui.graphics.Color
 
 // Seed: #3E5F8A (calm trust blue). See docs/dev/design-system.md §2.
 
+/**
+ * Spec 010 T070 / FR-019 — yellow used for the «[?] M рекомендуется»
+ * Recommended-criticality SetupCheck badge.
+ *
+ * Picked specifically for **WCAG 3.1:1 contrast on white** — Material Yellow
+ * `#FFEB3B` fails contrast on white background и is therefore explicitly
+ * forbidden by plan §11 C-7. `#D97706` (amber-700 from Tailwind) passes
+ * Accessibility Scanner on Settings screen.
+ *
+ * Paired with **shape difference** (Triangle vs Circle icon) AND **text label**
+ * («рекомендуется» / «критично») per CHK-accessibility-005 — colour alone is
+ * never the only signal of severity.
+ */
+internal val SetupBadgeYellow = Color(0xFFD97706)
+internal val SetupBadgeRed = Color(0xFFBA1A1A) // same as Material `error` token.
+
 internal val LightColors = lightColorScheme(
     primary = Color(0xFF3E5F8A),
     onPrimary = Color(0xFFFFFFFF),

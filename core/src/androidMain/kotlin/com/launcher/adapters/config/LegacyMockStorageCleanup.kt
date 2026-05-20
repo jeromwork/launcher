@@ -9,17 +9,19 @@ import android.util.Log
  * **CLEANUP-008**: legacy spec 003 mock-storage cleanup. Safe to remove this file
  * после 2026-12-31 (by then все dev devices upgraded past 008 epoch).
  *
+ * **Status update — Spec 010 ARCH-016 closure (2026-05-19)**: `MockFlowRepository`
+ * AND the `flows_mock_*.json` assets it parsed are **deleted** (spec 010 T031 /
+ * T032 / FR-004). Production now reads layout from `/links/{linkId}/config/current`
+ * via [ConfigBackedFlowRepository] in both `realBackend` and `mockBackend`
+ * flavors — mockBackend wires it on top of `FakeConfigEditor` +
+ * `FakeRemoteSyncBackend` (spec 007 pattern).
+ *
  * **Revised scope** (per T005 inventory в legacy-cleanup-inventory.md):
- * spec 003's mock storage is **read-only APK assets**, NOT user-writable files.
- * There is nothing to delete from `context.filesDir`. Instead:
- *
- *  - `realBackend` flavor MUST NOT use `MockFlowRepository` once spec 008 ships —
- *    DI wiring change handled в Phase 8 (T100 Settings/FlowRepository binding).
- *  - `mockBackend` flavor continues to use MockFlowRepository for dev/test.
- *
- * This class is a **no-op marker** documenting that cleanup is conceptual
- * (architectural switch), not file-level. Kept so future readers grepping for
- * "spec 003 legacy" land on this rationale.
+ * spec 003's mock storage was **read-only APK assets**, NOT user-writable files.
+ * There is nothing to delete from `context.filesDir`. This class stays as a
+ * no-op marker documenting that the cleanup was architectural (file-deletion +
+ * DI rewire), not file-level. Kept so future readers grepping for
+ * "spec 003 legacy" or "MockFlowRepository" land on this rationale.
  *
  * If actually mutable user-files appear на 003-era devices (which can't happen
  * per T005 inventory), the `cleanupOnce()` method below can be activated.

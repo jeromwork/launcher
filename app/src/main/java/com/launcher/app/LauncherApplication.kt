@@ -9,6 +9,7 @@ import com.launcher.app.di.pairingModule
 import com.launcher.app.di.spec006Module
 import com.launcher.core.LauncherCore
 import com.launcher.di.backendModule
+import com.launcher.di.setupModule
 import com.launcher.ui.di.androidPlatformModule
 import com.launcher.ui.di.coreCommonModule
 import org.koin.android.ext.android.inject
@@ -54,6 +55,7 @@ class LauncherApplication : Application(), Configuration.Provider {
                 spec006Module,
                 backendModule, // flavor-resolved (Firebase or Fakes)
                 pairingModule, // spec 007 PairingService + PairingViewModel
+                setupModule,   // spec 010 GmsAvailabilityPort + List<SetupCheck>
             )
         }
         core.start()

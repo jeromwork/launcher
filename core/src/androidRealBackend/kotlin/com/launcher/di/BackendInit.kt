@@ -6,6 +6,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.launcher.adapters.apps.InstalledAppsCatalogAdapter
 import com.launcher.adapters.apps.OpenAppDispatcherAdapter
 import com.launcher.adapters.config.AndroidSqlDriverProvider
+import com.launcher.adapters.config.ConfigBackedFlowRepository
 import com.launcher.adapters.config.DefaultConfigEditor
 import com.launcher.adapters.config.FirebaseConfigApplier
 import com.launcher.adapters.config.SqlDelightLocalConfigStore
@@ -18,12 +19,14 @@ import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
 import com.launcher.adapters.lifecycle.ConnectivityManagerNetworkAvailability
 import com.launcher.adapters.lifecycle.ProcessLifecycleForegroundEvents
 import com.launcher.adapters.link.FirestoreLinkRegistry
+import com.launcher.adapters.paired.DataStoreLocalLinkRevocationStore
 import com.launcher.adapters.push.FcmRegistration
 import com.launcher.adapters.push.FirebaseTokenSupplier
 import com.launcher.adapters.push.LauncherPushReceiver
 import com.launcher.adapters.push.WorkerPushSender
 import com.launcher.adapters.sync.FirebaseRemoteSyncBackend
 import com.launcher.adapters.config.db.ConfigStore
+import com.launcher.api.FlowRepository
 import com.launcher.api.apps.InstalledAppsCatalog
 import com.launcher.api.apps.OpenAppDispatcher
 import com.launcher.api.config.ConfigApplier
@@ -37,6 +40,7 @@ import com.launcher.api.identity.IdentityProvider
 import com.launcher.api.lifecycle.AppForegroundEvents
 import com.launcher.api.lifecycle.NetworkAvailability
 import com.launcher.api.link.LinkRegistry
+import com.launcher.api.paired.LocalLinkRevocationStore
 import com.launcher.api.push.PushReceiver
 import com.launcher.api.push.PushSender
 import com.launcher.api.sync.RemoteSyncBackend
@@ -173,9 +177,22 @@ val backendModule: Module = module {
     // AppForegroundEvents — ProcessLifecycleOwner throttled (FR-022 T4).
     single<AppForegroundEvents> { ProcessLifecycleForegroundEvents() }
 
-    // Custom WorkerFactory для DI-injected ConfigRefreshWorker. App's
-    // Configuration.Provider implementation must reference this via Koin.
-    single { ConfigSyncWorkerFactory(linkRegistry = get(), configApplier = get()) }
+    // ─── Spec 010 — local-first revocation wiring (FR-032 / FR-032a) ─────
+
+    // DataStore-backed flag set; survives kill/restart so the locally-revoked
+    // link stays hidden even before the WorkManager cleanup worker runs.
+    single<LocalLinkRevocationStore> { DataStoreLocalLinkRevocationStore(androidContext()) }
+
+    // Custom WorkerFactory для DI-injected workers (ConfigRefreshWorker +
+    // UnlinkCleanupWorker). App's Configuration.Provider implementation
+    // references this via Koin.
+    single {
+        ConfigSyncWorkerFactory(
+            linkRegistry = get(),
+            configApplier = get(),
+            revocationStore = get(),
+        )
+    }
 
     // ─── Spec 009 — admin-mode-flows wiring (Phase A) ─────────────────────
 
@@ -208,4 +225,19 @@ val backendModule: Module = module {
 
     // VCardImporter → hand-written FN/TEL parser (FR-028, plan §5).
     single<VCardImporter> { VCardImporterAdapter() }
+
+    // ─── Spec 010 ARCH-016 closure — HomeScreen reads /config/current ─────
+
+    // FlowRepository → ConfigBackedFlowRepository (replaces deleted
+    // MockFlowRepository). Reads layout reactively from DefaultConfigEditor's
+    // observeAppliedConfig (SqlDelight-backed), mapping Slot → Action via
+    // SlotToActionMapper. No bundled flows_mock_*.json — admin pushes seed
+    // /config/current; preset picker seeds layout for unpaired devices.
+    single<FlowRepository> {
+        ConfigBackedFlowRepository(
+            configEditor = get(),
+            linkRegistry = get(),
+            revocationStore = get(),
+        )
+    }
 }

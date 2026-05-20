@@ -53,6 +53,15 @@ interface ConfigEditor {
     suspend fun appliedConfig(linkId: String): ConfigDocument?
 
     /**
+     * Spec 010 T029 — hot Flow over the last-applied config for [linkId].
+     * Drives `HomeScreen` (ARCH-016 closure): emit on subscribe + re-emit
+     * after every ConfigApplier write. Emits `null` while no apply has
+     * happened (cold start before pairing OR cold start after pairing but
+     * before first remote read).
+     */
+    fun observeAppliedConfig(linkId: String): Flow<ConfigDocument?>
+
+    /**
      * Push current pending to `/config/current` с optimistic-concurrency check
      * против `clientSnapshotUpdatedAt` (FR-012, FR-013).
      *

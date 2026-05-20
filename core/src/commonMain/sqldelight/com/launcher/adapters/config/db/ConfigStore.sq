@@ -31,6 +31,14 @@ SELECT configJson, schemaVersion
 FROM applied_config
 WHERE linkId = ?;
 
+-- Spec 010 T029 — Flow-based observation для HomeScreen ARCH-016 closure.
+-- SQLDelight asFlow() emits whenever applied_config changes (push from
+-- ConfigApplier in ConfigBackedFlowRepository) — UI updates without poll.
+observeAppliedConfig:
+SELECT configJson, schemaVersion
+FROM applied_config
+WHERE linkId = ?;
+
 upsertAppliedConfig:
 INSERT OR REPLACE INTO applied_config(linkId, configJson, appliedAt, schemaVersion)
 VALUES (?, ?, ?, ?);

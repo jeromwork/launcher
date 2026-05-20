@@ -107,12 +107,20 @@ class HomeActivity : ComponentActivity() {
         intent?.getStringExtra(com.launcher.app.contacts.VCardReceiveActivity.EXTRA_OPEN_EDITOR_LINK_ID)
             ?.let { linkId -> rootComponent.openEditor(linkId) }
 
+        val challengeGateLabels = com.launcher.ui.gate.ChallengeGateLabels(
+            cancelLabel = getString(R.string.challenge_gate_cancel),
+            sequenceInstructionTemplate = { sequence ->
+                getString(R.string.challenge_gate_sequence_instruction, sequence)
+            },
+        )
+
         setContent {
             LauncherTheme(preset = activePreset?.slug) {
                 RootContent(
                     component = rootComponent,
                     presetUiModels = presetUiModels,
                     homeTopSlot = { HomeBannerHost() },
+                    challengeGateLabels = challengeGateLabels,
                 )
             }
         }

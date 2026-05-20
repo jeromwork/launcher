@@ -22,6 +22,30 @@
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
     <!--
+      Spec 010 FR-012 / FR-013 (T001 + Phase 0 critical):
+      ACTION_CALL one-tap path. Runtime-prompted on first call-tile tap; rationale
+      shown в spec 010 CallPhoneRationaleScreen («Чтобы звонок шёл сразу одной
+      кнопкой»). On deny → PhoneHandler falls back to ACTION_DIAL.
+    -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+
+    <!--
+      Spec 010 FR-008 / T044 — POST_NOTIFICATIONS runtime permission (Android
+      13+). Requested via wizard step «Чтобы внук видел, что у тебя всё в
+      порядке». On <33 platforms the permission isn't honoured — declaration
+      is harmless. Recommended-criticality в SetupCheck engine (denial does
+      not break core launcher; surfaces as `?M` badge in Settings).
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!--
+      Spec 010 T002 (Phase 0 critical): declare telephony as optional so
+      tablets / Wear / Chromebooks without dialer hardware still install. App
+      handles absence gracefully (PhoneHandler returns failure result).
+    -->
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+
+    <!--
       Package visibility (Android 11+, per spec 005 plan §Risks row 2 + permissions-platform CHK-008):
       - <intent> with MAIN/LAUNCHER lets AppIndex enumerate every launchable app (Workspace catalog).
       - explicit <package> entries let provider availability check resolve known target packages
@@ -48,9 +72,19 @@
         <package android:name="com.google.android.youtube" />
         <package android:name="com.google.android.youtube.tv" />
 
-        <!-- Phone dial handlers -->
+        <!--
+          Spec 010 T003 (Phase 0 CRITICAL — CHK-permissions-008/020):
+          Both DIAL and CALL intents are needed for tel: scheme resolution on
+          Android 11+. Without CALL declaration, packageManager.queryIntentActivities
+          returns empty for ACTION_CALL even with CALL_PHONE permission granted —
+          breaks FR-012 / FR-014 (two-tap call from confirmation dialog).
+        -->
         <intent>
             <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.CALL" />
             <data android:scheme="tel" />
         </intent>
 
@@ -161,6 +195,17 @@
                 <data android:mimeType="text/vcard" />
             </intent-filter>
         </activity>
+
+        <!--
+          Spec 010 T046 — GMS hard-block screen (FR-042). Launched explicitly
+          by FirstLaunchActivity when GoogleApiAvailability reports MissingFatal.
+          NEVER reachable from outside the app: android:exported="false" enforced
+          by Spec010IsolationTest.T010 (plan §11 C-9, CHK-security-009).
+        -->
+        <activity
+            android:name=".setup.GmsHardBlockActivity"
+            android:exported="false"
+            android:label="@string/setup_gms_hard_block_title" />
 
         <!--
           Spec 008 FR-022 T3: disable default WorkManager auto-init so our

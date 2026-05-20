@@ -205,3 +205,47 @@ Cross-checked against shipped manifests:
   - `recordedFromDeviceId` в `/config/history/*` — pseudonym (auth uid), server-enforced anti-spoof via Security Rule (FR-045a).
   - Минимум privacy в спеке 9: FR-031a `ContactsManageScreen` (list + delete only), FR-031b/c — deferred TODO-LEGAL-001.
 - **Decision**: 🟡 planned. Pre-Play-Store gates: TODO-LEGAL-001 closed (privacy policy + Data Safety form), TODO-ARCH-006 R8 done. Spec 9 PR ships без публикации в Play Store — internal smoke + manual OEM matrix (Samsung One UI / Xiaomi MIUI / Pixel) перед merge.
+
+### spec 010: setup-assistant-and-launcher-bootstrap **(in implementation, branch `010-setup-assistant`)**
+
+- **Feature**: setup wizard extension (ROLE_HOME + POST_NOTIFICATIONS steps with senior-safe progress indicator), GMS hard-block screen for ungoogled devices, call confirmation dialog (one-tap CALL_PHONE path), Settings soft-checks engine (5 SetupChecks + `!N` / `?M` badges), paired-devices section + local-first revocation, 7-tap challenge gate for admin entry. Closes `TODO-ARCH-016` (HomeScreen reads from `/config/current`, mock data deleted).
+- **Permissions added (vs spec 009)**:
+  - **`CALL_PHONE`** (dangerous, runtime — Android 6+) — FR-012 / FR-013. Replaces dialer two-tap flow with one-tap CALL after user confirms in the senior-safe dialog. Requested lazily at first call-tile tap with rationale «Чтобы звонок шёл сразу одной кнопкой». On deny → `PhoneHandler` falls back to `ACTION_DIAL` (no functional regression vs spec 005).
+  - **`POST_NOTIFICATIONS`** (runtime, Android 13+) — FR-008. Used by future status-update notifications visible to the admin («внук видит, что у тебя всё в порядке»). Requested in the wizard with senior-safe rationale; skipped automatically on API < 33. Recommended-criticality SetupCheck, not Required — denial does not break core launcher.
+- **Manifest deltas vs spec 009**:
+  - `<uses-permission android:name="android.permission.CALL_PHONE" />` (T001) — main manifest, applies to both flavors. Telephony-less devices (tablets, Wear) handle gracefully via `<uses-feature ... required="false">`.
+  - `<uses-feature android:name="android.hardware.telephony" android:required="false" />` (T002) — keeps the app installable on non-phone hardware (CHK-permissions-007).
+  - `<queries><intent><action android:name="android.intent.action.CALL"/><data android:scheme="tel"/></intent></queries>` (T003 — CRITICAL CHK-permissions-008/020) — without this, `packageManager.queryIntentActivities(ACTION_CALL)` returns empty on Android 11+ even with `CALL_PHONE` granted, breaking FR-012 / FR-014.
+  - `<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />` — added in Phase 3 (T044 wizard step); skipped at runtime on API < 33.
+  - `<activity android:name=".setup.GmsHardBlockActivity" android:exported="false" />` and new setup/gate/call/paired Activities — all `android:exported="false"` (plan §11 C-9, enforced by [Spec010IsolationTest.T010](../../core/src/androidUnitTest/kotlin/com/launcher/test/fitness/Spec010IsolationTest.kt)).
+- **Role declared (not a permission)**: `RoleManager.ROLE_HOME` — request flow on Android 10+ via `createRequestRoleIntent(ROLE_HOME)` (FR-007); on Android 8-9 (API 26-28) legacy fallback via `Intent.CATEGORY_HOME` chooser (plan §11 C-6 — inline TODO TODO-PLATFORM-001 for API ≥ 29 cleanup once minSdk bumps).
+- **Why each new permission is needed / fallback if denied**:
+  - `CALL_PHONE` — enables `Intent(ACTION_CALL, ...)` for one-tap dialing per FR-012. Fallback (denied / not granted yet): `Intent(ACTION_DIAL, ...)` keeps the dialer-confirmation two-tap path of spec 005 — no broken feature, only one extra tap.
+  - `POST_NOTIFICATIONS` — needed for system tray notifications (deferred to spec 011+). Fallback (denied / API < 33): zero impact in spec 010 — Settings shows `?M` recommended badge; nothing in spec 010 actively posts notifications.
+- **Background/runtime impact**:
+  - **`UnlinkCleanupWorker`** (FR-032a) — new one-time `WorkManager` request with `NetworkType.CONNECTED` constraint, enqueued only on user-confirmed unlink. ≤ 1 wakeup per unlink action; idempotent retry on failure via exponential backoff. **Zero polling, zero periodic scheduling.**
+  - 7-tap detector — pure-UI gesture; no background.
+  - Setup-check engine — runs on cold-start (`LaunchedEffect`) + on Settings screen `RESUMED`; **no background polling** (FR-020a explicit constraint).
+- **Startup impact**:
+  - GMS availability check on cold start — `GoogleApiAvailability.isGooglePlayServicesAvailable()` is sub-millisecond on warm devices; budgeted ≤ 5 ms p95 inside the `Dispatchers.IO` wrap (T006).
+  - Wizard cold start unchanged from baseline; SC-002 target `HomeScreen` first-frame ≤ 1 sec on Pixel 4a class (verified in T107 macrobenchmark).
+  - `play-services-base` adds ~80-100 KB to `androidMain` baseline (now in both flavors) — kept tiny, no transitive Firebase.
+- **Memory/storage impact**:
+  - **`LocalLinkRevocationStore`** (FR-032 / T081) — new DataStore Preferences file, < 1 KB per linkId. Persists across process death so revoked links stay revoked offline.
+  - APK delta budget: ≤ +500 KB vs spec 009 release build (SC-009 — verified in T108).
+  - `play-services-base`: ~80-100 KB classes.
+- **Network impact**:
+  - **Zero new network work**. `UnlinkCleanupWorker` reuses spec 7 `LinkRegistry.deactivate()` (a Firestore write — inherited budget). FR-032a path (b) offline → WorkManager queues without retry storms (CONNECTED constraint guarantees no wake-on-no-network).
+  - GMS check is local (queries Google Play Store package on-device).
+- **Monitoring/observability**:
+  - New diagnostic event `setupCheckException(checkId, reason)` (T073) — categorical, NO PII; emitted when a `SetupCheck.check()` throws (e.g. Xiaomi MIUI battery-optimization `SecurityException`). Enables R5 OEM-quirk rate measurement without exposing user state.
+  - 7-tap / challenge-gate events stay local; never logged with timestamps (CHK-security-004 — no behavioral fingerprint).
+- **Privacy classification**:
+  - **No new PII** introduced by spec 010. Setup-check results are categorical (`Ok` / `NotConfigured(reason)`) and never include user identifiers.
+  - `LocalLinkRevocationStore` stores only `linkId` (pseudonym from spec 7 — already classified there).
+  - Call-confirmation dialog renders contact name + phone formatted in-RAM only; never persisted by spec 010 code (data sourced live from `/config/current.contacts[]`).
+- **Decision**: 🟡 in implementation. Pre-merge gates:
+  - T108 APK delta ≤ +500 KB.
+  - T107 macrobenchmark cold-start ≤ 1 sec p95.
+  - T106 OEM matrix smoke (Samsung One UI / Xiaomi MIUI / Pixel) — verify FR-020b exception path on Xiaomi.
+  - All 13 checklists re-run clean at `/speckit.analyze` Phase 8.
