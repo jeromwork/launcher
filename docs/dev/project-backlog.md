@@ -486,6 +486,26 @@ These are tracked here (not in spec 008's `tasks.md`) because they require eithe
 Tasks from spec 010 implementation that need an emulator or device to verify.
 Code in main is complete; these only need *running* against a build.
 
+### TODO-SPEC010-PHYS-001: Full physical-device QA pass перед публичным релизом 🔴 PHYSICAL DEVICE
+
+- **What**: Прогнать спек 010 на **реальном устройстве** (минимум Pixel 4a-class + один Samsung + один Xiaomi). Это umbrella-задача — конкретные сценарии описаны в [smoke-checkpoint.md](../../specs/010-setup-assistant/smoke-checkpoint.md), [perf-checkpoint.md](../../specs/010-setup-assistant/perf-checkpoint.md), [senior-safe-walkthrough.md](../../specs/010-setup-assistant/senior-safe-walkthrough.md).
+- **Why**: Phase 8 спека 010 закрыт code-complete, но 6+ smoke-задач (T052/T053/T065/T093/T102/T106) + macrobenchmark SC-002 (T107) + APK delta SC-009 (T108) + senior-safe walkthrough (T105) **deferred** из-за отсутствия физических устройств. Эмулятор покрывает не всё: 2-tap call UX, TalkBack focus order, OEM-specific battery quirks (Xiaomi `SecurityException`), real cold-start timing, физический haptic feedback при 7-tap — всё это observable только на реальном железе.
+- **Checklist** (когда появится устройство):
+  - [ ] T052/T053 — wizard end-to-end Android 13+ + GMS-less fallback (см. TODO-SPEC010-EMU-002/003)
+  - [ ] T064/T065 — call 2-tap UX + TalkBack CANCEL-first (см. TODO-SPEC010-EMU-004/005)
+  - [ ] T079/T080 — fresh install `!N≥2` + grants → `N=0` (см. TODO-SPEC010-EMU-006)
+  - [ ] T093 — unlink offline → reconnect → Firestore revoke ≤ 60 sec (см. TODO-SPEC010-EMU-007)
+  - [ ] T102 — TalkBack 7-tap → challenge walkthrough (см. TODO-SPEC010-EMU-008)
+  - [ ] T106 — OEM matrix Samsung/Xiaomi/Pixel (см. TODO-SPEC010-DEV-001)
+  - [ ] T107 — macrobenchmark SC-002 cold-start ≤ 1 sec p95 на Pixel 4a (см. TODO-SPEC010-EMU-009)
+  - [ ] T108 — APK delta SC-009 release build ≤ +500 KB vs спек 9
+  - [ ] T105 — senior-safe walkthrough на 5 elder users (см. TODO-SPEC010-DEV-002)
+  - [ ] Update [smoke-checkpoint.md](../../specs/010-setup-assistant/smoke-checkpoint.md) — заменить inline-TODO `physical-device:*` на actual smoke log entries с device model + Android version + дата.
+  - [ ] Update [perf-checkpoint.md](../../specs/010-setup-assistant/perf-checkpoint.md) — записать измеренные p95 cold-start + APK delta.
+- **When**: До first public release. Pre-Play-Store gate.
+- **Status**: 🔴 OPEN
+- **Origin**: спек 010 Phase 8, post-impl analyze 2026-05-20 (`/speckit.analyze` deferred items), memory `reference_testing_environment.md`.
+
 ### TODO-SPEC010-EMU-001: Wizard manual smoke на Android 8.0 emulator (T051) 🟡
 
 - **What**: Запустить `assembleMockBackendDebug` APK на Android 8.0 (API 26) AVD, пройти wizard, проверить legacy ROLE_HOME chooser opens correctly per FR-007 / plan §11 C-6 fallback.
