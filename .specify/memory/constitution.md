@@ -519,6 +519,22 @@ Forking the codebase per form factor is prohibited. A new form factor that canno
 
 The choice of **delivery channel** for downloadable modules (Play Feature Delivery, in-app sideload, own server, split APK) is a one-way door per [`CLAUDE.md`](../../CLAUDE.md) rule 3 and MUST be decided in an ADR with an explicit exit ramp before the first non-handheld form factor ships.
 
+### 7. Backend Substitution Readiness
+
+The project currently relies on third-party backend services (Firebase Auth, Firestore, Cloud Storage, Cloudflare Worker, etc.). The standing intent is that any non-platform backend dependency will eventually be replaced by an own-server implementation that the team fully controls. This is an **intent**, not a planned migration spec — no timeline, no triggering feature, no committed scope. Its purpose is to keep every design conversation honest about how hard a future provider swap would be.
+
+To support this, every new feature that touches a backend MUST be designed so that:
+
+1. The application code (domain, UI, feature modules) talks to the backend **only through domain-owned ports**. Vendor types (`FirebaseFirestore`, `DocumentReference`, `QuerySnapshot`, `FirebaseUser`, `StorageReference`, etc.) MUST NOT appear in any signature outside the dedicated adapter module (CLAUDE.md rules 1–2).
+2. The **wire format** stored remotely is a domain-owned, schema-versioned data class. Provider-specific shapes (Firestore `Timestamp`, `FieldValue.serverTimestamp()`, document-reference paths, security-rules-shaped field names) live in the adapter, not in the persisted domain model.
+3. **Identity** in the domain is a project-owned value (e.g., `UserId`). Provider-specific identifiers (Firebase UID, Google account ID) are stored as credentials inside the auth adapter, not as the domain primary key.
+
+**Exempt from this rule** — platform integrations that have no realistic substitute and remain provider-specific by design: push notifications (FCM on Android, APNs on iOS), SMS, telephony, biometrics, location, contacts, and other OS-mediated services. These are still wrapped in ports (CLAUDE.md rule 2) but are not part of the "substitutable backend" perimeter.
+
+**Not exempt** — anything we choose to put on a third-party backend for convenience: Firebase Auth, Firestore, Realtime Database, Cloud Storage, Cloud Functions, Crashlytics, Analytics, Remote Config. All MUST be approached as substitutable, with the seams placed up front.
+
+The intent of an eventual server swap MUST surface in design discussions whenever a feature crosses the backend boundary. The `checklist-backend-substitution` skill enforces this surfacing.
+
 ---
 
 ## Quality Bar for “World-Class Team” AI Output
