@@ -202,6 +202,10 @@ Additional defaults:
    - migration logic,
    - example profiles,
    - tests.
+8. A profile MUST explicitly declare its module dependencies through two fields in its schema:
+   - `requiredModules`: modules without which the profile cannot be activated; the runtime MUST refuse activation and surface a clear reason if any are absent.
+   - `optionalModules`: modules that enhance the profile but whose absence MUST degrade gracefully without breaking the base application or any active launcher-mode surface.
+   The profile schema MUST treat these fields as part of the wire format (versioned, validated, backward-compatible per Article VII §3). End-user-facing prompts about module installation are not required: the project's primary persona (elderly user) does not configure devices — module acquisition is performed by an administrator/caregiver on the user's behalf, so the installation UX MAY be admin-facing only.
 
 ---
 
@@ -501,6 +505,19 @@ Optional or downloadable components must fail gracefully when absent. The base a
 ### 5. Accessibility Presets
 
 Accessibility-related presets are treated as product features backed by configuration, validation, and acceptance tests—not as ad hoc UI overrides.
+
+### 6. Form-Factor Variants
+
+The application targets multiple form factors over time (handheld Android, Android TV, voice-first devices, automotive, wearables, foldables). Each non-handheld form factor MUST be delivered as a combination of:
+
+1. **A profile** (data, per §3) that wires the appropriate UX, navigation model, and input affordances.
+2. **One or more optional/downloadable feature modules** (per §4 and Article V) holding form-factor-specific code, SDKs, and platform integrations (Leanback, TIF, Android Auto, Wear, Assistant SDK, etc.).
+
+The base application code (Core, shared domain, common UI primitives) MUST remain form-factor-agnostic. Form-factor-specific vendor SDKs MUST NOT be added to Core or to handheld feature modules — they live exclusively in their form-factor adapter module (Anti-Corruption Layer per [`CLAUDE.md`](../../CLAUDE.md) rule 2).
+
+Forking the codebase per form factor is prohibited. A new form factor that cannot be expressed as profile + downloadable modules indicates a missing abstraction in Core and MUST be raised as an architectural concern before implementation.
+
+The choice of **delivery channel** for downloadable modules (Play Feature Delivery, in-app sideload, own server, split APK) is a one-way door per [`CLAUDE.md`](../../CLAUDE.md) rule 3 and MUST be decided in an ADR with an explicit exit ramp before the first non-handheld form factor ships.
 
 ---
 

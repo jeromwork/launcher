@@ -36,6 +36,7 @@ Read the spec. Match its content against this table. **Recommend a checklist if 
 | `checklist-elderly-friendly` | mentions elderly, senior, large text, simplified, cognitive load, Article VIII, senior-safe |
 | `checklist-localization` | mentions string, locale, translation, i18n, RTL, plural, format, ADR-004 |
 | `checklist-core-quality` | mentions release, store, Play, distribution, signing, baseline-profile, R8 |
+| `checklist-modular-delivery` | **any new feature, module, preset, or profile** — also fires on form-factor mentions (Android TV, TV, leanback, smart speaker, voice assistant, Assistant SDK, Android Auto, automotive, Wear, watch, foldable, tablet) and on form-factor-specific SDKs (Leanback, TIF, Tizen, CarAppService, Wear Compose). Err toward firing: this is the gate that catches one-way doors and core-bloat before they ship. |
 
 ---
 
