@@ -665,6 +665,46 @@ Code in main is complete; these only need *running* against a build.
 - **Status**: 🟢 OPEN
 - **Origin**: spec 010 clarify session 2026-05-19 — изначально US-8 (tutorial overlay для бабушки про 7-tap), решено вынести в отдельный спек с большим scope.
 
+### TODO-FUTURE-SPEC-007: symmetric-pairing-bidirectional-control (двусторонний pairing) 🟢
+
+- **What**: После `consent.allow` оба устройства пары получают возможность стать управляющими по взаимному согласию. Сейчас (спеки 7-9 + 011) модель строго односторонняя admin→Managed.
+- **Why**: В discussion-сессии спека 011 (2026-05-21) пользователь зафиксировал видение «все телефоны равноценны, любой может управлять любым после pairing'а». В 011 это вынесено отдельным спеком (см. spec 011 §Clarifications C-1), потому что требует изменения Security Rules + UX consent flow + расширения pairing semantics — затрагивает 3 уже смерженных спека.
+- **How**: Firestore Security Rules расширяются на симметричный case; UI «разреши мне видеть твою раскладку»; crypto-инфраструктура из 011 (per-device key pairs, `RecipientResolver`) уже поддерживает — менять её не нужно.
+- **When**: После production-стабилизации 011. Не ранее реальных user requests на двустороннее управление.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 011 mentor discussion 2026-05-21.
+- **Roadmap entry**: [Spec 015](../product/roadmap.md#spec-015--symmetric-pairing-bidirectional-control).
+
+### TODO-FUTURE-SPEC-008: family-group-shared-encryption (групповые ключи в стиле WhatsApp) 🟢
+
+- **What**: Понятие «семейная группа» — N≥3 устройств с общим членством. Любое зашифрованное медиа в группе грузится один раз; envelope содержит `recipients` для всех N членов. Управление членством через приглашения от существующих членов; key rotation при выходе участника.
+- **Why**: В discussion-сессии 011 пользователь чётко высказал: «доверенное устройство = семья, не пара». В 011 это вынесено отдельным спеком, но crypto-инфраструктура 011 уже membership-agnostic (envelope `recipients` — массив произвольной длины, see [spec 011 C-2](../../specs/011-contacts-and-e2e-encrypted-media/spec.md)). Этот спек добавляет `GroupRecipientResolver` (вторая реализация интерфейса из 011), management UX и Firestore схему групп.
+- **How**: Новый Firestore namespace `/groups/{groupId}/`. Group key — общий симметричный, обновляется при выходе участника. Crypto-протокол шифрования blob'ов остаётся прежним из 011 (только меняется содержимое `recipients`).
+- **When**: После production-стабилизации 011 и появления реального user request на семейный pooling.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 011 mentor discussion 2026-05-21.
+- **Roadmap entry**: [Spec 016](../product/roadmap.md#spec-016--family-group-shared-encryption).
+
+### TODO-FUTURE-SPEC-009: multi-device-recovery (восстановление при потере телефона + multi-device для одного владельца) 🟢
+
+- **What**: Понятие `ownerId` — несколько физических устройств одного владельца имеют общий identity. При шифровке envelope содержит `recipients` для **всех** устройств владельца. При потере одного устройства — re-pairing нового устройства, добавление в `ownerId`; старые медиа доступны через оставшиеся устройства.
+- **Why**: В 011 при потере одного из устройств пары без revoke медиа становятся недоступны (зашифрованы только для потерянного устройства). Это accepted trade-off для 011 — настоящий e2e. Этот спек закрывает кейс «у одного человека телефон+планшет», а также «бабушка получила новый телефон — внук вернул её конфиг».
+- **How**: `MyDevicesRecipientResolver` (третья реализация интерфейса из 011). Optional Android Backup Service для owner-key (восстанавливаемый при re-installation). Альтернатива — Shamir secret sharing across trusted contacts.
+- **When**: После 011, по приоритету выше чем ~016 если user feedback покажет частое «потерял телефон».
+- **Status**: 🟢 OPEN
+- **Origin**: spec 011 mentor discussion 2026-05-21.
+- **Roadmap entry**: [Spec 017](../product/roadmap.md#spec-017--multi-device-recovery).
+
+### TODO-FUTURE-SPEC-010: key-rotation-forward-secrecy (защита от компрометации устройств) 🟢
+
+- **What**: Периодическое обновление ключей пары/группы; forward secrecy для новых сообщений; manual key rotation при подозрении на компрометацию устройства.
+- **Why**: В discussion 011 пользователь поднял вопрос «компрометация одного устройства = компрометация всей цепи». В 011 принята модель single-key per device без rotation — accepted trade-off. Этот спек добавляет periodic rotation и forward secrecy (ratchet-style schemes, например Signal's Double Ratchet или X3DH).
+- **How**: envelope `cipherSuiteId` (из 011) уже допускает версионирование. Новые blob'ы шифруются новыми ключами; старые остаются доступны через deprecated ключи (не удаляются сразу). Полный ratchet — серьёзная сложность, стартовая модель — periodic rotation без ratchet.
+- **When**: После 011 + 016 (групповая ротация требует group-aware rotation).
+- **Status**: 🟢 OPEN
+- **Origin**: spec 011 mentor discussion 2026-05-21.
+- **Roadmap entry**: [Spec 018](../product/roadmap.md#spec-018--key-rotation-forward-secrecy).
+
 ---
 
 ## Legal & Compliance
