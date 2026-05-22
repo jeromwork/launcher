@@ -1,0 +1,39 @@
+// Firebase Storage Security Rules — spec 011 (e2e-crypto-foundation).
+// Контракт: specs/011-contacts-and-e2e-encrypted-media/contracts/encrypted-media-storage.md
+// Tests: specs/011-.../contracts/encrypted-media-storage.md §Tests + tasks.md T071.
+//
+// Защита: только members пары (admin + managed) могут read/write/delete blobs
+// под `/links/{linkId}/private-media/{uuid}`. 500 KB size cap per FR-082.
+// Blobs immutable после create (no update).
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Encrypted blobs (spec 011 — only smoke synthetic blobs; real photos в спеке 012).
+    match /links/{linkId}/private-media/{uuid} {
+      function isLinkMember() {
+        let link = firestore.get(/databases/(default)/documents/links/$(linkId));
+        return request.auth != null && (
+          link.data.adminId == request.auth.uid ||
+          link.data.managedDeviceFirebaseUid == request.auth.uid
+        );
+      }
+
+      function isUnderSizeCap() {
+        return request.resource.size < 500 * 1024; // 500 KB cap
+      }
+
+      allow read:   if isLinkMember();
+      allow create: if isLinkMember() && isUnderSizeCap();
+      allow update: if false; // blobs are immutable after create
+      allow delete: if isLinkMember();
+    }
+
+    // Catch-all: deny everything else (defense-in-depth).
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

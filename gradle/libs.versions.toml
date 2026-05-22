@@ -67,6 +67,16 @@ zxingCore = "3.5.3"
 # GMS to show the senior-safe hard-block screen.
 playServicesBase = "18.5.0"
 
+# Crypto stack (spec 011 — e2e-crypto-foundation).
+# Lazysodium-android = JNI binding над libsodium. Поставляет .so под 4 ABI.
+# Все crypto operations (AEAD/X25519/Ed25519/BLAKE2b) идут через эту библиотеку.
+lazysodium = "5.1.0"
+# JNA = native bridge для Lazysodium (runtime dependency, aar variant for Android).
+jna = "5.13.0"
+# EncryptedSharedPreferences — для хранения AES-wrapped X25519/Ed25519 priv bytes
+# (Android Keystore не поддерживает X25519 нативно; wrap-strategy per research.md §3, §2b).
+androidxSecurityCrypto = "1.1.0-alpha06"
+
 [libraries]
 # Existing
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -86,6 +96,9 @@ kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
+# CBOR — для EncryptedEnvelope wire format (spec 011, contracts/crypto-envelope.md).
+# Binary-friendly, no base64 overhead, deterministic encoding (важно для Ed25519 signature над canonical payload).
+kotlinx-serialization-cbor = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-cbor", version.ref = "serialization" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
@@ -141,6 +154,22 @@ zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxingCo
 # Belongs in androidMain (both flavors) so the wizard can detect missing GMS
 # in mockBackend builds too.
 google-play-services-base = { group = "com.google.android.gms", name = "play-services-base", version.ref = "playServicesBase" }
+
+# --- Crypto stack (spec 011) -------------------------------------------------
+
+# Lazysodium-android: libsodium JNI binding. Provides:
+# AEAD (XChaCha20-Poly1305), X25519 + crypto_box_seal (hybrid encryption),
+# Ed25519 (signing), BLAKE2b (hashing). Single vendor for all 4 primitives.
+lazysodium-android = { group = "com.goterl", name = "lazysodium-android", version.ref = "lazysodium" }
+# JNA = transitive native bridge; aar variant needed for Android resources packaging.
+jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }
+# EncryptedSharedPreferences — для хранения AES-wrapped X25519 priv (Android Keystore
+# не поддерживает X25519 нативно; AES key в Keystore оборачивает X25519 priv bytes,
+# wrapped bytes хранятся в EncryptedSharedPreferences). Per research.md §3, quickstart.md §6.
+androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "androidxSecurityCrypto" }
+
+# Firebase Storage — для encrypted blob persistence (spec 011 EncryptedMediaStorage adapter).
+firebase-storage-ktx = { group = "com.google.firebase", name = "firebase-storage-ktx" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

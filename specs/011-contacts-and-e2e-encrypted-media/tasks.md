@@ -36,7 +36,7 @@
 ### T002 [P] Wire Lazysodium-android + JNA + kotlinx-serialization-cbor dependencies
 - **Traces to**: plan.md §Dependency Impact, quickstart.md §1, FR-001..009, FR-010..014, FR-020..025.
 - **File(s)**: `gradle/libs.versions.toml`, `core/build.gradle.kts`.
-- **Action**: добавить `lazysodium-android:5.1.4` + `jna:5.13.0` в androidMain; `kotlinx-serialization-cbor` в commonMain.
+- **Action**: добавить `lazysodium-android:5.1.0` + `jna:5.13.0` в androidMain; `kotlinx-serialization-cbor` в commonMain.
 - **Acceptance**: `./gradlew :core:compileDebugKotlinAndroid` green; APK contains .so под 4 ABI; CBOR serializer accessible.
 
 ### T003 [P] Configure ABI splits for release build

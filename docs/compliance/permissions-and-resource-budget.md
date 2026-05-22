@@ -78,7 +78,7 @@ Cross-checked against shipped manifests:
 - **Permissions actually declared in shipped manifests**:
   - `ACCESS_NETWORK_STATE` (normal, auto-granted) — inherited from spec 006, в `app/src/main/AndroidManifest.xml`.
   - `INTERNET` (normal, auto-granted) — **realBackend flavor only**, в `app/src/realBackend/AndroidManifest.xml`. `mockBackend` flavor работает offline — никаких сетевых походов.
-  - **НЕ добавлены и НЕ требовались**: `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (per C7), `READ_CONTACTS` (это спек 011), `SEND_SMS`, `CALL_PHONE` (это спеки 012/013), `QUERY_ALL_PACKAGES` (запрещено Play policy).
+  - **НЕ добавлены и НЕ требовались**: `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (per C7), `READ_CONTACTS` (declared в спеке 009 для Picker; крипто-фундамент спека 011 не trigger'ит; реальное наполнение фото — спек 012), `SEND_SMS`, `CALL_PHONE` (это спеки 017/018 после перенумерации 2026-05-22), `QUERY_ALL_PACKAGES` (запрещено Play policy).
 - **Permissions originally planned but NOT shipped in 007** (moved):
   - `POST_NOTIFICATIONS` (runtime, Android 13+) — **не нужно**, FCM SDK 23.x в Firebase BoM 33 не требует declared `POST_NOTIFICATIONS` для silent (data-only) push (per FR-016). Будет добавлено в спек 008 если появятся notification-tray уведомления.
   - `CAMERA` (runtime, dangerous) — **deferred to spec 008**: admin QR scanner (T089) не реализован в 007 (Managed-side UI only — `QrDisplayScreen` показывает QR, не сканирует). Manual token entry — fallback на стороне admin вне scope 007.
@@ -134,8 +134,8 @@ Cross-checked against shipped manifests:
   - `ACCESS_NETWORK_STATE` теперь активно используется через `ConnectivityManager.NetworkCallback` (FR-022 T2) — не только GMS detection как в 007.
   - `INTERNET` — Firestore writes /config/current, Worker push, FCM receive (все inherited).
 - **Permissions NOT added** (deferred to future specs):
-  - `READ_CONTACTS` — spec 011 (contacts + e2e media).
-  - `READ_PHONE_STATE`, `CALL_PHONE`, `SEND_SMS` — specs 012/013.
+  - `READ_CONTACTS` — declared в спеке 009 (Picker); real-use наполнение фото — спек 012 (uses crypto foundation спека 011).
+  - `READ_PHONE_STATE`, `CALL_PHONE`, `SEND_SMS` — specs 017/018 (после перенумерации 2026-05-22).
 - **Why each shipped permission is needed** (no change from 007):
   - `INTERNET` — Firestore /config writes + reads, FCM, Worker push trigger.
   - `ACCESS_NETWORK_STATE` — ConnectivityManager events для FR-022 T2 (T3 WorkManager fallback при отсутствии).
@@ -221,7 +221,7 @@ Cross-checked against shipped manifests:
 - **Role declared (not a permission)**: `RoleManager.ROLE_HOME` — request flow on Android 10+ via `createRequestRoleIntent(ROLE_HOME)` (FR-007); on Android 8-9 (API 26-28) legacy fallback via `Intent.CATEGORY_HOME` chooser (plan §11 C-6 — inline TODO TODO-PLATFORM-001 for API ≥ 29 cleanup once minSdk bumps).
 - **Why each new permission is needed / fallback if denied**:
   - `CALL_PHONE` — enables `Intent(ACTION_CALL, ...)` for one-tap dialing per FR-012. Fallback (denied / not granted yet): `Intent(ACTION_DIAL, ...)` keeps the dialer-confirmation two-tap path of spec 005 — no broken feature, only one extra tap.
-  - `POST_NOTIFICATIONS` — needed for system tray notifications (deferred to spec 011+). Fallback (denied / API < 33): zero impact in spec 010 — Settings shows `?M` recommended badge; nothing in spec 010 actively posts notifications.
+  - `POST_NOTIFICATIONS` — needed for system tray notifications. **После перенумерации 2026-05-22**: deferred to spec 017 (balance-check) или 018 (offline-detection). Спек 011 (e2e-crypto-foundation) **не** активирует POST_NOTIFICATIONS — никаких system-tray notifications в крипто-фундаменте. Fallback (denied / API < 33): zero impact in spec 010 — Settings shows `?M` recommended badge.
 - **Background/runtime impact**:
   - **`UnlinkCleanupWorker`** (FR-032a) — new one-time `WorkManager` request with `NetworkType.CONNECTED` constraint, enqueued only on user-confirmed unlink. ≤ 1 wakeup per unlink action; idempotent retry on failure via exponential backoff. **Zero polling, zero periodic scheduling.**
   - 7-tap detector — pure-UI gesture; no background.

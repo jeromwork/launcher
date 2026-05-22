@@ -53,6 +53,22 @@ android {
             isIncludeAndroidResources = true
         }
     }
+
+    // Spec 011 — ABI splits для release builds.
+    // Lazysodium-android поставляет нативный .so файл под 4 ABI.
+    // Без splits release APK потяжелеет на ~1.0-1.2 MiB (все ABIs упакованы).
+    // Со splits — каждый пользователь Play Store скачивает только свой ABI
+    // (~300 KiB delta per device).
+    // Debug builds: splits **отключены** (универсальный APK для удобства dev/CI).
+    // Per spec 011 plan.md §APK delta budget, Risk R3, quickstart.md §2.
+    splits {
+        abi {
+            isEnable = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            isUniversalApk = false
+        }
+    }
 }
 
 dependencies {

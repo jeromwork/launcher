@@ -15,7 +15,7 @@ Edit `gradle/libs.versions.toml`:
 
 ```toml
 [versions]
-lazysodium = "5.1.4"  # verify latest stable at Maven Central before Phase 0 commit
+lazysodium = "5.1.0"  # verify latest stable at Maven Central before Phase 0 commit
 jna = "5.13.0"
 
 [libraries]

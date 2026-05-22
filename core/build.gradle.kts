@@ -46,6 +46,11 @@ kotlin {
             // SQLDelight — KMP local persistence для spec 008 LocalConfigStore.
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines.extensions)
+
+            // Spec 011 — CBOR для EncryptedEnvelope wire format.
+            // Binary-friendly, no base64 overhead, deterministic encoding
+            // (важно для Ed25519 signature над canonical payload в DeviceIdentity).
+            implementation(libs.kotlinx.serialization.cbor)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -67,6 +72,16 @@ kotlin {
             // (FR-042..FR-044 hard-block on missing GMS). Tiny module (~100 KB),
             // safe in both backend flavors.
             implementation(libs.google.play.services.base)
+
+            // --- Spec 011 crypto stack (androidMain — vendor types confined here per CLAUDE.md rule 1)
+            // Lazysodium-android = libsodium JNI binding (XChaCha20-Poly1305 + X25519 +
+            // crypto_box_seal + Ed25519 + BLAKE2b). Per research.md §1, §2, §2b, §2c.
+            implementation(libs.lazysodium.android)
+            // JNA aar — see flavor-agnostic dependencies block below
+            // (KMP source-set DSL does not support artifact{} closure).
+            // EncryptedSharedPreferences — для хранения AES-wrapped X25519 priv bytes
+            // (Android Keystore не поддерживает X25519 нативно).
+            implementation(libs.androidx.security.crypto)
         }
         getByName("androidUnitTest").dependencies {
             implementation(libs.kotlinx.coroutines.test)
@@ -125,6 +140,7 @@ android {
 }
 
 // Spec 007 realBackend-only deps (FR-034): Firebase Auth, Firestore, FCM.
+// Spec 011 (FR-030..033) adds Firebase Storage to realBackend.
 // mockBackend stays Firebase-free so the APK builds without google-services.json.
 // Wired via Android's flavor-specific configuration name (not KMP source set
 // DSL, which can't address the bare flavor-only Kotlin source set in current
@@ -134,6 +150,28 @@ dependencies {
     "realBackendImplementation"(libs.firebase.firestore.ktx)
     "realBackendImplementation"(libs.firebase.auth.ktx)
     "realBackendImplementation"(libs.firebase.messaging.ktx)
+    // Spec 011 — encrypted blob persistence для EncryptedMediaStorage adapter.
+    "realBackendImplementation"(libs.firebase.storage.ktx)
+
+    // Spec 011 — Lazysodium pulls JNA как transitive JAR; Android requires aar variant
+    // (содержит правильно упакованные .so под ABI). JAR variant создаёт duplicate
+    // class conflict с aar в Android dex'инге. Решение: explicit aar dependency.
+    // Wired через 'androidMainImplementation' Android-flavor-agnostic configuration.
+    "androidMainImplementation"(variantOf(libs.jna) { artifactType("aar") })
+}
+
+// Spec 011 — exclude transitive JAR variant of JNA pulled in by lazysodium-android.
+// Без этого Android packaging падает на `Duplicate class com.sun.jna.*`.
+// AAR variant остаётся (см. dependencies block выше).
+configurations.matching {
+    it.name.startsWith("androidMain") ||
+    it.name.startsWith("realBackend") ||
+    it.name.startsWith("mockBackend") ||
+    it.name == "implementation" ||
+    it.name == "androidDebugImplementation" ||
+    it.name == "androidReleaseImplementation"
+}.configureEach {
+    exclude(group = "net.java.dev.jna", module = "jna")
 }
 
 // Spec 008 — SQLDelight schema setup.
