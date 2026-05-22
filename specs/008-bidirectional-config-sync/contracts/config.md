@@ -48,7 +48,7 @@
 | `id` | `String` (UUIDv4) | ✓ | client-generated; FR-004 |
 | `displayName` | `String` | ✓ | user-shown name |
 | `phoneNumber` | `String` | ✓ | E.164 or as-typed |
-| `photoRef` | `String?` | ✗ | reserved for spec 011 e2e-media (`private:<uuid>` namespace) |
+| `photoRef` | `String?` | ✗ | reserved — namespace `private:<uuid>` introduced by spec 011 (crypto foundation); filled by spec 012 (contact photos) |
 
 ---
 

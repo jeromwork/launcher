@@ -1,25 +1,86 @@
-# Feature Specification: Contacts Photos and End-to-End Encrypted Private Media
+# Feature Specification: End-to-End Crypto Foundation
 
-**Feature Branch**: `011-contacts-and-e2e-encrypted-media`
+**Feature Branch**: `011-contacts-and-e2e-encrypted-media` *(имя ветки сохранено; артефакт переименован 2026-05-22)*
 **Created**: 2026-05-21
-**Status**: Draft (rev. 2 — mentor clarification 2026-05-21)
-**Input**: roadmap §Spec 011 ([docs/product/roadmap.md:264](../../docs/product/roadmap.md#L264)) — хранение приватных медиа (фотографий контактов и других семейных фото) с end-to-end шифрованием, проброс выбранных контактов с устройства admin в `/config` для раскладки Managed; намеренно отделено от спека 009, где фотография контакта осознанно зафиксирована как `photoRef = null`.
+**Status**: Draft (rev. 3 — mentor scope-split 2026-05-22 — visible feature вынесена в спек 012)
+**Input**: roadmap §Spec 011 ([docs/product/roadmap.md:264](../../docs/product/roadmap.md#L264)) — **универсальный криптографический фундамент проекта**: per-device asymmetric keys, encryption (AEAD), signing (Ed25519), hashing (BLAKE2b), membership-agnostic envelope для at-rest blob'ов, Pub-key publication, Storage adapter, reference counting + cleanup. **Без visible feature** — используется будущими спеками 012-016 (фото, двусторонние пары, группы, multi-device, key rotation), а также будущими интеграциями Jitsi room access, vendor (клиники, центры поддержки), hardware (медицинские/охранные датчики).
 
 ---
 
 ## Контекст и цель спека
 
-Спек 006 (`provider-capabilities-and-health`) ввёл порт `IconStorage.resolve(iconId: String)` и namespace-конвенцию `<namespace>:<name>` для идентификаторов иконок ([icon-id-namespace.md:48](../006-provider-capabilities-and-health/contracts/icon-id-namespace.md#L48)). Namespace `private:` зарезервирован за этим спеком с разрешением `EncryptedMediaStorage` как future implementation. До 011 никаких приватных байт нигде не хранится — порт умеет реагировать на `private:<uuid>` (возвращает `Placeholder`), но реальный резолвер отсутствует.
+### Что это и зачем
 
-Спек 007 (`pairing-and-firebase-channel`) установил парный канал admin↔Managed через QR + Firestore. Pairing-wire-format заранее предусмотрел future-additive поле для общего секрета: «если spec 011 (private media) добавит `pairingKey` для e2e — добавляем поле как опциональное, schemaVersion остаётся 1 (additive)» ([pairing-token.md:79](../007-pairing-and-firebase-channel/contracts/pairing-token.md#L79)). На момент 011 у пары есть Firestore-канал и FCM-пуш, но **общего криптоключа между парой устройств у пары нет** — это вводит спек 011.
+Спек 011 — это **универсальный криптографический фундамент проекта**. Без него ни одна будущая фича, требующая шифрования, не может быть построена. С ним — все они строятся **на одной и той же инфраструктуре**, без миграции данных при добавлении новых моделей доверия.
 
-Спек 008 (`bidirectional-config-sync`) ввёл `Contact` с явно nullable полем `val photoRef: String? = null, // reserved for spec 011 (private:<uuid>)` ([data-model.md:64](../008-bidirectional-config-sync/data-model.md#L64)) и зарезервировал в `PartialReason` enum значение `media_decrypt_failed — spec 011 e2e media couldn't be decrypted (future)` ([state-applied.md:65](../008-bidirectional-config-sync/contracts/state-applied.md#L65)). Спек 008 пушит контакты целиком в `/config`, чтобы Managed не нуждался в `READ_CONTACTS` — но фотография у контакта в 008 всегда `null`.
+**Спек 011 НЕ имеет visible feature** — никаких фотографий на плитках, никаких UI-изменений, никаких Contacts Picker'ов. Видимый продукт первым выдаст **спек 012** (фото контактов и личных документов) — он будет **первым клиентом** этого фундамента.
 
-Спек 009 (`admin-mode-flows`) реализовал Contacts Picker и VCard share-intent у admin, и тоже зафиксировал фотографию как `photoRef = null (фото — spec 011)` ([спека 009 spec.md:218](../009-admin-mode-flows/spec.md#L218)). К моменту 011 admin уже умеет выбирать контакты и пушить их в `/config`, но **без фотографии**.
+### Контекст переноса (2026-05-22)
 
-Спек 011 закрывает эту дыру: даёт паре устройств **общий криптоключ при pairing**, реализует `EncryptedMediaStorage` под уже существующий порт `IconStorage`, подключает фото контактов от admin'a к раскладке Managed, и открывает namespace `private:` для других приватных медиа (фото бабушки, фото личных документов). При этом ни Google (Firebase Storage), ни сетевой посредник не видят содержимое — только зашифрованные байты.
+Изначально спек 011 объединял «крипто-машину» (фундамент) и «фото контактов» (visible feature). В mentor-сессии решено разрезать на два спека:
 
-**Архитектурная роль спека:** «крипто-фундамент» — впервые в проекте каждое устройство имеет свою публично-приватную пару ключей и умеет шифровать данные для произвольного списка получателей. После 011 любые приватные данные могут переехать через тот же канал — от групповых ключей семьи до multi-device recovery. Это **one-way door** (rule 3 CLAUDE.md), но дверь спроектирована так, что её **архитектурная часть** (envelope format, hybrid encryption, per-device keys) выдержит смену модели доверия без миграции blob'ов. Меняться может «как ключи распространяются», не «как зашифровано». Exit ramp — см. §Архитектурные one-way doors.
+- **011 = только фундамент** — этот документ. Domain types, ports, real-adapters, fake-adapters, envelope wire-format, pairing extension (Pub-key publication), Storage adapter, reference counting, cleanup, automated e2e smoke-тест на синтетическом blob'е.
+- **012 = первый клиент** — фото контактов + личных документов. UI, Contacts Picker integration, PrivateMediaResolver (IconStorage namespace dispatch для `private:`). Использует ВСЁ из 011, ничего своего не добавляет в крипто-слой.
+
+Почему разрезано:
+1. **Размер** — оба спека вместе = 73+ task'а в 12 фазах = ~7 недель в одной ветке. Нарушает CLAUDE.md §Branching «one feature = one branch = one PR».
+2. **Универсальность** — фундамент используется **не только для фото**. Будущие клиенты: модели доверия (013-016), Jitsi room access, vendor integrations, hardware integrations, аудио/видеосообщения «как WhatsApp voice». Привязка фундамента к одному visible feature — переинженеринг наоборот.
+3. **Чистота тестов** — фундамент тестируется на синтетических blob'ах через Storage Emulator + manual smoke на двух устройствах с тестовыми байтами. UX-тесты — в 012, отдельно.
+
+### Зависимости от прошлых спеков (уже заложенные крючки)
+
+Спек 006 (`provider-capabilities-and-health`) ввёл порт `IconStorage.resolve(iconId: String)` и namespace-конвенцию `<namespace>:<name>` ([icon-id-namespace.md:48](../006-provider-capabilities-and-health/contracts/icon-id-namespace.md#L48)). Namespace `private:` зарезервирован — но **в 011 он не используется**. PrivateMediaResolver появится в спеке 012. До 012 порт продолжает возвращать `Placeholder` для `private:<uuid>` (как и сейчас).
+
+Спек 007 (`pairing-and-firebase-channel`) установил парный канал admin↔Managed через QR + Firestore. Спек 011 **расширяет** post-pairing-flow additive: после `consent.allow` каждое устройство публикует свой Pub-ключ в `/links/{linkId}/devices/{deviceId}`. Pairing-token wire-format **не меняется** — поле `pairingKey` из ([pairing-token.md:79](../007-pairing-and-firebase-channel/contracts/pairing-token.md#L79)) **не используется** (обмен ключами идёт через Firestore document, а не через QR).
+
+Спек 008 (`bidirectional-config-sync`) ввёл `Contact.photoRef: String?` ([data-model.md:64](../008-bidirectional-config-sync/data-model.md#L64)) и `PartialReason.MediaDecryptFailed` ([state-applied.md:65](../008-bidirectional-config-sync/contracts/state-applied.md#L65)). В спеке 011 эти поля **остаются `null` / не эмитируются** — наполнение реальным контентом происходит в 012.
+
+Спек 009 (`admin-mode-flows`) реализовал Contacts Picker. В 011 picker **не трогается** — фото подключается в 012.
+
+### Архитектурная роль спека
+
+Впервые в проекте:
+1. Каждое устройство имеет свою публично-приватную пару X25519 ключей (encryption) и Ed25519 ключей (signing).
+2. Появляется membership-agnostic envelope format — массив `recipients` произвольной длины, в 011 длина 1, в будущих спеках N.
+3. Firebase Storage входит в проект (первый файловый storage, до 011 был только Firestore).
+4. Порты `AeadCipher`, `AsymmetricCrypto`, `SecureKeystore`, `HashFunction`, `DigitalSignature`, `RecipientResolver`, `EncryptedMediaStorage`, `DeviceIdentityRepository` становятся **универсальной криптографической ABI** проекта — любая будущая фича, требующая криптографии, дёргает их.
+
+После 011 любые приватные данные могут переехать через тот же envelope — от фото контактов до Jitsi room keys, от документов клиник до hardware attestation. Это **one-way door** (rule 3 CLAUDE.md), но дверь спроектирована так, что её **архитектурная часть** (envelope format, hybrid encryption, per-device keys) выдержит смену модели доверия без миграции blob'ов. Меняться может «как ключи распространяются», не «как зашифровано». Exit ramp — см. §Архитектурные one-way doors.
+
+### Эволюция модели доверия (всё на одном фундаменте)
+
+Главная архитектурная инвестиция 011 — **разделение слоёв «кто получатели» (membership) и «как они зашифрованы» (crypto envelope)**. Это позволяет добавлять новые модели доверия без перешифровки blob'ов:
+
+1. **011-012**: 1↔1 односторонняя пара (admin → managed). `recipients[]` длины 1.
+2. **013**: 1↔1 двусторонняя (mutual auth — двусторонние пары).
+3. **014**: 1↔N (групповые ключи, семейный круг — `recipients[]` длины N).
+4. **015**: M↔N (multi-device одного владельца, общий identity — `recipients[]` содержит все устройства владельца).
+5. **016**: key rotation поверх любого из выше (1↔1, группа, multi-device) — envelope `cipherSuiteId` + deprecated keys.
+
+Envelope формат **не меняется** при переходе между моделями. Меняется только содержимое `recipients[]` и логика `RecipientResolver`. Старые blob'ы продолжают читаться по правилам старого `schemaVersion`.
+
+### Будущие клиенты фундамента 011 (защита от scope creep)
+
+| Будущий клиент | Что использует из 011 | Что добавляет своё |
+|---|---|---|
+| spec 012 (фото) | EncryptedMediaStorage, AeadCipher, AsymmetricCrypto, RecipientResolver | UI, Contacts Picker, PrivateMediaResolver |
+| spec 013 (двусторонние пары) | DigitalSignature (mutual auth), RecipientResolver (расширение) | Bidirectional Security Rules, consent UX |
+| spec 014 (групповые ключи) | расширение RecipientResolver, EncryptedMediaStorage | Group membership management |
+| spec 015 (multi-device) | DigitalSignature (device attestation), RecipientResolver | Recovery protocol |
+| spec 016 (key rotation) | расширение envelope с deprecated keys | Periodic rotation + forward secrecy |
+| TBD-Jitsi integration | DigitalSignature (room auth), HashFunction (room key fingerprint), EncryptedMediaStorage (recorded meetings at-rest) | Olm/Megolm для realtime — **НЕ** через наш envelope |
+| TBD-Audio/Video messages (asynchronous, «как WhatsApp voice») | EncryptedMediaStorage + AeadCipher (тот же envelope, другой `metadata.kind`) | UI записи/проигрывания |
+| TBD-Vendor integration (клиники, центры поддержки) | DigitalSignature (HMAC/JWT для b2b API), HashFunction (request signing) | Vendor-specific протокол |
+| TBD-Hardware integration (медицинские датчики, охранные датчики) | DigitalSignature (attestation), HashFunction (integrity) | Hardware-specific протокол |
+
+### Что НЕ делает фундамент 011 (явный out-of-scope)
+
+- **Visible feature** — никаких фото, UI, Contacts Picker. Это спек 012.
+- **Realtime stream encryption** (SRTP/SFrame для audio/video звонков) — **никогда** не через наш envelope. Realtime media шифруется внутри Jitsi/SFrame в будущем спеке Jitsi-integration. Наш envelope покрывает только at-rest blob'ы (зашифровал → положил → потом достал → расшифровал).
+- **Post-quantum cryptography** — отдельный future спек (~020+); libsodium со временем добавит примитивы, мы обновимся через app update.
+- **X.509 PKI** — если когда-нибудь vendor потребует X.509-сертификаты, это отдельный adapter (Bouncy Castle), не наш envelope.
+- **Шифрование `/config` целиком** — там настройки, не приватные данные.
+- **Шифрование иконок провайдеров (`bundled:`, `custom:`)** — они не приватные.
 
 ---
 
@@ -95,6 +156,30 @@
 
 **Cost implication:** blob может жить дольше, чем «казалось бы» нужно — пока bookmark в history не очистится через retention-10 (спек 009 Q2=А). Это приемлемо: при retention 10 snapshot'ов и средних 30 контактах с фото на пару, верхняя оценка ~300 blob'ов на пару (≈ 60 MB при 200 KB/blob) — комфортно для Spark plan.
 
+### C-9: Scope-split на 011 (фундамент) + 012 (visible feature) (mentor 2026-05-22)
+
+**Решение:** разрезать original спек надвое.
+- **011** = только криптофундамент: порты, адаптеры, envelope wire-format, pairing extension с Pub publication, Storage adapter, reference counting, manual smoke на синтетическом blob'е. БЕЗ visible feature.
+- **012** = первый visible client: фото контактов + личных документов, UI (Contacts Picker integration, DocumentPicker, DocumentViewer), PrivateMediaResolver (IconStorage namespace dispatch), PartialReason.MediaDecryptFailed real emission.
+
+**Обоснование:**
+1. Размер — 73 task'а в одной ветке нарушал CLAUDE.md §Branching «one feature = one branch = one PR».
+2. Универсальность — фундамент используется не только для фото (см. таблицу §Будущие клиенты): спеки 013-016 модели доверия, TBD-Jitsi room access, TBD-Vendor, TBD-Hardware. Привязка к одному visible feature = переинженеринг наоборот.
+3. Roadmap перенумерация: 015→013, 016→014, 017→015, 018→016, 012(balance)→017, 013(offline)→018, 014(onboarding)→019.
+
+**Также в этой mentor-сессии:**
+- Фундамент расширен на 2 дополнительных порта: `DigitalSignature` (Ed25519) и `HashFunction` (BLAKE2b) — для anti-tamper Pub publication, future Jitsi room auth, future vendor HMAC, future hardware attestation, future blob deduplication.
+- `SRV-MEDIA-001` (Firebase Storage migration when quota exceeded) переформулирован в `SRV-CRYPTO-001` (универсальный маршрут переезда крипто-инфраструктуры на собственный backend, не привязан к Firebase лимитам).
+- Membership-agnostic envelope подтверждён как главная архитектурная инвестиция: эволюция модели доверия 1↔1 → 1↔1 mutual → 1↔N (группы) → M↔N (multi-device) → key rotation **без перешифровки blob'ов**.
+
+**Будущие спеки, перенумерованы:**
+- **013** (был 015) — symmetric-pairing-bidirectional-control.
+- **014** (был 016) — family-group-shared-encryption.
+- **015** (был 017) — multi-device-recovery.
+- **016** (был 018) — key-rotation-forward-secrecy.
+
+---
+
 ### C-8 (доп.): Архитектурный seam `RecipientResolver` — обоснованное исключение из rule 4
 
 **Решение:** вводим интерфейс `RecipientResolver { fun resolveRecipients(linkId: LinkId): List<DeviceIdentity> }` с одной реализацией `PairRecipientResolver` в 011.
@@ -105,105 +190,131 @@
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 — Фотография контакта появляется на плитке у бабушки (Priority: P1)
+**Замечание про user stories для infra-спека:** 011 — это фундамент, не visible feature. User'ом здесь выступает **разработчик** (или будущий спек 012-016, или Jitsi-интеграция), потребляющий API. Acceptance scenarios формулируются как **операции инфраструктуры**, проверяемые автотестами + одним manual smoke-тестом на двух устройствах.
 
-Admin в редакторе раскладки Managed (`спек 009 US-3`) добавляет внучку Машу через Contacts Picker. Picker отдаёт телефон Маши и **её фотографию** (Android Contacts даёт `Contact.Photo` URI). Приложение шифрует байты фото на устройстве admin'a общим ключом пары, загружает зашифрованный blob в Firebase Storage по адресу, привязанному к `linkId`, пишет ссылку в `/config.contacts[i].photoRef = "private:<uuid>"` и пушит конфиг. Через ≤ 30 сек у бабушки на плитке «Маша» — реальная фотография внучки, а не серый placeholder.
+### User Story 1 — Pairing генерирует per-device asymmetric keys и публикует Pub (Priority: P1)
 
-**Why this priority**: эта story — главная ценность спека. Без неё крипто-инфраструктура «работает на холостом ходу» без потребительского выхода. Старшие пользователи опознают близких прежде всего по лицу — это критично для UX лаунчера.
+При первом запуске приложения устройство генерирует свою пару X25519 ключей (encryption) и Ed25519 ключей (signing). Priv-ключи хранятся в Android Keystore через AES-wrap (Keystore не умеет X25519 нативно — AES-ключ генерируется в Keystore, им оборачивается X25519 priv). Pub-ключи **не публикуются**, пока устройство не запарилось — нет адресата.
 
-**Independent Test**: paired пара устройств (через 007 после обновления pairing для общего ключа), admin грантит `READ_CONTACTS`, выбирает контакт **с фотографией** через picker → создаётся `Contact { photoRef = "private:<uuid>" }` в `/config.contacts[]`, blob `<uuid>` загружен в Storage в зашифрованном виде → Managed применяет конфиг, скачивает blob, расшифровывает локально, показывает фото на соответствующей плитке. На Managed `READ_CONTACTS` НЕ нужен — фото целиком приходит через `/config` + Storage.
+При scan QR + `consent.allow` (спек 007 US-1) оба устройства публикуют свои Pub-ключи в Firestore `/links/{linkId}/devices/{deviceId}`. Подпись Pub'а через Ed25519 (anti-tamper). Пара устройств узнаёт Pub друг друга через Firestore при первом online — кеширует локально для offline use.
+
+**Why P1**: без Pub-key publication никакой `RecipientResolver` не сможет вернуть Pub получателя — фундамент бесполезен.
+
+**Independent Test**: factory-fresh устройство → запускаем приложение → `DeviceKeyPair (Pub, Priv)` X25519 и Ed25519 сгенерированы; Priv-ключи в Keystore (`launcher_device_priv_x25519_v1`, `launcher_device_priv_ed25519_v1` aliases); Pub-ключи в RAM, **не** опубликованы. Делаем pairing с другим factory-fresh устройством → после `consent.allow` оба Pub'a в `/links/{linkId}/devices/{deviceId}` с подписью Ed25519. Firestore Security Rules не дают чужому uid писать в эту коллекцию.
 
 **Acceptance Scenarios**:
 
-1. **Given** пара заpaired'ена после внедрения общего ключа (см. US-5), admin в редакторе Managed, `READ_CONTACTS` дан, **When** admin выбирает в picker контакт с непустой Android-фотографией, **Then** создаётся `Contact` с `photoRef = "private:<uuid>"`, зашифрованный blob загружается в Storage до push'а `/config`, после успеха push'а `/config` ссылается на `<uuid>`.
-2. **Given** Managed получил push о новом `/config`, **When** ConfigApplier видит `Contact.photoRef = "private:<uuid>"`, **Then** Managed скачивает blob из Storage, расшифровывает общим ключом, кеширует расшифрованные байты в свой внутренний хранилище и резолвит плитку через `IconStorage.resolve("private:<uuid>")` → `IconResolution.Drawable(bytes)`.
-3. **Given** admin выбирает контакт **без** фотографии (Android picker возвращает пустой `Contact.Photo`), **When** контакт добавляется в `/config`, **Then** `photoRef = null` (как в спеке 009 до 011); никакой шифровки/загрузки не происходит, расход трафика и Storage = 0.
-4. **Given** admin удаляет контакт из раскладки, **When** push нового `/config` без этого `Contact` уходит, **Then** связанный зашифрованный blob помечен на удаление (см. US-3 housekeeping); Managed чистит локальный кеш расшифрованного фото.
+1. **Given** factory-fresh устройство, **When** приложение запускается впервые, **Then** генерируются `(Pub_X25519, Priv_X25519)` и `(Pub_Ed25519, Priv_Ed25519)`; Priv'ы — в Keystore; Pub'ы — в memory; Firestore не трогается.
+2. **Given** два устройства завершили `consent.allow`, **When** publishOwn() вызывается, **Then** каждое пишет свой Pub в `/links/{linkId}/devices/{deviceId}/pubkey` с подписью Ed25519 над содержимым; чужой uid пишет → `PERMISSION_DENIED`.
+3. **Given** Pub другого члена пары опубликован в Firestore, **When** наше устройство фетчит peer Pub впервые, **Then** Pub скачивается, подпись Ed25519 верифицируется, Pub кешируется локально для offline use.
+4. **Given** revoke link (спек 007 FR-033), **When** recursive subtree delete отрабатывает, **Then** документы `/links/{linkId}/devices/*` удалены; локальные Priv'ы в Keystore wipe'нуты под этот linkId.
 
 ---
 
-### User Story 2 — Фотографии личных документов в зашифрованном виде (Priority: P2)
+### User Story 2 — Шифрование произвольного blob'а через membership-agnostic envelope (Priority: P1)
 
-Admin добавляет к раскладке бабушки плитки с её **личными документами** — фото паспорта, СНИЛС, медкарты, страховых полисов. Бабушка тапает по плитке «Паспорт» — видит увеличенное фото оригинального документа. Документы шифруются ровно тем же механизмом, что и фото контактов (см. US-1): на устройстве admin'a → зашифрованный blob в Firebase Storage → namespace `private:<uuid>` в `IconStorage`. Google не имеет доступа к содержимому документов — только зашифрованные байты.
+API фундамента: «зашифровать байты для списка получателей и вернуть envelope». Реализация — hybrid encryption: одноразовый CEK (32 random bytes) шифрует blob через AEAD; CEK seal'ится через `crypto_box_seal` для каждого Pub из `recipients[]`. Envelope — CBOR-сериализованный объект с `schemaVersion`, `cipherSuiteId`, `nonce`, `recipients[]`, `ciphertext`, `mac`.
 
-**Why this priority**: реальная потребность пожилых пользователей — иметь документы «под рукой» без поиска по физическим папкам. Также распространённый use case для не-пожилых пользователей в будущем (любой человек хочет держать копии документов всегда доступными). P2 потому что US-1 (фото контактов) — более частый случай ежедневного использования; документы — реже, но критично-важно.
+В 011 список `recipients[]` всегда содержит **одного** получателя (другой член пары через `PairRecipientResolver`). В будущих спеках 014-015 список расширяется до N **без изменения envelope format**.
 
-**Independent Test**: paired пара устройств с настроенным e2e (см. US-5), admin выбирает на своём устройстве фотографию из галереи (паспорт), отмечает её как «приватный документ», даёт label «Паспорт» — фото шифруется и грузится в Storage, в `/config` появляется новая плитка-документ → бабушка применяет конфиг и видит плитку «Паспорт»; тап → расшифровка blob'a на устройстве → отображение фото в полноэкранном просмотрщике.
+**Why P1**: это ядро фундамента. Без него фундамент пустой.
+
+**Independent Test**: автотест в `commonTest` — зашифровать 16 байт случайных данных для своего же Pub (self-encrypt для теста), получить envelope, передать в `decrypt(envelope, ownPriv)`, получить обратно те же 16 байт; верификация MAC обязательна; повреждение envelope → `MacFailed`.
 
 **Acceptance Scenarios**:
 
-1. **Given** пара заpaired'ена, e2e работает, admin в редакторе раскладки Managed, **When** admin выбирает «+ документ» → выбирает фотографию из галереи → задаёт label, **Then** фотография шифруется CEK'ом, CEK шифруется публичным ключом бабушки, envelope (с metadata.kind="document") загружается в Storage; в `/config` появляется новая плитка с `iconId = "private:<uuid>"` и label.
-2. **Given** Managed применяет конфиг с новой плиткой-документом, **When** бабушка тапает по плитке, **Then** Managed скачивает blob, расшифровывает локально, показывает фото в полноэкранном viewer'е; расшифрованные байты остаются в памяти на время отображения и **не сохраняются** на disk в plaintext (FR-052).
-3. **Given** admin удаляет плитку-документ, **When** push нового `/config` уходит, **Then** blob помечен на удаление (см. US-3 housekeeping с учётом history reference counting C-7).
-4. **Given** Managed не может расшифровать blob документа, **When** бабушка тапает по плитке, **Then** показывается дружелюбное сообщение «Документ временно недоступен» (не technical error message), admin видит индикатор `media_decrypt_failed`.
-
-**Замечание по UX:** конкретный UX добавления документа (отдельная кнопка «+ документ», полноэкранный preview, label-editor) детализируется в plan-фазе. В этом спеке фиксируется только **что**, не **как именно** в UI.
-
-**Замечание по scope:** «фото бабушки в её собственной плитке» (как декорация в раскладке) выкинута из scope 011 как нишевая. При желании возвращается в любой будущий спек добавлением одного UX-flow поверх той же crypto-инфраструктуры.
+1. **Given** plaintext 16 байт и список из одного recipient'а, **When** `encrypt(plaintext, recipients)` вызывается, **Then** возвращается envelope с `recipients[].length == 1`; `decrypt(envelope, ownPriv)` возвращает оригинальные 16 байт.
+2. **Given** envelope с `recipients[].length == 3` (test fixture для forward-compat), **When** `decrypt(envelope, ownPriv)` для одного из получателей, **Then** успешная расшифровка (форвард-совместимость с будущими 014-015).
+3. **Given** envelope с подменённым `mac`, **When** `decrypt`, **Then** `MacFailed` error; plaintext не возвращается.
+4. **Given** envelope с `cipherSuiteId` неизвестным (например `xchacha20poly1305_x25519_v999`), **When** `decrypt`, **Then** `CipherSuiteUnsupported` error (forward-compat не падает).
 
 ---
 
-### User Story 3 — Зашифрованные blob'ы убираются вместе с удалением контакта или revoke пары (Priority: P2)
+### User Story 3 — Storage adapter заливает и достаёт envelope blob'ы (Priority: P1)
 
-Admin удаляет контакт «Маша» из раскладки. Через несколько минут связанный зашифрованный blob `<uuid>` в Firebase Storage удалён — не остаётся «висячих» приватных данных. Если admin вообще revoke'нет линк (спек 007 FR-033, recursive subtree delete), вся private-media subcollection для этого `linkId` тоже удаляется.
+API: `EncryptedMediaStorage.upload(uuid, envelope)`, `download(uuid) → envelope`, `delete(uuid)`, `exists(uuid) → Boolean`. Storage path — `/links/{linkId}/private-media/{uuid}`. Storage Security Rules ограничивают read/write только `adminId` и `managedDeviceFirebaseUid` пары.
 
-**Why this priority**: privacy hygiene и контроль расходов Storage (тариф Spark с лимитом). Без story зашифрованные фото накапливаются вечно и едят квоту. P2 потому что в краткосрочной перспективе objём blob'ов мал (одно фото контакта ≈ 50-200 KB), но накопление за месяцы делает проблему реальной.
+**Why P1**: фундамент бесполезен без места, где blob'ы лежат.
 
-**Independent Test**: admin добавил 5 контактов с фото → Storage содержит 5 blob'ов под `linkId`. Admin удалил 3 контакта → через ≤ 5 минут в Storage остаются только 2 blob'a. Admin revoke'нет линк → через ≤ 5 минут в Storage 0 blob'ов под этим `linkId`.
+**Independent Test**: Firebase Storage Emulator + Storage Rules. Upload синтетического envelope → download → проверка байт-в-байт идентичности. Foreign uid attempt → `PERMISSION_DENIED`. Delete → `exists() == false`.
 
 **Acceptance Scenarios**:
 
-1. **Given** в `/config.contacts[]` есть `Contact { photoRef = "private:<uuid>" }`, **When** admin удаляет этот contact и пушит новый `/config` без него, **Then** инициируется удаление blob'a `<uuid>` из Storage; срок — best-effort, не блокирует push.
-2. **Given** контакт с photoRef удалён, blob ещё не успели стереть, **When** другой контакт **в этом же** `/config` ссылается на тот же `<uuid>` (теоретически — после переиспользования), **Then** blob не удаляется (reference counting перед удалением).
-3. **Given** admin делает revoke линка (спек 007 FR-033), **When** subtree delete отрабатывает, **Then** **вся** private-media subcollection под `/links/{linkId}/` удалена; bucket не имеет «осиротевших» blob'ов.
-4. **Given** Storage недоступен в момент удаления (сеть упала), **When** клиент пытается удалить blob, **Then** удаление отложено в очередь повторов; счётчик попыток ограничен; после превышения — пишется warning в structured log, blob остаётся в Storage (privacy risk, но известный).
+1. **Given** valid envelope для своей пары, **When** `upload(uuid, envelope)`, **Then** Storage содержит blob по пути `/links/{linkId}/private-media/{uuid}`; `download(uuid)` возвращает идентичные байты.
+2. **Given** foreign uid (не member пары), **When** попытка upload/download/delete, **Then** Storage Rules возвращают `PERMISSION_DENIED`; никаких байт не уходит.
+3. **Given** revoke link (спек 007 FR-033), **When** recursive subtree delete отрабатывает, **Then** **все** blob'ы под `/links/{linkId}/private-media/*` удалены; `Link.KNOWN_SUBCOLLECTIONS` содержит `private-media`.
+4. **Given** Storage недоступен (сеть упала), **When** `upload` или `delete`, **Then** возвращается structured error (не падает); retry-логика отложена в WorkManager.
 
 ---
 
-### User Story 4 — Managed honest reporting когда расшифровать не удалось (Priority: P2)
+### User Story 4 — Reference counting и cleanup orphan blob'ов (Priority: P2)
 
-Что-то пошло не так: blob повреждён в Storage, ключ потерян после фабричного сброса Managed без re-pairing, MAC не совпал. На плитке контакта показывается серый placeholder (не падение приложения), Managed пишет в `/state.partialApplyReasons` значение `media_decrypt_failed` ([state-applied.md:65](../008-bidirectional-config-sync/contracts/state-applied.md#L65)), и admin в своём UI видит индикатор «фото у Маши не отрисовалось». Admin может пере-добавить фото или сделать ре-pairing.
+API: `BlobReferenceLedger` (SQLDelight таблица) считает ссылки на каждый `<uuid>` из любого источника — текущий `/config/current`, history snapshots (спек 009 retention 10), pending drafts. Blob удаляется только когда refCount = 0.
 
-**Why this priority**: явный fallback и обратная связь admin'у — обязательны для production. Без story сбой расшифровки = молчаливый regression «фото пропало», непонятно admin'у. P2 потому что happy-path работает и без этой story; это error-recovery поверх неё.
+В 011 **сам факт ссылки** генерируется только тестами (никаких реальных `Contact.photoRef = "private:<uuid>"` не создаётся — это спек 012). Но **механика учёта** реализуется и тестируется на синтетических ledger entries.
 
-**Independent Test**: симулировать порчу blob'a (записать рандомные байты в Storage по адресу blob'a) → Managed скачивает, расшифровка падает → плитка с placeholder, `/state.partialApplyReasons` содержит `media_decrypt_failed`, admin UI видит индикатор. Логи Managed содержат structured event с категорией ошибки (без байт фото).
+**Why P2**: privacy hygiene + контроль расходов Storage. Без cleanup blob'ы накапливаются.
+
+**Independent Test**: автотест на BlobReferenceLedger + FakeEncryptedMediaStorage — добавить ссылку, проверить refCount=1; убрать ссылку, проверить refCount=0 → blob помечается на удаление. Integration test с Storage Emulator — после revoke link все blob'ы под linkId удалены.
 
 **Acceptance Scenarios**:
 
-1. **Given** Managed получил `/config` с `Contact.photoRef = "private:<uuid>"`, **When** скачанный blob не проходит MAC-проверку (повреждён или подменён), **Then** плитка показывает placeholder, `/state.partialApplyReasons` дополняется `media_decrypt_failed`, в structured log — событие категории `media_decrypt_failed` с `<uuid>` (но **без** содержимого blob'a и **без** ключа).
-2. **Given** на Managed после фабричного сброса нет общего ключа (re-pairing не сделан), **When** приходит `/config` с `photoRef`, **Then** Managed не пытается скачать blob, сразу записывает `partialApplyReasons += media_decrypt_failed` с подкатегорией `no_key`, admin видит индикатор и подсказку «требуется re-pairing».
-3. **Given** Storage возвращает 404 для `<uuid>` (blob удалён раньше времени), **When** Managed применяет конфиг, **Then** плитка с placeholder, `partialApplyReasons += media_decrypt_failed` с подкатегорией `blob_missing`.
-4. **Given** Managed успешно расшифровал blob ранее и закешировал расшифрованные байты, **When** Storage становится недоступен или blob исчезает, **Then** Managed использует локальный кеш расшифрованного фото и не помечает partial-apply (graceful offline).
+1. **Given** envelope `<uuid>` в Storage и одна reference в ledger, **When** reference удалена, **Then** refCount = 0; background reconciler инициирует delete; через ≤ 5 минут `exists(uuid) == false`.
+2. **Given** envelope `<uuid>` с двумя ссылками (одна в current /config, одна в history snapshot), **When** убирается только current, **Then** refCount = 1, blob жив (rollback-safe).
+3. **Given** revoke link, **When** recursive cleanup отрабатывает, **Then** все blob'ы под linkId удалены независимо от refCount; ledger очищен.
+4. **Given** Storage недоступен в момент delete, **When** delete падает, **Then** delete отложен в WorkManager retry queue; счётчик попыток ограничен; после превышения — warning log, blob остаётся в Storage (known privacy risk).
 
 ---
 
-### User Story 5 — Pairing генерирует общий криптоключ для пары (Priority: P1, prerequisite)
+### User Story 5 — Honest error reporting при сбое крипто-операций (Priority: P2)
 
-Когда admin сканирует QR и нажимает «Подтвердить» (спек 007 US-1), помимо привязки `linkId` и обмена FCM-токеном пара устанавливает **общий симметричный ключ** для шифрования приватных медиа. Ключ известен **только** этим двум устройствам — Firebase Storage, Cloudflare Worker, Google, admin/managed Firestore docs не имеют к нему доступа. После любого revoke (спек 007 FR-033) или фабричного сброса ключ инвалидируется; чтобы вернуть e2e-функциональность, пара должна сделать re-pairing.
+API: все крипто-ошибки (`MacFailed`, `KeyNotFound`, `BlobMissing`, `CipherSuiteUnsupported`, `RecipientNotFound`) возвращаются как `CryptoError` sealed class через `Result<T, CryptoError>`. **Никогда** не возвращают plaintext / Priv / CEK в сообщениях ошибок. Structured logs содержат категорию + uuid + linkId, **никогда** не содержат байты blob'ов и ключевой материал.
 
-**Why this priority**: без общего ключа никакая другая story спека 011 невозможна. Это **prerequisite-story**, упоминается отдельно потому что меняет публичный wire-format pairing'а (additive, schemaVersion остаётся 1 — см. [pairing-token.md:79](../007-pairing-and-firebase-channel/contracts/pairing-token.md#L79)) и формализует обязательства спека 007 в реальный код.
+В 011 это API. Реальное использование (показ placeholder на плитке, индикатор admin'у) — спек 012.
 
-**Independent Test**: factory-fresh пара устройств, admin сканирует QR → после `consent.allow` оба устройства хранят (в Android Keystore / iOS Keychain или эквиваленте) идентичный общий ключ; ключ **не** записан в `/links/{linkId}/*` или в `/pairing/<token>` (его там не должно быть). Симметричность проверяется тестом: байты, зашифрованные на admin'е, расшифровываются на Managed.
+**Why P2**: фундамент должен **уметь** честно репортить, иначе клиенты (012+) не смогут показать пользователю ничего осмысленного.
+
+**Independent Test**: автотест — каждый sealed sub-case `CryptoError` возвращается из соответствующего failure scenario; нет ни одного pathway, где Exception улетает наружу с plaintext / ключом в message.
 
 **Acceptance Scenarios**:
 
-1. **Given** admin сканирует QR factory-fresh Managed, **When** `consent.allow` срабатывает (спек 007 FR-009), **Then** оба устройства **независимо** выводят общий ключ из обмена при pairing'е (NEEDS CLARIFICATION схема — см. §Архитектурные one-way doors); ключ хранится в защищённом хранилище ОС; в Firestore документах ключа нет.
-2. **Given** pair установлена, общий ключ есть, **When** на admin'e шифруется тестовый блок данных и кладётся в Storage, **Then** Managed скачивает blob и успешно расшифровывает; обратно — то же самое (если US-2 в scope).
-3. **Given** admin делает revoke (спек 007 FR-033), **When** recursive subtree delete завершён, **Then** оба устройства локально удаляют общий ключ; зашифрованные blob'ы Storage уже снесены вместе с subtree (см. US-3 §revoke).
-4. **Given** Managed получил factory reset без revoke, **When** admin продолжает пушить `/config` с `photoRef`, **Then** Managed не может расшифровать (US-4 Scenario 2); пара должна сделать re-pairing для восстановления.
+1. **Given** envelope с повреждённым MAC, **When** `decrypt`, **Then** `Err(MacFailed(uuid))`; никаких байтов plaintext'а в сообщении / log'е.
+2. **Given** envelope требует Priv, которого нет в Keystore (factory reset без revoke), **When** `decrypt`, **Then** `Err(KeyNotFound(alias, cause=null))`.
+3. **Given** Storage возвращает 404, **When** `download`, **Then** `Err(BlobMissing(uuid))`.
+4. **Given** envelope с future `cipherSuiteId`, **When** `decrypt`, **Then** `Err(CipherSuiteUnsupported(suiteId))`.
+
+---
+
+### User Story 6 — Manual smoke-тест на двух реальных устройствах (Priority: P1, gate перед merge)
+
+Поскольку 011 не имеет visible feature, единственный способ убедиться, что вся цепочка работает на реальном железе (Android Keystore quirks, Firebase Storage TLS, FCM трансляция) — **запустить ручной smoke на двух реальных Android-устройствах**:
+
+1. Два factory-fresh устройства, debug build приложения с 011.
+2. Сделать pairing через QR.
+3. На admin-устройстве через debug-кнопку «Encrypt test blob» сгенерировать 16 байт случайных данных, зашифровать через фундамент, залить в Storage. Endpoint admin'a показывает `private:<uuid>`.
+4. На managed-устройстве через debug-кнопку «Decrypt test blob» ввести этот uuid, расшифровать, показать в Toast байты в hex.
+5. Сравнить hex с admin-стороны и managed-стороны — должны совпасть.
+
+**Why P1 + gate перед merge**: без этого теста мы не знаем, работает ли фундамент на реальных условиях. CI тестирует на Emulator'ах, реальное железо может отличаться (Keystore quirks на Xiaomi, Firebase TLS на старых Android, FCM delays).
+
+**Independent Test**: ручной, документирован в `smoke/011/README.md`. Двухминутная процедура. Если не сработало — фиксим, прежде чем merge.
+
+**Acceptance Scenarios**:
+
+1. **Given** два factory-fresh устройства с debug build 011, **When** оператор тестирует по чеклисту в `smoke/011/README.md`, **Then** обе hex-строки идентичны; pairing + encrypt + upload + download + decrypt отрабатывают за ≤ 60 секунд.
 
 ---
 
 ### Edge Cases
 
-- Очень большие фотографии (несколько MB) — шифрование/загрузка не должны блокировать UI admin'a; нужен progress-индикатор и cancel.
-- Несколько контактов с одной и той же фотографией: дедупликация blob'ов по хешу содержимого (а не по контакту) — open question (NEEDS CLARIFICATION ниже).
-- Admin шифрует и кладёт blob, push `/config` падает (сеть/таймаут/конфликт): «orphan blob» в Storage без ссылки. Background reconciler должен подметать.
-- На admin несколько paired Managed'ов — фотография одного контакта в раскладке двух бабушек: разные `linkId` → **разные** общие ключи → blob шифруется и грузится **дважды**, по разу на пару. Кажется приемлемым (квота не критична), но фиксируется явно.
-- Managed на Spark plan — Firebase Storage в Spark доступен с ограниченной квотой; нужно проверить, что spec 011 не выводит проект за пределы Spark (NEEDS CLARIFICATION в §Зависимости-обещания).
-- Часы сместились (clock skew): MAC / nonce-схема не должна зависеть от устойчивости времени между устройствами.
-- Конфликт с Firestore Security Rules: запись в Storage path = `linkId/private-media/<uuid>` должна быть разрешена только `adminId` и `managedDeviceFirebaseUid` этого линка; чужие пары — `PERMISSION_DENIED` (нужны Storage Rules, не только Firestore).
-- Schema mismatch фото: если позже добавляется не только фото-blob, но и **видео** под тем же namespace — требуется отдельная sub-namespacing или metadata «kind=image|video». NEEDS CLARIFICATION в §Архитектурные one-way doors.
+- **Очень большой blob** (>10 MB): фундамент **не ограничивает** размер — это ответственность клиента (012 будет компрессить JPEG до ≤ 500 KB). Но фундамент должен корректно работать с blob'ами 10 MB+ для будущих документов / аудиосообщений.
+- **Дедупликация blob'ов по content-hash**: если два разных reference указывают на одинаковое содержимое — можно ли переиспользовать один envelope? `HashFunction` (BLAKE2b) позволяет — но реализация дедупликации откладывается на спек 012 или позже (требует hash перед encrypt'ом, что меняет flow).
+- **Orphan blob**: envelope залит, но `/config` push не прошёл (сеть/таймаут). Background reconciler ловит orphan'ы старше 24h и удаляет. Реализуется в 011, тестируется на синтетических.
+- **На admin несколько paired Managed'ов**: пока в 011 нет multi-pair flow (один admin — один managed), но фундамент готов — `RecipientResolver` принимает `linkId`, разные linkId дают разные получателей. Mult-pair UX — за пределами 011.
+- **Clock skew**: MAC / nonce-схема libsodium не зависит от времени. ОК.
+- **Firebase Storage Security Rules**: blob path = `/links/{linkId}/private-media/<uuid>` доступен **только** `adminId` и `managedDeviceFirebaseUid`; чужой uid → `PERMISSION_DENIED`. Storage Rules пишутся в 011 (новые в проекте).
+- **Schema mismatch envelope**: новый клиент шифрует envelope v2, старый клиент читает — должен получить `CipherSuiteUnsupported` или `SchemaVersionUnsupported`, не crash. Backward-compat reads обязательны (CLAUDE.md rule 5).
+- **OEM Keystore quirks** (Xiaomi MIUI / Huawei EMUI / Samsung): Keystore иногда теряет ключи после OTA-обновления OEM прошивки. Это known issue индустрии. Fallback: если `KeyNotFound` при попытке decrypt — пара должна сделать re-pairing.
 
 ---
 
@@ -242,68 +353,97 @@ Admin удаляет контакт «Маша» из раскладки. Чер
 
 ### Functional Requirements
 
-**Pairing common key (prerequisite of all e2e features):**
+**Per-device asymmetric keys (US-1):**
 
-- **FR-001**: Pairing flow (спек 007) MUST establish a shared symmetric key known to **both** admin and Managed devices and to **no one else** (not Firestore documents, not Firebase Storage objects, not Cloudflare Worker, not third-party CDN).
-- **FR-002**: Shared key MUST be persisted in OS-level secure storage on each device (Android Keystore / iOS Keychain / equivalent). Plain-text storage of the key is forbidden.
-- **FR-003**: Pairing token wire-format MUST stay at `schemaVersion = 1` if extended for key exchange (additive only, per [pairing-token.md:79](../007-pairing-and-firebase-channel/contracts/pairing-token.md#L79) and CLAUDE.md rule 5). Any breaking change → bump to 2 + migration code.
-- **FR-004**: On revoke (спек 007 FR-033) the shared key MUST be deleted on both devices; re-pairing is required to restore e2e features.
-- **FR-005**: On factory reset of Managed (or admin) without prior revoke, the key is irrecoverable; subsequent decryption attempts MUST fail gracefully per FR-024.
+- **FR-001**: On first launch each device MUST generate a `(Pub_X25519, Priv_X25519)` keypair for encryption and a `(Pub_Ed25519, Priv_Ed25519)` keypair for signing. Generation MUST use libsodium primitives (`crypto_box_keypair`, `crypto_sign_keypair`).
+- **FR-002**: Both Priv keys MUST be stored in Android Keystore. Since Keystore does not support X25519 natively, X25519 Priv MUST be AES-wrapped using a Keystore-generated AES key; the wrapped X25519 Priv is stored in app-private encrypted storage (EncryptedSharedPreferences). Ed25519 Priv MAY use Keystore native support (API 31+) with software fallback for API 30 (same AES-wrap pattern).
+- **FR-003**: Plain-text Priv keys MUST NOT appear in any logs, crash reports, analytics, structured events, or any other off-device channel.
+- **FR-004**: On revoke (спек 007 FR-033), Priv keys associated with that link MUST be deleted from Keystore on both devices; re-pairing is required to restore crypto.
+- **FR-005**: On factory reset without prior revoke, Priv keys are irrecoverable; subsequent decryption attempts MUST fail gracefully via `CryptoError.KeyNotFound`.
 
-**Encrypted blob envelope (wire format):**
+**Pub-key publication (US-1):**
 
-- **FR-010**: Every encrypted blob in Firebase Storage MUST carry an explicit `schemaVersion` field in its envelope from the first commit (CLAUDE.md rule 5).
-- **FR-011**: Envelope MUST contain: schemaVersion, cipher identifier, nonce/IV, ciphertext, authentication tag (MAC). Recovery of plaintext without all five MUST be cryptographically infeasible.
-- **FR-012**: Blob filename in Storage MUST be a UUIDv4 (matches `<uuid>` part of `private:<uuid>` in `iconId`). No filename-leaked metadata.
-- **FR-013**: Storage path MUST be scoped per link: `/links/{linkId}/private-media/<uuid>` (or equivalent, NEEDS CLARIFICATION exact path in plan-phase). Cross-link reads MUST be blocked by Storage Rules.
+- **FR-006**: After `consent.allow` in pairing (спек 007 FR-009), each device MUST publish its Pub_X25519 and Pub_Ed25519 to `/links/{linkId}/devices/{deviceId}` Firestore document. Publication payload MUST be signed by own Ed25519 Priv (anti-tamper).
+- **FR-007**: Pairing-token wire-format ([pairing-token.md:79](../007-pairing-and-firebase-channel/contracts/pairing-token.md#L79)) MUST NOT be modified — Pub-key exchange goes through Firestore document **after** `consent.allow`, not through QR. `pairingKey` field reserved in pairing-token remains unused.
+- **FR-008**: Firestore Security Rules MUST allow write to `/links/{linkId}/devices/{deviceId}` only by the uid owning `deviceId`; other uids → `PERMISSION_DENIED`. Read allowed for any member of the link.
+- **FR-009**: On first need to encrypt for a peer, the device MUST fetch peer's Pub from `/links/{linkId}/devices/{peerDeviceId}`, verify Ed25519 signature, cache locally for offline use.
 
-**Admin-side write path (US-1):**
+**Encrypted blob envelope wire format (US-2):**
 
-- **FR-020**: When admin's Contacts Picker returns a contact with a non-empty photo, the system MUST encrypt the photo bytes locally on the admin device **before** uploading to Storage; plaintext bytes MUST NOT leave the device.
-- **FR-021**: Successful upload of the encrypted blob MUST precede the push of `/config` referencing `photoRef = "private:<uuid>"`. If upload fails, push of `/config` MUST NOT proceed; the `Contact` is added with `photoRef = null` (graceful degradation).
-- **FR-022**: Contact without an Android-side photo (picker returned empty) MUST behave as in spec 009 — `photoRef = null`, no encryption, no Storage upload (zero cost for photoless contacts).
+- **FR-010**: Every envelope MUST carry an explicit `schemaVersion: Int` and `cipherSuiteId: String` from the first commit (CLAUDE.md rule 5). Initial values: `schemaVersion = 1`, `cipherSuiteId = "xchacha20poly1305_x25519_sealed_v1"`.
+- **FR-011**: Envelope MUST contain: `schemaVersion`, `cipherSuiteId`, `nonce`, `recipients[]` (array of `{deviceId, sealedCEK}`), `ciphertext`, `mac`. Recovery of plaintext without all of these MUST be cryptographically infeasible.
+- **FR-012**: `recipients[]` MUST be an array of arbitrary length from the first commit (membership-agnostic). In spec 011 length always equals 1; spec 014 (groups) and 015 (multi-device) extend to N without envelope format change.
+- **FR-013**: Envelope MUST be CBOR-serialized via `kotlinx-serialization-cbor` (more compact and deterministic than JSON for binary content).
+- **FR-014**: Backward-compatible reads MUST be possible: reading envelope with unknown future `cipherSuiteId` MUST return `CryptoError.CipherSuiteUnsupported`, not crash. Reading envelope with unknown future fields MUST ignore them (additive forward-compat).
 
-**Managed-side read path (US-1):**
+**Hybrid encryption mechanics (US-2):**
 
-- **FR-023**: When ConfigApplier processes a `Contact.photoRef = "private:<uuid>"`, the system MUST download the blob from Storage, verify MAC, decrypt, and cache the decrypted bytes locally in private app storage (not accessible to other apps).
-- **FR-024**: Failed download or decryption MUST NOT crash the app. Tile MUST fall back to placeholder, `/state.partialApplyReasons` MUST include `media_decrypt_failed` ([state-applied.md:65](../008-bidirectional-config-sync/contracts/state-applied.md#L65)), structured log MUST emit an event with `<uuid>` but **without** blob bytes and **without** key material.
-- **FR-025**: `IconStorage.resolve("private:<uuid>")` MUST return `IconResolution.Drawable(handle)` on successful local cache hit; the existing port signature in spec 006 ([IconStorage.kt:20](../../core/src/commonMain/kotlin/com/launcher/api/capability/IconStorage.kt#L20)) MUST NOT change.
+- **FR-020**: `AeadCipher.encrypt(plaintext, key, aad)` MUST use XChaCha20-Poly1305 (24-byte nonce, 16-byte MAC). MUST be authenticated encryption — no CTR-only or CBC-without-MAC.
+- **FR-021**: For each blob, a one-time CEK (Content Encryption Key) MUST be generated as 32 random bytes from libsodium CSPRNG. CEK MUST NOT be reused across blobs.
+- **FR-022**: `AsymmetricCrypto.sealCEK(cek, recipientPub)` MUST use `crypto_box_seal` (anonymous sender). For each entry in `recipients[]`, CEK MUST be sealed for that recipient's Pub_X25519.
+- **FR-023**: `AsymmetricCrypto.unsealCEK(sealedBlob, ownPriv)` MUST return the CEK or `CryptoError.MacFailed`. Unsealing for a recipient not in `recipients[]` → `CryptoError.RecipientNotFound`.
 
-**Housekeeping (US-3):**
+**Hashing and signing primitives (US-2):**
 
-- **FR-030**: When a `Contact.photoRef` reference is removed from `/config` (admin push without that contact), the system MUST schedule deletion of the underlying blob in Storage on a best-effort basis.
-- **FR-031**: Blob deletion MUST use reference counting — a blob is deleted only when no `Contact.photoRef` in the current `/config` (or pending drafts) references it.
-- **FR-032**: On revoke (спек 007 FR-033), recursive subtree delete MUST include the `/links/{linkId}/private-media/` Storage path; no orphan blobs MAY remain after revoke.
-- **FR-033**: `Link.KNOWN_SUBCOLLECTIONS` ([Link.kt:37-44](../../core/src/commonMain/kotlin/com/launcher/api/link/Link.kt#L37)) MUST be extended to include `private-media` (or equivalent) so that `LinkRegistry.revoke()` correctly enumerates it during subtree delete.
-- **FR-034**: Background reconciler MUST detect orphan blobs (blob exists in Storage with no `/config` reference for ≥ 24h) and delete them. This is privacy hygiene; orphans MUST NOT accumulate indefinitely.
+- **FR-024**: `HashFunction.hash(data)` MUST use BLAKE2b (256-bit output). Available for deduplication, integrity checks, future fingerprinting.
+- **FR-025**: `DigitalSignature.sign(data, privEd25519)` and `verify(data, signature, pubEd25519)` MUST use Ed25519 via libsodium `crypto_sign`. Used for Pub-key publication anti-tamper (FR-006), future Jitsi room auth, future vendor integration HMAC.
 
-**Error reporting (US-4):**
+**Storage adapter (US-3):**
 
-- **FR-040**: All decryption failures (bad MAC, missing key, blob 404, ciphertext corrupted) MUST be reported through `/state.partialApplyReasons += media_decrypt_failed` and through a structured log event.
-- **FR-041**: Subcategories of `media_decrypt_failed` (no_key, blob_missing, mac_failed, ciphertext_corrupted) MUST be distinguishable in the structured log (for admin diagnosis), but NEEDS CLARIFICATION whether they are distinguishable in `/state.partialApplyReasons` itself or only in the log.
-- **FR-042**: Admin UI MUST display an indicator on the Managed-device summary (spec 009 US-2 health summary) when one or more contacts have `media_decrypt_failed`; tap → contextual help suggesting re-add photo or re-pair.
+- **FR-030**: `EncryptedMediaStorage.upload(uuid, envelope)` MUST store envelope at Firebase Storage path `/links/{linkId}/private-media/{uuid}`. UUID is UUIDv4. No metadata leaked in filename.
+- **FR-031**: `EncryptedMediaStorage.download(uuid)` MUST return envelope bytes; deserialization happens upstream.
+- **FR-032**: `EncryptedMediaStorage.delete(uuid)` MUST remove the blob from Storage. `EncryptedMediaStorage.exists(uuid)` MUST return whether blob is present.
+- **FR-033**: Storage Security Rules MUST allow read/write of `/links/{linkId}/private-media/*` only for `adminId` and `managedDeviceFirebaseUid` of that link; other uids → `PERMISSION_DENIED`.
+
+**Reference counting + cleanup (US-4):**
+
+- **FR-040**: `BlobReferenceLedger` (SQLDelight) MUST track all references to each `<uuid>` from any source: `/config/current`, history snapshots (спек 009 retention 10), pending drafts.
+- **FR-041**: Blob deletion MUST use reference counting — a blob is deleted only when refCount = 0.
+- **FR-042**: Background reconciler MUST detect orphan blobs (in Storage with no ledger reference for ≥ 24h) and delete them. This is privacy hygiene; orphans MUST NOT accumulate indefinitely.
+- **FR-043**: On revoke (спек 007 FR-033), recursive subtree delete MUST include `/links/{linkId}/private-media/` Storage path; no orphan blobs MAY remain after revoke. `Link.KNOWN_SUBCOLLECTIONS` ([Link.kt:37-44](../../core/src/commonMain/kotlin/com/launcher/api/link/Link.kt#L37)) MUST be extended to include `private-media`.
+- **FR-044**: Storage delete failure (network unavailable) MUST be retried via WorkManager with limited attempts. After exhaustion — warning log, blob remains in Storage (known privacy risk).
+
+**Error reporting (US-5):**
+
+- **FR-050**: All crypto failures MUST be returned as `CryptoError` sealed sub-cases: `MacFailed(uuid)`, `KeyNotFound(alias, cause?)`, `BlobMissing(uuid)`, `CipherSuiteUnsupported(suiteId)`, `RecipientNotFound(deviceId)`, `SignatureVerifyFailed(deviceId)`.
+- **FR-051**: Error messages and structured logs MUST NOT contain plaintext, Priv keys, CEK, or any byte content of blobs. Only categorical metadata: uuid, linkId, deviceId, error kind.
+- **FR-052**: Errors MUST NOT crash the application. The library returns `Result<T, CryptoError>` — caller decides UX response.
+
+**Recipient resolver (US-2):**
+
+- **FR-060**: `RecipientResolver.resolveRecipients(linkId)` MUST return `List<DeviceIdentity>`. In spec 011 only implementation is `PairRecipientResolver` returning the other member of the pair.
+- **FR-061**: Future spec implementations (`GroupRecipientResolver` in 014, `MyDevicesRecipientResolver` in 015) MUST conform to the same port; envelope format MUST NOT change when adding new implementations.
+
+**Manual smoke test (US-6):**
+
+- **FR-070**: A documented manual smoke procedure MUST exist at `smoke/011/README.md` describing how to test encryption + storage + decryption end-to-end on two real Android devices using synthetic 16-byte data. This is a gate before merge.
 
 **Security and privacy:**
 
-- **FR-050**: Storage Rules MUST allow read/write of `/links/{linkId}/private-media/*` only for the link's `adminId` and `managedDeviceFirebaseUid`; any other UID → `PERMISSION_DENIED`.
-- **FR-051**: Plain-text photo bytes MUST NOT appear in any logs, crash reports, analytics, structured events, or any other off-device channel.
-- **FR-052**: Plain-text photo bytes MUST NOT be persisted in any externally-accessible content provider on either device.
-- **FR-053**: Encryption MUST be authenticated (AEAD) — no unauthenticated CTR-only or CBC-without-MAC ciphers.
+- **FR-080**: Plaintext bytes and Priv keys MUST NOT be persisted in any externally-accessible content provider on either device.
+- **FR-081**: Encryption MUST be authenticated (AEAD) — no unauthenticated ciphers.
+- **FR-082**: Network observers between devices and Firebase Storage MUST NOT be able to recover plaintext from observed traffic (verified by passive-MITM test).
 
 **Out of scope (negative requirements):**
 
-- **FR-090**: This spec MUST NOT encrypt `/config` itself — `/config` carries settings, not private user content (roadmap §Spec 011 «Что НЕ входит»).
-- **FR-091**: This spec MUST NOT encrypt `bundled:` or `custom:` icons — they are not private (roadmap §Spec 011 «Что НЕ входит»).
-- **FR-092**: This spec MUST NOT add screen mirroring, remote control, or DPC-mode features.
-- **FR-093**: This spec MUST NOT introduce iOS support — out of project scope.
+- **FR-090**: This spec MUST NOT implement `PrivateMediaResolver` (IconStorage namespace dispatch for `private:`) — that belongs to spec 012.
+- **FR-091**: This spec MUST NOT introduce any UI changes (no Contacts Picker integration, no DocumentPicker, no tile changes) — all UI belongs to spec 012 onwards.
+- **FR-092**: This spec MUST NOT encrypt `/config` itself — `/config` carries settings, not private user content.
+- **FR-093**: This spec MUST NOT implement realtime stream encryption (SRTP/SFrame) — realtime media goes through Jitsi/SFrame in a future Jitsi-integration spec, never through our envelope.
+- **FR-094**: This spec MUST NOT add screen mirroring, remote control, or DPC-mode features.
+- **FR-095**: This spec MUST NOT introduce iOS support — out of project scope (ADR-001).
+- **FR-096**: This spec MUST NOT introduce post-quantum cryptography — when libsodium adds it natively (~v1.0.20+), we update through app update with cipherSuiteId bump.
 
 ### Key Entities
 
-- **SharedPairingKey**: symmetric key, generated during pairing flow (спек 007), held in OS secure storage on both devices, scoped to a single `linkId`. Lifecycle: created on `consent.allow`, deleted on revoke, irrecoverable on factory reset without prior revoke.
-- **EncryptedBlob**: a single piece of private media stored in Firebase Storage. Identified by UUIDv4. Wraps ciphertext + nonce + MAC + schemaVersion. Referenced from `/config.contacts[i].photoRef = "private:<uuid>"`.
-- **EncryptedMediaStorage**: the implementation of the `IconStorage` port for `private:` namespace, introduced here (declared as future in спек 006 [icon-id-namespace.md:48](../006-provider-capabilities-and-health/contracts/icon-id-namespace.md#L48)). Handles download from Storage, MAC verification, decryption, and local caching.
-- **PrivateMediaReference**: a `private:<uuid>` string appearing in `Contact.photoRef`. The only place in wire-format where private media is named.
-- **OrphanBlob**: a blob in Storage with no current `/config` reference. Background reconciler removes after threshold.
+- **DeviceKeyPair**: per-device asymmetric keys — `(Pub_X25519, Priv_X25519)` for encryption and `(Pub_Ed25519, Priv_Ed25519)` for signing. Generated on first launch. Priv'ы — в Keystore через AES-wrap. Pub'ы публикуются в Firestore после pairing.
+- **DeviceIdentity**: `(deviceId, publicKey_X25519, publicKey_Ed25519, createdAt)` — публичная identity устройства, опубликованная в Firestore `/links/{linkId}/devices/{deviceId}`. Подписана Ed25519 владельца.
+- **ContentEncryptionKey (CEK)**: 32 random bytes, генерируется на каждый blob, одноразовый, не Serializable, обнуляется в finally через `sodium_mlock`/`Arrays.fill`.
+- **EncryptedEnvelope**: CBOR-сериализованная структура `(schemaVersion, cipherSuiteId, nonce, recipients[], ciphertext, mac)`. Хранится в Firebase Storage. Membership-agnostic — `recipients[]` массив произвольной длины.
+- **Recipient**: `(deviceId, sealedCEK)` — entry в `recipients[]`. `sealedCEK` — CEK, зашифрованный через `crypto_box_seal` для Pub_X25519 этого получателя.
+- **BlobReference**: `(uuid, refCount, lastSeenInConfig, lastSeenInHistorySlot)` — local ledger entry в SQLDelight. Считает ссылки на blob из всех источников.
+- **OrphanBlob**: blob в Storage без ledger reference в течение ≥ 24h. Удаляется background reconciler'ом.
+- **CryptoError**: sealed class — `MacFailed`, `KeyNotFound`, `BlobMissing`, `CipherSuiteUnsupported`, `RecipientNotFound`, `SignatureVerifyFailed`. Все ошибки крипто-операций возвращаются как `Result<T, CryptoError>`, не Exception.
 
 ---
 
@@ -311,43 +451,53 @@ Admin удаляет контакт «Маша» из раскладки. Чер
 
 ### Measurable Outcomes
 
-- **SC-001**: After admin adds a contact with a photo to a Managed's layout, the photo appears on the corresponding tile on Managed within ≤ 30 seconds for ≥ 95% of attempts (covers happy path of US-1).
-- **SC-002**: Zero plaintext photo bytes are logged or sent to any third-party service — verified by automated log-grep tests and by inspection of network payloads in CI (covers US-1, US-5, FR-051).
-- **SC-003**: A network observer between admin and Firebase Storage CANNOT recover the photo content from observed traffic (verified by passive-MITM test in integration suite).
-- **SC-004**: After admin removes a contact with `photoRef`, the corresponding blob is removed from Storage within ≤ 5 minutes for ≥ 99% of attempts (covers US-3).
-- **SC-005**: After admin revokes a link, the `/links/{linkId}/private-media/` Storage path is empty within ≤ 5 minutes for 100% of attempts (covers FR-032).
-- **SC-006**: If decryption fails on Managed for any reason, the app does not crash, the tile shows a placeholder, and admin UI surfaces an indicator within ≤ 60 seconds for 100% of attempts (covers US-4, FR-024).
-- **SC-007**: Photo upload from admin to Storage does not block admin UI thread; admin can continue editing the layout while upload proceeds in the background (covers Edge Cases §big photos).
-- **SC-008**: Bringing forward the existing crypto-system selection decision (one-way door) is supported by a written exit ramp in the spec itself (covers CLAUDE.md rule 3).
+- **SC-001**: Synthetic 16-byte blob is encrypted on admin device, uploaded to Storage, downloaded on Managed device, decrypted — bytes match exactly. End-to-end smoke runs in ≤ 60 seconds on two real Android devices (covers US-6, FR-070).
+- **SC-002**: Zero plaintext bytes, Priv keys, or CEK material appear in logs, crash reports, analytics, or network payloads — verified by automated log-grep tests in CI (covers FR-051, FR-003).
+- **SC-003**: A passive network observer between devices and Firebase Storage CANNOT recover plaintext from observed traffic (verified by integration test reading TLS-decrypted payloads — they're encrypted envelopes, not plaintext).
+- **SC-004**: When refCount of `<uuid>` reaches 0, blob is removed from Storage within ≤ 5 minutes for ≥ 99% of attempts (covers US-4, FR-041).
+- **SC-005**: After admin revokes a link, `/links/{linkId}/private-media/` Storage path is empty within ≤ 5 minutes for 100% of attempts (covers FR-043).
+- **SC-006**: All `CryptoError` sub-cases are returned as `Result<T, CryptoError>` — no Exception escapes; covered by ≥ 6 unit tests, one per sub-case (covers US-5, FR-050).
+- **SC-007**: All official libsodium test vectors (XChaCha20-Poly1305 from RFC 8439, X25519 from RFC 7748, Ed25519 from RFC 8032, BLAKE2b from RFC 7693, `crypto_box_seal` from libsodium official vectors) pass against our adapters — verified in Phase 3 contract tests (covers FR-020, FR-022, FR-024, FR-025).
+- **SC-008**: Envelope roundtrip + backward-compat reads work — write envelope v1 with recipients[length=1], read; write envelope v1 with recipients[length=3] (forward-compat fixture), read for one recipient; write envelope with future cipherSuiteId, get `CipherSuiteUnsupported`. All in `commonTest` (covers FR-010, FR-012, FR-014).
+- **SC-009**: Konsist fitness gates pass — `commonMain/api/crypto/` has zero imports of `com.goterl.lazysodium.*`, `android.*`, `com.google.firebase.*`. Adapter layer keeps vendor types internal (covers CLAUDE.md rule 1).
+- **SC-010**: Exit ramp documented inline — every one-way door (libsodium choice, X25519+hybrid, Firebase Storage, Android Keystore) has documented switch-out cost in spec + plan (covers CLAUDE.md rule 3).
 
 ---
 
 ## Assumptions
 
-- **Spec 007** is fully implemented and merged when 011 starts; pairing flow is the integration point for shared-key establishment.
-- **Spec 008** is fully implemented and merged when 011 starts; `Contact.photoRef: String?` field is already in the wire-format and validated by 008's roundtrip tests.
-- **Spec 009** is fully implemented and merged when 011 starts; Contacts Picker and VCard share-intent produce `Contact { photoRef = null }`. Spec 011 changes this to optionally produce `photoRef = "private:<uuid>"`.
-- **Spec 006**'s `IconStorage` port signature ([IconStorage.kt:20](../../core/src/commonMain/kotlin/com/launcher/api/capability/IconStorage.kt#L20)) remains stable; 011 implements a new adapter (`EncryptedMediaStorage`), it does not modify the port.
-- **Both devices have a modern Android-OS secure-storage primitive** (Keystore on Android 6+; project minSdk is assumed to cover this — verified during plan-phase research).
-- **Firebase Spark plan** continues to be sufficient. Firebase Storage in Spark has 5 GB free; one photo ≈ 50-200 KB; one pair has typically ≤ 30 contacts with photos; this gives a comfortable margin even for 1000s of pairs. To be re-validated in plan-phase, but no Blaze upgrade expected.
-- **Cloudflare Worker** is not in the data path of private media. Storage uploads/downloads go directly Managed↔Firebase Storage and admin↔Firebase Storage. The Worker remains the FCM-trigger relay only.
-- **No server-side key escrow.** This is intentional and aligns with the e2e guarantee. The consequence — irrecoverable data on factory reset without revoke — is accepted as a UX cost of true privacy.
-- **Photos selected by admin Contacts Picker are the only source of private media in this spec**. Other private-media sources (US-2 «фото бабушки», US-2 «личные документы») depend on the §Architectural one-way doors clarification.
-- **Reference counting of blobs uses the current `/config` only**, not the history snapshots from спека 009. If history snapshots also reference `photoRef`, retention of blobs must consider history. NEEDS CLARIFICATION in plan-phase whether history snapshots are reference-bearing.
+- **Spec 007** is fully implemented and merged when 011 starts; pairing flow is the integration point for Pub-key publication.
+- **Spec 008** is fully implemented and merged when 011 starts; `Contact.photoRef: String?` field is already in the wire-format and validated by 008's roundtrip tests. In 011 this field remains `null` — naturalized in spec 012.
+- **Spec 009** is fully implemented and merged when 011 starts; Contacts Picker exists but is **not modified** by 011 (modified by 012).
+- **Spec 006**'s `IconStorage` port signature ([IconStorage.kt:20](../../core/src/commonMain/kotlin/com/launcher/api/capability/IconStorage.kt#L20)) remains stable; 011 does **not** implement PrivateMediaResolver (deferred to 012). `private:<uuid>` URIs do not appear in any `/config` until 012 starts producing them.
+- **Both devices run modern Android with Keystore** (Android 6+ for basic Keystore; Android 12+ for native Ed25519 — software fallback on older). Project minSdk is 30.
+- **Firebase Spark plan is sufficient for 011 alone** — fundament не льёт реальных blob'ов (только синтетика в smoke). Реальное наполнение — спек 012. Migration to own backend documented in `SRV-CRYPTO-001` ([server-roadmap.md](../../docs/dev/server-roadmap.md)) — независимо от Firebase лимитов, триггер = запуск собственного backend проекта.
+- **Cloudflare Worker** is not in the data path of crypto. Storage uploads/downloads go directly device↔Firebase Storage. The Worker remains the FCM-trigger relay only.
+- **No server-side key escrow.** Intentional, aligns with e2e guarantee. Consequence — irrecoverable data on factory reset without revoke — accepted as UX cost of true privacy.
+- **Reference counting includes history snapshots** from спек 009 (retention 10). A blob's refCount considers `/config/current` AND any `/config/history/{slot}` referencing it.
+- **libsodium covers all foreseeable crypto needs** (encryption, hashing, signing, key exchange, HMAC, password hashing). Post-quantum will be added by libsodium upstream; we update through app version bump. X.509 PKI is the only foreseeable gap — handled via separate adapter if/when a vendor requires it.
+- **Pre-production phase (until spec ~35)** — no real users yet. Wire-format discipline (`schemaVersion`, `cipherSuiteId`, roundtrip + backward-compat tests) maintained from day 1 anyway, to avoid retrofitting later.
 
 ---
 
-## Зависимости-обещания (что 011 обязан выполнить за предыдущие спеки)
+## Зависимости-обещания (что 011 обязан выполнить за предыдущие спеки, что переехало в 012)
 
-Спеки 6-9 заранее заложили крючки под 011. Этот спек обязан их «отдать»:
+Спеки 6-9 заранее заложили крючки под 011. После разреза на 011/012 они распределены:
 
-- **Спек 006 → реализовать `EncryptedMediaStorage`** под уже существующий порт `IconStorage` ([icon-id-namespace.md:48](../006-provider-capabilities-and-health/contracts/icon-id-namespace.md#L48), [data-model.md:123](../006-provider-capabilities-and-health/data-model.md#L123)).
-- **Спек 007 → расширить known subcollections list** в `Link.KNOWN_SUBCOLLECTIONS` ([Link.kt:37-44](../../core/src/commonMain/kotlin/com/launcher/api/link/Link.kt#L37)) и добавить опциональный `pairingKey` field в pairing wire-format ([pairing-token.md:79](../007-pairing-and-firebase-channel/contracts/pairing-token.md#L79)) — additive, schemaVersion остаётся 1.
-- **Спек 008 → впервые **заполнить** `Contact.photoRef`** реальным значением (а не `null`) и **впервые эмитить** `partialApplyReasons += media_decrypt_failed` ([data-model.md:64](../008-bidirectional-config-sync/data-model.md#L64), [state-applied.md:65](../008-bidirectional-config-sync/contracts/state-applied.md#L65)).
-- **Спек 009 → подключить полные фото к Contacts Picker'у** (там сейчас `photoRef = null (фото — spec 011)` [009 spec.md:218](../009-admin-mode-flows/spec.md#L218)).
-- **Compliance → обновить запись о `READ_CONTACTS`** ([permissions-and-resource-budget.md:137](../../docs/compliance/permissions-and-resource-budget.md#L137)) и **решить вопрос POST_NOTIFICATIONS** ([permissions-and-resource-budget.md:224](../../docs/compliance/permissions-and-resource-budget.md#L224)) — активируется в 011 или отложить на следующий спек.
-- **Backlog → разрешить `TODO-DOC-001`** ([project-backlog.md:378](../../docs/dev/project-backlog.md#L378)) — создать ADR-007 (второй subtype `TrustEdgeBootstrap`) в начале спека 011.
-- **Server-roadmap → ничего не меняется** ([server-roadmap.md](../../docs/dev/server-roadmap.md)) — 011 не требует серверной части; e2e реализуется на клиентах. Если будущая инвалидация требует «server-side blob audit» — добавить в server-roadmap отдельной задачей.
+**Обязательства, остающиеся в 011 (инфраструктура):**
+
+- **Спек 007 → расширить `Link.KNOWN_SUBCOLLECTIONS`** ([Link.kt:37-44](../../core/src/commonMain/kotlin/com/launcher/api/link/Link.kt#L37)) — добавить `"private-media"` для recursive revoke (FR-043).
+- **Спек 007 → pairing-token wire-format не меняется** — поле `pairingKey` из ([pairing-token.md:79](../007-pairing-and-firebase-channel/contracts/pairing-token.md#L79)) **остаётся неиспользованным**. Pub-key publication идёт через Firestore `/links/{linkId}/devices/{deviceId}` после `consent.allow` (FR-006). schemaVersion остаётся 1.
+- **Backlog → разрешить `TODO-DOC-001`** ([project-backlog.md:378](../../docs/dev/project-backlog.md#L378)) — создать ADR-007 (`TrustEdgeBootstrap` для per-device keys + Pub publication через Firestore) в начале спека 011.
+- **Server-roadmap → создать `SRV-CRYPTO-001`** ([server-roadmap.md](../../docs/dev/server-roadmap.md)) — универсальный маршрут переезда крипто-инфраструктуры на собственный backend. Не привязан к Firebase лимитам.
+
+**Обязательства, переехавшие в 012 (visible feature):**
+
+- **Спек 006 → реализовать `PrivateMediaResolver`** под `IconStorage` ([icon-id-namespace.md:48](../006-provider-capabilities-and-health/contracts/icon-id-namespace.md#L48)) — **в 012**, не в 011. До 012 порт продолжает возвращать `Placeholder` для `private:<uuid>`.
+- **Спек 008 → впервые заполнить `Contact.photoRef`** реальным значением — **в 012**. В 011 поле остаётся `null` как и сейчас.
+- **Спек 008 → впервые эмитить `partialApplyReasons += media_decrypt_failed`** ([state-applied.md:65](../008-bidirectional-config-sync/contracts/state-applied.md#L65)) — **в 012**. В 011 enum value остаётся зарезервированным.
+- **Спек 009 → подключить фото к Contacts Picker** ([009 spec.md:218](../009-admin-mode-flows/spec.md#L218)) — **в 012**, не в 011.
+- **Compliance → обновить запись `POST_NOTIFICATIONS`** ([permissions-and-resource-budget.md:224](../../docs/compliance/permissions-and-resource-budget.md#L224)) — `deferred to spec 017 (balance alerts) / 018 (critical health push)` после перенумерации 2026-05-22. `READ_CONTACTS` не трогается в 011 (трогается в 012).
 
 ---
 
@@ -355,34 +505,48 @@ Admin удаляет контакт «Маша» из раскладки. Чер
 
 ## TL;DR (простым языком, для бабушки-владельца проекта и для будущего AI)
 
-**О чём этот спек.** Этот спек добавляет в раскладку бабушки **фотографии** контактов — чтобы плитка «Маша внучка» показывала лицо Маши, а не серый квадратик. И всё это так, чтобы Google не имел доступа к содержимому фото — только зашифрованные байты.
+**О чём этот спек.** Это **криптографический фундамент проекта**. Сам по себе он ничего видимого не делает — никаких фотографий на плитках, никаких новых кнопок. Это «фундамент под домом»: его не видно, пока на нём ничего не построили. Видимый дом — спек 012 (фото контактов и личных документов), а спек 011 — это арматура и бетон.
 
-**Почему отдельный спек, а не часть 009 (где контакты уже добавлялись).** В 009 фото осознанно поставили `null`, потому что добавить «фото в раскладку» — это **не просто загрузить файл**. Нужен общий ключ между телефоном внука и телефоном бабушки, нужно шифровать байты до загрузки, нужно расшифровывать на приёме, нужно убирать «висячие» зашифрованные файлы. Это всё крипто-инфраструктура, которая нужна не только для фотоконтактов, но и для будущих приватных штук (фото личных документов, например). Поэтому она в отдельном спеке.
+**Почему фундамент отдельным спеком.** Раньше мы пытались в одном спеке сделать и крипто-машину, и фото контактов. Получалось 73 задачи и 7 недель в одной ветке — слишком большой PR, нарушает наш порядок разработки. Плюс фундамент **нужен не только для фото**: через несколько спеков он понадобится для двусторонних пар (013), семейных групп (014), нескольких устройств одного человека (015), Jitsi-звонков (потом), интеграции с клиниками (потом). Поэтому имеет смысл сделать фундамент один раз и универсальным.
 
 **Что спек реально делает:**
-1. При сканировании QR (спек 007) теперь генерируется **общий секретный ключ** между парой устройств. Этот ключ хранится только на телефонах — в Google его нет.
-2. Когда внук добавляет фото контакта Маши, фото **шифруется на его телефоне**, потом грузится в Firebase Storage уже зашифрованным. В конфиг (`/config`) пишется ссылка `private:<uuid>` — это намёк «фото лежит там-то, но прочитать без ключа нельзя».
-3. Когда телефон бабушки получает новый конфиг, он скачивает зашифрованные байты из Storage, расшифровывает **локально** ключом из QR, и показывает фото на плитке.
-4. Если что-то пошло не так (фото повреждено, ключа нет после фабричного сброса) — плитка показывает серый placeholder, внук видит в своём приложении индикатор «фото не отрисовалось», предлагает «добавь фото заново» или «re-pair'имся».
-5. При удалении контакта или revoke связи — зашифрованные файлы удаляются из Storage. Не накапливаются.
+1. **При первом запуске приложения** каждое устройство генерирует свои крипто-ключи (X25519 для шифрования + Ed25519 для подписи). Секретные ключи хранятся в Android Keystore — это специальная защищённая зона **внутри телефона** (не облако Google).
+2. **При сканировании QR (спек 007)** оба устройства публикуют свои **публичные** ключи в Firestore. Подписывают публикацию, чтобы никто не подменил. Теперь пара устройств знает крипто-адреса друг друга.
+3. **API для шифрования blob'а** — «дай мне байты и список получателей, я верну зашифрованный пакет». В 011 список всегда одного человека (член пары). В будущих спеках — N человек (группа, multi-device).
+4. **Firebase Storage впервые в проекте** — нужно место для зашифрованных blob'ов. Зашифровали → положили → потом достали → расшифровали.
+5. **Учёт и уборка** — если blob больше не нужен (ни в текущем `/config`, ни в истории), он удаляется. При revoke пары всё под `/links/{linkId}/` стирается.
+6. **Тест на двух реальных устройствах** перед merge — 16 случайных байт зашифровались на одном телефоне, расшифровались на другом, hex совпал. Это компенсирует отсутствие визуального результата.
 
-**Архитектурный риск, явно записан как one-way door:**
-Выбор крипто-системы (libsodium vs Tink vs что-то ещё) и схемы обмена ключами при pairing'е — после первого реального зашифрованного фото у пользователя поменять это будет ОЧЕНЬ дорого: нужно расшифровать все blob'ы по старому, пере-шифровать по новому, и сделать так, чтобы старые читатели всё ещё работали. Поэтому решение откладывается на clarify-сессию (внутри спека 011), и обязательно описывается «exit ramp» — что мы делаем, если через год криптосистема устареет.
+**Что спек НЕ делает (явно вынесено):**
+- Фотографии на плитках — спек 012.
+- Real-time звонки (как Jitsi/Zoom) — никогда не через наш envelope. Это другая криптография.
+- Post-quantum — потом, когда библиотека дозреет.
+- iOS — out of project scope.
 
-**Зачем именно e2e (a не стандартное Firebase Storage с правилами):** правила Firebase Storage защищают «доступ только своих по правилам сервера», но **сам Google технически имеет доступ** к файлам. Фотографии родственников — это **очень приватно**. e2e снимает этот вопрос — Google видит только мусор.
+**Главное архитектурное решение:** envelope (зашифрованный пакет) **не знает**, кто его расшифрует. Эту работу делает отдельный интерфейс `RecipientResolver`. Сейчас он умеет вернуть «другого члена пары»; в будущем будет уметь «всех членов группы» или «все мои устройства». **При этом сам формат envelope не меняется** — это значит, что когда мы дойдём до групп (014) или multi-device (015), нам **не придётся перешифровывать** уже залитые blob'ы. Это главная инвестиция спека.
 
-**Что зафиксировано в clarify-сессии (раздел Clarifications выше):**
-- В этом спеке только admin→Managed direction; симметрия — будущий спек ~015 (C-1).
-- Криптобиблиотека libsodium через Lazysodium-android; AEAD = XChaCha20-Poly1305; asymmetric = X25519 (C-4).
-- Per-device key pairs на каждом устройстве, hybrid encryption с CEK (C-3).
-- Membership-agnostic envelope: список `recipients` произвольной длины (в 011 длина 1, в будущих спеках — N) (C-2).
-- Один namespace `private:<uuid>`, тип содержимого внутри envelope (C-5).
-- POST_NOTIFICATIONS откладываем на спек 012/013 (C-6).
-- Reference counting blob'ов учитывает history snapshots из спека 009 (C-7).
-- `RecipientResolver` интерфейс — обоснованное исключение из rule 4 (C-8).
+**Зачем именно end-to-end (a не «Firebase правилами»):** правила Firebase защищают «доступ только своих». Но **сам Google технически имеет доступ** к файлам, если кто-то его попросит (суд, госорган, сотрудник). Фотографии родственников, документы, голосовые сообщения, видеозвонки — это слишком приватно. e2e снимает вопрос — Google видит только мусор, расшифровать его без наших ключей он не может.
 
-**Будущие спеки (добавлены в roadmap):**
-- **~015 «двусторонние пары»** — Managed тоже может управлять.
-- **~016 «семейные группы»** — групповой ключ для семейного круга (WhatsApp-style).
-- **~017 «multi-device recovery»** — у одного человека несколько устройств; восстановление при потере.
-- **~018 «key rotation + forward secrecy»** — периодическое обновление ключей.
+**Crypto-стек:**
+- Библиотека: **libsodium через Lazysodium-android**. Это та же библиотека, что в Signal, Discord, и многих других. Никакого «самописного шифрования».
+- Шифрование: **XChaCha20-Poly1305** (для blob'а) + **X25519 + crypto_box_seal** (для упаковки ключа blob'а получателю).
+- Подпись: **Ed25519**.
+- Хеширование: **BLAKE2b**.
+- Все это есть в одной библиотеке (1.2 MB на телефон), весит одинаково, дёргаем по мере нужды.
+
+**Что зафиксировано в clarify-сессиях:**
+- 2026-05-21: per-device keys + hybrid encryption + membership-agnostic envelope (8 решений C-1..C-8).
+- 2026-05-22: **разрез на 011 (фундамент) и 012 (фото)**; расширение фундамента на Hash + Signature (универсальная крипто-ABI для будущих интеграций); перенумерация спеков 015→013, 016→014, 017→015, 018→016, 012(balance)→017, 013(offline)→018, 014(onboarding)→019.
+
+**Будущие клиенты этого фундамента (см. таблицу в начале):**
+- **спек 012** — фото контактов и личных документов (первый видимый продукт на фундаменте).
+- **спек 013** — двусторонние пары (бабушка тоже может управлять).
+- **спек 014** — семейные группы (WhatsApp-style).
+- **спек 015** — multi-device одного владельца + recovery при потере.
+- **спек 016** — ротация ключей.
+- **TBD-Jitsi** — зашифрованный доступ к Jitsi-комнатам (ключ доступа, не realtime stream).
+- **TBD-Audio/Video messages** — голосовые/видеосообщения как WhatsApp voice (asynchronous).
+- **TBD-Vendor** — интеграция с клиниками, центрами поддержки.
+- **TBD-Hardware** — медицинские/охранные датчики.
+
+**Server-roadmap:** SRV-CRYPTO-001 — универсальный маршрут переезда крипто-инфраструктуры на собственный backend. Триггер — запуск собственного backend проекта (после спека ~35), не привязан к Firebase лимитам.

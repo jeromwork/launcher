@@ -215,7 +215,7 @@ Admin в редакторе плитки выбирает «Тип: открыт
   - принять URI из picker'a → прочитать `ContactsContract.CommonDataKinds.Phone` → извлечь raw `displayName: String` и `phoneNumber: String`;
   - передать сырые значения в **доменный валидатор** `Contact.fromRaw(name, phone)` (см. `## Domain validation contract`);
   - при `ValidationError` показать пользователю «Не удалось добавить контакт: <причина>», не пытаться «починить» данные.
-  Создаваемый `Contact` объект имеет `photoRef = null` (фото — `spec 011`). На плитке — **инициалы** или абстрактная иконка.
+  Создаваемый `Contact` объект имеет `photoRef = null` (фото — `spec 012`, использует крипто-фундамент из `spec 011`). На плитке — **инициалы** или абстрактная иконка.
 
 #### Contacts — VCard share intent (per-provider adapter)
 
@@ -483,7 +483,7 @@ Measurable technical characteristics, не functional success criteria. SC-001..
 → **Решение**: сейчас захардкожено в `DEFAULT_PHONE_HEALTH_PRESET` data class (структура готова, FR-019). UI редактирования — `TODO-ARCH-010`. Все настройки **в одной структуре**, не разбросаны.
 
 **Q9 (фото контакта).** В спеке 9?
-→ **Решение**: нет (FR-026). `photoRef = null`. Полные фото — `spec 011 contacts-and-e2e-encrypted-media` (с e2e-шифрованием).
+→ **Решение**: нет (FR-026). `photoRef = null`. Полные фото — `spec 012 contact-photos-and-private-documents` (visible feature, использует крипто-фундамент из `spec 011 e2e-crypto-foundation`).
 
 **Q10 (deduplicate contacts).** Как?
 → **Решение**: по строгому совпадению `phoneNumber` (FR-033). Имя не учитывается.

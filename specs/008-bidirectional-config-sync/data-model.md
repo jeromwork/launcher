@@ -61,7 +61,7 @@ data class Contact(
     val id: ElementId,
     val displayName: String,
     val phoneNumber: String,
-    val photoRef: String? = null,  // reserved for spec 011 (private:<uuid>)
+    val photoRef: String? = null,  // reserved — namespace `private:<uuid>` from spec 011 (crypto foundation); filled by spec 012 (contact photos)
 )
 ```
 
@@ -165,7 +165,7 @@ data class ContactApplied(
 enum class PartialReason {
     PROVIDER_UNAVAILABLE,
     CONTACT_PERMISSION_DENIED,
-    MEDIA_DECRYPT_FAILED,    // reserved for spec 011
+    MEDIA_DECRYPT_FAILED,    // reserved — emit'ится впервые в spec 012 (contact photos), которая использует крипто-фундамент spec 011
     UNKNOWN_SLOT_KIND,
 }
 ```

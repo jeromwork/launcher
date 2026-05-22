@@ -111,7 +111,7 @@ encryptedMediaStorage.list(linkId).forEach { uuid ->
 | Spark plan storage limit | 5 GB total | Firebase Spark |
 | Spark plan download limit | 1 GB/day | Firebase Spark |
 | Spark plan write limit | 20K writes/day | Firebase Spark |
-| Server-roadmap trigger | storage > 4 GB OR download > 800 MB/day | `SRV-MEDIA-001` (see [server-roadmap.md](../../../docs/dev/server-roadmap.md)) |
+| Server-roadmap trigger | storage > 4 GB OR download > 800 MB/day | `SRV-CRYPTO-001` (see [server-roadmap.md](../../../docs/dev/server-roadmap.md)) |
 | Listing operation cost | 1 op per call (no per-item cost) | Firebase Storage SDK |
 | Object deletion cost | 1 op per call | Firebase Storage SDK |
 
@@ -185,7 +185,7 @@ interface EncryptedMediaStorage {
 - 5 GB storage всего.
 - 1 GB downloads в день.
 - 20K writes в день.
-- При средних 200 KB на blob, 80 blob'ов на пару = ≈ 250-500 пар до превышения. После — миграция на платный Blaze или на собственный server (записано в server-roadmap как `SRV-MEDIA-001`).
+- При средних 200 KB на blob, 80 blob'ов на пару = ≈ 250-500 пар до превышения. После — миграция на платный Blaze или на собственный server (записано в server-roadmap как `SRV-CRYPTO-001`).
 
 **Удаление файлов (housekeeping):**
 - Реализация на admin device (локальный SQLite-счётчик ссылок).

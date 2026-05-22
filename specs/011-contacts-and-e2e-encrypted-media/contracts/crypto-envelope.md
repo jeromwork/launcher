@@ -1,8 +1,8 @@
 # Contract: `EncryptedEnvelope` Wire Format
 
-**Version:** 1.0.0 · **Status:** Stable from спек 011 · **Owner:** spec 011
+**Version:** 1.0.0 · **Status:** Stable from спек 011 rev. 2 (2026-05-22) · **Owner:** spec 011
 **Storage**: per-blob, persisted в Firebase Storage object `/links/{linkId}/private-media/{uuid}`
-**Test**: `CryptoEnvelopeWireFormatTest`
+**Test**: `CryptoEnvelopeWireFormatTest`, `MalformedEnvelopeTest`
 
 ---
 
@@ -32,7 +32,7 @@
 | `nonce` | bstr | ✓ | 24 bytes (XChaCha20 extended nonce). |
 | `recipients` | array | ✓ | Length ≥ 1. Each entry — `Recipient` (see below). |
 | `ciphertext` | bstr | ✓ | AEAD-encrypted plaintext + auth tag combined (libsodium combined-mode output). |
-| `metadata` | map | ✓ | Plaintext metadata (used as AAD). See `BlobMetadata` schema below. |
+| `metadata` | map (str → bstr) | ✗ | **Optional, freeform** map. Используется как AAD. **Envelope в 011 нейтрален к содержанию metadata** — ключи определяются client specs (012+). MAY быть empty в 011 smoke (синтетические blobs не имеют semantic metadata). |
 
 **Note on `mac`**: in libsodium combined-mode (`crypto_secretbox_*_easy`), authentication tag is **prepended to ciphertext** в одном байт-массиве. Поэтому в wire-format есть только `ciphertext` (which includes the tag). В domain-уровне `EncryptedEnvelope` имеет отдельное поле `mac` для test clarity — but при serialization combined into ciphertext field.
 
@@ -43,13 +43,15 @@
 | `deviceId` | tstr | ✓ | UUIDv4 string. Receiver MUST find own deviceId here. |
 | `sealedCEK` | bstr | ✓ | Output of libsodium `crypto_box_seal` = 80 bytes (32 ephemeral pub + 32 ciphertext + 16 MAC). |
 
-### `BlobMetadata` schema
+### `metadata` map — content-type neutrality
 
-| Field | CBOR type | Required | Notes |
-|---|---|---|---|
-| `kind` | tstr | ✓ | `"image"` or `"document"`. Helps Managed pick correct viewer. |
-| `createdAt` | unsigned int (epoch millis) | ✓ | Server-set on upload. Used in AAD. |
-| `labelOpt` | tstr | ✗ | For documents (US-2): user-given label like "Паспорт". Max 24 chars. Null for contact photos. |
+**Envelope в спеке 011 не знает, что внутри ciphertext.** `metadata` — freeform map, в которой:
+- Envelope MUST treat metadata как opaque AAD (binding только, MAC verification, semantics клиенту).
+- Client specs (012+) определяют свои ключи. Например, спек 012 добавит ключ `kind` ("image" / "document") и решит, как helping Managed picker.
+
+**⚠️ Privacy note для будущих client specs**: `metadata` ВЫХОДИТ из envelope в **plaintext** (это AAD, не ciphertext). Sensitive поля MUST шифроваться внутри ciphertext, **не** класться в metadata. Например, если client добавит `labelOpt` ("Паспорт", "СНИЛС") — оно ДОЛЖНО быть encrypted внутри ciphertext, не в metadata-map. Спек 012 содержит этот guidance в своём design.
+
+**В спеке 011** все smoke tests используют `metadata = {}` (пустая карта) — нейтральный fundament.
 
 ---
 
@@ -118,14 +120,18 @@ Identifies the AEAD + asymmetric scheme combination used. Forward-compat — rea
 
 ## Validation rules
 
-Decoder MUST:
-1. Reject envelope where `schemaVersion` not in {1}. Throw `CipherSuiteUnsupported` (yes, weird name — schemaVersion и cipherSuite parallel-evolved here; rename to `SchemaUnsupported` in future spec if separation matters).
-2. Reject envelope where `cipherSuiteId` not in known registry. Throw `CipherSuiteUnsupported`.
-3. Reject envelope where `nonce` length != expected for this cipher suite (24 bytes for XChaCha20).
-4. Reject envelope where `recipients` array is empty. Throw `EnvelopeInvalid`.
-5. Reject envelope where any `Recipient.sealedCEK` length != 80. Throw `EnvelopeInvalid`.
-6. Reject envelope where own `deviceId` not in `recipients`. Throw `RecipientNotFound`.
-7. Verify MAC during decrypt. Throw `MacFailed` if mismatch.
+Decoder MUST return `Result<EncryptedEnvelope, CryptoError>` (never throw):
+
+1. **CBOR parse failure** (malformed bytes, truncation, type mismatch) → `MalformedEnvelope(uuid, cause)`.
+2. `schemaVersion` not in {1} → `CipherSuiteUnsupported` (covers schema bumps; future spec may rename to `SchemaUnsupported`).
+3. `cipherSuiteId` not in known registry → `CipherSuiteUnsupported`.
+4. `nonce` length != expected for this cipher suite (24 bytes for XChaCha20) → `MalformedEnvelope`.
+5. `recipients` array empty → `MalformedEnvelope`.
+6. Any `Recipient.sealedCEK` length != 80 → `MalformedEnvelope`.
+7. Own `deviceId` not in `recipients` → `RecipientNotFound`.
+8. MAC verification fails during decrypt → `MacFailed`.
+
+**Important**: caller (Storage adapter в Phase 5) wraps все network/IO failures в `StorageFailure(cause)`. Crypto-specific failures — `CryptoError` sub-cases в data-model.md §1. **No Exception ever escapes the decoder** (CHK-FR-008).
 
 ---
 
@@ -143,19 +149,24 @@ Decoder MUST:
 | Test | What | Phase |
 |---|---|---|
 | `roundtrip_singleRecipient` | Encode → decode → assert deep-equal; single recipient = 011 common case | 2 |
-| `roundtrip_multiRecipient` | 3 recipients; verifies massiv handling for future ~016/017 | 2 |
-| `roundtrip_documentKind` | metadata.kind = "document", labelOpt = "Паспорт" | 2 |
-| `backwardCompat_v0_synthetic` | Test fixture v0 (synthetic) → reader returns proper error or graceful fallback | 2 |
-| `forwardCompat_unknownCipherSuite` | Envelope with cipherSuiteId="future_suite_v1" → reader throws CipherSuiteUnsupported | 2 |
-| `forwardCompat_extraField` | Envelope with extra map key → reader ignores it cleanly | 2 |
-| `aadBinding` | Tamper with metadata.kind → decrypt throws MacFailed | 2 |
+| `roundtrip_multiRecipient` | 3 recipients; verifies массив handling for future spec 014/015 | 2 |
+| `roundtrip_emptyMetadata` | metadata = empty map; 011 нейтрален к содержимому | 2 |
+| `roundtrip_freeformMetadata` | metadata = {"some-future-key": <bytes>}; reader treats as opaque | 2 |
+| `forwardCompat_unknownCipherSuite` | Envelope with cipherSuiteId="future_suite_v1" → reader returns `CipherSuiteUnsupported` | 2 |
+| `forwardCompat_extraField` | Envelope with extra top-level map key → reader ignores it cleanly | 2 |
+| `aadBinding` | Tamper with metadata after encrypt → decrypt returns `MacFailed` | 2 |
 | `cek_zeroized` | ContentEncryptionKey.close() actually zeroes byte array (defensive) | 2 |
+| `malformedEnvelope_truncated` | Pass truncated CBOR bytes → decoder returns `MalformedEnvelope` (no Exception) | 2 |
+| `malformedEnvelope_typeMismatch` | nonce length 16 instead of 24 → `MalformedEnvelope` | 2 |
+| `malformedEnvelope_emptyRecipients` | recipients=[] → `MalformedEnvelope` | 2 |
+| `recipientNotFound` | recipients=[other-device], own deviceId не в списке → `RecipientNotFound` | 2 |
 
 **Fixtures**: `core/src/commonTest/resources/wire-format/`:
 - `crypto-envelope-v1-single-recipient.cbor`
 - `crypto-envelope-v1-multi-recipient.cbor`
-- `crypto-envelope-v1-document.cbor`
-- `crypto-envelope-v0-synthetic.cbor` (synthetic, for backward-compat test)
+- `crypto-envelope-v1-empty-metadata.cbor`
+- `crypto-envelope-malformed-truncated.cbor`
+- `crypto-envelope-malformed-empty-recipients.cbor`
 
 ---
 
@@ -183,13 +194,23 @@ Copy vectors into `core/src/commonTest/resources/libsodium-vectors/` for offline
 **Главные поля:**
 - `schemaVersion: 1` — версия формата (если будем менять — поднимем до 2).
 - `cipherSuiteId: "xchacha20poly1305_x25519_sealed_v1"` — какие именно алгоритмы шифрования. Эта строка позволит нам в будущем поменять шифр, не выкидывая старые файлы.
-- `nonce` — 24 случайных байт, чтобы одинаковые фото шифровались по-разному.
-- `recipients: []` — список получателей. Для каждого — кому (deviceId) и зашифрованный для него ключ (sealedCEK). В нашем случае всегда 1 получатель, но массив поддерживает любую длину (для будущих групп).
-- `ciphertext` — собственно зашифрованные байты фото.
-- `metadata` — открытые метаданные: это «фото» или «документ», когда создано, как называется (для документов). Эти данные тоже защищены MAC'ом — их нельзя подменить.
+- `nonce` — 24 случайных байт, чтобы одинаковые байты шифровались по-разному.
+- `recipients: []` — список получателей. Для каждого — кому (deviceId) и зашифрованный для него ключ (sealedCEK). В 011 всегда 1 получатель, массив поддерживает любую длину (для будущих групп).
+- `ciphertext` — собственно зашифрованные байты.
+- `metadata` — **необязательная** свободная карта. В спеке 011 envelope **не знает**, что внутри (только тестовые smoke blobs). Будущие спеки (012+) определяют свои ключи. ⚠️ **Sensitive поля шифруются внутри ciphertext, не в metadata** — metadata выходит из envelope открыто.
 
-**Формат сериализации — CBOR**, не JSON. Потому что фото = бинарные данные, а CBOR умеет их хранить компактно (в JSON пришлось бы base64-кодить, что на ~33% больше).
+**Формат сериализации — CBOR**, не JSON. Потому что бинарные данные в JSON пришлось бы base64-кодить (~33% overhead), а CBOR хранит их компактно нативно.
 
-**8 roundtrip-тестов** проверяют, что мы можем encode → decode → получить точно то же самое; и что если что-то подменили — расшифровка явно падает.
+**12 roundtrip-тестов** проверяют:
+- Что мы можем encode → decode → получить точно то же самое (single и multi recipient).
+- Что envelope с битыми байтами возвращает `MalformedEnvelope`, не падает с Exception.
+- Что подмена metadata даёт `MacFailed` (защита AAD).
+- Что unknown `cipherSuiteId` graceful (forward-compat).
+- Что CEK действительно обнуляется в памяти после использования.
 
-**Тестируем не на наших данных, а на официальных тест-векторах libsodium** — это значит, что наша реализация даёт **точно те же результаты**, что и эталонная C-библиотека. Если в будущем там что-то пофиксят — мы синхронно увидим расхождение.
+**Тестируем не на наших данных, а на официальных тест-векторах libsodium** — наша реализация даёт **точно те же результаты**, что и эталонная C-библиотека.
+
+**Что изменилось в rev. 2 (2026-05-22):**
+- `BlobMetadata.kind` (Image/Document) удалён — envelope в 011 нейтрален к content-type. Клиент спека 012 определит свои metadata-keys.
+- `labelOpt` ("Паспорт" и т.п.) удалён — sensitive labels MUST шифроваться внутри ciphertext в спеке 012, не в metadata.
+- Добавлена обработка `MalformedEnvelope` — CBOR parse failure возвращает CryptoError, не Exception.

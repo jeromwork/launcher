@@ -1,8 +1,8 @@
-# Research: Contacts Photos and E2E Encrypted Private Media
+# Research: E2E Crypto Foundation
 
 **Spec**: [spec.md](spec.md)
 **Plan**: [plan.md](plan.md)
-**Date**: 2026-05-21
+**Date**: 2026-05-21 / rev. 2 2026-05-22 (scope-split — universal crypto foundation; добавлены §2b Ed25519, §2c BLAKE2b, §3b clear-data grace, §11 constant-time recipient search; §6 PrivateMediaResolver и §7 Document picker UX перенесены в спек 012)
 
 Этот документ собирает результаты исследования по архитектурным решениям, которые требуют сравнительного анализа альтернатив (CLAUDE.md §3 one-way doors).
 
@@ -69,6 +69,75 @@
 **KDF: библиотека по умолчанию**
 
 libsodium внутри `crypto_box_seal` использует BLAKE2b для derivation. Это нативное решение библиотеки — не наш выбор. Хорошо, потому что устраняет один источник bugs (KDF spec'aми ошибиться сложно, но возможно).
+
+---
+
+## §2b. Algorithm choice: Ed25519 для signing (new 2026-05-22)
+
+**Context**: спек 011 rev. 2 расширен на universal crypto foundation — `DigitalSignature` port нужен для:
+- Anti-tamper подпись Pub-key publication в Firestore (FR-006 + DRIFT-7 remediation).
+- Будущая авторизация Jitsi room join (TBD-Jitsi).
+- Будущая HMAC/JWT signing для vendor APIs (TBD-Vendor).
+- Будущая device attestation для hardware (TBD-Hardware).
+
+**Alternatives:**
+
+| Кандидат | Pros | Cons | Verdict |
+|---|---|---|---|
+| **Ed25519** (libsodium `crypto_sign`) | Современный elliptic-curve; быстро (~50 µs sign/verify на ARMv8); 32-byte Pub, 64-byte signature; RFC 8032 standard; deterministic signatures (нет nonce reuse risk); native в Android Keystore с API 31+ | API 30 (наш minSdk) не имеет native Keystore Ed25519 — fallback на AES-wrap | **CHOSEN** |
+| ECDSA P-256 | Native в Android Keystore с API 23+ | Non-deterministic signatures (требуется secure RNG для nonce); большая complexity implementation; больший signature size (~70 bytes) | Rejected: deterministic Ed25519 устраняет один источник bugs |
+| RSA-2048 / RSA-3072 | Wide compatibility | Медленный (~ms per op); большие ключи + signatures (256+ bytes); legacy | Rejected: overhead против Ed25519 без выгоды |
+| HMAC-SHA-256 (для b2b APIs) | Симметричный, простой | Требует shared secret — нерелевантно для anti-tamper Pub publication (нет общего секрета между admin и Firestore admin attacker) | Rejected for primary use; libsodium HMAC доступен через тот же binding для будущих vendor integrations |
+
+**Decision rationale**:
+- Ed25519 — modern best practice (используется в Signal, WireGuard, SSH, TLS 1.3).
+- libsodium has built-in `crypto_sign` API (одна функция, no parameter choices).
+- Deterministic — устраняет class of nonce-reuse vulnerabilities.
+- Native в Android Keystore с API 31+ (Android 12) — на новых устройствах hardware-backed; на API 30 fallback на AES-wrap.
+
+**Exit ramp**: смена signing algorithm в будущем = новый `signatureAlgorithm` field в DeviceIdentity wire-format (sister к `cipherSuiteId` в envelope). Старые подписи продолжают verify'иться старым кодом.
+
+---
+
+## §2c. Algorithm choice: BLAKE2b для hashing (new 2026-05-22)
+
+**Context**: `HashFunction` port нужен для:
+- Integrity checks (например, fingerprint Pub-ключа для logging — log shows hash, not key).
+- Future spec 012: дедупликация blob'ов по content-hash.
+- Future TBD-Jitsi: room key fingerprint для safety numbers UX.
+- Future TBD-Vendor / TBD-Hardware: integrity verification.
+
+**Alternatives:**
+
+| Кандидат | Pros | Cons | Verdict |
+|---|---|---|---|
+| **BLAKE2b** (libsodium `crypto_generichash`) | Быстрее SHA-256 на 64-bit (наш Android — все ARMv8 64-bit); RFC 7693; cryptographically strong; output size configurable (мы берём 32 bytes); libsodium native; используется внутри `crypto_box_seal` (consistency) | Менее известен чем SHA-256 в широкой публике | **CHOSEN** |
+| SHA-256 | Стандарт; быстрый на dedicated hardware (Intel SHA-NI); вездесущность | Чуть медленнее BLAKE2b на ARM без SHA extensions; **уже встроен в Android SDK** через `MessageDigest`, но мы хотим всё через libsodium ports | Rejected: один primitive vendor (libsodium) лучше, чем mix |
+| SHA-3 (Keccak) | Standardized; cryptographically diverse от SHA-256 | Медленнее обоих на CPU; редко используется на mobile | Rejected: no current use case |
+| Argon2id (если когда-то понадобится password hashing) | Memory-hard для password resistance | Heavy — не для general hashing | Defer: libsodium has it; добавится если когда-нибудь введём password-protected backup |
+
+**Decision rationale**:
+- BLAKE2b — modern, fast, libsodium-native.
+- Все hashing — через один port; библиотека libsodium уже в проекте.
+
+---
+
+## §2d. Constant-time recipient search (new 2026-05-22 — CHK-SEC-018)
+
+**Context**: при unsealing CEK из envelope, наше устройство ищет свой `deviceId` в `recipients[]` массиве. Naive implementation — `recipients.find { it.deviceId == ownDeviceId }` — **не constant-time**: время выполнения зависит от позиции own deviceId в массиве.
+
+**Threat**: external observer (TLS layer, network monitoring) может измерить timing of decryption и определить, в какой позиции own deviceId находится в массиве. В 011 при длине 1 это не утечка, но **в спеках 014 (группы) и 015 (multi-device)** длина может быть N. Timing leak позволяет attacker'у учить «admin device в позиции 3 из 5» — privacy утечка для membership.
+
+**Mitigation**:
+- В `unsealCEK` flow перебрать **все** recipients, попытаться unsealCEK каждым (с одним `Priv`), отметить success/fail в constant-time fashion (например, через `libsodium.utils.SODIUM_constant_time_compare`).
+- Возвращать первый successful unsealCEK.
+- Время = O(N) независимо от позиции.
+
+**Implementation note**: libsodium `crypto_box_seal_open` уже constant-time (внутри MAC verification). Мы добавляем constant-time на уровень recipient search above it.
+
+**Test**: `ConstantTimeRecipientSearchTest` — measure timing variance for envelopes where own deviceId at position 0 vs position N-1. Variance MUST be < 5% (статистический шум).
+
+**Cost**: O(N) расшифровка вместо O(1). При N=1 (011-012) overhead = 0. При N=10 (groups) overhead = ~5 ms на типичном телефоне (negligible).
 
 ---
 
@@ -150,7 +219,7 @@ service firebase.storage {
 - **Download quota**: assume Managed re-downloads blobs ≤ 1× per day (DecryptCache hits hot path) → 80 × 200 KB × 100 pairs = 1.6 GB/day → **exceeds 1 GB/day at 100 pairs**.
 - **Mitigation**: DecryptCache LRU keep most-accessed; eviction policy budget conservative. Phase 11 measures actual cache hit ratio.
 
-**Action**: add `SRV-MEDIA-001` to `docs/dev/server-roadmap.md` in Phase 0 — «Firebase Storage migration to own server when storage > 4 GB OR download quota > 800 MB/day».
+**Action**: add `SRV-CRYPTO-001` to `docs/dev/server-roadmap.md` — универсальный маршрут переезда крипто-инфраструктуры на собственный backend (не привязан к Firebase лимитам, триггер = запуск собственного backend проекта). ✅ Сделано 2026-05-22.
 
 ---
 
@@ -203,59 +272,53 @@ on revoke link:
 
 **24h grace period** — защищает от race conditions (admin removes + immediate rollback before delete fires). Принимается как acceptable storage cost.
 
+### §5b. WorkManager retry policy (new 2026-05-22 — CHK-FR-012)
+
+Все Storage delete/upload через WorkManager. Конкретная политика:
+- **Backoff**: exponential — 1m → 5m → 30m → 2h → 12h.
+- **Max attempts**: 5 (cumulative ~15 hours wall time).
+- **After exhaustion**: warning log с категорией `storage_delete_exhausted` / `storage_upload_exhausted`, blob/operation остаётся «pending forever» в ledger; **никаких автоматических retry** после exhaustion (предотвращает infinite quota burn).
+- **Foreground service**: WorkManager использует JobScheduler; на API 34+ foreground service не нужен, потому что individual retry < 10 min (CHK-PERM-006 ok).
+- **Surfacing**: в спеке 012 admin UI отобразит indicator «N blob'ов pending delete после network outage». В 011 — только log.
+
+### §5c. Clear-data edge case (new 2026-05-22 — CHK-FR-015)
+
+**Сценарий**: пользователь делает «настройки Android → приложение Launcher → очистить данные». Effect:
+- Вся SQLite DB стирается (включая BlobReferenceLedger).
+- SharedPreferences стирается (включая own DeviceId).
+- Android Keystore — НЕ стирается (живёт отдельно), но без знания alias'а ключи бесполезны.
+
+**Проблема**: после restart приложение генерирует новый DeviceId, новые keypairs, начинает новую identity. Blob'ы в Storage остаются с references на старый identity. Background reconciler видит «refCount = 0 для всех» → запускает delete → теряет blob'ы, которые ещё нужны в /config бабушки.
+
+**Mitigation**:
+- При первом запуске после clear-data — записать sentinel-row в systemctl-table DB с `clearDataAt = now`.
+- Reconciler перед запуском проверяет: `if (now - clearDataAt < 7 days) → SKIP this cycle, log "clear-data grace period"`.
+- За 7 дней:
+  - /config от Firestore синхронизируется (refs восстановятся для `"config-current"`).
+  - History snapshots (спек 009) либо пере-захватятся, либо явно теряются (acceptable — clear-data = пользователь согласился потерять историю).
+  - Pairing re-established (новый identity опубликован).
+- После 7 дней reconciler работает нормально.
+
+**Why 7 days, а не 24h или 30 days**:
+- 24h недостаточно — типичный offline-сценарий (отпуск, выходные) длиннее.
+- 30 days — слишком долгое накопление orphan'ов, может превысить Storage квоту.
+- 7 days — sweet spot: покрывает большинство sync delays (~95% случаев), не накапливает слишком много orphan'ов.
+
+**Implementation**: sentinel-row в `BlobReferenceLedger` системной partition (или отдельная маленькая `SystemMeta` таблица с key/value). Detect через absence: если row отсутствует на startup, значит — DB была wiped, запиши `clearDataAt = now`. Безопасно — false positive (rare случай DB corruption) приводит к 7-day delay, не к data loss.
+
 ---
 
-## §6. iconStorage namespace dispatcher — integration with spec 006
+## §6. (out of 011 scope) iconStorage namespace dispatcher
 
-**Question**: как `IconStorage.resolve("private:<uuid>")` маршрутизируется к нашему `PrivateMediaResolver`?
+Реализация `PrivateMediaResolver` (IconStorage namespace dispatch для `private:`) переехала в спек **012**. В 011 фундамент дает порты + adapters + storage; resolver — отдельная feature, реализуется клиентом фундамента.
 
-Per spec 006 [icon-id-namespace.md:48](../006-provider-capabilities-and-health/contracts/icon-id-namespace.md#L48), реализация в спеке 006 — `BundledIconStorage`, которая для `private:` возвращает `Placeholder` (graceful — не падает). Нам нужно расширить.
-
-**Two approaches**:
-
-1. **Chained Resolver pattern** — main `IconStorage` becomes coordinator который пробует резолверы по очереди (`BundledIconStorage` → `RemoteIconStorage` (custom) → `PrivateMediaResolver` (this spec)). **CHOSEN**.
-   - Pros: extensible, additive.
-   - Cons: small overhead per call (negligible).
-
-2. **Single dispatcher с reflection-based namespace mapping** — `IconStorage.resolve()` parses namespace, looks up resolver in registry. **Rejected**: over-engineered, harder to test.
-
-**Implementation**:
-- Создать `ChainedIconStorage : IconStorage` в `core/api/capability/`.
-- Конструктор принимает список resolver'ов (через Koin DI).
-- `resolve(id)`:
-  ```kotlin
-  fun resolve(iconId: String): IconResolution {
-      val ns = IconRef.namespaceOf(iconId) ?: return IconResolution.NotFound
-      for (resolver in resolvers) {
-          if (resolver.handles(ns)) return resolver.resolve(iconId)
-      }
-      return IconResolution.NotFound
-  }
-  ```
-- В Phase 8: добавить `PrivateMediaResolver` в Koin module.
-
-**Backward compat**: spec 006's tests должны продолжать работать — `BundledIconStorage` остаётся в цепи как первый resolver для `bundled:`.
+**Кратко для контекста**: спек 012 добавит `ChainedIconStorage : IconStorage` в `core/api/capability/`, который пробует resolver'ы по очереди (`BundledIconStorage` → `RemoteIconStorage` → `PrivateMediaResolver`). До спека 012 — `IconStorage.resolve("private:<uuid>")` возвращает `Placeholder` per спек 006 [icon-id-namespace.md:48](../006-provider-capabilities-and-health/contracts/icon-id-namespace.md#L48).
 
 ---
 
-## §7. Document picker UX flow (US-2)
+## §7. (out of 011 scope) Document picker UX flow
 
-**Question**: как admin выбирает фото документа?
-
-**Options**:
-
-1. **`Intent.ACTION_GET_CONTENT` с mime `image/*`** — стандартный Android picker, открывает галерею. **CHOSEN as default**.
-2. `Intent.ACTION_OPEN_DOCUMENT` — Storage Access Framework, может работать с cloud-storage providers. **Considered**: добавляет UX-вариативность которая не нужна для P2.
-3. Камера-capture inline — Intent `MediaStore.ACTION_IMAGE_CAPTURE`. **Considered**: nice-to-have, отложено в дальнейшие спеки.
-
-**Verdict**: Phase 9 implements only ACTION_GET_CONTENT; камера и ACTION_OPEN_DOCUMENT — future spec extensions.
-
-**Label dialog**: после picker'a — `DocumentLabelDialog` с TextField (max 24 chars, locale-aware truncate). Label сохраняется как Slot.title в /config.
-
-**Compression**: бытовые фото с камер часто 3-5 MB. Pre-encryption compression до ≤ 500 KB:
-- JPEG quality 85% as baseline.
-- Resize до max(width, height) = 1920 px (preserves readability of documents).
-- Done via standard Android `Bitmap.compress(JPEG, 85, ...)`.
+UX-flow добавления документов (через `Intent.ACTION_GET_CONTENT`, label dialog, compression, fullscreen viewer) — переехал в спек **012**. В 011 нет UI вообще.
 
 ---
 
@@ -285,27 +348,43 @@ Per spec 006 [icon-id-namespace.md:48](../006-provider-capabilities-and-health/c
 
 ## §9. Performance budgets — justification
 
-**SC-001 ≤ 30s p95 admin tap → бабушка видит фото**:
+**SC-001 ≤ 60s p95 manual smoke (16 bytes synthetic blob from admin device to managed device)**:
 
-Breakdown (target):
-- Encrypt 200 KB on admin Pixel 4a class: ≤ 100 ms.
-- Storage upload Wi-Fi typical: 200 KB / 5 Mbps = ~320 ms; mobile typical: 200 KB / 1 Mbps = ~1.6s.
-- /config push (existing 008 flow): ≤ 2s p95 (per спека 008 SC).
+В 011 — только smoke с синтетическими 16 байтами, не реальные фото. End-to-end measurement пути encrypt → upload → push pairing-state → download → decrypt:
+- Encrypt 16 bytes: ≤ 1 ms (negligible).
+- Storage upload Wi-Fi typical: ≤ 200 ms.
+- Pairing state sync (Firestore): ≤ 2s.
 - FCM delivery: ≤ 5s typical, ≤ 15s p95 (per спека 007 SC-006).
-- Managed picks up FCM, reads /config: ≤ 2s.
-- Storage download 200 KB: similar to upload, ≤ 1.6s mobile worst.
-- Decrypt: ≤ 80 ms.
-- Render tile: ≤ 100 ms.
+- Managed picks up FCM, fetches envelope: ≤ 2s.
+- Storage download: ≤ 200 ms.
+- Decrypt + signature verify: ≤ 10 ms.
 
-Total worst-case: 100 + 1600 + 2000 + 15000 + 2000 + 1600 + 80 + 100 ≈ **22.5s**. Под 30s budget с запасом.
+Total worst-case: ~25s, with 60s budget — comfortable headroom для slow networks.
 
-**Action**: Phase 11 macrobenchmark — single device, simulated peer; затем 2-device smoke.
-
-**Encrypt/decrypt 80 ms p95 budget**:
+**Performance budgets для крипто-операций (verified в Phase 3)**:
 - libsodium XChaCha20-Poly1305 throughput на ARMv8 (Pixel 4a class) ~ 300 MB/s (per [libsodium benchmarks](https://download.libsodium.org/doc/secret-key_cryptography/aead/chacha20-poly1305/xchacha20-poly1305_construction.html)).
-- 200 KB / 300 MB/s = ~0.7 ms. Подавляющий запас.
+- 200 KB blob (для будущих фото в 012) / 300 MB/s = ~0.7 ms. Подавляющий запас.
 - crypto_box_seal на X25519: ~ 100 µs per op. Negligible.
-- 80 ms — generous budget, реальная цифра в 50-100x меньше.
+- Ed25519 sign/verify: ~50 µs per op. Negligible.
+- BLAKE2b-256: ~500 MB/s. Negligible.
+
+**Cold-start regression**: нет UI в 011, нет lazy decrypt на cold-start path. Cold start не должен меняться от 011.
+
+**APK delta budget**: 1.0-1.2 MiB до ABI splits; ≤ 300 KiB per ABI after splits. Phase 9 (Konsist) фиксирует это в perf-checkpoint.
+
+---
+
+## §10. (deferred) Backward compatibility — после merge 011
+
+В 011 нет visible feature → нет наблюдаемого backward-compat risk. Реальный risk появится со спеком 012 (когда `Contact.photoRef` начнёт получать non-null значения и старые Managed на 010-011 столкнутся с `private:<uuid>` URI). Анализ — в research.md спека 012.
+
+В 011 only forward-compat concern — envelope `cipherSuiteId` registry. Документировано в [contracts/crypto-envelope.md](contracts/crypto-envelope.md).
+
+---
+
+## §11. Constant-time recipient search
+
+Переехало в §2d (см. выше). Здесь только note: implementation на Phase 3, testing на Phase 9 (Konsist + timing variance test).
 
 ---
 
@@ -327,27 +406,36 @@ Total worst-case: 100 + 1600 + 2000 + 15000 + 2000 + 1600 + 80 + 100 ≈ **22.5s
 
 ## TL;DR (простым языком)
 
-**Что в этом документе.** Разбор архитектурных решений по 10 направлениям — почему именно libsodium а не Tink, какие алгоритмы внутри libsodium берём, что делать с Android Keystore на разных производителях, как считать blob references и т.д. Каждое решение с альтернативами и обоснованием.
+**Что в этом документе.** Разбор архитектурных решений по 11 направлениям для криптофундамента: почему libsodium, какие 4 примитива внутри (encryption + signing + hashing + key-agreement), как обходить Android Keystore quirks, как считать references, что делать при clear-data, как защититься от timing leaks.
 
-**Ключевые цифры:**
-- libsodium шифрует 200 KB фото за ~1 мс. У нас бюджет 80 мс — есть огромный запас.
-- Один blob ≈ 200 KB после сжатия до 500 KB cap.
-- Один пользователь использует ≈ 16 MB Storage за всё время (80 фото).
-- Firebase Spark plan вмещает ≈ 250-500 пар пользователей до превышения лимита.
+**Ключевые цифры (исследованы):**
+- libsodium шифрует 200 KB за ~1 мс. У нас бюджет 80 мс — огромный запас.
+- Ed25519 sign/verify: 50 µs per op. Negligible.
+- BLAKE2b-256: 500 MB/s. Negligible.
+- APK потяжелеет на 1.0-1.2 MB до ABI splits, ≈ 300 KB после splits per device.
 
 **Подводные камни, которые исследованы:**
-1. **Android Keystore теряет ключи на Xiaomi после OTA-обновлений.** Решение — у пользователя появляется кнопка «re-pair» в UI.
-2. **APK потяжелеет на 1-1.2 MB** из-за нативных .so. Решение — ABI splits в Google Play.
-3. **Firebase Storage даёт 1 GB/day download квоту.** Может стать узким местом при 100+ парах. Решение — кеш расшифрованных blob'ов на устройстве, мониторинг квоты.
+1. **Android Keystore теряет ключи на Xiaomi после OTA-обновлений.** Решение — у пользователя кнопка «re-pair» (в спеке 012, UX там).
+2. **APK потяжелеет.** Решение — ABI splits в Google Play.
+3. **Firebase Storage 5 GB/1 GB-day квота.** Не критично для 011 (фундамент льёт только синтетические smoke-блобы). Реальное наполнение — спек 012. Migration documented через `SRV-CRYPTO-001` в server-roadmap.
+4. **Timing side-channel** при поиске own deviceId в recipients[] (новое 2026-05-22) — наивная реализация даёт privacy утечку про membership в группе. Решение — constant-time iteration через `libsodium.utils`.
+5. **Clear-data wipe** локальной DB (новое 2026-05-22) — стирает ledger references, reconciler может удалить blob'ы, которые ещё нужны. Решение — 7-day grace period перед reconciliation после detect clear-data.
 
 **Что закрыто как решения этого спека:**
-- libsodium choice — exit ramp через `cipherSuiteId` в envelope (миграция в будущем не требует перешифровки).
-- XChaCha20-Poly1305 (а не классический ChaCha20-Poly1305) — extended-nonce, большой запас по безопасности.
-- crypto_box_seal (анонимный отправитель) — sender identity берём из Firestore Security Rules, не из crypto.
-- Reference counting local на admin device + 24h grace + reconciler safety net.
-- Document picker через стандартный Android Intent — простой UX, камера-capture отложена.
+- libsodium (Lazysodium-android) — universal crypto vendor.
+- AEAD: XChaCha20-Poly1305 (extended-nonce, misuse-resistance).
+- Asymmetric encryption: X25519 + `crypto_box_seal` (anonymous sender, hybrid).
+- **Signing: Ed25519** (новое — для anti-tamper Pub publication + future Jitsi/vendor/hardware) (§2b).
+- **Hashing: BLAKE2b-256** (новое — для integrity + future deduplication + future fingerprints) (§2c).
+- Reference counting local на admin device + 24h grace + 7-day clear-data grace + WorkManager exp backoff с max 5 attempts.
+- Constant-time recipient search.
+
+**Что переехало в спек 012 (не в этом research):**
+- IconStorage namespace dispatcher для `private:` (§6).
+- Document picker UX (§7).
+- Real photo encrypt/upload performance budgets.
 
 **Что не закрыто и пойдёт в Phase 0:**
-- Точная версия Lazysodium-android (latest stable на момент Phase 0).
+- Точная версия Lazysodium-android (latest stable на момент Phase 0; на 2026-05-22 — `5.1.4`).
 - ABI list verification (поддерживаются ли все 4 нужных).
 - libsodium на CI machines installation.
