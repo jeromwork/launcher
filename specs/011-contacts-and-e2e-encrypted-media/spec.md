@@ -2,7 +2,7 @@
 
 **Feature Branch**: `011-contacts-and-e2e-encrypted-media` *(имя ветки сохранено; артефакт переименован 2026-05-22)*
 **Created**: 2026-05-21
-**Status**: Draft (rev. 3 — mentor scope-split 2026-05-22 — visible feature вынесена в спек 012)
+**Status**: Draft (rev. 4 — mentor cross-product architecture 2026-05-23 — добавлены C-10 cross-product axes, переформулирован C-1 per-pairing, OWD-4 social recovery, OWD-5 per-app identity)
 **Input**: roadmap §Spec 011 ([docs/product/roadmap.md:264](../../docs/product/roadmap.md#L264)) — **универсальный криптографический фундамент проекта**: per-device asymmetric keys, encryption (AEAD), signing (Ed25519), hashing (BLAKE2b), membership-agnostic envelope для at-rest blob'ов, Pub-key publication, Storage adapter, reference counting + cleanup. **Без visible feature** — используется будущими спеками 012-016 (фото, двусторонние пары, группы, multi-device, key rotation), а также будущими интеграциями Jitsi room access, vendor (клиники, центры поддержки), hardware (медицинские/охранные датчики).
 
 ---
@@ -61,17 +61,23 @@ Envelope формат **не меняется** при переходе межд
 
 ### Будущие клиенты фундамента 011 (защита от scope creep)
 
-| Будущий клиент | Что использует из 011 | Что добавляет своё |
-|---|---|---|
-| spec 012 (фото) | EncryptedMediaStorage, AeadCipher, AsymmetricCrypto, RecipientResolver | UI, Contacts Picker, PrivateMediaResolver |
-| spec 013 (двусторонние пары) | DigitalSignature (mutual auth), RecipientResolver (расширение) | Bidirectional Security Rules, consent UX |
-| spec 014 (групповые ключи) | расширение RecipientResolver, EncryptedMediaStorage | Group membership management |
-| spec 015 (multi-device) | DigitalSignature (device attestation), RecipientResolver | Recovery protocol |
-| spec 016 (key rotation) | расширение envelope с deprecated keys | Periodic rotation + forward secrecy |
-| TBD-Jitsi integration | DigitalSignature (room auth), HashFunction (room key fingerprint), EncryptedMediaStorage (recorded meetings at-rest) | Olm/Megolm для realtime — **НЕ** через наш envelope |
-| TBD-Audio/Video messages (asynchronous, «как WhatsApp voice») | EncryptedMediaStorage + AeadCipher (тот же envelope, другой `metadata.kind`) | UI записи/проигрывания |
-| TBD-Vendor integration (клиники, центры поддержки) | DigitalSignature (HMAC/JWT для b2b API), HashFunction (request signing) | Vendor-specific протокол |
-| TBD-Hardware integration (медицинские датчики, охранные датчики) | DigitalSignature (attestation), HashFunction (integrity) | Hardware-specific протокол |
+**Уточнение rev. 4 (mentor-сессия 2026-05-23):** реальная доля переиспользования крипто-фундамента 011 в каждом будущем клиенте различается. Главный клиент — **внутрилаунчерная эволюция модели доверия** (спеки 013-016). Прочие клиенты (Jitsi-мессенджер, vendor integrations, hardware) используют **подмножество** примитивов, не весь envelope. Это **не** проблема — port-adapter pattern позволяет каждому клиенту брать ровно то, что нужно.
+
+| Будущий клиент | Что использует из 011 | Что добавляет своё | Доля переиспользования |
+|---|---|---|---|
+| spec 012 (фото + личные документы) | EncryptedMediaStorage, AeadCipher, AsymmetricCrypto, RecipientResolver | UI, Contacts Picker, PrivateMediaResolver, DocumentPicker/Viewer | ≈ 60% |
+| spec 013 (symmetric-pairing-bidirectional-control) | DigitalSignature (signing), RecipientResolver (per-pairing уже работает) | onboarding UX для двусторонней ceremony в одну сессию | ≈ 15% |
+| spec 014 (family-group-shared-encryption) | расширение RecipientResolver на N получателей, EncryptedMediaStorage | Group membership management, group key rotation на membership change | ≈ 30% |
+| spec ~015 (auth-provider abstraction) | DigitalSignature (signing identity proofs) | `AuthProvider` port + `FirebaseEmailAuthProvider` adapter (см. TODO-AUTH-001) | ≈ 5% |
+| spec ~017 (social recovery) | EncryptedMediaStorage (encrypted_backup), AeadCipher (AEAD over recovery_key), envelope (peer_nonce delivery) | HKDF derivation, 2FA flow через trusted peers, server-side push auth | ≈ 40% |
+| spec ~016 (key-rotation-forward-secrecy) | расширение envelope с deprecated keys | Periodic rotation protocol + forward secrecy | ≈ 35% |
+| spec ~020 (cross-app-sso) | DigitalSignature (signing delegation tokens) | AIDL service, intent delegation, signature pinning | ≈ 5% |
+| TBD-Jitsi integration (отдельное приложение) | DigitalSignature (Pub-key publication для identity proof), HashFunction (integrity hashes), EncryptedMediaStorage (recorded meetings at-rest) | Olm/Megolm или MLS для realtime — **НЕ** через наш envelope. Свой libsodium (дубль 1.2 MiB acceptable). | ≈ 5% |
+| TBD-Audio/Video messages (asynchronous, «как WhatsApp voice») | EncryptedMediaStorage + AeadCipher (тот же envelope, другой metadata) | UI записи/проигрывания | ≈ 50% |
+| TBD-Vendor integration (клиники, центры поддержки) | DigitalSignature (Ed25519 JWT signing) | TLS pinning (OkHttp CertificatePinner), optional X.509 mTLS через Bouncy Castle adapter — **НЕ** наш envelope | ≈ 2% |
+| TBD-Hardware integration (мед. датчики, охранные датчики) | DigitalSignature (attestation), HashFunction (integrity) | Bluetooth/Wi-Fi pairing, hardware-specific protocol — **НЕ** наш envelope | ≈ 2% |
+
+**Главное:** envelope из 011 — **главный** инструмент только для **внутрилаунчерных** спеков. Внешние интеграции (Jitsi, vendor, hardware) используют 011 как **набор примитивов**, не как **сквозной протокол**. Это **корректное** разделение — попытка натянуть envelope на realtime-mediа или B2B-API была бы premature universal abstraction (rule 4 CLAUDE.md).
 
 ### Что НЕ делает фундамент 011 (явный out-of-scope)
 
@@ -84,21 +90,31 @@ Envelope формат **не меняется** при переходе межд
 
 ---
 
-## Clarifications (mentor-сессия 2026-05-21)
+## Clarifications (mentor-сессии 2026-05-21 + 2026-05-22 + 2026-05-23)
 
-Этот раздел фиксирует решения, принятые в discussion-фазе с пользователем по 7 ключевым архитектурным вопросам. Каждое решение содержит формулировку, обоснование и (где применимо) ссылку на будущий спек, который снимет временное ограничение.
+Этот раздел фиксирует решения, принятые в discussion-фазе с пользователем по ключевым архитектурным вопросам. Каждое решение содержит формулировку, обоснование и (где применимо) ссылку на будущий спек, который снимет временное ограничение.
 
-### C-1: Модель доверия в 011 — односторонняя пара (как в спеках 7-9)
+**История:**
+- **2026-05-21** — C-1..C-7: первичные архитектурные решения (trust model, multi-recipient, crypto protocol, libsodium, namespacing, notifications, reference counting).
+- **2026-05-22** — C-8 (RecipientResolver seam justification) + C-9 (scope-split на 011 + 012).
+- **2026-05-23** — C-1 reformulation (per-pairing roles) + C-10 (cross-product architecture: distribution, identity, auth, recovery).
 
-**Решение:** в спеке 011 сохраняем одностороннюю модель управления admin→Managed из спеков 7-9. Никаких изменений в Security Rules, pairing-token wire-format direction, или ownership полей `/config`.
+### C-1: Модель доверия в 011 — односторонняя per pairing, device может участвовать в нескольких pairings
 
-**Обоснование:** двусторонняя/групповая/multi-device модели — отдельная значительная работа, затрагивающая 3 уже смерженных спека. Их перенос на 011 удваивает scope и блокирует крипто-фундамент. Криптографический протокол (см. C-3) спроектирован membership-agnostic — переход на любую другую модель доверия в будущем НЕ требует перешифровки blob'ов или смены envelope format.
+**Решение (rev. 4, mentor session 2026-05-23):**
 
-**Будущие спеки, которые снимут ограничение:**
-- **~015 «двусторонние пары»** — Managed может тоже стать управляющим для admin'a после согласия.
-- **~016 «семейные группы»** — групповой ключ для семейного круга в стиле WhatsApp (несколько участников видят общие медиа).
-- **~017 «multi-device recovery»** — у одного человека несколько устройств видят одну и ту же пару/группу; восстановление при потере телефона.
-- **~018 «key rotation + forward secrecy»** — периодическое обновление ключей пары для защиты от утечек.
+- **В пределах одной pairing-связки** модель остаётся **односторонней** (admin → managed), как в спеках 7-9. Никаких изменений в Security Rules, pairing-token wire-format direction, или ownership полей `/config` отдельной пары.
+- **Устройство НЕ имеет глобальной роли** «admin» или «managed». Роль — **per-pairing**: одно физическое устройство может участвовать в нескольких pairings и быть admin в одной паре, managed в другой.
+- **Двусторонний контроль** (оба устройства управляют друг другом) реализуется как **две независимые pairings** в обе стороны: pair-A (A=admin, B=managed) + pair-B (B=admin, A=managed). Каждая пара со своими ключами, своим linkId, своими `/config` документами.
+- **Архитектурно** это уже поддержано: `DeviceIdentity` — per-link, `RecipientResolver.resolveRecipients(linkId)` — per-link, envelope membership-agnostic. **Никаких изменений в коде 011 не требуется.**
+
+**Обоснование:** двусторонний контроль через две pairings — это самая простая реализация, не требующая нового wire-format, нового pairing-flow, или mutual-auth протокола. Криптографический протокол (см. C-3) спроектирован membership-agnostic — переход на mutual mode (через две pairings) **не требует** перешифровки blob'ов или смены envelope format.
+
+**Будущие спеки, которые снимут ограничение пары:**
+- **~013 «symmetric-pairing-bidirectional-control»** — упростить onboarding двусторонней связки в **одну** ceremony (вместо двух QR-сессий). По сути syntactic sugar поверх двух pairings — semantic уже работает в 011.
+- **~014 «family-group-shared-encryption»** — групповой ключ для семейного круга в стиле WhatsApp; `recipients[]` длины N.
+- **~015 «multi-device-recovery»** — у одного человека несколько устройств видят одну и ту же пару/группу; **recovery при потере телефона** (см. C-10 ниже).
+- **~016 «key-rotation-forward-secrecy»** — периодическое обновление ключей пары для защиты от утечек.
 
 ### C-2: Multi-recipient encryption — заложить архитектурно, использовать с одним получателем
 
@@ -185,6 +201,37 @@ Envelope формат **не меняется** при переходе межд
 **Решение:** вводим интерфейс `RecipientResolver { fun resolveRecipients(linkId: LinkId): List<DeviceIdentity> }` с одной реализацией `PairRecipientResolver` в 011.
 
 **Обоснование (для Constitution Check в plan-phase):** rule 4 CLAUDE.md «Minimum Viable Architecture» запрещает single-implementation interface «на будущее». Но в нашем случае seam обоснован тем, что **точно** появятся `GroupRecipientResolver` (~016), `MyDevicesRecipientResolver` (~017) — три минимум реализации в roadmap. Это даёт **архитектурную независимость крипто-протокола от модели доверия** (главное требование пользователя из discussion). Заносим как обоснованное исключение в spec.md и plan.md.
+
+---
+
+### C-10: Cross-product architecture — distribution, identity, auth, recovery (mentor 2026-05-23)
+
+В mentor-сессии 2026-05-23 обсуждено, как крипто-фундамент 011 ложится в контекст будущей экосистемы продуктов (Jitsi-мессенджер как отдельное приложение, vendor integrations, hardware bridges). Решения зафиксированы как **architectural axes**, каждая независимо.
+
+**C-10.1: Distribution — D1 (Gradle dependency, дубль .so приемлем).** libsodium-android поставляется как обычная Gradle/AAR-зависимость в каждое приложение экосистемы. Дубль `.so` 1.2 MiB × N приложений acceptable — оптимизация через companion-app или AIDL service **отвергнута** (UX-катастрофа для пожилых + leak vectors через IPC для E2E крипто). Никаких изменений в 011 не требуется — Phase 0 уже соответствует.
+
+**C-10.2: Identity — I1 (per-app, не cross-product shared).** Каждое приложение экосистемы генерирует свои per-device keys, ведёт свой Keystore namespace, имеет свою pairing-связь. Никакого shared keystore между приложениями (технически невозможно в Android — Keystore per-package). Cross-app связка работает на уровне **named identity на сервере** (email через AuthProvider, см. C-10.3), не на уровне крипто-ключей. См. также OWD-5.
+
+**C-10.3: Auth abstraction — email/password baseline с port для смены провайдера.** Принципиально переходим на named auth (email + password) — это **change of position** относительно более ранней позиции «anonymous auth навсегда», обоснованный тем, что recovery (C-10.5) требует persistent identity. `AuthProvider` port в commonMain абстрагирует identity provider; baseline adapter — `FirebaseEmailAuthProvider` (бесплатно на Spark plan, не требует Blaze). Future adapters — SMS gateway, Telegram OAuth, own backend. См. TODO-AUTH-001 в backlog. **Не часть 011** — отдельный спек ~015.
+
+**C-10.4: Cross-app SSO — SSO-A baseline (re-enter credentials), SSO-B (intent delegation) как future ergonomics.** Бабушка повторно вводит email+password при установке второго приложения экосистемы — это baseline, всегда работает. SSO-B убирает повтор когда оба приложения установлены (intent-based delegation одноразовых токенов через лаунчер). SSO-B **отдельный спек ~020**, не часть 011. См. TODO-SSO-001.
+
+**C-10.5: Recovery — social via password + peer_nonce, no server-side key escrow.** При потере телефона recovery строится на схеме:
+- Бабушка задаёт passphrase (PIN 4-6 цифр) при первом setup
+- Приложение генерирует `peer_nonce` 32 байта; `recovery_key = HKDF(passphrase, peer_nonce, "recovery-v1")`
+- `encrypted_backup = AEAD(recovery_key, priv_keys_bundle)` → сервер
+- `peer_nonce` зашифрован для trusted peer через 011 envelope → peer хранит
+- При recovery: email-login → 2FA push к peer → peer пересылает `peer_nonce` зашифрованным для нового устройства → passphrase decrypts backup
+
+**Свойства:**
+- Сервер **не имеет** ни passphrase, ни peer_nonce → не может расшифровать
+- Peer **не видит** plaintext данных бабушки → privacy не compromised
+- Старые blob'ы **восстанавливаются** через старые priv keys из backup'а (не теряются)
+- Recipients для приватных документов = **только владелец** (бабушка) — приватность сохраняется; recovery работает через key backup, не через shared access
+
+См. TODO-RECOVERY-001 в backlog, [ADR-008](../../docs/adr/ADR-008-social-recovery-architecture.md). **Не часть 011** — отдельный спек ~017.
+
+**C-10.6: Что не меняется в 011.** Все архитектурные решения C-1..C-9 остаются в силе. Phase 0 (T002-T007) — done без изменений. Phase 1 (T010-T028) стартует с уточнённой C-1 (per-pairing roles), но без code-level изменений (DeviceIdentity per-link, RecipientResolver per-link уже корректны).
 
 ---
 
@@ -329,6 +376,10 @@ API: все крипто-ошибки (`MacFailed`, `KeyNotFound`, `BlobMissing`
 **OWD-2: Per-device key pairs (X25519) + hybrid encryption** (C-3). Exit ramp = `cipherSuiteId` в envelope покрывает и asymmetric scheme. Если через 10 лет X25519 окажется уязвимым к квантовым атакам — переход на post-quantum scheme идёт через тот же механизм version bump'а envelope.
 
 **OWD-3: Membership-agnostic envelope** (C-2 + C-8). Список `recipients` произвольной длины. Переход от пары к группам / multi-device НЕ затрагивает envelope format — меняется только содержимое массива `recipients`. Это **главная архитектурная инвестиция** спека: разделение слоёв «кто получатели» (membership) и «как они зашифрованы» (crypto envelope).
+
+**OWD-4: No server-side key escrow — social recovery архитектура** (mentor session 2026-05-23, see [ADR-008](../../docs/adr/ADR-008-social-recovery-architecture.md) when created). Recovery приватных ключей бабушки при потере телефона строится на схеме **password + peer_nonce → HKDF → AEAD backup** с 2FA через trusted peers. Сервер **никогда** не имеет access к plaintext данным — он хранит только `encrypted_backup`, расшифровка которого требует **обоих**: passphrase (что-ты-знаешь) и `peer_nonce` (что-у-тебя-есть = доступ к trusted peer через 2FA push). Trusted peer **не видит plaintext данных** — он только участвует как 2FA factor, передавая зашифрованный peer_nonce. Exit ramp = вся схема reusable на будущем own backend (HKDF + AEAD primitives portable across providers); если в будущем потребуется перейти на server-managed key escrow (антипаттерн для E2E) — это **forwards-compatible** изменение (опциональное добавление, не replacement существующего). Реализация — спек ~017 (multi-device-recovery после ренумерации). Зависит от auth abstraction (TODO-AUTH-001).
+
+**OWD-5: Per-app identity, не cross-product shared identity** (mentor session 2026-05-23). Лаунчер и будущие приложения экосистемы (Jitsi-мессенджер, vendor companion apps) **не делят** криптоидентичность — каждое приложение генерирует свои per-device keys, хранит свой Keystore namespace, ведёт свою pairing-связь. Email-аккаунт (через `AuthProvider` port — см. TODO-AUTH-001) даёт **named identity** на уровне сервера, но **криптоключи** остаются independently per-app. Дубликация libsodium .so (1.2 MiB × N приложений) acceptable. Exit ramp = если в будущем понадобится shared crypto identity — это будет **новая** model, не migration существующей; никакое решение 011 не блокирует переход (можно сделать через named auth + signed key delegation от лаунчера к мессенджеру с пользовательским consent). Cross-app SSO via intent delegation — отдельный спек ~020 (TODO-SSO-001), но это **только** для auth tokens, не для шифровальных ключей.
 
 ### ADR-007 (второй subtype `TrustEdgeBootstrap`) — пишется в plan-фазе
 
