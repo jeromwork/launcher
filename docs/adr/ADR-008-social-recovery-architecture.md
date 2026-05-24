@@ -1,9 +1,9 @@
 # ADR-008: Social Recovery Architecture для приватных ключей без server-side key escrow
 
-**Status**: Draft (2026-05-23); finalize в spec ~017 (multi-device-recovery после ренумерации 2026-05-22).
+**Status**: Draft (2026-05-23); finalize в spec 015 (multi-device-recovery после ренумерации 2026-05-22).
 **Date**: 2026-05-23 (initial draft)
 **Decided in**: spec 011 mentor session 2026-05-23 (Part E «Recovery в деталях»).
-**Linked specs**: [spec 011](../../specs/011-contacts-and-e2e-encrypted-media/spec.md) (crypto foundation — supplies envelope + primitives), [spec ~015](../dev/project-backlog.md#todo-auth-001-authprovider-port--firebase-emailpassword-adapter-) (auth-provider abstraction — supplies named identity), [spec ~017](../dev/project-backlog.md#todo-recovery-001-social-recovery-password--peer_nonce--hkdf--aead-backup-) (recovery implementation — applies this ADR).
+**Linked specs**: [spec 011](../../specs/011-contacts-and-e2e-encrypted-media/spec.md) (crypto foundation — supplies envelope + primitives), [spec TBD](../dev/project-backlog.md#todo-auth-001-authprovider-port--firebase-emailpassword-adapter-) (auth-provider abstraction — supplies named identity), [spec 015](../dev/project-backlog.md#todo-recovery-001-social-recovery-password--peer_nonce--hkdf--aead-backup-) (recovery implementation — applies this ADR).
 **Linked backlog tasks**: `TODO-RECOVERY-001`, `TODO-AUTH-001`.
 
 ---
@@ -163,7 +163,7 @@ OUTCOME:
 | Forgotten passphrase | **Data lost** — accepted as risk; consequence of true privacy |
 | All trusted peers offline / lost | **Data lost** — accepted as risk; mitigation = multi-peer (MVP — 1-of-N, future — N-of-M Shamir) |
 
-### MVP scope (spec ~017)
+### MVP scope (spec 015)
 
 - **1-of-N peer authorization** — любой trusted peer достаточен для confirmation. Простая, working logic.
 - **Single passphrase per backup** — нет multi-passphrase flow.
@@ -215,7 +215,7 @@ OUTCOME:
    - **Multi-method recovery**: passphrase + peer + (optional) hardware token / law-enforcement key with audit trail.
 3. **Existing backups** остаются valid — recovery flow продолжает работать. Новые backup'ы могут использовать новую схему.
 
-Реализация любой из этих опций — **отдельный спек после ~017**.
+Реализация любой из этих опций — **отдельный спек после spec 015**.
 
 ---
 
@@ -223,23 +223,23 @@ OUTCOME:
 
 | Concept | Domain type / port | File | Phase |
 |---|---|---|---|
-| HKDF derivation | `KeyDerivation` port | `core/commonMain/api/recovery/KeyDerivation.kt` | spec ~017 Phase 1 |
-| HKDF-SHA256 impl | `LibsodiumKeyDerivation` | `core/androidMain/adapters/recovery/LibsodiumKeyDerivation.kt` (uses `crypto_kdf_hkdf_sha256`) | spec ~017 Phase 3 |
-| `encrypted_backup` wire format | `RecoveryBackup` data class + CBOR contract | `core/commonMain/api/recovery/RecoveryBackup.kt` + `specs/017/contracts/recovery-backup.md` | spec ~017 Phase 1 |
-| `peer_nonce` storage | extends 011 envelope (no new wire format) | reuses `EncryptedEnvelope` from 011 | spec ~017 Phase 1 |
-| 2FA push flow | `RecoveryRequestService` port | `core/commonMain/api/recovery/RecoveryRequestService.kt` + Cloudflare Worker endpoint | spec ~017 Phase 4 |
+| HKDF derivation | `KeyDerivation` port | `core/commonMain/api/recovery/KeyDerivation.kt` | spec 015 Phase 1 |
+| HKDF-SHA256 impl | `LibsodiumKeyDerivation` | `core/androidMain/adapters/recovery/LibsodiumKeyDerivation.kt` (uses `crypto_kdf_hkdf_sha256`) | spec 015 Phase 3 |
+| `encrypted_backup` wire format | `RecoveryBackup` data class + CBOR contract | `core/commonMain/api/recovery/RecoveryBackup.kt` + `specs/017/contracts/recovery-backup.md` | spec 015 Phase 1 |
+| `peer_nonce` storage | extends 011 envelope (no new wire format) | reuses `EncryptedEnvelope` from 011 | spec 015 Phase 1 |
+| 2FA push flow | `RecoveryRequestService` port | `core/commonMain/api/recovery/RecoveryRequestService.kt` + Cloudflare Worker endpoint | spec 015 Phase 4 |
 | New device key generation | reuses 011 `AsymmetricCrypto.generateX25519Pair` | — | — |
-| Peer confirmation UI | `RecoveryConfirmScreen` Composable | `app/src/main/.../recovery/RecoveryConfirmScreen.kt` | spec ~017 Phase 5 |
-| Server-side rate limiting | extends `firestore.rules` + Cloudflare Worker | — | spec ~017 Phase 4 |
+| Peer confirmation UI | `RecoveryConfirmScreen` Composable | `app/src/main/.../recovery/RecoveryConfirmScreen.kt` | spec 015 Phase 5 |
+| Server-side rate limiting | extends `firestore.rules` + Cloudflare Worker | — | spec 015 Phase 4 |
 
 ---
 
-## Open questions (finalized в spec ~017)
+## Open questions (finalized в spec 015)
 
-1. **Где именно хранить `encrypted_backup` на сервере?** Кандидаты: Firestore document `/backups/{externalId}` (size limit 1 MiB — достаточно для ключей), или Firebase Storage `/backups/{externalId}/v1` (для будущей extension под larger payload). Решается в spec ~017 plan-phase.
+1. **Где именно хранить `encrypted_backup` на сервере?** Кандидаты: Firestore document `/backups/{externalId}` (size limit 1 MiB — достаточно для ключей), или Firebase Storage `/backups/{externalId}/v1` (для будущей extension под larger payload). Решается в spec 015 plan-phase.
 2. **TTL для `peer_nonce` стабилен или ротируется?** Возможные политики: (a) static — `peer_nonce` живёт пока pairing активен; (b) periodic rotation — каждые 90 дней генерируется новый `peer_nonce`, encrypted_backup пересоздаётся. Решение зависит от forward secrecy ambitions.
-3. **Что делать при failed unauthorized recovery attempt?** Rate-limit + peer notification («Кто-то пытался восстановить ваш аккаунт») + audit log. Detail в spec ~017.
-4. **Multi-peer Shamir SSS в MVP или future?** Текущее решение — 1-of-N в MVP, Shamir N-of-M через 1-2 release позже. Финализуется в spec ~017 §Open Items.
+3. **Что делать при failed unauthorized recovery attempt?** Rate-limit + peer notification («Кто-то пытался восстановить ваш аккаунт») + audit log. Detail в spec 015.
+4. **Multi-peer Shamir SSS в MVP или future?** Текущее решение — 1-of-N в MVP, Shamir N-of-M через 1-2 release позже. Финализуется в spec 015 §Open Items.
 
 ---
 
@@ -260,7 +260,7 @@ OUTCOME:
 
 **Как работает восстановление:**
 1. Бабушка купила новый телефон, ставит приложение
-2. Логинится по email+пароль (это named auth, добавляется в spec ~015)
+2. Логинится по email+пароль (это named auth, добавляется в spec TBD)
 3. Сервер: «подтвердите через trusted peer» — push внуку
 4. Внук тапает «да это бабушка» — отправляет peer_nonce на новое устройство
 5. Бабушка вводит PIN
@@ -278,6 +278,6 @@ OUTCOME:
 - Все доверенные peer'ы потеряли свои телефоны одновременно → recovery невозможен (mitigation: иметь несколько peer'ов; в MVP — 1-of-N, в будущем — N-of-M Shamir Secret Sharing)
 - Атакующий получил email+пароль И уговорил peer'а нажать «подтвердить» → есть PIN надо ещё угадать; brute-force запрещён rate-limit
 
-**Когда реализуется:** spec ~017 (multi-device-recovery после ренумерации 2026-05-22). Зависит от TODO-AUTH-001 (email auth). До тех пор — кейс accepted как known risk с инструкциями пользователям не терять телефон.
+**Когда реализуется:** spec 015 (multi-device-recovery после ренумерации 2026-05-22). Зависит от TODO-AUTH-001 (email auth). До тех пор — кейс accepted как known risk с инструкциями пользователям не терять телефон.
 
-**Что в spec 011 от этого:** **ничего не меняется** в коде. 011 envelope + primitives используется будущим спеком ~017 как-есть. Этот ADR закрывает архитектурный one-way door OWD-4 — exit ramp зафиксирован, future direction понятна.
+**Что в spec 011 от этого:** **ничего не меняется** в коде. 011 envelope + primitives используется будущим спеком 015 (multi-device-recovery) как-есть. Этот ADR закрывает архитектурный one-way door OWD-4 — exit ramp зафиксирован, future direction понятна.

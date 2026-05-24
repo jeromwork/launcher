@@ -267,7 +267,7 @@ interface DigitalSignature {
 
 - **Used by**:
   - 011: sign Pub publication payload (FR-006).
-  - Future spec 013 (двусторонние пары): mutual authentication.
+  - Future spec 013 (symmetric-pairing-bidirectional-control): signing identity proofs для single-ceremony onboarding UX (semantic двусторонних pairings уже supported в 011, см. spec.md C-1 rev. 4).
   - Future TBD-Jitsi: room join JWT signing.
   - Future TBD-Vendor: HMAC/JWT для b2b API.
   - Future TBD-Hardware: device attestation.
