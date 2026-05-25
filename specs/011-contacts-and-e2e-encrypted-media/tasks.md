@@ -1,6 +1,6 @@
 # Tasks: E2E Crypto Foundation
 
-**Branch**: `011-contacts-and-e2e-encrypted-media` | **Date**: 2026-05-21 / **rev. 2** 2026-05-22 (regenerated after scope-split + speckit-analyze remediation)
+**Branch**: `011-contacts-and-e2e-encrypted-media` | **Date**: 2026-05-21 / **rev. 2** 2026-05-22 (regenerated after scope-split + speckit-analyze remediation) / **rev. 3 exec-order override** 2026-05-25
 **Spec**: [spec.md](./spec.md) | **Plan**: [plan.md](./plan.md) | **Research**: [research.md](./research.md) | **Data model**: [data-model.md](./data-model.md) | **Contracts**: [contracts/](./contracts/) | **Quickstart**: [quickstart.md](./quickstart.md) | **Analyze report**: [analyze-report.md](./analyze-report.md)
 
 ---
@@ -21,6 +21,50 @@
 - Phase 6 (Recipient resolver) ждёт Phase 4.
 
 **Push policy**: per CLAUDE.md §Branching — push после каждой фазы. PR открывается после Phase 0.
+
+---
+
+## Execution Order Override (rev. 3, 2026-05-25)
+
+Phase-номера остаются неизменными для FR-trace, но **порядок исполнения** перегруппирован по типу тестирования: сначала задачи без runtime-тестов, потом с эмулятором, потом с реальным железом. Это уменьшает простой на ожидании настройки эмулятора и оставляет real-device smoke как финальный gate перед merge.
+
+### Группа A — без runtime-тестов (JVM-only / compile-only / static checks)
+
+Тесты гоняются как обычные JVM unit-тесты в `commonTest` — не нужен ни Android-эмулятор, ни Firebase Emulator, ни реальное устройство.
+
+1. **Phase 0** — env prep (T001-T008) — *уже сделано в `888b1c6`, осталось T001 [M] readiness checklist + T008 PR*.
+2. **Phase 1** — domain types + ports (T010-T028) — pure Kotlin commonMain, validation tests.
+3. **Phase 2** — fake adapters + wire-format tests (T030-T040) — in-memory fakes, CBOR roundtrip, SQLDelight migration test через JVM driver.
+4. **Phase 9** — Konsist fitness gates (T110-T113) — static AST analysis, JVM-only.
+5. **T120** (Phase 10) — spec 012 cross-references — docs only.
+
+### Группа B — с эмулятором (Android Robolectric / Firebase Emulator / Storage Emulator)
+
+Нужен либо Robolectric для Android Keystore, либо Firebase/Storage Emulator для Firestore/Storage интеграций. Android-эмулятор как такового **не требуется** — всё гоняется через JVM-based emulator suite.
+
+6. **Phase 3** — real crypto adapters (T050-T056) — Robolectric для Keystore.
+7. **Phase 4** — pairing extension с Firestore signature publish (T060-T063) — Firestore Emulator.
+8. **Phase 5** — Storage adapter (T070-T072) — Storage Emulator.
+9. **Phase 6** — recipient resolver (T080) — fake-driven, опционально Firestore Emulator для integration.
+10. **Phase 7** — cleanup machinery (T090-T093) — SQLDelight Android driver + Storage Emulator.
+
+### Группа C — на реальном Android-устройстве (manual smoke)
+
+Требуется 2 реальных Android-устройства для end-to-end проверки.
+
+11. **Phase 8** — manual smoke (T100-T102) — debug-build buttons + 2-device hex match.
+
+### Группа D — финальный gate (no runtime)
+
+12. **T121** — final speckit-analyze pass.
+13. **T122** [M] — PR merge readiness checklist.
+
+### Зависимости между группами (нельзя нарушать)
+
+- Phase 3-7 (группа B) требуют Phase 1-2 (группа A) — порты и fake-контракты должны существовать.
+- Phase 8 (группа C) требует Phase 3-7 (группа B) — нужен реальный crypto + Firestore + Storage flow.
+- Phase 9 (Konsist) логически в группе A, но удобно гонять её **после** всех адаптеров (Phase 3-7), потому что её правила проверяют, что vendor types confined в adapters — нечего проверять, пока адаптеров нет. Поэтому в exec-order Phase 9 идёт **между** Phase 7 и Phase 8.
+- T120 (cross-ref docs) можно сделать в любой момент после Phase 1 — параллельно.
 
 ---
 
