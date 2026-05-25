@@ -6,9 +6,11 @@ import com.launcher.api.crypto.HashFunction
 
 // BLAKE2b-256 (32-byte output) через libsodium crypto_generichash.
 // keyless mode (key = null, keylen = 0) — обычное cryptographic hash.
-internal class LibsodiumHashFunction(
-    private val sodium: LazySodiumAndroid = LibsodiumProvider.sodium,
+class LibsodiumHashFunction internal constructor(
+    private val sodium: LazySodiumAndroid,
 ) : HashFunction {
+
+    constructor() : this(LibsodiumProvider.sodium)
 
     override fun hash(data: ByteArray): ByteArray {
         val out = ByteArray(HASH_OUTPUT_SIZE)

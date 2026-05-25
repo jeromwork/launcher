@@ -8,7 +8,7 @@ import com.launcher.api.crypto.RecipientResolver
 // Spec 011 RecipientResolver implementation for one-on-one pair.
 // Возвращает identity peer'a (другого member'а пары). В 011 — 1 entry.
 // Future spec 014 (groups) — другая реализация, FR-060 + spec.md C-8.
-internal class PairRecipientResolver(
+class PairRecipientResolver(
     private val repo: DeviceIdentityRepository,
     private val ownDeviceId: () -> DeviceId,
 ) : RecipientResolver {

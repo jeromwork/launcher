@@ -28,7 +28,7 @@ import kotlinx.coroutines.tasks.await
 // Wire format — base64-encoded keys/signature (Firestore не поддерживает
 // raw bytes в string fields). Per contracts/device-identity.md.
 @OptIn(ExperimentalUuidApi::class)
-internal class FirestoreDeviceIdentityRepository(
+class FirestoreDeviceIdentityRepository(
     private val firestore: FirebaseFirestore,
     private val signature: DigitalSignature,
     private val ownerUid: () -> String?,

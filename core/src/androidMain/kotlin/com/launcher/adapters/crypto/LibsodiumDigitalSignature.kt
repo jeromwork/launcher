@@ -14,10 +14,12 @@ import com.launcher.api.result.Outcome
 
 // Ed25519 signing через libsodium crypto_sign_detached / crypto_sign_verify_detached.
 // 64-byte detached signature.
-internal class LibsodiumDigitalSignature(
-    private val sodium: LazySodiumAndroid = LibsodiumProvider.sodium,
+class LibsodiumDigitalSignature internal constructor(
+    private val sodium: LazySodiumAndroid,
     private val privBytesResolver: (SigningPrivateKey) -> ByteArray = { defaultResolve(it) },
 ) : DigitalSignature {
+
+    constructor() : this(LibsodiumProvider.sodium)
 
     override fun generateEd25519Pair(alias: String): DeviceSigningKeyPair {
         val pub = ByteArray(ED25519_KEY_SIZE)

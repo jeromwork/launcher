@@ -9,7 +9,7 @@ import kotlin.uuid.Uuid
 // addRef/removeRef + countRefs + deleteByLink. По refSource (string-enum)
 // фронт sourced может различать config-current / history-slot-N / pending-draft.
 @OptIn(ExperimentalUuidApi::class)
-internal class SqlDelightBlobReferenceLedger(
+class SqlDelightBlobReferenceLedger(
     db: CryptoStore,
     private val nowMillis: () -> Long = { System.currentTimeMillis() },
 ) {

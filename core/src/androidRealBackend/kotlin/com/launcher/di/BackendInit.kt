@@ -3,6 +3,12 @@ package com.launcher.di
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessaging
+import com.google.firebase.storage.FirebaseStorage
+import com.launcher.adapters.crypto.FirebaseEncryptedMediaStorage
+import com.launcher.adapters.crypto.FirestoreDeviceIdentityRepository
+import com.launcher.api.crypto.DeviceIdentityRepository
+import com.launcher.api.crypto.DigitalSignature
+import com.launcher.api.crypto.EncryptedMediaStorage
 import com.launcher.adapters.apps.InstalledAppsCatalogAdapter
 import com.launcher.adapters.apps.OpenAppDispatcherAdapter
 import com.launcher.adapters.config.AndroidSqlDriverProvider
@@ -82,6 +88,8 @@ val backendModule: Module = module {
     single { FirebaseFirestore.getInstance() }
     single { FirebaseAuth.getInstance() }
     single { FirebaseMessaging.getInstance() }
+    // Spec 011 — Storage SDK для encrypted blobs.
+    single { FirebaseStorage.getInstance() }
 
     // RemoteSyncBackend → Firestore.
     single<RemoteSyncBackend> { FirebaseRemoteSyncBackend(get()) }
@@ -108,13 +116,29 @@ val backendModule: Module = module {
     single { FcmRegistration(get()) }
 
     // LinkRegistry → Firestore subtree management + FCM topic lifecycle.
+    // Spec 011 — also includes Firebase Storage cleanup в revoke (FR-043).
     single<LinkRegistry> {
         FirestoreLinkRegistry(
             backend = get(),
             firestore = get(),
             fcmRegistration = get(),
+            encryptedMediaStorage = get(),
         )
     }
+
+    // ─── Spec 011 — crypto repo + storage adapter wiring ──────────────────
+    single<DeviceIdentityRepository> {
+        FirestoreDeviceIdentityRepository(
+            firestore = get(),
+            signature = get<DigitalSignature>(),
+            ownerUid = {
+                // Resolved через IdentityProvider; current Firebase uid.
+                get<IdentityProvider>().currentIdentity()?.firebaseAuthUid
+            },
+        )
+    }
+
+    single<EncryptedMediaStorage> { FirebaseEncryptedMediaStorage(storage = get()) }
 
     // ─── Spec 008 — bidirectional-config-sync wiring ──────────────────────
 

@@ -10,7 +10,7 @@ import com.launcher.adapters.crypto.db.CryptoStore
 //
 // BackgroundReconciler skip'ит cleanup пока возраст < 7 дней — защита от
 // случайной потери refs после clear-data (FR-015 grace period).
-internal class ClearDataDetector(
+class ClearDataDetector(
     db: CryptoStore,
     private val nowMillis: () -> Long = { System.currentTimeMillis() },
 ) {

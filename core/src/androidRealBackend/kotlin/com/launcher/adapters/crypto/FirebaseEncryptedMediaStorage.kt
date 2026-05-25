@@ -18,7 +18,7 @@ import kotlinx.serialization.encodeToByteArray
 // Object content — CBOR-serialized EncryptedEnvelope. Размерный лимит 500 KB
 // enforce'ится Storage Rules (контракт + defence-in-depth).
 @OptIn(ExperimentalUuidApi::class, ExperimentalSerializationApi::class)
-internal class FirebaseEncryptedMediaStorage(
+class FirebaseEncryptedMediaStorage(
     private val storage: FirebaseStorage,
     private val cbor: Cbor = Cbor { ignoreUnknownKeys = true },
 ) : EncryptedMediaStorage {

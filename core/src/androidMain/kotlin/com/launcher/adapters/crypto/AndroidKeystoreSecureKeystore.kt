@@ -38,10 +38,13 @@ import javax.crypto.spec.GCMParameterSpec
 // За resolve PrivateKey/SigningPrivateKey → bytes отвечает этот класс:
 // он umвoрачивает priv bytes обратно при load*() — bytes хранятся в памяти
 // только в момент использования через unsafePrivBytesResolver.
-internal class AndroidKeystoreSecureKeystore(
+class AndroidKeystoreSecureKeystore internal constructor(
     context: Context,
-    private val libsodium: com.goterl.lazysodium.LazySodiumAndroid = LibsodiumProvider.sodium,
+    private val libsodium: com.goterl.lazysodium.LazySodiumAndroid,
 ) : SecureKeystore {
+
+    constructor(context: Context) : this(context, LibsodiumProvider.sodium)
+
 
     private val keyStore: KeyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
 

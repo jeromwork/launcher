@@ -21,7 +21,11 @@ import com.launcher.api.paired.LocalLinkRevocationStore
 import com.launcher.api.push.PushReceiver
 import com.launcher.api.push.PushSender
 import com.launcher.api.sync.RemoteSyncBackend
+import com.launcher.api.crypto.DeviceIdentityRepository
+import com.launcher.api.crypto.EncryptedMediaStorage
 import com.launcher.fake.apps.FakeInstalledAppsCatalog
+import com.launcher.fake.crypto.InMemoryDeviceIdentityRepository
+import com.launcher.fake.crypto.InMemoryEncryptedMediaStorage
 import com.launcher.fake.apps.FakeOpenAppDispatcher
 import com.launcher.fake.config.FakeConfigApplier
 import com.launcher.fake.config.FakeConfigEditor
@@ -87,6 +91,10 @@ val backendModule: Module = module {
     }
     single<PushSender> { FakePushSender() }
     single<PushReceiver> { FakePushReceiver() }
+
+    // ─── Spec 011 mockBackend wiring ──────────────────────────────────────
+    single<DeviceIdentityRepository> { InMemoryDeviceIdentityRepository() }
+    single<EncryptedMediaStorage> { InMemoryEncryptedMediaStorage() }
 
     // ─── Spec 008 mockBackend wiring ──────────────────────────────────────
 

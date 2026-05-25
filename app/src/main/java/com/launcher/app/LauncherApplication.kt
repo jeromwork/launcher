@@ -5,6 +5,7 @@ import androidx.work.Configuration
 import com.launcher.adapters.lifecycle.ConfigRefreshWorker
 import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
 import com.launcher.app.di.appAndroidModule
+import com.launcher.app.di.cryptoModule
 import com.launcher.app.di.pairingModule
 import com.launcher.app.di.spec006Module
 import com.launcher.core.LauncherCore
@@ -55,6 +56,7 @@ class LauncherApplication : Application(), Configuration.Provider {
                 spec006Module,
                 backendModule, // flavor-resolved (Firebase or Fakes)
                 pairingModule, // spec 007 PairingService + PairingViewModel
+                cryptoModule,  // spec 011 crypto adapters + PairingCryptoCoordinator
                 setupModule,   // spec 010 GmsAvailabilityPort + List<SetupCheck>
             )
         }

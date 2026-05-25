@@ -16,7 +16,7 @@ import kotlin.uuid.Uuid
 //   3. Сравнить с BlobReferenceLedger. Удалить orphans (Storage has, ledger does not).
 //   4. Удалить из ledger записи для blobs, которые не в Storage (consistency).
 @OptIn(ExperimentalUuidApi::class)
-internal class BackgroundReconciler(
+class BackgroundReconciler(
     private val storage: EncryptedMediaStorage,
     private val ledger: SqlDelightBlobReferenceLedger,
     private val clearData: ClearDataDetector,

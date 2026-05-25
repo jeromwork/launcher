@@ -32,6 +32,10 @@ import kotlinx.coroutines.launch
 class PairingViewModel(
     private val service: PairingService,
     private val identity: IdentityProvider,
+    // Spec 011 T061 — after consent.allow / claim success, publish own
+    // DeviceIdentity to Firestore. Optional с default no-op для существующих
+    // unit tests + mockBackend flavor где Firestore нет.
+    private val onLinkEstablished: suspend (linkId: String) -> Unit = { /* no-op */ },
 ) {
 
     private val internalScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -76,11 +80,19 @@ class PairingViewModel(
     /** Consent → "Разрешить". Writes /state/current bootstrap + FCM subscribe. */
     fun confirmConsent() {
         internalScope.launch {
-            val result = service.confirmConsentAsManaged()
-            if (result is Outcome.Failure) {
-                _events.tryEmit(UiEvent.Error("Не удалось активировать связь: ${result.error}"))
-            } else {
-                _events.tryEmit(UiEvent.PairingComplete)
+            when (val result = service.confirmConsentAsManaged()) {
+                is Outcome.Failure -> {
+                    _events.tryEmit(UiEvent.Error("Не удалось активировать связь: ${result.error}"))
+                }
+                is Outcome.Success -> {
+                    // Spec 011 T061 — после успешного link activate, publish own
+                    // DeviceIdentity. Non-blocking-fatal: ошибка только logging,
+                    // pairing уже считается успешным (крипто-фундамент догонит
+                    // через `PairingCryptoCoordinator.ensureKeysReady()` при
+                    // следующей попытке encrypt).
+                    runCatching { onLinkEstablished(result.value.linkId) }
+                    _events.tryEmit(UiEvent.PairingComplete)
+                }
             }
         }
     }
