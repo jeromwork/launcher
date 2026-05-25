@@ -41,6 +41,15 @@ data class Link(
             "health",
             "commands",
             "configHistory",  // spec 009 FR-036 — config history snapshots.
+            "devices",         // spec 011 FR-006..009 — DeviceIdentity Pub publication.
+            "deviceOwnership", // spec 011 — auxiliary collection для race-free deviceId claim.
+        )
+
+        /** Storage paths под `/links/{linkId}/` в Firebase Storage. Separate from
+         *  Firestore subcollections — нужен отдельный enumerate path в LinkRegistry.revoke()
+         *  для recursive Storage cleanup (spec 011 FR-033, FR-043). */
+        val KNOWN_STORAGE_PATHS: List<String> = listOf(
+            "private-media",  // spec 011 FR-030..032 — EncryptedEnvelope blobs.
         )
     }
 }
