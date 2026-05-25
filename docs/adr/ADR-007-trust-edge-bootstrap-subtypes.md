@@ -1,7 +1,7 @@
 # ADR-007: TrustEdgeBootstrap Subtypes for Per-Device Asymmetric Keys
 
-**Status**: Draft (Phase 0); Accepted on Phase 1 finalization (T010).
-**Date**: 2026-05-22 (initial draft)
+**Status**: Accepted (finalized on Phase 1 entry, T010).
+**Date**: 2026-05-22 (initial draft); 2026-05-25 (accepted)
 **Decided in**: spec 011 mentor session 2026-05-21 + scope-split 2026-05-22.
 **Linked specs**: [spec 007](../../specs/007-pairing-and-firebase-channel/spec.md) (pairing flow base), [spec 011](../../specs/011-contacts-and-e2e-encrypted-media/spec.md) (crypto foundation).
 **Linked backlog task**: `TODO-DOC-001` ([project-backlog.md:378](../dev/project-backlog.md#L378)).
