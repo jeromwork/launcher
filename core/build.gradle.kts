@@ -192,6 +192,12 @@ sqldelight {
     databases {
         create("ConfigStore") {
             packageName.set("com.launcher.adapters.config.db")
+            srcDirs.setFrom("src/commonMain/sqldelight-config")
+        }
+        // Spec 011 — BlobReferenceLedger + SystemMeta (cleanup machinery).
+        create("CryptoStore") {
+            packageName.set("com.launcher.adapters.crypto.db")
+            srcDirs.setFrom("src/commonMain/sqldelight-crypto")
         }
     }
 }
