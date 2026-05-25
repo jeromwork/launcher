@@ -2,7 +2,7 @@
 
 **Feature Branch**: `012-contact-photos-and-private-documents` *(branch will be created when spec moves to implementation)*
 **Created**: 2026-05-22
-**Status**: Stub (вынесено из 011 в scope-split mentor-сессии 2026-05-22; полная разработка — после merge'а 011)
+**Status**: Stub (вынесено из 011 в scope-split mentor-сессии 2026-05-22; полная разработка — после merge'а 011). **Update 2026-05-25**: спек 011 Phase 0-2 готовы (8 portов + 12 domain types + fakes + wire-format roundtrip green); ждём Phase 3-7 (adapters + machinery) + Phase 8 (manual smoke) перед merge.
 **Input**: roadmap §Spec 012 ([docs/product/roadmap.md](../../docs/product/roadmap.md)) — первый visible-client крипто-фундамента (спек 011). Реализует фото контактов из Contacts Picker (спек 009) на плитках у бабушки + фото личных документов через новый UX-flow.
 
 ---
@@ -23,6 +23,12 @@
 **Что добавляет:** фотографию контакта на плитке у бабушки + фото личных документов. Сейчас (после спеков 8-9) `Contact.photoRef` всегда `null`, плитка показывает серый placeholder. Спек 012 наполняет это реальными фотографиями, используя крипто-фундамент 011 — фото шифруется на устройстве admin'a, грузится в Firebase Storage зашифрованным, расшифровывается локально у бабушки.
 
 **Зависит от:** спек 011 (e2e-crypto-foundation) — все крипто-операции, Storage adapter, RecipientResolver, envelope format. Спек 008 (`Contact.photoRef: String?`). Спек 009 (Contacts Picker).
+
+**Конкретные контракты из 011, которые 012 потребляет:**
+- `EncryptedEnvelope` wire format ([011/contracts/crypto-envelope.md](../011-contacts-and-e2e-encrypted-media/contracts/crypto-envelope.md)) — добавит `metadata.kind = "image" | "document"`, sensitive `labelOpt` ВНУТРИ ciphertext (не в metadata — privacy note из 011).
+- Порты `AeadCipher`, `AsymmetricCrypto`, `EncryptedMediaStorage`, `RecipientResolver` ([011/data-model.md §2](../011-contacts-and-e2e-encrypted-media/data-model.md)) — все возвращают `Outcome<T, CryptoError>` (project convention, не stdlib Result).
+- `CryptoError` sub-cases — `BlobMissing`, `MacFailed`, `MalformedEnvelope`, `KeyNotFound`, `RecipientNotFound`, `SignatureVerifyFailed` для US-3 «honest reporting».
+- `BlobReferenceLedger` — 012 наполняет реальными `refSource` записями вместо синтетических.
 
 **НЕ зависит от:** спек 013+ (модели доверия — 012 использует одностороннюю пару из 011).
 
