@@ -158,18 +158,29 @@ dependencies {
     // class conflict с aar в Android dex'инге. Решение: explicit aar dependency.
     // Wired через 'androidMainImplementation' Android-flavor-agnostic configuration.
     "androidMainImplementation"(variantOf(libs.jna) { artifactType("aar") })
+
+    // Spec 011 — Robolectric unit tests for libsodium adapters need pure JVM
+    // JNA jar (aar variant carries .so файлы для device runtime, не работают
+    // в host JVM). aar exclusion ниже исключает jna для Android compilation;
+    // здесь возвращаем jar variant конкретно для unitTest classpath.
+    "testImplementation"(libs.jna)
 }
 
 // Spec 011 — exclude transitive JAR variant of JNA pulled in by lazysodium-android.
 // Без этого Android packaging падает на `Duplicate class com.sun.jna.*`.
 // AAR variant остаётся (см. dependencies block выше).
+// IMPORTANT: НЕ excludить из unit-test configurations — Robolectric нуждается
+// в pure JNA jar для host JVM (aar variant — для Android device runtime).
 configurations.matching {
-    it.name.startsWith("androidMain") ||
-    it.name.startsWith("realBackend") ||
-    it.name.startsWith("mockBackend") ||
-    it.name == "implementation" ||
-    it.name == "androidDebugImplementation" ||
-    it.name == "androidReleaseImplementation"
+    val n = it.name
+    (n.startsWith("androidMain") ||
+        n.startsWith("realBackend") ||
+        n.startsWith("mockBackend") ||
+        n == "implementation" ||
+        n == "androidDebugImplementation" ||
+        n == "androidReleaseImplementation") &&
+        !n.contains("UnitTest", ignoreCase = true) &&
+        !n.contains("Test", ignoreCase = true)
 }.configureEach {
     exclude(group = "net.java.dev.jna", module = "jna")
 }
