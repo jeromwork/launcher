@@ -159,6 +159,13 @@
             android:name=".debug.HealthSnapshotDebugActivity"
             android:exported="true"
             android:label="Health Debug" />
+        <!--
+          Spec 011 FR-070 / US-6 — debug smoke screen perspective is documented в
+          specs/011-.../smoke/README.md. T100 final Activity creation deferred
+          until Phase B (cross-device) — schema-only smoke может быть подтверждена
+          через :core libsodium unit tests (Phase 3 уже зелёные на реальном
+          libsodium через Robolectric). См. NEXT-STEPS в smoke/README.md.
+        -->
 
         <!--
           Spec 007 pairing host (Managed-side flow). Launched from Settings

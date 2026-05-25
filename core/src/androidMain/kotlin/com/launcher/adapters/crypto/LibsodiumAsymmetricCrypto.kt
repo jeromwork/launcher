@@ -21,7 +21,7 @@ import kotlin.uuid.ExperimentalUuidApi
 // которую SecureKeystore передаёт. В тестах используем InMemoryPrivateKey
 // напрямую. В production AndroidKeystoreSecureKeystore unwrap через AES-GCM.
 @OptIn(ExperimentalUuidApi::class)
-internal class LibsodiumAsymmetricCrypto(
+class LibsodiumAsymmetricCrypto(
     private val sodium: LazySodiumAndroid = LibsodiumProvider.sodium,
     // Resolver для opaque PrivateKey → 32 X25519 priv bytes. Внедряется адаптером
     // SecureKeystore. Дефолт — поддерживает только InMemoryPrivateKey (тесты).

@@ -14,7 +14,7 @@ import kotlin.uuid.ExperimentalUuidApi
 // XChaCha20-Poly1305 AEAD через libsodium. Combined-mode: auth tag prepended
 // to ciphertext в одном байт-массиве (per libsodium API + crypto-envelope.md §Note on mac).
 @OptIn(ExperimentalUuidApi::class)
-internal class LibsodiumAeadCipher(
+class LibsodiumAeadCipher(
     private val sodium: LazySodiumAndroid = LibsodiumProvider.sodium,
 ) : AeadCipher {
 
