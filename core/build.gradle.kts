@@ -76,7 +76,11 @@ kotlin {
             // --- Spec 011 crypto stack (androidMain — vendor types confined here per CLAUDE.md rule 1)
             // Lazysodium-android = libsodium JNI binding (XChaCha20-Poly1305 + X25519 +
             // crypto_box_seal + Ed25519 + BLAKE2b). Per research.md §1, §2, §2b, §2c.
-            implementation(libs.lazysodium.android)
+            //
+            // NB: Сам implementation(libs.lazysodium.android) — wired через
+            // "androidMainImplementation"(libs.lazysodium.android) { exclude(jna) }
+            // в plain dependencies block ниже, потому что KMP source-set DSL не
+            // поддерживает closure form для targeted exclude.
             // JNA aar — see flavor-agnostic dependencies block below
             // (KMP source-set DSL does not support artifact{} closure).
             // EncryptedSharedPreferences — для хранения AES-wrapped X25519 priv bytes
@@ -165,26 +169,32 @@ dependencies {
     // в host JVM). aar exclusion ниже исключает jna для Android compilation;
     // здесь возвращаем jar variant конкретно для unitTest classpath.
     "testImplementation"(libs.jna)
+
+    // Spec 011 — exclude transitive JAR variant of JNA pulled in by lazysodium-android.
+    // Без exclude AGP падает на "Duplicate class com.sun.jna.*" потому что aar
+    // (содержит classes.jar + .so) И jar дублируют Java classes.
+    // Exclude применяется конкретно к Android-runtime configurations
+    // (NOT к testImplementation, где Robolectric нуждается в pure jar).
+    "androidMainImplementation"(libs.lazysodium.android) {
+        exclude(group = "net.java.dev.jna", module = "jna")
+    }
 }
 
-// Spec 011 — exclude transitive JAR variant of JNA pulled in by lazysodium-android.
-// Без этого Android packaging падает на `Duplicate class com.sun.jna.*`.
-// AAR variant остаётся (см. dependencies block выше).
-// IMPORTANT: НЕ excludить из unit-test configurations — Robolectric нуждается
-// в pure JNA jar для host JVM (aar variant — для Android device runtime).
-configurations.matching {
-    val n = it.name
-    (n.startsWith("androidMain") ||
-        n.startsWith("realBackend") ||
-        n.startsWith("mockBackend") ||
-        n == "implementation" ||
-        n == "androidDebugImplementation" ||
-        n == "androidReleaseImplementation") &&
-        !n.contains("UnitTest", ignoreCase = true) &&
-        !n.contains("Test", ignoreCase = true)
-}.configureEach {
-    exclude(group = "net.java.dev.jna", module = "jna")
-}
+// Spec 011 — JNA / Lazysodium dependency notes.
+//
+// Lazysodium-android тянет JNA через transitive jar. Android packaging
+// требует aar variant (содержит .so + classes.jar). Когда оба variant'а
+// идут в DEX merge — "Duplicate class com.sun.jna.*".
+//
+// Решение в "androidMainImplementation"(libs.lazysodium.android) { exclude }
+// выше — переопределяет KMP-source-set decl. с targeted exclude. Это
+// работает потому что в KMP "androidMainImplementation" — Android flavor
+// configuration который supports closure form (не строковый KMP DSL).
+//
+// Sanity check: после изменения проверить
+//   1) ./gradlew :app:assembleRealBackendDebug — green (нет Duplicate class)
+//   2) ./gradlew :core:testMockBackendDebugUnitTest --tests "*LibsodiumAdaptersTest" — green
+//   3) Real device APK install + start Spec011SmokeDebugActivity — no NoClassDefFoundError
 
 // Spec 008 — SQLDelight schema setup.
 // Schema lives в `core/src/commonMain/sqldelight/com/launcher/adapters/config/db/ConfigStore.sq`.
