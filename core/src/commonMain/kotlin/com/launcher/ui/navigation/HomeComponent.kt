@@ -37,7 +37,9 @@ class HomeComponent(
     val onAdminDevicesClick: () -> Unit,
     val onAddSlotClick: (flowId: String) -> Unit,
     val onSevenTapTriggered: () -> Unit = {},
-    val onOpenScanner: () -> Unit,
+    // Spec 007 admin scanner — default no-op для совместимости с спеком 010 tests
+    // которые не используют scanner. Production wiring через RootComponent.
+    val onOpenScanner: () -> Unit = {},
     private val managedDevices: com.launcher.api.link.ManagedDevicesRegistry? = null,
 ) : ComponentContext by componentContext {
 
