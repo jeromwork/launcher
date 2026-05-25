@@ -113,6 +113,21 @@ class FirestoreManagedDevicesRegistry(
         log("forgetLink ${linkId.take(6)} total=${local.value.size}")
     }
 
+    override suspend fun removeLinkOnServer(linkId: String): Outcome<Unit, BackendError> {
+        log("removeServer ${linkId.take(6)} ...")
+        return try {
+            firestore.collection("links").document(linkId).delete().await()
+            local.value = local.value.filterNot { it.linkId == linkId }
+            log("removeServer ${linkId.take(6)} OK")
+            Outcome.Success(Unit)
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (t: Throwable) {
+            log("removeServer ${linkId.take(6)} ERR ${t.message?.take(50)}")
+            Outcome.Failure(BackendError.Unknown(t.message ?: "delete failed"))
+        }
+    }
+
     override suspend fun findByManagedDeviceId(
         managedDeviceId: String,
     ): Outcome<Link?, BackendError> {

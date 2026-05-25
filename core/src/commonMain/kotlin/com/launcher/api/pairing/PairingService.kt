@@ -192,7 +192,27 @@ class PairingService(
      */
     suspend fun claimAsAdmin(token: PairingToken): Outcome<TrustEdgeBootstrap, PairingError> {
         val adminUid = currentUid() ?: return Outcome.Failure(PairingError.PermissionDenied)
-        val newLinkId = generateLinkId()
+
+        // First peek at the pairing doc so we know the managedDeviceId before we
+        // start the transaction — needed for reconnect-dedup. We can't move the
+        // ManagedDevicesRegistry query INTO the transaction (it queries by
+        // adminId+managedDeviceId, transactions only support get-by-path).
+        val peek = backend.readDoc(DocPath.Pairings(token))
+        val peekParsed = (peek as? Outcome.Success)?.value?.let {
+            (PairingWireFormat.deserialize(it.data) as? Outcome.Success)?.value
+        }
+        val managedDeviceIdHint = peekParsed?.managedDeviceId
+
+        // Reconnect-dedup: if this admin already has a link to this managed
+        // device, reuse its linkId instead of creating a new one. Inv: 1 admin
+        // × 1 managed device = 1 link (no orphan duplicates after reconnect).
+        val existingLinkId: String? = if (managedDeviceIdHint != null) {
+            val prior = managedDevices?.findByManagedDeviceId(managedDeviceIdHint)
+            (prior as? Outcome.Success)?.value?.linkId
+        } else null
+
+        val effectiveLinkId = existingLinkId ?: generateLinkId()
+        val isReconnect = existingLinkId != null
 
         val txn = backend.runTransaction<Link> {
             val pairingSnap = get(DocPath.Pairings(token))
@@ -213,22 +233,25 @@ class PairingService(
                 expiresAt = parsed.expiresAt,
                 claimed = true,
                 pairingType = parsed.pairingType,
-                linkId = newLinkId,
+                linkId = effectiveLinkId,
                 adminId = adminUid,
             )
             set(DocPath.Pairings(token), updatedPairing, PairingWireFormat.CURRENT_SCHEMA_VERSION)
 
-            // Create /links/{linkId} root doc. The admin's uid IS adminId
-            // per Security Rules (`isLinkAdmin` returns true).
-            val linkBody = LinkWireFormat.serialize(
-                adminId = AdminIdentity(adminUid),
-                managedDeviceId = parsed.managedDeviceId,
-                managedDeviceFirebaseUid = parsed.managedDeviceFirebaseUid,
-            )
-            set(DocPath.Links(newLinkId), linkBody, LinkWireFormat.CURRENT_SCHEMA_VERSION)
+            // Create /links/{linkId} root doc only on first pair. Reconnect
+            // reuses the existing doc — its body is immutable post-create
+            // (Security Rules `allow update: if false`), so we don't write it.
+            if (!isReconnect) {
+                val linkBody = LinkWireFormat.serialize(
+                    adminId = AdminIdentity(adminUid),
+                    managedDeviceId = parsed.managedDeviceId,
+                    managedDeviceFirebaseUid = parsed.managedDeviceFirebaseUid,
+                )
+                set(DocPath.Links(effectiveLinkId), linkBody, LinkWireFormat.CURRENT_SCHEMA_VERSION)
+            }
 
             Link(
-                linkId = newLinkId,
+                linkId = effectiveLinkId,
                 adminId = AdminIdentity(adminUid),
                 managedDeviceId = parsed.managedDeviceId,
                 managedDeviceFirebaseUid = parsed.managedDeviceFirebaseUid,
@@ -239,23 +262,7 @@ class PairingService(
         return when (txn) {
             is Outcome.Success -> {
                 val newLink = txn.value
-                // Reconnect dedup: if this admin already had a link to the same
-                // managed device (linkId differs because Managed disconnected +
-                // reconnected with a fresh token), delete the stale `/links/{old}`
-                // root so it doesn't show as a phantom card in the admin list.
-                // We don't fail the claim if this cleanup fails — the new claim
-                // already succeeded and is authoritative.
-                managedDevices?.let { reg ->
-                    val prior = reg.findByManagedDeviceId(newLink.managedDeviceId)
-                    if (prior is Outcome.Success) {
-                        val p = prior.value
-                        if (p != null && p.linkId != newLink.linkId) {
-                            backend.deleteDoc(DocPath.Links(p.linkId))
-                            reg.forgetLink(p.linkId)
-                        }
-                    }
-                    reg.recordClaim(newLink)
-                }
+                managedDevices?.recordClaim(newLink)
                 // Reflect the successful admin-side claim on the local FSM so
                 // the UI (PairingActivity) can route to the "Связь установлена"
                 // screen instead of staying on Idle (which used to flash the

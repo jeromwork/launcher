@@ -170,7 +170,7 @@ class RootComponent(
             is RootConfig.AdminDevices -> RootChild.AdminDevices(
                 AdminDevicesComponent(
                     componentContext = context,
-                    linkRegistry = requireDep("linkRegistry", linkRegistry),
+                    managedDevices = requireDep("managedDevices", managedDevices),
                     onBack = { nav.pop() },
                     onEditLink = { linkId -> nav.push(RootConfig.Editor(linkId)) },
                     onHistoryLink = { linkId -> nav.push(RootConfig.History(linkId)) },

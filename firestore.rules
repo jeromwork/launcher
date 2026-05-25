@@ -122,8 +122,11 @@ service cloud.firestore {
       // Root doc is immutable post-create (contract §Security Rules).
       allow update: if false;
 
-      // Delete: Managed side revokes (FR-033).
-      allow delete: if isManagedUid(existingDoc().managedDeviceFirebaseUid);
+      // Delete: Managed side revokes (FR-033) OR admin removes from their list.
+      // Admin-side delete added so the reconnect-dedup cleanup and the "Удалить"
+      // button on the admin paired-devices screen can prune stale link docs.
+      allow delete: if isManagedUid(existingDoc().managedDeviceFirebaseUid)
+                     || existingDoc().adminId == request.auth.uid;
 
       // ─── /links/{linkId}/state/{stateId} ──────────────────────────
       // FR-027, contracts/state-bootstrap.md.

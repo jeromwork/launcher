@@ -44,7 +44,12 @@ import com.launcher.api.action.ProviderId
 import com.launcher.api.action.ProviderState
 import com.launcher.ui.navigation.AddFlowWizardComponent
 import com.launcher.ui.navigation.AddSlotWizardComponent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
 import com.launcher.ui.navigation.AdminDevicesComponent
+import com.launcher.ui.navigation.AdminDevicesState
 import com.launcher.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -191,7 +196,29 @@ private fun notApplicableLabel(reason: NotApplicableReason): String = when (reas
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminDevicesScreen(component: AdminDevicesComponent, modifier: Modifier = Modifier) {
-    val links by component.links.collectAsState()
+    val state by component.state.collectAsState()
+    var pendingRemoveId by remember { mutableStateOf<String?>(null) }
+    pendingRemoveId?.let { id ->
+        AlertDialog(
+            onDismissRequest = { pendingRemoveId = null },
+            title = { Text("Удалить устройство?") },
+            text = {
+                Text(
+                    "Связь с этим устройством будет разорвана. " +
+                        "Чтобы восстановить, потребуется снова отсканировать QR-код.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    component.removeLink(id)
+                    pendingRemoveId = null
+                }) { Text("Удалить") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRemoveId = null }) { Text("Отмена") }
+            },
+        )
+    }
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -206,44 +233,54 @@ fun AdminDevicesScreen(component: AdminDevicesComponent, modifier: Modifier = Mo
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = component.onAddDevice,
+                onClick = {
+                    component.onScanStart()
+                    component.onAddDevice()
+                },
                 modifier = Modifier.testTag("admin_add_device"),
             ) {
                 Icon(Icons.Filled.Add, contentDescription = "Добавить устройство")
             }
         },
     ) { padding ->
-        if (links.isEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(Spacing.xl),
-                verticalArrangement = Arrangement.spacedBy(Spacing.md),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    "Нет сопряжённых устройств",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                Text(
-                    "Подключите телефон пожилого пользователя через QR-код в Настройках.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        } else {
-            LazyColumn(
+        when (val s = state) {
+            AdminDevicesState.Loading -> Box(
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(Spacing.md),
-                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                contentAlignment = Alignment.Center,
             ) {
-                items(links, key = { it.linkId }) { link ->
-                    AdminLinkRow(
-                        linkId = link.linkId,
-                        onEdit = { component.onEditLink(link.linkId) },
-                        onHistory = { component.onHistoryLink(link.linkId) },
-                        onContacts = { component.onContactsLink(link.linkId) },
-                        onHealth = { component.onHealthLink(link.linkId) },
+                CircularProgressIndicator()
+            }
+            is AdminDevicesState.Loaded -> if (s.links.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(padding).padding(Spacing.xl),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        "Нет сопряжённых устройств",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onBackground,
                     )
+                    Text(
+                        "Подключите телефон пожилого пользователя через QR-код в Настройках.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentPadding = PaddingValues(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
+                    items(s.links, key = { it.linkId }) { link ->
+                        AdminLinkRow(
+                            linkId = link.linkId,
+                            onEdit = { component.onEditLink(link.linkId) },
+                            onHealth = { component.onHealthLink(link.linkId) },
+                            onRemove = { pendingRemoveId = link.linkId },
+                        )
+                    }
                 }
             }
         }
@@ -255,9 +292,8 @@ fun AdminDevicesScreen(component: AdminDevicesComponent, modifier: Modifier = Mo
 private fun AdminLinkRow(
     linkId: String,
     onEdit: () -> Unit,
-    onHistory: () -> Unit,
-    onContacts: () -> Unit,
     onHealth: () -> Unit,
+    onRemove: () -> Unit,
 ) {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -278,9 +314,8 @@ private fun AdminLinkRow(
                 verticalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
                 OutlinedButton(onClick = onEdit) { Text("Раскладка") }
-                OutlinedButton(onClick = onHistory) { Text("История") }
-                OutlinedButton(onClick = onContacts) { Text("Контакты") }
                 OutlinedButton(onClick = onHealth) { Text("Здоровье") }
+                OutlinedButton(onClick = onRemove) { Text("Удалить") }
             }
         }
     }

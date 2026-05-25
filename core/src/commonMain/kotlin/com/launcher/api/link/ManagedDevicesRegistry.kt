@@ -46,6 +46,12 @@ interface ManagedDevicesRegistry {
      *  the local Flow snappy. */
     fun forgetLink(linkId: String)
 
+    /** Admin-side delete: removes `/links/{linkId}` on the backend AND from
+     *  local state. Used by the «Удалить» button on the paired-devices screen
+     *  and by reconnect-dedup when an orphan link from a prior pair must be
+     *  pruned. Returns Success even if the doc was already absent. */
+    suspend fun removeLinkOnServer(linkId: String): Outcome<Unit, BackendError>
+
     /** Look up an existing link for [managedDeviceId] under the current admin
      *  uid. Used by [com.launcher.api.pairing.PairingService.claimAsAdmin] to
      *  dedupe reconnects of the same managed device (issuing a new linkId would

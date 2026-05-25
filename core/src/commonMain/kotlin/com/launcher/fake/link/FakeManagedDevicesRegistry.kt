@@ -30,6 +30,11 @@ class FakeManagedDevicesRegistry(
         state.value = state.value.filterNot { it.linkId == linkId }
     }
 
+    override suspend fun removeLinkOnServer(linkId: String): Outcome<Unit, BackendError> {
+        state.value = state.value.filterNot { it.linkId == linkId }
+        return Outcome.Success(Unit)
+    }
+
     override suspend fun findByManagedDeviceId(
         managedDeviceId: String,
     ): Outcome<Link?, BackendError> =

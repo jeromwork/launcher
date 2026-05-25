@@ -91,6 +91,7 @@ class PairingActivity : ComponentActivity() {
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun PairingRouter(
     viewModel: PairingViewModel,
@@ -104,52 +105,61 @@ fun PairingRouter(
         viewModel.events.collect { /* no-op for MVP */ }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (isProcessing) {
-            ProcessingScreen()
-            return@Box
-        }
-        when (val s = state) {
-            PairingState.Idle -> IdleEntry(
-                onStart = { viewModel.startPairing() },
-                onClose = onFlowEnded,
-            )
-            is PairingState.WaitingForClaim -> QrDisplayScreen(
-                token = s.token,
-                expiresAtMillis = s.expiresAt,
-                onCancel = {
-                    viewModel.cancel()
-                    onFlowEnded()
+    androidx.compose.material3.Scaffold(
+        topBar = {
+            androidx.compose.material3.TopAppBar(
+                title = { Text(text = stringResource(R.string.pairing_toggle_title)) },
+                navigationIcon = {
+                    androidx.compose.material3.TextButton(onClick = onFlowEnded) {
+                        Text(text = "Закрыть")
+                    }
                 },
             )
-            is PairingState.AwaitingConsent -> ConsentScreen(
-                adminId = s.adminId,
-                onAllow = { viewModel.confirmConsent() },
-                onDecline = {
-                    viewModel.decline()
-                    onFlowEnded()
-                },
-            )
-            is PairingState.Claimed -> PairedStatusSection(
-                link = s.link,
-                onUnbind = {
-                    viewModel.unbind()
-                    onFlowEnded()
-                },
-                modifier = Modifier.padding(24.dp),
-            )
-            PairingState.Expired -> ExpiredScreen(
-                onRetry = { viewModel.startPairing() },
-                onClose = onFlowEnded,
-            )
-            PairingState.Revoked -> {
-                LaunchedEffect(Unit) { onFlowEnded() }
+        },
+    ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            if (isProcessing) {
+                ProcessingScreen()
+                return@Box
             }
-            is PairingState.Error -> ErrorScreen(
-                message = "Ошибка: ${s.cause}",
-                onRetry = { viewModel.startPairing() },
-                onClose = onFlowEnded,
-            )
+            when (val s = state) {
+                PairingState.Idle -> IdleEntry(
+                    onStart = { viewModel.startPairing() },
+                    onClose = onFlowEnded,
+                )
+                is PairingState.WaitingForClaim -> QrDisplayScreen(
+                    token = s.token,
+                    expiresAtMillis = s.expiresAt,
+                    onCancel = {
+                        viewModel.cancel()
+                        onFlowEnded()
+                    },
+                )
+                is PairingState.AwaitingConsent -> {
+                    LaunchedEffect(s.linkId) { viewModel.confirmConsent() }
+                    ProcessingScreen()
+                }
+                is PairingState.Claimed -> PairedStatusSection(
+                    link = s.link,
+                    onUnbind = {
+                        viewModel.unbind()
+                        onFlowEnded()
+                    },
+                    modifier = Modifier.padding(24.dp),
+                )
+                PairingState.Expired -> ExpiredScreen(
+                    onRetry = { viewModel.startPairing() },
+                    onClose = onFlowEnded,
+                )
+                PairingState.Revoked -> {
+                    LaunchedEffect(Unit) { onFlowEnded() }
+                }
+                is PairingState.Error -> ErrorScreen(
+                    message = "Ошибка: ${s.cause}",
+                    onRetry = { viewModel.startPairing() },
+                    onClose = onFlowEnded,
+                )
+            }
         }
     }
 }
