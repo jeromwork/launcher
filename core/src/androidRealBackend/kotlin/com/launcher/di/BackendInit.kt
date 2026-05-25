@@ -3,9 +3,8 @@ package com.launcher.di
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessaging
-import com.google.firebase.storage.FirebaseStorage
-import com.launcher.adapters.crypto.FirebaseEncryptedMediaStorage
 import com.launcher.adapters.crypto.FirestoreDeviceIdentityRepository
+import com.launcher.adapters.crypto.WorkerEncryptedMediaStorage
 import com.launcher.api.crypto.DeviceIdentityRepository
 import com.launcher.api.crypto.DigitalSignature
 import com.launcher.api.crypto.EncryptedMediaStorage
@@ -88,8 +87,6 @@ val backendModule: Module = module {
     single { FirebaseFirestore.getInstance() }
     single { FirebaseAuth.getInstance() }
     single { FirebaseMessaging.getInstance() }
-    // Spec 011 — Storage SDK для encrypted blobs.
-    single { FirebaseStorage.getInstance() }
 
     // RemoteSyncBackend → Firestore.
     single<RemoteSyncBackend> { FirebaseRemoteSyncBackend(get()) }
@@ -138,7 +135,14 @@ val backendModule: Module = module {
         )
     }
 
-    single<EncryptedMediaStorage> { FirebaseEncryptedMediaStorage(storage = get()) }
+    // Spec 011 — Worker-proxied B2 blob storage (server-roadmap SRV-CRYPTO-001).
+    // Credentials (B2 keyID/key) живут в Cloudflare Worker secrets, не на устройстве.
+    // Симметричная авторизация — admin OR managed может upload/download.
+    single<EncryptedMediaStorage> {
+        WorkerEncryptedMediaStorage(
+            tokenSupplier = get(),
+        )
+    }
 
     // ─── Spec 008 — bidirectional-config-sync wiring ──────────────────────
 

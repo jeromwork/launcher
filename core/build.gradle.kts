@@ -150,8 +150,9 @@ dependencies {
     "realBackendImplementation"(libs.firebase.firestore.ktx)
     "realBackendImplementation"(libs.firebase.auth.ktx)
     "realBackendImplementation"(libs.firebase.messaging.ktx)
-    // Spec 011 — encrypted blob persistence для EncryptedMediaStorage adapter.
-    "realBackendImplementation"(libs.firebase.storage.ktx)
+    // Spec 011 — encrypted blobs storage переехал на Worker-proxied B2
+    // (server-roadmap SRV-CRYPTO-001 — раньше планировали Firebase Storage,
+    // но Spark plan требует Blaze для Storage). См. WorkerEncryptedMediaStorage.
 
     // Spec 011 — Lazysodium pulls JNA как transitive JAR; Android requires aar variant
     // (содержит правильно упакованные .so под ABI). JAR variant создаёт duplicate

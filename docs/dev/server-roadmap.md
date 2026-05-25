@@ -108,12 +108,14 @@
 ### CRYPTO + PRIVATE MEDIA STORAGE (spec 011 e2e-crypto-foundation, spec 012 photos, future Jitsi/vendor/hardware integrations)
 
 **SRV-CRYPTO-001: Универсальный маршрут переезда крипто-инфраструктуры на собственный backend.**
-- *Сейчас:* зашифрованные blob'ы лежат в Firebase Storage (`/links/{linkId}/private-media/{uuid}`); Pub-ключи устройств — в Firestore (`/links/{linkId}/devices/{deviceId}`); авторизация — Firestore/Storage Security Rules.
+- *Сейчас (rev. 2 — 2026-05-25):* зашифрованные blob'ы лежат в **Backblaze B2** (`launcher-private-media-eastclinic`, S3-compatible, EU Central), доступ через Cloudflare Worker (`/blobs/{linkId}/{uuid}` endpoints) с Firebase ID-token auth + link-membership check. Pub-ключи устройств — в Firestore (`/links/{linkId}/devices/{deviceId}`); авторизация для Firestore — Security Rules; авторизация для blobs — серверная в Worker'е.
+  - **Раньше (rev. 1, до 2026-05-25):** планировали Firebase Storage с cross-service rule. Откатили: Firebase Storage требует Blaze plan (платный), credit card недоступен на dev-фазе. B2 free tier 10 GB + Worker proxy решает.
 - *Проблема:* не связана с Firebase лимитами. Триггер — запуск собственного backend проекта вне зависимости от Spark plan. Vendor lock-in (Firebase Storage SDK, Firestore SDK) на ровном месте; serverless авторизация менее гибкая, чем server-side; нет audit trail; нет возможности добавить server-side policy (например, антиспам blob upload).
 - *Что переезжает:*
-  - Firebase Storage `/links/{linkId}/private-media/{uuid}` → собственное файловое хранилище (S3-совместимое, MinIO, или просто файловая система за HTTP API).
+  - Backblaze B2 `launcher-private-media-eastclinic` → собственное файловое хранилище (S3-совместимое — drop-in replacement, потому что B2 уже S3 API).
+  - Cloudflare Worker `/blobs/*` endpoints → endpoints на собственном backend'е (тот же интерфейс).
   - Firestore `/links/{linkId}/devices/{deviceId}` → таблица в БД (PostgreSQL).
-  - Storage Security Rules + Firestore Security Rules → серверная авторизация через JWT/session.
+  - Firestore Security Rules → серверная авторизация через JWT/session.
 - *Что НЕ переезжает (остаётся на клиенте навсегда по дизайну e2e):*
   - Криптография (encryption / hashing / signing через libsodium) — клиент-сайд по дизайну, иначе нарушает e2e гарантию.
   - Приватные ключи (X25519 priv, Ed25519 priv) — в Android Keystore, **никогда** не покидают устройство.
@@ -126,7 +128,7 @@
      - `PUT /links/{linkId}/devices/{deviceId}/pubkey` (publish Pub),
      - `GET /links/{linkId}/devices/{deviceId}/pubkey` (fetch peer Pub).
   2. Заменить адаптеры:
-     - `FirebaseEncryptedMediaStorage` → `HttpEncryptedMediaStorage` (порт `EncryptedMediaStorage` не меняется — rule 1 CLAUDE.md).
+     - `WorkerEncryptedMediaStorage` → `HttpEncryptedMediaStorage` против собственного backend'а (порт `EncryptedMediaStorage` не меняется — rule 1 CLAUDE.md). Если backend держит S3-compatible storage — даже client-side изменения тривиальны.
      - `FirestoreDeviceIdentityRepository` → `HttpDeviceIdentityRepository` (порт `DeviceIdentityRepository` не меняется).
   3. Перевозить blob'ы пачками: новые → сразу на свой backend; старые → background reconciler читает из Firebase, перекладывает на свой backend, верифицирует MAC, удаляет из Firebase.
   4. Envelope format и cipherSuite остаются прежними. Перешифровка blob'ов **НЕ требуется**.
@@ -205,3 +207,4 @@
 |---|---|---|
 | 2026-05-15 | Создан файл; зафиксированы SRV-CONFIG-001..004, SRV-MONITOR-001..002, SRV-CONTACTS-001..002, SRV-SEC-001..004, SRV-CMD-001, SRV-INFRA-001..002 | Spec 009 pre-specify discovery, mentor-сессия |
 | 2026-05-22 | Добавлен SRV-CRYPTO-001 (универсальный маршрут переезда крипто-инфраструктуры на свой backend) — независимо от Firebase Storage лимитов | Spec 011 mentor-сессия |
+| 2026-05-25 | SRV-CRYPTO-001 rev. 2 — переключение storage с Firebase Storage (требует Blaze) на Backblaze B2 + Cloudflare Worker proxy. Free tier 10 GB, без credit card. Exit ramp сохранён через S3-compatible API. | Spec 011 mentor-сессия по billing |
