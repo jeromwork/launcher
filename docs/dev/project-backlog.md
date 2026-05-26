@@ -281,6 +281,45 @@
 - **Status**: 🟢 OPEN (триггер: первый schema bump)
 - **Origin**: spec 009 pre-specify discovery (пункт 6 роадмапа, schema invalidation Q).
 
+### TODO-ARCH-017: Multi-identifier contacts (`phoneNumbers[]` + telegram/facebook/etc.) 🟢
+
+- **What**: Расширить `Contact` модель с singular `phoneNumber: String` на массив identifiers: `identifiers: List<ContactIdentifier>`, где `ContactIdentifier` — sealed type (`Phone(e164)`, `Telegram(handle)`, `Facebook(uid)`, etc.). Сейчас domain ограничен одним телефоном (см. [Contact.kt:22](../../core/src/commonMain/kotlin/com/launcher/api/config/Contact.kt#L22)).
+- **Why**: В реальной жизни у одного человека несколько телефонов (домашний + мобильный), и общение часто идёт через мессенджеры — не телефон. На бабушкином обращённом launcher'е одна плитка = один контакт (для простоты UX), но за плиткой может быть **набор** способов связи. Без массива — admin вынужден дублировать контакты под разные мессенджеры, бабушка путается.
+- **How**:
+  - `core/api/config/Contact.kt` — заменить `phoneNumber: String` на `identifiers: List<ContactIdentifier>` (или оставить `phoneNumber` deprecated в одном переходном bump'е).
+  - Wire format `/config` — `schemaVersion` bump (после spec 030 — до этого свобода аддиции есть).
+  - `Contact.fromRaw` — расширить на массив raw inputs, валидировать каждый по типу.
+  - `Contact.matches(other)` — natural-key matching по любому совпавшему identifier (для photo-overwrite семантики spec 012 и для merge UI).
+- **When**: Когда станет ощутимым ограничение «один телефон на контакт» — predictably после spec 020+ (когда подключатся messenger-провайдеры).
+- **Status**: 🟢 OPEN
+- **Origin**: spec 012 clarify session 2026-05-26. Связано с (но отличается от) `TODO-ARCH-014: Contact без phone number`.
+
+### TODO-ARCH-018: Contact merge dialog в admin UI 🟢
+
+- **What**: Когда admin принимает контакт (через VCard share intent или `ACTION_PICK`), показать диалог «Это контакт «Маша» уже есть. Обновить существующий или добавить как новый?» — с дофильтрованным списком: сначала по совпадению `displayName`, потом по совпадению любого identifier'а (см. `TODO-ARCH-017`), потом остальные контакты алфавитно.
+- **Why**: В spec 012 мы фиксируем **implicit** auto-update photoRef при точном совпадении phone (resolution Q1). Это работает для типичного кейса «admin переслал ту же Машу заново». Но не покрывает случаи: (а) admin хочет осознанно обновить существующий контакт фото-новинкой; (б) совпадение по другому identifier (telegram handle), но не по phone; (в) admin хочет «прилепить» новый контакт к существующему как дополнительный identifier. Диалог даёт явный контроль.
+- **How**:
+  - Compose screen `AddContactReviewScreen` — open после получения payload (share intent / picker).
+  - Если найдены совпадения по identifier'ам — показать в верхней части списка с pre-selected кандидатом.
+  - Опции: «Обновить выбранный» / «Добавить новый» / «Прилепить к выбранному как доп. способ связи».
+  - Подтверждение «Обновить» → старый blob photoRef'а декрементируется в BlobReferenceLedger (вся механика уже в spec 011).
+  - Подтверждение «Прилепить» — требует `TODO-ARCH-017` (multi-identifier model).
+- **When**: После `TODO-ARCH-017`. Можно сделать упрощённую версию (без «прилепить») раньше, на singular-phone модели.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 012 clarify session 2026-05-26. Spec 012 покрывает только implicit auto-update; этот диалог — следующий шаг.
+
+### TODO-ARCH-019: Local storage quota / wipe для `LocalMediaStore` 🟢
+
+- **What**: Spec 012 решает: расшифрованные фото/документы складываются в app-private storage (`LocalMediaStore`) **persistent**, без шифрования на устройстве (см. resolution Q5 в spec 012). Защита от переполнения — **out of scope spec 012**. Этот TODO трекает: добавить (а) бюджет на размер локального хранилища с graceful eviction (LRU по `lastAccessedAt`), (б) wipe при revoke, если threat model изменится.
+- **Why**: Если adversarial admin или ошибка пушнут 10000 файлов — устройство бабушки забьётся, launcher станет неотзывчивым. На singular-pair модели (которая у нас сейчас) threat низкий — admin = доверенный родственник. Но как только spec 014+ введёт группы / multi-admin / shared documents — adversary surface растёт.
+- **How** (когда триггернётся):
+  - Конфигурируемый бюджет (default 200 MB), LRU eviction расшифрованных файлов по `lastAccessedAt` (повторный показ — повторный download).
+  - На revoke link — опциональный `wipeLocal: Boolean` параметр (default: false — не вайпаем, как сейчас); если true — сносим всю папку.
+  - Метрика «занято MB / бюджет MB» в settings UI бабушки + admin'а.
+- **When**: Триггер №1 — реальный bug-report «закончилось место» от пользователя. Триггер №2 — spec, вводящий multi-admin / групповые документы.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 012 clarify session 2026-05-26 — adversarial admin как out-of-scope, защита отложена.
+
 ---
 
 ## Security Hardening

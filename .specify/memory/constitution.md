@@ -284,6 +284,7 @@ Additional defaults:
    - why packages or functions are insufficient,
    - what would break if it were removed.
 7. AI agents MUST bias toward fewer moving parts, fewer indirections, and clearer names.
+8. **Reuse before invention.** Before introducing a new port, adapter, facade, or domain interface, an AI agent or contributor MUST verify that no existing port already covers the need (or could cover it with a small additive parameter). The plan or commit message MUST briefly state what was checked and why a new abstraction is needed. Default: extend existing surface; create new only when extension would distort the existing semantics.
 
 ---
 
@@ -352,7 +353,7 @@ When an AI agent works inside this repository through Spec Kit, it MUST behave a
 5. Prefer the smallest correct change.
 6. Keep diffs reviewable.
 7. Update impacted docs, tests, schemas, and examples together.
-8. Before proposing new abstractions, modules, or frameworks, prove necessity against Articles V and XI.
+8. Before proposing new abstractions, modules, or frameworks, prove necessity against Articles V and XI. **In particular, before defining a new port or facade, list the existing ports surveyed (in `core/api/**` and adapter modules) and explain why none of them fit; this is mandated by Article XI §8 (Reuse before invention).**
 9. Before proposing new event listeners, services, or background work, prove necessity against Articles VI and IX.
 10. Before proposing new UX flows, validate against Article VIII.
 11. Every plan MUST include a **Constitution Check** section that explicitly states how the feature complies with relevant articles.
