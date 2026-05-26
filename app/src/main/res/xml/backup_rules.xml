@@ -19,5 +19,12 @@
 <full-backup-content>
     <exclude domain="file" path="datastore/com.launcher.capability.snapshot_v1.preferences_pb" />
     <exclude domain="file" path="datastore/com.launcher.health.snapshot_v1.preferences_pb" />
+    <!--
+      Spec 012 FR-025: расшифрованные фото контактов и личных документов
+      (паспорт, медкарта, СНИЛС) лежат в Context.filesDir/private-media/<uuid>.
+      Без exclude они уйдут в Google Drive backup бабушки — critical PII leak.
+      Дублирует rule из data_extraction_rules.xml для pre-Android-12 устройств.
+    -->
+    <exclude domain="file" path="private-media/" />
     <!-- Settings DataStore не excluded → backup'ится по умолчанию вместе со всем app data. -->
 </full-backup-content>

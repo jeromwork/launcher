@@ -10,4 +10,37 @@
 
     <string name="settings_preset_change_button">Сменить пресет</string>
     <string name="settings_preset_dialog_title">Выбор пресета</string>
+
+    <!-- Spec 012 — фото контактов и личные документы -->
+
+    <!-- DocumentViewer (бабушкина сторона) -->
+    <string name="private_media_doc_viewer_close">Закрыть</string>
+    <string name="private_media_doc_viewer_zoom_in">Увеличить</string>
+    <string name="private_media_doc_viewer_zoom_out">Уменьшить</string>
+    <string name="private_media_doc_viewer_loading">Загрузка…</string>
+
+    <!-- Admin: добавление документа -->
+    <string name="private_media_admin_add_document_button">+ Документ</string>
+    <string name="private_media_admin_add_document_button_description">Добавить личный документ</string>
+    <string name="private_media_admin_label_field_hint">Подпись (например, Паспорт)</string>
+    <string name="private_media_admin_label_field_error_empty">Введите подпись</string>
+    <string name="private_media_admin_label_field_error_too_long">Подпись слишком длинная (не больше 40 символов)</string>
+    <string name="private_media_admin_confirm_button">Сохранить</string>
+    <string name="private_media_admin_cancel_button">Отмена</string>
+
+    <!-- Admin: загрузка + повтор -->
+    <string name="private_media_admin_upload_progress">Загружаю…</string>
+    <string name="private_media_admin_upload_error_network">Нет связи. Нажмите, чтобы попробовать снова.</string>
+    <string name="private_media_admin_upload_error_too_large">Фото слишком большое. Выберите поменьше.</string>
+    <string name="private_media_admin_upload_error_storage_full">На втором устройстве закончилось место.</string>
+    <string name="private_media_admin_upload_retry">Попробовать снова</string>
+
+    <!-- Admin: индикатор ошибки расшифровки (FR-022) -->
+    <string name="private_media_admin_indicator_decrypt_failed">Фото не отрисовалось у %1$s</string>
+    <string name="private_media_admin_indicator_hint_re_add">Попробуйте добавить ещё раз</string>
+    <string name="private_media_admin_indicator_hint_re_pair">Повторите соединение устройств</string>
+
+    <!-- Picker errors -->
+    <string name="private_media_picker_error_invalid_type">Выберите файл-фотографию</string>
+    <string name="private_media_picker_error_io">Не удалось открыть файл. Попробуйте другой.</string>
 </resources>
