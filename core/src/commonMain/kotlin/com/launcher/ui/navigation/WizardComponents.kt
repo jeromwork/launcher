@@ -15,14 +15,20 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * AddFlowWizard placeholder component (spec 003 §Phase 6 mock).
- * Real flow creation arrives in spec 005 (action-architecture-v2).
+ * AddFlowWizard — создание нового экрана (Flow) на устройстве.
+ * Spec 003 §Phase 6 placeholder → spec 010 ARCH-016 closure → 2026-05-26
+ * TODO-ARCH-020 fix: убран template-picker; экран создаётся пустым,
+ * плитки добавляются через существующие "+Контакт"/"+Приложение"/"+Документ".
+ *
+ * Caller (RootComponent) делает создание через [ConfigEditor.updateDraft]
+ * (single source of truth = /config/current), а не через FlowRepository.addFlow
+ * (residual dead path после ARCH-016).
  */
 class AddFlowWizardComponent(
     componentContext: ComponentContext,
     val onBack: () -> Unit,
     val onDone: () -> Unit,
-    val onTemplateChosen: (templateId: String) -> Unit,
+    val onCreate: () -> Unit,
 ) : ComponentContext by componentContext
 
 /**

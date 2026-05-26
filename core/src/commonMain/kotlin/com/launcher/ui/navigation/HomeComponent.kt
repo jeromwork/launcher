@@ -60,6 +60,7 @@ class HomeComponent(
                 flowRepository = flowRepository,
                 dispatchAction = dispatchAction,
                 onOpenScanner = onOpenScanner,
+                onAddSlotClick = { onAddSlotClick(config.flowId) },
                 managedDevices = managedDevices,
             )
         },

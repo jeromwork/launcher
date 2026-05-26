@@ -18,6 +18,7 @@ import com.launcher.api.action.ProviderRegistry
 import com.launcher.api.apps.InstalledAppsCatalog
 import com.launcher.api.config.ConfigEditor
 import com.launcher.api.config.ElementId
+import com.launcher.api.config.Flow as ConfigFlow
 import com.launcher.api.history.ConfigHistoryRepository
 import com.launcher.api.link.LinkRegistry
 import com.launcher.api.sync.RemoteSyncBackend
@@ -32,6 +33,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -141,18 +143,13 @@ class RootComponent(
                     componentContext = context,
                     onBack = { nav.pop() },
                     onDone = { nav.pop() },
-                    onTemplateChosen = { templateId ->
+                    onCreate = {
+                        // TODO-ARCH-020 fix (2026-05-26): create flow via
+                        // ConfigEditor (single source of truth = /config/current),
+                        // not FlowRepository.addFlow (residual dead path after
+                        // ARCH-016 closure в спеке 010).
                         scope.launch {
-                            val newFlow = flowRepository.addFlow(templateId)
-                            // Refresh the underlying Home so the new tab appears.
-                            val homeChild = stack.value.items
-                                .map { it.instance }
-                                .filterIsInstance<RootChild.Home>()
-                                .firstOrNull()
-                                ?.component
-                            homeChild?.refresh()
-                            // Activate the new flow tab immediately for fast feedback.
-                            homeChild?.selectFlow(newFlow.id)
+                            createFlowViaConfigEditor()
                             nav.pop()
                         }
                     },
@@ -314,6 +311,30 @@ class RootComponent(
 
     private fun <T : Any> requireDep(name: String, value: T?): T = value
         ?: error("Spec 009 dependency '$name' is not wired into RootComponent — admin-mode screen requires it. Pass via constructor.")
+
+    /**
+     * TODO-ARCH-020 fix (2026-05-26): создание нового экрана (Flow) через
+     * [ConfigEditor.updateDraft] вместо `flowRepository.addFlow` (residual dead
+     * path после ARCH-016). Активирует новую вкладку в [HomeComponent] сразу
+     * после успешной записи в draft, чтобы пользователь видел результат.
+     *
+     * No-op (без краша) если `configEditor` или `linkRegistry` не подключены
+     * (test wiring / self-managed без сопряжения — отдельный путь, см. backlog).
+     */
+    private suspend fun createFlowViaConfigEditor() {
+        val editor = configEditor ?: return
+        val link = linkRegistry?.currentLink()?.first() ?: return
+        val newId = ElementId.random()
+        editor.updateDraft(link.linkId) { doc ->
+            doc.copy(flows = doc.flows + ConfigFlow(id = newId, title = "Экран", slots = emptyList()))
+        }
+        val homeChild = stack.value.items
+            .map { it.instance }
+            .filterIsInstance<RootChild.Home>()
+            .firstOrNull()
+            ?.component
+        homeChild?.selectFlow(newId.value)
+    }
 
     private fun handleFirstLaunchPresetSelected(preset: FlowPreset) {
         scope.launch {

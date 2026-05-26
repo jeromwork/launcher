@@ -41,6 +41,11 @@ class FlowComponent(
     private val flowRepository: FlowRepository,
     private val dispatchAction: suspend (Action) -> DispatchResult,
     val onOpenScanner: () -> Unit = {},
+    /**
+     * TODO-UX-021 temp (2026-05-26): кнопка «Добавить плитку» на пустом экране.
+     * Удалить после перехода на placeholder-slot grid.
+     */
+    val onAddSlotClick: () -> Unit = {},
     managedDevices: ManagedDevicesRegistry? = null,
 ) : ComponentContext by componentContext {
 

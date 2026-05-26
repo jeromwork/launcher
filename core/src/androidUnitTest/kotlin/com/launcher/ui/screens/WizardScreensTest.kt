@@ -48,13 +48,13 @@ class WizardScreensTest {
                         componentContext = newContext(),
                         onBack = {},
                         onDone = {},
-                        onTemplateChosen = {},
+                        onCreate = {},
                     ),
                 )
             }
         }
-        rule.onNodeWithText("Новая вкладка").assertIsDisplayed()
-        rule.onNodeWithText("Контакты").assertIsDisplayed()
+        rule.onNodeWithText("Новый экран").assertIsDisplayed()
+        rule.onNodeWithText("Создать").assertIsDisplayed()
     }
 
     private fun wizardWith(registry: FakeProviderRegistry): AddSlotWizardComponent =

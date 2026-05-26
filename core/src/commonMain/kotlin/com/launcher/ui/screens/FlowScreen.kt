@@ -94,7 +94,7 @@ fun FlowScreen(
                 state.templateId == "admin_devices" ->
                     if (pairedDevices.isNotEmpty()) AdminDevicesList(pairedDevices)
                     else AdminDevicesEmptyState()
-                state.slots.isEmpty() -> EmptyFlow(state.flowName)
+                state.slots.isEmpty() -> EmptyFlow(state.flowName, onAddSlot = component.onAddSlotClick)
                 else -> LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 180.dp),
                     contentPadding = PaddingValues(Spacing.md),
@@ -168,12 +168,31 @@ private fun AdminDevicesEmptyState() {
     }
 }
 
+/**
+ * TODO-UX-021 temp (2026-05-26): на пустом экране показываем текст +
+ * одну кнопку «Добавить плитку». Заменить на сетку полупрозрачных
+ * placeholder-слотов (как в Android-launcher) — отдельная задача.
+ */
 @Composable
-private fun EmptyFlow(flowName: String) {
-    Text(
-        text = if (flowName.isEmpty()) "Нет слотов." else "$flowName: пока пусто.",
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(Spacing.xl),
-    )
+private fun EmptyFlow(flowName: String, onAddSlot: () -> Unit) {
+    androidx.compose.foundation.layout.Column(
+        modifier = Modifier.fillMaxSize().padding(Spacing.xl),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = if (flowName.isEmpty()) "На этом экране пока нет плиток" else "$flowName: пока пусто",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        androidx.compose.foundation.layout.Spacer(Modifier.padding(top = Spacing.lg))
+        androidx.compose.material3.Button(
+            onClick = onAddSlot,
+            modifier = Modifier.testTag("empty_flow_add_slot"),
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = null)
+            androidx.compose.foundation.layout.Spacer(Modifier.padding(start = Spacing.sm))
+            Text("Добавить плитку", style = MaterialTheme.typography.labelLarge)
+        }
+    }
 }

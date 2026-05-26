@@ -55,13 +55,11 @@ import com.launcher.ui.theme.Spacing
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddFlowWizardScreen(component: AddFlowWizardComponent, modifier: Modifier = Modifier) {
-    val templates = listOf("contacts" to "Контакты", "admin_devices" to "Управление телефонами")
-
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("Новая вкладка", style = MaterialTheme.typography.titleLarge) },
+                title = { Text("Новый экран", style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
                     IconButton(onClick = component.onBack, modifier = Modifier.testTag("add_flow_back")) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
@@ -74,15 +72,17 @@ fun AddFlowWizardScreen(component: AddFlowWizardComponent, modifier: Modifier = 
             modifier = Modifier.fillMaxSize().padding(padding).padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            templates.forEach { (id, label) ->
-                Button(
-                    onClick = { component.onTemplateChosen(id) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("add_flow_template_$id"),
-                ) {
-                    Text(label, style = MaterialTheme.typography.labelLarge)
-                }
+            Text(
+                "Создать новый экран. На нём можно будет размещать плитки: контакты, приложения, документы.",
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Button(
+                onClick = component.onCreate,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("add_flow_create"),
+            ) {
+                Text("Создать", style = MaterialTheme.typography.labelLarge)
             }
         }
     }

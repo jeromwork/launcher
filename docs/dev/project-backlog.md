@@ -248,6 +248,56 @@
 - **Status**: 🟢 OPEN
 - **Origin**: spec 009 pre-specify discovery (пункт 4 роадмапа, FR-25/FR-36).
 
+### TODO-BUG-022: AdminDevicesScreen бесконечный loader + scanner-кнопка no-op в Workspace 🟡
+
+- **What**: На admin-устройстве (Workspace-пресет, без сопряжения):
+  1. Экран «Сопряжённые устройства» показывает **бесконечно крутящийся `CircularProgressIndicator`** вместо empty-state «Нет сопряжённых устройств».
+  2. Тап на **«+»** (FloatingActionButton, должен открывать QR-сканер) — **ничего не происходит**, snackbar'а нет, scanner не запускается.
+- **Why**:
+  1. `AdminDevicesState.Loading` устанавливается в `init { managedDevices.observeAll().collect { ... } }` и в `onScanStart()`. Если `managedDevices` не подключён (mockBackend без Firebase wiring) — Flow никогда не эмитит, state остаётся `Loading` навсегда. См. [WizardComponents.kt:105-113](core/src/commonMain/kotlin/com/launcher/ui/navigation/WizardComponents.kt#L105-L113).
+  2. `onAddDevice = onOpenScanner` в RootComponent — но `onOpenScanner` в mockBackend-сборке, видимо, no-op или некорректно прокинут от Activity. Нужно проверить wiring в `HomeActivity` + `Spec007Module`.
+- **How**:
+  1. AdminDevicesComponent: после N секунд без эмита (или сразу, если `managedDevices == null`) переходить в `Loaded(emptyList())`, чтобы показывался empty-state.
+  2. Проверить `onOpenScanner` в Spec007 wiring для mockBackend — должен открывать QR-сканер либо показывать debug-message «scanner недоступен в mockBackend без сопряжения».
+- **When**: До production-релиза Workspace admin-flow.
+- **Status**: 🟡 OPEN
+- **Origin**: Device-test 2026-05-26 (эмулятор Android, mockBackend.debug) — пользователь не смог попасть в QR-сканер из admin-вью.
+
+### TODO-UX-021: Empty-flow placeholder grid (как в Android-лаунчере) 🟡
+
+- **What**: На пустом экране (Flow без slots) сейчас показывается только текст «Нет слотов» + временная кнопка «Добавить плитку». Заменить на **сетку полупрозрачных placeholder-слотов** с закруглёнными краями и иконкой «+» — как пустые места на главном экране Android. Тап по любому placeholder → запускается мастер добавления плитки (Контакт / Приложение / Документ).
+- **Why**: Текущий UX непонятен пожилому пользователю: «Нет слотов» — это констатация, а не affordance. Привычная для всех Android-пользователей метафора «пустая ячейка → тап → добавить» снимает когнитивный барьер и даёт визуальное представление о ёмкости экрана.
+- **How**:
+  1. На пустой Flow render'ить `LazyVerticalGrid` (та же `GridCells.Adaptive(minSize=180.dp)` что и для заполненных слотов) из ≥6 placeholder-tile'ов.
+  2. Placeholder = `Card` с `alpha=0.3f`, `border = BorderStroke(1.dp, dashed)`, центральная иконка `Icons.Filled.Add`.
+  3. Тап → push `AddSlotWizard` (как существующая `onAddSlotClick(flowId)`).
+  4. Когда плитки есть — placeholder'ы добавляются «после последней» как следующие свободные места (опционально на v2).
+  5. Senior-safe: tap-area ≥ 56dp, contrast border ≥ 3:1, contentDescription = «Добавить плитку».
+- **When**: После закрытия device-теста спеки 012. До production-релиза Workspace-пресета — обязательно.
+- **Status**: 🟡 OPEN
+- **Origin**: Device-test 2026-05-26 — пользователь столкнулся с пустой вкладкой после `Создать` в Workspace и не понял, куда тапать. UX-feedback дословно: «по-хорошему нужно сделать какие-то полупрозрачные слоты, ну, места, где они стоят, с закругленными краями. Также, как это делается в Android. И при тапе на какой-то слот должно появляться какое-то действие.»
+- **Tracker note**: временное решение — кнопка «Добавить плитку» под текстом «Нет слотов» — добавлено в том же тестовом цикле, см. [FlowScreen.kt:EmptyFlow](core/src/commonMain/kotlin/com/launcher/ui/screens/FlowScreen.kt). Удалить когда placeholder-grid поедет.
+
+### TODO-ARCH-020: AddFlowWizard crashes on `+ Вкладка` в Workspace без admin-сопряжения 🔴
+
+- **What**: В Workspace-пресете нажатие `+` → «Контакты»/«Управление телефонами» в мастере добавления вкладки → краш `IllegalStateException: ConfigBackedFlowRepository.addFlow not supported`.
+- **Why**: `ConfigBackedFlowRepository.addFlow` намеренно `error()` (residual после закрытия ARCH-016 в спеке 010 — single source of truth = `/config/current`, edits идут через `ConfigEditor`). Но `RootComponent.createChild` для `AddFlowWizard` всё ещё вызывает `flowRepository.addFlow(templateId)` ([core/.../RootComponent.kt:146](core/src/commonMain/kotlin/com/launcher/ui/navigation/RootComponent.kt#L146)). Wizard-путь — dead, но его никто не отрезал и не перенаправил на `ConfigEditor.addFlow`.
+- **Impact**: Workspace-пресет фактически неработоспособен на устройстве без сопряжённого admin (т.е. при self-managed использовании — что главный сценарий для admin-устройства). Блокирует device-тест спеки 012, потому что попасть в редактор «+ Документ» без существующей вкладки нельзя.
+- **How**:
+  1. Добавить `ConfigEditor.addFlow(templateId): FlowDescriptor` (или эквивалент через draft edit).
+  2. В `RootComponent.createChild` для `AddFlowWizard` вызывать `configEditor.addFlow(...)` вместо `flowRepository.addFlow(...)`.
+  3. Либо: убрать `AddFlowWizard` из навигации полностью, если admin-editor уже умеет создавать вкладку прямо в EditorScreen (проверить).
+  4. Тест: device smoke — Workspace → `+ Вкладка` → «Контакты» → новая вкладка появляется, без краша.
+- **When**: Перед любым real-user use Workspace-пресета. Прямо сейчас блокирует device-теста спеки 012.
+- **Status**: 🔴 OPEN
+- **Origin**: Device test 2026-05-26 (Xiaomi Mi 11 Lite 5G, MIUI V125), logcat:
+  ```
+  FATAL EXCEPTION: main
+  java.lang.IllegalStateException: ConfigBackedFlowRepository.addFlow not supported
+      at ConfigBackedFlowRepository.addFlow(ConfigBackedFlowRepository.kt:96)
+      at RootComponent$createChild$13$1.invokeSuspend(RootComponent.kt:146)
+  ```
+
 ### TODO-ARCH-016: Switch launcher home tiles to render from `/config/current` 🟡
 
 - **What**: Сейчас launcher (`HomeComponent` → `FlowScreen` → `TileCard`) рендерит тайлы из локального `FlowRepository` (FlowDescriptor + SlotDescriptor — спек 003/005 модель). После спеков 008/009 источник истины для раскладки — `/config/current` ConfigDocument (Flow + Slot — спек 008 модель). Эти два деревья пока **независимы** — admin editor правит `ConfigDocument`, но launcher это не подхватывает.

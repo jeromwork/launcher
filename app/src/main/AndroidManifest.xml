@@ -159,6 +159,10 @@
             android:name=".debug.HealthSnapshotDebugActivity"
             android:exported="true"
             android:label="Health Debug" />
+        <activity
+            android:name=".debug.Spec012DebugActivity"
+            android:exported="true"
+            android:label="Spec 012 Debug" />
         <!--
           Spec 011 FR-070 / US-6 — debug smoke screen для self-roundtrip
           + cross-device validation (Phase A/B/C из smoke/README.md).
