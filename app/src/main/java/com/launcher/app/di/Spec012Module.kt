@@ -1,10 +1,15 @@
 package com.launcher.app.di
 
 import com.launcher.adapters.crypto.SqlDelightBlobReferenceLedger
+import com.launcher.adapters.media.BlobReferenceRemover
 import com.launcher.adapters.media.BlobReferenceWriter
 import com.launcher.adapters.media.FileLocalMediaStore
+import com.launcher.adapters.media.JpegCompressor
+import com.launcher.adapters.media.MediaDecryptFailedReporter
+import com.launcher.adapters.media.NoOpMediaDecryptFailedReporter
 import com.launcher.adapters.media.PrivateMediaResolverImpl
 import com.launcher.adapters.media.PrivateMediaUploaderImpl
+import com.launcher.adapters.media.SqlDelightBlobReferenceRemover
 import com.launcher.adapters.media.SqlDelightBlobReferenceWriter
 import com.launcher.adapters.media.SystemPhotoPickerAdapter
 import com.launcher.api.crypto.AeadCipher
@@ -72,4 +77,24 @@ val spec012Module = module {
     // ── Layer 2 ─────────────────────────────────────────────────────────────
 
     single<MediaPicker> { SystemPhotoPickerAdapter(context = androidContext()) }
+
+    // ── Phase 7 — cleanup + reporting + compression ────────────────────────
+
+    /** RefCount decrement on Contact / Document slot delete (FR-013, FR-023). */
+    single<BlobReferenceRemover> {
+        SqlDelightBlobReferenceRemover(ledger = get<SqlDelightBlobReferenceLedger>())
+    }
+
+    /**
+     * Admin-side JPEG compression до 500 KB cap. Used by AddDocumentScreen
+     * VCard receiver flow перед PrivateMediaUploader.upload().
+     */
+    single { JpegCompressor() }
+
+    /**
+     * MediaDecryptFailed emission в /state.partialApplyReasons (FR-021, SC-010).
+     * TODO(spec-012-wiring): replace NoOpMediaDecryptFailedReporter с real impl
+     *   которое hooks в StateApplied writer (spec 008 contracts/state-applied.md).
+     */
+    single<MediaDecryptFailedReporter> { NoOpMediaDecryptFailedReporter() }
 }
