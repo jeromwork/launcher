@@ -65,6 +65,10 @@ fun EditorScreen(
                 onHistoryClick = actions.onHistoryClick,
             )
             ConflictBanner(hasConflict = state.mergeConflict != null)
+            // Spec 012 FR-015 — Add Document button (visible только в Edit mode).
+            if (state.mode == AdminEditorMode.Edit) {
+                AddDocumentEntryRow(onAddDocument = actions.onAddDocument)
+            }
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 180.dp),
@@ -152,6 +156,29 @@ private fun ModeBanner(
                     },
                 )
             }
+        }
+    }
+}
+
+/**
+ * Spec 012 FR-015 — admin entry "+ Документ" в Edit mode. Tap launches
+ * AddDocumentScreen flow (host wires это).
+ */
+@Composable
+private fun AddDocumentEntryRow(onAddDocument: () -> Unit) {
+    androidx.compose.foundation.layout.Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.End,
+    ) {
+        androidx.compose.material3.OutlinedButton(
+            onClick = onAddDocument,
+            // Senior-safe tap target ≥ 56dp — Material3 OutlinedButton default = 40dp,
+            // so увеличиваем явно.
+            modifier = Modifier.padding(vertical = 4.dp),
+        ) {
+            Text("+ Документ", fontSize = 18.sp)
         }
     }
 }

@@ -26,4 +26,10 @@ data class EditorActions(
      * position [toIndex] inside [toFlowId] (G5 — DnD reorder).
      */
     val onReorder: (fromFlowId: String, slotId: String, toFlowId: String, toIndex: Int) -> Unit = { _, _, _, _ -> },
+
+    /**
+     * Spec 012 FR-015 — admin tapped "+ Документ" entry. Host opens
+     * [AddDocumentScreen] (Decompose component decides the destination).
+     */
+    val onAddDocument: () -> Unit = {},
 )

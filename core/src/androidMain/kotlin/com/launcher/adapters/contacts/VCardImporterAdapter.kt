@@ -8,13 +8,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Hand-written vCard 3.0/4.0 parser — FN + TEL only (spec 009 FR-028,
- * plan §5). No `ezvcard` library — would leak vendor types into domain
- * (CLAUDE.md rule 1).
+ * Hand-written vCard 3.0/4.0 parser — FN + TEL + PHOTO (spec 009 FR-028 +
+ * spec 012 FR-011). No `ezvcard` library — would leak vendor types into
+ * domain (CLAUDE.md rule 1).
  *
- * Whitelist policy: only the `FN`, `N`, and `TEL` properties are
- * extracted. Everything else (PHOTO, ADR, EMAIL, custom X-* fields) is
- * ignored. Line unfolding per RFC 6350 §3.2 (a single-space or single-tab
+ * Whitelist policy: only the `FN`, `N`, `TEL`, and `PHOTO` properties are
+ * extracted. Everything else (ADR, EMAIL, custom X-* fields) is ignored.
+ * Line unfolding per RFC 6350 §3.2 (a single-space or single-tab
  * continuation joins the previous line).
  *
  * NFR-002: p95 parse < 100 ms on Pixel 4a class for 10 KB payload.
@@ -26,6 +26,10 @@ import kotlinx.coroutines.withContext
  *    decoded; on parse failure the raw value is used.
  *  - Multiple `TEL` fields — all collected in order.
  *  - `FN` preferred over `N`; `N` parsed as `last;first;...` joined by space.
+ *  - `PHOTO;ENCODING=b:...` (RFC 6350 §6.2.4 base64 inline) — bytes
+ *    base64-decoded and exposed via [RawVCard.photoBytes]. URI form of PHOTO
+ *    (`PHOTO;VALUE=URI:http://...`) is **not** supported в спеке 012 —
+ *    those go through ACTION_PICK contact photo path instead.
  */
 class VCardImporterAdapter(
     private val maxBytes: Long = DEFAULT_MAX_BYTES,
@@ -59,6 +63,7 @@ class VCardImporterAdapter(
         var fn: String? = null
         var n: String? = null
         val telephones = mutableListOf<String>()
+        var photoBytes: ByteArray? = null
 
         for (line in unfolded) {
             val sep = line.indexOf(':')
@@ -73,6 +78,7 @@ class VCardImporterAdapter(
                 "FN" -> if (fn == null) fn = decodeValue(value, params)
                 "N" -> if (n == null) n = decodeNValue(value, params)
                 "TEL" -> telephones.add(decodeValue(value, params))
+                "PHOTO" -> if (photoBytes == null) photoBytes = decodePhotoValue(value, params)
             }
         }
 
@@ -88,11 +94,64 @@ class VCardImporterAdapter(
             RawVCard(
                 displayName = displayName.trim(),
                 phoneNumbers = telephones.map { it.trim() }.filter { it.isNotEmpty() },
+                photoBytes = photoBytes,
             ).let { v ->
                 if (v.phoneNumbers.isEmpty()) return Outcome.Failure(ImportError.MissingTel)
                 v
             },
         )
+    }
+
+    /**
+     * Spec 012 FR-011 — decode PHOTO field bytes.
+     *
+     * Supported:
+     *  - `PHOTO;ENCODING=b:<base64>` (RFC 6350 vCard 3.0).
+     *  - `PHOTO;ENCODING=BASE64:<base64>`.
+     *  - `PHOTO:data:image/jpeg;base64,<base64>` (data URI inline — vCard 4.0).
+     *
+     * Returns null if:
+     *  - URI form (`PHOTO;VALUE=URI:http://...`) — not supported, go through
+     *    ACTION_PICK contact photo path.
+     *  - base64 decode fails.
+     *  - decoded byte stream exceeds [PHOTO_MAX_BYTES] (1 MB hard cap).
+     */
+    private fun decodePhotoValue(rawValue: String, params: List<String>): ByteArray? {
+        val isValueUri = params.any { it.uppercase().contains("VALUE=URI") }
+        if (isValueUri) return null  // URI form unsupported в 012.
+
+        val isBase64 = params.any { p ->
+            val up = p.uppercase()
+            up == "ENCODING=B" || up == "ENCODING=BASE64"
+        }
+
+        // Strip data URI prefix if present (`data:image/jpeg;base64,...`).
+        val base64Body: String = if (rawValue.startsWith("data:", ignoreCase = true)) {
+            val commaIdx = rawValue.indexOf(',')
+            if (commaIdx < 0) return null
+            rawValue.substring(commaIdx + 1)
+        } else if (isBase64) {
+            rawValue
+        } else {
+            // Inline raw bytes without ENCODING parameter — not standard, skip.
+            return null
+        }
+
+        // Cleanup whitespace (base64 can be wrapped).
+        val cleaned = base64Body.replace(Regex("\\s+"), "")
+        if (cleaned.isEmpty()) return null
+
+        val decoded = try {
+            // java.util.Base64 — на Android API 26+ (matches проектный minSdk=26).
+            // Доступен из JVM unit tests без Robolectric/Mockito mocking.
+            java.util.Base64.getMimeDecoder().decode(cleaned)
+        } catch (_: Throwable) {
+            return null
+        }
+
+        if (decoded.size > PHOTO_MAX_BYTES) return null
+
+        return decoded
     }
 
     private fun unfoldLines(text: String): List<String> {
@@ -158,6 +217,14 @@ class VCardImporterAdapter(
     }
 
     companion object {
-        const val DEFAULT_MAX_BYTES: Long = 10L * 1024L  // 10 KB cap per plan §5 + research R-008.
+        // Spec 009 — text-only payload cap (10 KB) before PHOTO support.
+        // Spec 012 raised to 1 MB to accommodate inline base64 PHOTO bytes
+        // (typical avatar ~30-100 KB after admin-side compression).
+        const val DEFAULT_MAX_BYTES: Long = 1L * 1024L * 1024L  // 1 MB.
+
+        // Spec 012 — hard cap on декodanных PHOTO bytes; values exceeding
+        // this dropped silently (caller can use ACTION_PICK fallback).
+        // 500 KB matches `EncryptedMediaStorage` Storage Rules cap (011).
+        const val PHOTO_MAX_BYTES: Int = 500 * 1024
     }
 }
