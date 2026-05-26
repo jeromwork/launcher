@@ -71,10 +71,14 @@
 
 ## Next step
 
-`speckit-plan` — генерация `plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md`. Обязательные точки для plan-phase:
+✅ **`speckit-plan` complete** (2026-05-26):
+- [plan.md](../plan.md) — full plan with architecture diagrams, dependencies, test strategy, risks, Required Context Review.
+- [research.md](../research.md) — 10 research areas (R1-R10) с alternatives + regret conditions + exit ramps.
+- [data-model.md](../data-model.md) — 4 new ports + 6 new types + Tile extension + envelope metadata.
+- [contracts/](../contracts/) — 3 files: tile-document-kind, metadata-kind-registry, local-media-store-layout.
+- [quickstart.md](../quickstart.md) — security gate + module setup + KDoc directives + recommended task order.
+- [docs/dev/private-media-architecture.md](../../../docs/dev/private-media-architecture.md) — extensibility guide (FR-024).
+- **Constitution Check 8/8 PASS** — все gates passed; deviations явно зафиксированы в plan.md Complexity Tracking.
+- Plan-level checklist re-runs: domain-isolation 16/16 ✓, wire-format 17/18 ✓ (1 explicit deviation), meta-minimization 13/13 ✓.
 
-1. Адресовать 2 mandatory action item'а (data_extraction_rules + TalkBack zoom).
-2. Создать `docs/dev/private-media-architecture.md` (как зафиксировано в FR-024).
-3. Подтвердить module decomposition: `:adapters:media-picker`, опционально `:facades:private-media`.
-4. Создать `specs/012/contracts/` файлы (см. wire-format checklist CHK018).
-5. Запустить `procedure-constitution-check` (Article XVI gates).
+**Next**: `speckit-tasks` — decomposition в actionable tasks per plan.md task order (~50 tasks ожидается).

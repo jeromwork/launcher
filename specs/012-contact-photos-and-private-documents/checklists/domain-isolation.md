@@ -46,19 +46,25 @@
 - [x] **CHK009** — port shape driven by domain need: ✓
   - `MediaPicker(kind, maxItems, mode)` — domain language (image/video/document), не «openIntent(action, mimeType)».
   - `LocalMediaStore(uuid)` — domain key, не «getFilePath(linkId, contactId)».
-- [ ] **CHK010** — fake adapter для каждого port'а: deferred-to-plan
-  - **Действие**: plan-phase создать `FakeMediaPicker`, `FakeLocalMediaStore` в `:core:api:test-fakes`.
-- [ ] **CHK011** — real adapter для каждого port'а: deferred-to-plan
-  - `SystemPhotoPickerAdapter` (Android) → новый модуль или в `:app`.
-  - `FileLocalMediaStore` (Android) → новый модуль.
-- [ ] **CHK012** — DI wiring picks fake/real per build: deferred-to-plan.
+- [x] **CHK010** — fake adapter для каждого port'а: ✓ (resolved in plan-phase)
+  - `FakeMediaPicker` в `:core:api:test-fakes` (data-model.md §8).
+  - `FakeLocalMediaStore` (in-memory ConcurrentHashMap<uuid, ByteArray>) в `:core:api:test-fakes`.
+  - `FakeEncryptedMediaStorage` — унаследован из 011.
+- [x] **CHK011** — real adapter для каждого port'а: ✓ (resolved in plan-phase)
+  - `SystemPhotoPickerAdapter` (Android) → **new module `:adapters:media-picker`** (justified per Article V §3 — Anti-Corruption Layer для system Photo Picker + 3 API-level branches).
+  - `FileLocalMediaStore` (Android) → **в `:app`** (single class, premature module rejected per CHK016).
+- [x] **CHK012** — DI wiring picks fake/real per build: ✓
+  - Через existing `mockBackend` variant (унаследованная инфраструктура спека 011). `:app` DI module определяет binding для `LocalMediaStore` / `MediaPicker` per build variant.
 
 ## Source-set placement
 
-- [ ] **CHK013** — source-set assignment для new files: deferred-to-plan.
-  - Ports — `commonMain`.
-  - Adapters — `androidMain`.
-  - Compose screens (DocumentViewer, admin upload progress) — `androidMain`.
+- [x] **CHK013** — source-set assignment для new files: ✓ (resolved in plan-phase, see plan.md §Project Structure)
+  - Ports + domain types — `:core:api/media/` (commonMain).
+  - `PrivateMediaUploader/Resolver` facade impls — `:core:domain/media/` (commonMain, pure Kotlin).
+  - `SystemPhotoPickerAdapter` — `:adapters:media-picker/androidMain`.
+  - `FileLocalMediaStore` — `:app/androidMain`.
+  - Compose screens — `:features:private-media:ui/androidMain` (или existing module per plan-phase final decision).
+  - `LocalMediaFile` — `expect/actual` (no platform leak в expect API).
 - [x] **CHK014** — default placement `commonMain`: ✓ для ports; явный deviation для adapters (platform API).
 
 ## Existing-code regressions
@@ -75,10 +81,12 @@
 
 | Status | Count |
 |---|---|
-| ✓ | 12 |
-| deferred-to-plan | 4 (CHK010-013) |
+| ✓ | 16 (post-plan-phase) |
+| deferred-to-plan | 0 |
 | ✗ violations | 0 |
 
-**Verdict**: domain isolation на спек-уровне **не нарушается**. Все 4 пункта, отмеченные «deferred-to-plan», — это нормальная декомпозиция работ между spec-фазой (где определяются ports) и plan-фазой (где определяется размещение adapters и DI wiring).
+**Re-run 2026-05-26 (post-plan-phase)**: все 4 deferred items resolved через [plan.md](../plan.md) §Project Structure + [data-model.md](../data-model.md) §8 + [research.md](../research.md) R6.
+
+**Verdict**: domain isolation **строго соблюдается** на всём stack: domain types в commonMain без platform leak, ports без provider SDK types, adapters bounded к одному module per vendor, DI wiring через mockBackend variant.
 
 **Constitution alignment**: CLAUDE.md rule 1 ✓, rule 2 ✓, новый Article XI §8 «Reuse before invention» ✓ (переиспользует все 6 крипто-портов 011 + `BlobReferenceLedger`, без замены).

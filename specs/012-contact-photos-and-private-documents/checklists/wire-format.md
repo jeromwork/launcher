@@ -46,16 +46,17 @@
 
 ## Tests
 
-- [ ] **CHK010** — roundtrip test per wire-format type: deferred-to-plan
-  - **Действие**: plan-phase добавить:
-    - `TileWireFormatTest.roundtrip_document` (новый kind).
-    - `EnvelopeMetadataKindTest.roundtrip_image_document` (envelope с metadata.kind).
-- [ ] **CHK011** — backward-compat test: deferred-to-plan (читай в-progress reader без поддержки document → unknown_slot_kind).
-- [ ] **CHK012** — fixtures as files: deferred-to-plan
-  - Добавить:
+- [x] **CHK010** — roundtrip test per wire-format type: ✓ (resolved in plan-phase)
+  - `TileWireFormatTest.roundtrip_document` — определён в [contracts/tile-document-kind.md](../contracts/tile-document-kind.md) §Tests.
+  - `EnvelopeMetadataKindTest.roundtrip_image_document` — определён в [contracts/metadata-kind-registry.md](../contracts/metadata-kind-registry.md) §Tests.
+- [x] **CHK011** — backward-compat test: ✓
+  - `TileWireFormatTest.forward_compat_unknown_kind` — определён в contracts/tile-document-kind.md (graceful emit `PartialReason.UnknownSlotKind`).
+  - `EnvelopeMetadataKindTest.forward_compat_unknown_kind` — graceful opaque bytes.
+- [x] **CHK012** — fixtures as files: ✓
+  - Fixtures listed в contracts:
     - `commonTest/resources/wire-format/tile-v1-document.json`
-    - `commonTest/resources/wire-format/envelope-v1-metadata-image.cbor`
-    - `commonTest/resources/wire-format/envelope-v1-metadata-document.cbor`
+    - `commonTest/resources/wire-format/tile-v1-mixed-kinds.json`
+    - `commonTest/resources/wire-format/tile-v1-unknown-kind.json`
 
 ## Persistence specifics
 
@@ -70,12 +71,11 @@
 
 ## Contract folder
 
-- [ ] **CHK018** — contracts folder
-  - **Status**: deferred-to-plan.
-  - **Действие**: `speckit-plan` создаёт `specs/012-.../contracts/`:
-    - `tile-document-kind.md` — описание нового sealed variant.
-    - `metadata-kind-registry.md` — реестр значений `metadata.kind` (image, document; future: audio/video).
-    - `local-media-store-layout.md` — описание `Context.filesDir/private-media/<uuid>` layout (не wire, но cross-app-version persistent — стоит документировать).
+- [x] **CHK018** — contracts folder: ✓ (resolved in plan-phase)
+  - Создан [`contracts/`](../contracts/) с 3 файлами:
+    - [`tile-document-kind.md`](../contracts/tile-document-kind.md) — новый sealed variant.
+    - [`metadata-kind-registry.md`](../contracts/metadata-kind-registry.md) — реестр значений `metadata.kind`.
+    - [`local-media-store-layout.md`](../contracts/local-media-store-layout.md) — local layout + backup exclusion.
 
 ---
 
@@ -83,10 +83,12 @@
 
 | Status | Count |
 |---|---|
-| ✓ | 13 |
-| deferred-to-plan | 3 (CHK010-012, CHK018) |
+| ✓ | 17 (post-plan-phase) |
+| deferred-to-plan | 0 |
 | explicit-deviation-with-rationale | 1 (CHK004 — pre-production свобода до spec 030+) |
 | ✗ violations | 0 |
+
+**Re-run 2026-05-26 (post-plan-phase)**: все 4 deferred items resolved через contract files в [`contracts/`](../contracts/). Roundtrip + forward-compat tests определены в каждом contract'е.
 
 **Verdict**: spec 012 **переиспользует** существующие wire format'ы 008/011, добавляя один новый sealed variant + один новый metadata key. Оба расширения — additive, без bump'a schemaVersion. Pre-production deviation (CHK004) explicitly закреплён в Clarification Q2 + Assumptions.
 

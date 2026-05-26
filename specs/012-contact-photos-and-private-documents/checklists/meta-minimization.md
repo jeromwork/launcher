@@ -23,8 +23,14 @@
 
 ## New modules / packages
 
-- [ ] **CHK005** — N/A на спек-уровне. Модульная декомпозиция (`:facades:private-media`, `:adapters:media-picker` и т.д.) определяется в plan-phase.
-- [ ] **CHK006** — N/A на спек-уровне.
+- [x] **CHK005** — new gradle module satisfies Article V §3: ✓ (resolved in plan-phase)
+  - **`:adapters:media-picker`** (new): ownership boundary = system Photo Picker ACL; build isolation = androidMain platform code; testability gain = SystemPhotoPickerAdapter testable через ActivityScenario. Article V §3 satisfied.
+  - **`:facades:private-media`** (rejected) — pure Kotlin facades живут в `:core:domain/media/` без отдельного module. Package достаточен.
+  - **`:adapters:local-media-store`** (rejected) — `FileLocalMediaStore` single class в `:app` достаточен.
+- [x] **CHK006** — package vs module: ✓ (resolved in plan-phase, research.md R6)
+  - `:adapters:media-picker` justified: 3 API-level branches + future testability + Android platform API.
+  - Facades в package `core.domain.media` достаточно — нет platform-specific code.
+  - `FileLocalMediaStore` в `:app` — single class, packaging его в отдельный module = premature.
 - [x] **CHK007** — нет "utils/common/helpers" модулей: ✓.
 
 ## New configuration
@@ -60,10 +66,12 @@
 
 | Status | Count |
 |---|---|
-| ✓ | 11 |
-| N/A | 2 |
+| ✓ | 13 (post-plan-phase) |
+| N/A | 0 |
 | ✗ violations | 0 |
-| ⚠️ borderline | 1 (CHK010 — `PrivateMediaKind` enum) |
+| ⚠️ borderline | 1 (CHK010 — `PrivateMediaKind` enum, plan-phase resolution: оставлен per research.md R6) |
+
+**Re-run 2026-05-26 (post-plan-phase)**: CHK005 + CHK006 resolved через research.md R6 + plan.md §Project Structure.
 
 **Verdict**: spec 012 **не плодит speculative абстракции**. Все 4-5 новых портов имеют конкретных consumer'ов в 012; все 4 проходят Test 1 (inline-ablation justified); все проходят Test 2 (swap cost оправдан).
 
