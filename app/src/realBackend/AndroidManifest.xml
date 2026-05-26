@@ -19,7 +19,27 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- CAMERA — admin-side QR scanner (spec 007 FR-005, T089). Runtime
+         permission, requested by QrScannerActivity on entry. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
     <application>
+
+        <!--
+          QR scanner host (admin-side pairing claim entry). CameraX preview +
+          ML Kit barcode detection. On first successful scan emits a deep-link
+          launcher://pair?token=XXX which routes back to PairingActivity
+          via its existing intent-filter.
+        -->
+        <activity
+            android:name="com.launcher.app.ui.pairing.QrScannerActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:label="@string/pairing_scan_title" />
+
 
         <!--
           FCM data-message entry point per FR-016. Routes to

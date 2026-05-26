@@ -42,12 +42,16 @@ class SettingsScreenTest {
         onBack: () -> Unit = {},
         onPresetChanged: () -> Unit = {},
         onResetData: () -> Unit = {},
+        onOpenPairing: () -> Unit = {},
+        onOpenScanner: () -> Unit = {},
     ) = SettingsComponent(
         componentContext = DefaultComponentContext(lifecycle = LifecycleRegistry()),
         presetRepository = repo,
         onBack = onBack,
         onPresetChanged = onPresetChanged,
         onResetData = onResetData,
+        onOpenPairing = onOpenPairing,
+        onOpenScanner = onOpenScanner,
     )
 
     @Test
@@ -62,14 +66,15 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun toggleRemoteControlRevealsQrPlaceholderRow() {
+    fun openPairingInvokesCallback() {
+        var pairingCount = 0
         rule.setContent {
             LauncherTheme(preset = "workspace") {
-                SettingsScreen(component = newComponent())
+                SettingsScreen(component = newComponent(onOpenPairing = { pairingCount++ }))
             }
         }
-        rule.onNodeWithTag("settings_remote_toggle").performClick()
-        rule.onNodeWithText("Показать QR-код").assertIsDisplayed()
+        rule.onNodeWithTag("settings_open_pairing").performClick()
+        assertTrue(pairingCount >= 1)
     }
 
     @Test

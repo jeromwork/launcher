@@ -3,6 +3,11 @@ package com.launcher.di
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessaging
+import com.launcher.adapters.crypto.FirestoreDeviceIdentityRepository
+import com.launcher.adapters.crypto.WorkerEncryptedMediaStorage
+import com.launcher.api.crypto.DeviceIdentityRepository
+import com.launcher.api.crypto.DigitalSignature
+import com.launcher.api.crypto.EncryptedMediaStorage
 import com.launcher.adapters.apps.InstalledAppsCatalogAdapter
 import com.launcher.adapters.apps.OpenAppDispatcherAdapter
 import com.launcher.adapters.config.AndroidSqlDriverProvider
@@ -19,6 +24,7 @@ import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
 import com.launcher.adapters.lifecycle.ConnectivityManagerNetworkAvailability
 import com.launcher.adapters.lifecycle.ProcessLifecycleForegroundEvents
 import com.launcher.adapters.link.FirestoreLinkRegistry
+import com.launcher.adapters.link.FirestoreManagedDevicesRegistry
 import com.launcher.adapters.paired.DataStoreLocalLinkRevocationStore
 import com.launcher.adapters.push.FcmRegistration
 import com.launcher.adapters.push.FirebaseTokenSupplier
@@ -40,6 +46,7 @@ import com.launcher.api.identity.IdentityProvider
 import com.launcher.api.lifecycle.AppForegroundEvents
 import com.launcher.api.lifecycle.NetworkAvailability
 import com.launcher.api.link.LinkRegistry
+import com.launcher.api.link.ManagedDevicesRegistry
 import com.launcher.api.paired.LocalLinkRevocationStore
 import com.launcher.api.push.PushReceiver
 import com.launcher.api.push.PushSender
@@ -108,11 +115,43 @@ val backendModule: Module = module {
     single { FcmRegistration(get()) }
 
     // LinkRegistry → Firestore subtree management + FCM topic lifecycle.
+    // Spec 011 — also includes Firebase Storage cleanup в revoke (FR-043).
     single<LinkRegistry> {
         FirestoreLinkRegistry(
             backend = get(),
             firestore = get(),
             fcmRegistration = get(),
+            encryptedMediaStorage = get(),
+        )
+    }
+
+    // Spec 007 admin-side multi-link view via Firestore listener (separate
+    // от single-link Managed LinkRegistry).
+    single<ManagedDevicesRegistry> {
+        FirestoreManagedDevicesRegistry(
+            firestore = get(),
+            auth = get(),
+        )
+    }
+
+    // ─── Spec 011 — crypto repo + storage adapter wiring ──────────────────
+    single<DeviceIdentityRepository> {
+        FirestoreDeviceIdentityRepository(
+            firestore = get(),
+            signature = get<DigitalSignature>(),
+            ownerUid = {
+                // Resolved через IdentityProvider; current Firebase uid.
+                get<IdentityProvider>().currentIdentity()?.firebaseAuthUid
+            },
+        )
+    }
+
+    // Spec 011 — Worker-proxied B2 blob storage (server-roadmap SRV-CRYPTO-001).
+    // Credentials (B2 keyID/key) живут в Cloudflare Worker secrets, не на устройстве.
+    // Симметричная авторизация — admin OR managed может upload/download.
+    single<EncryptedMediaStorage> {
+        WorkerEncryptedMediaStorage(
+            tokenSupplier = get(),
         )
     }
 
@@ -238,6 +277,14 @@ val backendModule: Module = module {
             configEditor = get(),
             linkRegistry = get(),
             revocationStore = get(),
+        )
+    }
+
+    // ManagedDevicesRegistry → admin-side multi-link view via Firestore listener.
+    single<ManagedDevicesRegistry> {
+        FirestoreManagedDevicesRegistry(
+            firestore = get(),
+            auth = get(),
         )
     }
 }

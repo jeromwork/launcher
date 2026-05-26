@@ -1,8 +1,11 @@
 package com.launcher.app.ui.pairing
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.lifecycle.lifecycleScope
+import com.launcher.api.pairing.PairingToken
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import com.launcher.ui.theme.LauncherTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -43,8 +47,9 @@ class PairingActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleIncomingDeepLink(intent)
         setContent {
-            MaterialTheme {
+            LauncherTheme(preset = null) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
@@ -57,65 +62,121 @@ class PairingActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIncomingDeepLink(intent)
+    }
+
+    private var adminClaimFlow: Boolean = false
+
+    private fun handleIncomingDeepLink(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_VIEW) return
+        val raw = intent.data?.getQueryParameter("token") ?: return
+        // Strict regex per spec 007 FR-003 token alphabet (Crockford base32 minus
+        // ambiguous I/L/O/0/1). Invalid tokens stay on the Idle screen.
+        if (!raw.matches(Regex("^[A-HJ-NP-Z2-9]{6}$"))) return
+        adminClaimFlow = true
+        viewModel.claimAsAdmin(PairingToken(raw))
+        // Watch for the claim to land and close ourselves so the user returns
+        // to the "Управление телефонами" list where the new device is now
+        // visible. Managed side does NOT auto-finish — it needs the consent step.
+        lifecycleScope.launchWhenStarted {
+            viewModel.state.collect { st ->
+                if (adminClaimFlow && st is PairingState.Claimed) {
+                    finish()
+                }
+            }
+        }
+    }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun PairingRouter(
     viewModel: PairingViewModel,
     onFlowEnded: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
+    val isProcessing by viewModel.isProcessing.collectAsState()
 
     LaunchedEffect(viewModel) {
         // Reserved for future Snackbar wiring per project-backlog TODO-UX-001.
         viewModel.events.collect { /* no-op for MVP */ }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        when (val s = state) {
-            PairingState.Idle -> IdleEntry(
-                onStart = { viewModel.startPairing() },
-                onClose = onFlowEnded,
-            )
-            is PairingState.WaitingForClaim -> QrDisplayScreen(
-                token = s.token,
-                expiresAtMillis = s.expiresAt,
-                onCancel = {
-                    viewModel.cancel()
-                    onFlowEnded()
+    androidx.compose.material3.Scaffold(
+        topBar = {
+            androidx.compose.material3.TopAppBar(
+                title = { Text(text = stringResource(R.string.pairing_toggle_title)) },
+                navigationIcon = {
+                    androidx.compose.material3.TextButton(onClick = onFlowEnded) {
+                        Text(text = "Закрыть")
+                    }
                 },
             )
-            is PairingState.AwaitingConsent -> ConsentScreen(
-                adminId = s.adminId,
-                onAllow = { viewModel.confirmConsent() },
-                onDecline = {
-                    viewModel.decline()
-                    onFlowEnded()
-                },
-            )
-            is PairingState.Claimed -> PairedStatusSection(
-                link = s.link,
-                onUnbind = {
-                    // TODO(follow-up): wire LinkRegistry.revoke() through the
-                    // ViewModel. Held back so Phase 8 ships the Managed-side
-                    // pairing surface end-to-end first.
-                    onFlowEnded()
-                },
-                modifier = Modifier.padding(24.dp),
-            )
-            PairingState.Expired -> ExpiredScreen(
-                onRetry = { viewModel.startPairing() },
-                onClose = onFlowEnded,
-            )
-            PairingState.Revoked -> {
-                LaunchedEffect(Unit) { onFlowEnded() }
+        },
+    ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            if (isProcessing) {
+                ProcessingScreen()
+                return@Box
             }
-            is PairingState.Error -> ErrorScreen(
-                message = "Ошибка: ${s.cause}",
-                onRetry = { viewModel.startPairing() },
-                onClose = onFlowEnded,
-            )
+            when (val s = state) {
+                PairingState.Idle -> IdleEntry(
+                    onStart = { viewModel.startPairing() },
+                    onClose = onFlowEnded,
+                )
+                is PairingState.WaitingForClaim -> QrDisplayScreen(
+                    token = s.token,
+                    expiresAtMillis = s.expiresAt,
+                    onCancel = {
+                        viewModel.cancel()
+                        onFlowEnded()
+                    },
+                )
+                is PairingState.AwaitingConsent -> {
+                    LaunchedEffect(s.linkId) { viewModel.confirmConsent() }
+                    ProcessingScreen()
+                }
+                is PairingState.Claimed -> PairedStatusSection(
+                    link = s.link,
+                    onUnbind = {
+                        viewModel.unbind()
+                        onFlowEnded()
+                    },
+                    modifier = Modifier.padding(24.dp),
+                )
+                PairingState.Expired -> ExpiredScreen(
+                    onRetry = { viewModel.startPairing() },
+                    onClose = onFlowEnded,
+                )
+                PairingState.Revoked -> {
+                    LaunchedEffect(Unit) { onFlowEnded() }
+                }
+                is PairingState.Error -> ErrorScreen(
+                    message = "Ошибка: ${s.cause}",
+                    onRetry = { viewModel.startPairing() },
+                    onClose = onFlowEnded,
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun ProcessingScreen() {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        androidx.compose.material3.CircularProgressIndicator()
+        Text(
+            text = "Привязываем устройства…",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 

@@ -9,6 +9,7 @@ import com.launcher.api.FlowRepository
 import com.launcher.api.PresetRepository
 import com.launcher.app.firstlaunch.FirstLaunchActivity
 import com.launcher.app.home.HomeBannerHost
+import com.launcher.app.ui.pairing.PairingActivity
 import com.launcher.api.action.ActionDispatcher
 import com.launcher.api.action.ProviderRegistry
 import com.launcher.api.apps.InstalledAppsCatalog
@@ -42,6 +43,8 @@ class HomeActivity : ComponentActivity() {
     private val remoteSyncBackend: RemoteSyncBackend by inject()
     private val identityProvider: IdentityProvider by inject()
     private val linkRegistry: com.launcher.api.link.LinkRegistry by inject()
+    // Spec 007 — admin paired-devices registry (separate from single-link LinkRegistry).
+    private val managedDevices: com.launcher.api.link.ManagedDevicesRegistry by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,6 +82,24 @@ class HomeActivity : ComponentActivity() {
                 startActivity(intent)
                 finish()
             },
+            onOpenPairing = {
+                startActivity(android.content.Intent(this, PairingActivity::class.java))
+            },
+            onOpenScanner = {
+                // QrScannerActivity lives in the realBackend source set only
+                // (CameraX + ML Kit dependencies). In mockBackend the class
+                // is absent, so we reference it by string name and silently
+                // ignore the failure — flavors that don't ship a scanner
+                // simply do nothing on this menu item.
+                runCatching {
+                    val intent = android.content.Intent().setClassName(
+                        this,
+                        "com.launcher.app.ui.pairing.QrScannerActivity",
+                    )
+                    startActivity(intent)
+                }
+            },
+            managedDevices = managedDevices,
             initialPresetSlug = activePreset?.slug,
             // Spec 009 admin-mode dependencies.
             configEditor = configEditor,

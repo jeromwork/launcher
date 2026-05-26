@@ -2,6 +2,22 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
+    // Spec 007 — Firebase google-services plugin. Per-variant mockBackend
+    // disable добавляется отдельным commit'ом (e3066a9 в 007 branch).
+    alias(libs.plugins.google.services)
+}
+
+// google-services plugin processes google-services.json for every variant
+// by default and fails the mockBackend build because that flavor uses
+// applicationIdSuffix ".mock" which has no matching client in the JSON.
+// mockBackend doesn't link Firebase SDKs so the resources aren't needed —
+// disable the per-variant task on every mockBackend variant.
+androidComponents {
+    onVariants(selector().withFlavor("backend" to "mockBackend")) { variant ->
+        tasks.named("process${variant.name.replaceFirstChar { it.uppercase() }}GoogleServices") {
+            enabled = false
+        }
+    }
 }
 
 android {
@@ -53,6 +69,22 @@ android {
             isIncludeAndroidResources = true
         }
     }
+
+    // Spec 011 — ABI splits для release builds.
+    // Lazysodium-android поставляет нативный .so файл под 4 ABI.
+    // Без splits release APK потяжелеет на ~1.0-1.2 MiB (все ABIs упакованы).
+    // Со splits — каждый пользователь Play Store скачивает только свой ABI
+    // (~300 KiB delta per device).
+    // Debug builds: splits **отключены** (универсальный APK для удобства dev/CI).
+    // Per spec 011 plan.md §APK delta budget, Risk R3, quickstart.md §2.
+    splits {
+        abi {
+            isEnable = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            isUniversalApk = false
+        }
+    }
 }
 
 dependencies {
@@ -92,6 +124,16 @@ dependencies {
     // ссылается на androidx.work.Configuration. Transitively pulled from :core
     // but :app's compilation needs it as direct dep.
     implementation(libs.androidx.work.runtime.ktx)
+
+    // CameraX + ML Kit barcode — admin-side QR scanner (spec 007 FR-005, T089).
+    "realBackendImplementation"(libs.androidx.camera.core)
+    "realBackendImplementation"(libs.androidx.camera.camera2)
+    "realBackendImplementation"(libs.androidx.camera.lifecycle)
+    "realBackendImplementation"(libs.androidx.camera.view)
+    "realBackendImplementation"(libs.mlkit.barcode.scanning)
+    // Guava ListenableFuture — needed at compile time for ProcessCameraProvider.getInstance().
+    // The CameraX runtime brings it transitively, but Kotlin compiler needs the type.
+    "realBackendImplementation"("com.google.guava:guava:33.4.0-android")
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

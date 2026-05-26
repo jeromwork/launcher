@@ -87,6 +87,14 @@ class ConfigBackedFlowRepository(
     override fun availableTemplates(presetId: String): List<FlowTemplate> =
         ALL_TEMPLATES.filter { presetId in it.availableInPresets }
 
+    // Spec 007 `FlowRepository.addFlow` — ConfigBackedFlowRepository не подходит
+    // для wizard-driven additions (single source of truth = /config/current,
+    // editing идёт через ConfigEditor). Bypass: error для unsupported operation.
+    // wizard flow в спеке 007 originally работал с MockFlowRepository (удалён в
+    // спеке 010). Если wizard вернётся — нужен ConfigEditor.addFlow API.
+    override suspend fun addFlow(templateId: String): com.launcher.api.FlowDescriptor =
+        error("ConfigBackedFlowRepository.addFlow not supported — wizard добавление flow должно идти через ConfigEditor (spec 010 ARCH-016)")
+
     private fun ConfigDocument.toFlowDescriptors(): List<FlowDescriptor> =
         flows.map { flow ->
             FlowDescriptor(

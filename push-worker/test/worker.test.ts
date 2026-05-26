@@ -68,6 +68,11 @@ function makeEnv(): import("../src/env").Env {
   return {
     FIREBASE_PROJECT_ID: PROJECT_ID,
     FIREBASE_SA_JSON: JSON.stringify(sa),
+    // Spec 011 — B2 fields. Worker tests for /notify don't hit B2, fake values OK.
+    B2_ENDPOINT: "s3.test.backblazeb2.com",
+    B2_BUCKET_NAME: "test-bucket",
+    B2_KEY_ID: "test-key-id",
+    B2_APPLICATION_KEY: "test-application-key",
   };
 }
 

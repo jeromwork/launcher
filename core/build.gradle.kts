@@ -46,6 +46,11 @@ kotlin {
             // SQLDelight — KMP local persistence для spec 008 LocalConfigStore.
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines.extensions)
+
+            // Spec 011 — CBOR для EncryptedEnvelope wire format.
+            // Binary-friendly, no base64 overhead, deterministic encoding
+            // (важно для Ed25519 signature над canonical payload в DeviceIdentity).
+            implementation(libs.kotlinx.serialization.cbor)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -67,6 +72,20 @@ kotlin {
             // (FR-042..FR-044 hard-block on missing GMS). Tiny module (~100 KB),
             // safe in both backend flavors.
             implementation(libs.google.play.services.base)
+
+            // --- Spec 011 crypto stack (androidMain — vendor types confined here per CLAUDE.md rule 1)
+            // Lazysodium-android = libsodium JNI binding (XChaCha20-Poly1305 + X25519 +
+            // crypto_box_seal + Ed25519 + BLAKE2b). Per research.md §1, §2, §2b, §2c.
+            //
+            // NB: Сам implementation(libs.lazysodium.android) — wired через
+            // "androidMainImplementation"(libs.lazysodium.android) { exclude(jna) }
+            // в plain dependencies block ниже, потому что KMP source-set DSL не
+            // поддерживает closure form для targeted exclude.
+            // JNA aar — see flavor-agnostic dependencies block below
+            // (KMP source-set DSL does not support artifact{} closure).
+            // EncryptedSharedPreferences — для хранения AES-wrapped X25519 priv bytes
+            // (Android Keystore не поддерживает X25519 нативно).
+            implementation(libs.androidx.security.crypto)
         }
         getByName("androidUnitTest").dependencies {
             implementation(libs.kotlinx.coroutines.test)
@@ -125,6 +144,7 @@ android {
 }
 
 // Spec 007 realBackend-only deps (FR-034): Firebase Auth, Firestore, FCM.
+// Spec 011 (FR-030..033) adds Firebase Storage to realBackend.
 // mockBackend stays Firebase-free so the APK builds without google-services.json.
 // Wired via Android's flavor-specific configuration name (not KMP source set
 // DSL, which can't address the bare flavor-only Kotlin source set in current
@@ -134,7 +154,47 @@ dependencies {
     "realBackendImplementation"(libs.firebase.firestore.ktx)
     "realBackendImplementation"(libs.firebase.auth.ktx)
     "realBackendImplementation"(libs.firebase.messaging.ktx)
+    // Spec 011 — encrypted blobs storage переехал на Worker-proxied B2
+    // (server-roadmap SRV-CRYPTO-001 — раньше планировали Firebase Storage,
+    // но Spark plan требует Blaze для Storage). См. WorkerEncryptedMediaStorage.
+
+    // Spec 011 — Lazysodium pulls JNA как transitive JAR; Android requires aar variant
+    // (содержит правильно упакованные .so под ABI). JAR variant создаёт duplicate
+    // class conflict с aar в Android dex'инге. Решение: explicit aar dependency.
+    // Wired через 'androidMainImplementation' Android-flavor-agnostic configuration.
+    "androidMainImplementation"(variantOf(libs.jna) { artifactType("aar") })
+
+    // Spec 011 — Robolectric unit tests for libsodium adapters need pure JVM
+    // JNA jar (aar variant carries .so файлы для device runtime, не работают
+    // в host JVM). aar exclusion ниже исключает jna для Android compilation;
+    // здесь возвращаем jar variant конкретно для unitTest classpath.
+    "testImplementation"(libs.jna)
+
+    // Spec 011 — exclude transitive JAR variant of JNA pulled in by lazysodium-android.
+    // Без exclude AGP падает на "Duplicate class com.sun.jna.*" потому что aar
+    // (содержит classes.jar + .so) И jar дублируют Java classes.
+    // Exclude применяется конкретно к Android-runtime configurations
+    // (NOT к testImplementation, где Robolectric нуждается в pure jar).
+    "androidMainImplementation"(libs.lazysodium.android) {
+        exclude(group = "net.java.dev.jna", module = "jna")
+    }
 }
+
+// Spec 011 — JNA / Lazysodium dependency notes.
+//
+// Lazysodium-android тянет JNA через transitive jar. Android packaging
+// требует aar variant (содержит .so + classes.jar). Когда оба variant'а
+// идут в DEX merge — "Duplicate class com.sun.jna.*".
+//
+// Решение в "androidMainImplementation"(libs.lazysodium.android) { exclude }
+// выше — переопределяет KMP-source-set decl. с targeted exclude. Это
+// работает потому что в KMP "androidMainImplementation" — Android flavor
+// configuration который supports closure form (не строковый KMP DSL).
+//
+// Sanity check: после изменения проверить
+//   1) ./gradlew :app:assembleRealBackendDebug — green (нет Duplicate class)
+//   2) ./gradlew :core:testMockBackendDebugUnitTest --tests "*LibsodiumAdaptersTest" — green
+//   3) Real device APK install + start Spec011SmokeDebugActivity — no NoClassDefFoundError
 
 // Spec 008 — SQLDelight schema setup.
 // Schema lives в `core/src/commonMain/sqldelight/com/launcher/adapters/config/db/ConfigStore.sq`.
@@ -143,6 +203,12 @@ sqldelight {
     databases {
         create("ConfigStore") {
             packageName.set("com.launcher.adapters.config.db")
+            srcDirs.setFrom("src/commonMain/sqldelight-config")
+        }
+        // Spec 011 — BlobReferenceLedger + SystemMeta (cleanup machinery).
+        create("CryptoStore") {
+            packageName.set("com.launcher.adapters.crypto.db")
+            srcDirs.setFrom("src/commonMain/sqldelight-crypto")
         }
     }
 }

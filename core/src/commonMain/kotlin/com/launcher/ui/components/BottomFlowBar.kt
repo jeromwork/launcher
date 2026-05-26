@@ -69,16 +69,13 @@ fun BottomFlowBar(
                         )
                     }
                     item(key = "__add_flow") {
-                        OutlinedButton(
+                        IconButton(
                             onClick = onAddFlowClick,
                             modifier = Modifier
                                 .heightIn(min = TapTargets.minimum)
                                 .testTag("flow_tab_add"),
-                            shape = MaterialTheme.shapes.medium,
                         ) {
-                            Icon(Icons.Filled.Add, contentDescription = null)
-                            androidx.compose.foundation.layout.Spacer(Modifier.padding(start = Spacing.xs))
-                            Text("Добавить")
+                            Icon(Icons.Filled.Add, contentDescription = "Добавить")
                         }
                     }
                 }

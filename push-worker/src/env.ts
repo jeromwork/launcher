@@ -2,13 +2,22 @@
 // Wrangler injects:
 //   FIREBASE_PROJECT_ID — vars in wrangler.toml [vars] (public)
 //   FIREBASE_SA_JSON    — secret via `wrangler secret put FIREBASE_SA_JSON`
+//   B2_ENDPOINT         — vars in wrangler.toml (public, spec 011)
+//   B2_BUCKET_NAME      — vars in wrangler.toml (public, spec 011)
+//   B2_KEY_ID           — secret via `wrangler secret put B2_KEY_ID`
+//   B2_APPLICATION_KEY  — secret via `wrangler secret put B2_APPLICATION_KEY`
 //
-// Never log SA_JSON contents. The full file is a private key — must stay
-// inside the Worker isolate.
+// Never log SA_JSON / B2_APPLICATION_KEY contents. Private credentials
+// must stay inside the Worker isolate.
 
 export interface Env {
   readonly FIREBASE_PROJECT_ID: string;
   readonly FIREBASE_SA_JSON: string;
+  // Spec 011 — Backblaze B2 S3-compatible storage backend.
+  readonly B2_ENDPOINT: string;
+  readonly B2_BUCKET_NAME: string;
+  readonly B2_KEY_ID: string;
+  readonly B2_APPLICATION_KEY: string;
 }
 
 export interface ServiceAccount {

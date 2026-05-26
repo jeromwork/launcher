@@ -25,6 +25,8 @@ class SettingsComponent(
     val onPresetChanged: () -> Unit,
     val onResetData: () -> Unit,
     val onAdminDevicesClick: () -> Unit = {},
+    val onOpenPairing: () -> Unit,
+    val onOpenScanner: () -> Unit,
 ) : ComponentContext by componentContext {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -55,16 +57,12 @@ class SettingsComponent(
         }
     }
 
-    fun openQrPlaceholder() {
-        _state.value = _state.value.copy(qrPlaceholderVisible = true)
+    fun openPairing() {
+        onOpenPairing()
     }
 
-    fun closeQrPlaceholder() {
-        _state.value = _state.value.copy(qrPlaceholderVisible = false)
-    }
-
-    fun toggleRemoteControl() {
-        _state.value = _state.value.copy(remoteControlEnabled = !_state.value.remoteControlEnabled)
+    fun openScanner() {
+        onOpenScanner()
     }
 
     fun confirmReset() {
@@ -87,7 +85,5 @@ class SettingsComponent(
 data class SettingsUiState(
     val activePreset: FlowPreset = FlowPreset.WORKSPACE,
     val presetPickerVisible: Boolean = false,
-    val qrPlaceholderVisible: Boolean = false,
     val resetConfirmVisible: Boolean = false,
-    val remoteControlEnabled: Boolean = false,
 )

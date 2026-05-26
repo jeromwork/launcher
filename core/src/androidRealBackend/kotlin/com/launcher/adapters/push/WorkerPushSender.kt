@@ -94,7 +94,7 @@ class WorkerPushSender(
         // TODO(custom-domain): move to BuildConfig field driven by env var
         // when we migrate off *.workers.dev. See project-backlog TODO-ARCH-001
         // and push-worker/README.md §Migration to custom domain.
-        const val WORKER_BASE_URL: String = "https://launcher-push.jeromwork.workers.dev"
+        const val WORKER_BASE_URL: String = "https://launcher-push.gpt1-jeromwork.workers.dev"
 
         private const val CONNECT_TIMEOUT_MS: Int = 10_000
         private const val READ_TIMEOUT_MS: Int = 15_000

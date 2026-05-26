@@ -22,6 +22,7 @@ class AddFlowWizardComponent(
     componentContext: ComponentContext,
     val onBack: () -> Unit,
     val onDone: () -> Unit,
+    val onTemplateChosen: (templateId: String) -> Unit,
 ) : ComponentContext by componentContext
 
 /**
@@ -71,35 +72,73 @@ class AddSlotWizardComponent(
 }
 
 /**
- * Paired-device list component (spec 003 placeholder superseded by spec
- * 009 wiring). Reads [com.launcher.api.link.LinkRegistry.currentLink] and
- * exposes a list of admin actions per link: edit layout, view history,
- * manage contacts, monitor phone health.
+ * Admin-side paired devices list. Reads
+ * [com.launcher.api.link.ManagedDevicesRegistry.observeAll] — the multi-link
+ * registry filtered by `adminId == currentUid` on the Firestore side — and
+ * exposes admin actions per link: edit layout, history, contacts, health.
  *
- * Spec 007 currently models a single managed link per admin device. The
- * UI surface here is list-shaped to match the data-model.md §1 expectation
- * that multi-link support is additive in a follow-up spec.
+ * Earlier spec-009 wiring incorrectly used the single-link
+ * [com.launcher.api.link.LinkRegistry] (Managed-side, one link per device),
+ * which left this screen empty on the admin device even after a successful
+ * QR claim. The correct port is `ManagedDevicesRegistry`.
  */
 class AdminDevicesComponent(
     componentContext: ComponentContext,
-    private val linkRegistry: com.launcher.api.link.LinkRegistry,
+    private val managedDevices: com.launcher.api.link.ManagedDevicesRegistry,
     val onBack: () -> Unit,
     val onEditLink: (String) -> Unit,
     val onHistoryLink: (String) -> Unit,
     val onContactsLink: (String) -> Unit,
     val onHealthLink: (String) -> Unit,
+    val onAddDevice: () -> Unit,
 ) : ComponentContext by componentContext {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val _state = MutableStateFlow<AdminDevicesState>(AdminDevicesState.Loading)
+    val state: StateFlow<AdminDevicesState> = _state.asStateFlow()
+    // Kept for source compatibility with callers that only need the list;
+    // mirrors the Loaded payload (empty during Loading).
+    val links: StateFlow<List<com.launcher.api.link.Link>>
+        get() = _links
     private val _links = MutableStateFlow<List<com.launcher.api.link.Link>>(emptyList())
-    val links: StateFlow<List<com.launcher.api.link.Link>> = _links.asStateFlow()
 
     init {
         lifecycle.doOnDestroy { scope.cancel() }
         scope.launch {
-            linkRegistry.currentLink().collect { link ->
-                _links.value = listOfNotNull(link)
+            managedDevices.observeAll().collect { list ->
+                _links.value = list
+                _state.value = AdminDevicesState.Loaded(list)
             }
         }
     }
+
+    /**
+     * Admin-side delete: removes /links/{linkId} on the server AND from local
+     * state, so the card disappears immediately and stays gone after a restart.
+     * Security Rules grant delete to the link's adminId. We optimistically
+     * forget locally first, then fire the server delete in the background;
+     * failures stay silent for MVP (the listener will rehydrate stale entries).
+     */
+    fun removeLink(linkId: String) {
+        managedDevices.forgetLink(linkId)
+        scope.launch { managedDevices.removeLinkOnServer(linkId) }
+    }
+
+    /** Called from the screen the moment the user taps "+" (scan). We flip
+     *  state to [AdminDevicesState.Loading] so when the user returns from
+     *  the scanner the screen shows a spinner instead of briefly flashing
+     *  "Нет сопряжённых устройств" before the new link arrives via
+     *  `recordClaim` / Firestore listener. The next [observeAll] emit will
+     *  flip back to [AdminDevicesState.Loaded]. */
+    fun onScanStart() {
+        _state.value = AdminDevicesState.Loading
+    }
+}
+
+/** UI state for [AdminDevicesComponent] — distinguishes the initial wait for
+ *  the first Firestore snapshot ([Loading]) from a confirmed empty list, so
+ *  the "Нет сопряжённых устройств" copy doesn't flash before data arrives. */
+sealed interface AdminDevicesState {
+    data object Loading : AdminDevicesState
+    data class Loaded(val links: List<com.launcher.api.link.Link>) : AdminDevicesState
 }

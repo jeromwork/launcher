@@ -122,8 +122,11 @@ service cloud.firestore {
       // Root doc is immutable post-create (contract §Security Rules).
       allow update: if false;
 
-      // Delete: Managed side revokes (FR-033).
-      allow delete: if isManagedUid(existingDoc().managedDeviceFirebaseUid);
+      // Delete: Managed side revokes (FR-033) OR admin removes from their list.
+      // Admin-side delete added so the reconnect-dedup cleanup and the "Удалить"
+      // button on the admin paired-devices screen can prune stale link docs.
+      allow delete: if isManagedUid(existingDoc().managedDeviceFirebaseUid)
+                     || existingDoc().adminId == request.auth.uid;
 
       // ─── /links/{linkId}/state/{stateId} ──────────────────────────
       // FR-027, contracts/state-bootstrap.md.
@@ -210,6 +213,63 @@ service cloud.firestore {
         allow create: if isLinkAdmin(linkId);
         allow update: if isLinkManaged(linkId);
         allow delete: if isLinkAdmin(linkId);
+      }
+
+      // ─── /links/{linkId}/devices/{deviceId} (spec 011 FR-006..009) ─
+      // DeviceIdentity Pub publication: каждое устройство публикует свой
+      // X25519 + Ed25519 public key + Ed25519 signature над payload.
+      // Подробности — specs/011-.../contracts/device-identity.md.
+      match /devices/{deviceId} {
+        function freshSignedTimestamp() {
+          // signedTimestamp в пределах 7 дней (replay-attack mitigation)
+          // с 1-минутным skew для clock drift.
+          let nowMillis = request.time.toMillis();
+          let signedMillis = request.resource.data.signedTimestamp;
+          return (nowMillis - signedMillis) < (7 * 24 * 60 * 60 * 1000)
+              && (nowMillis - signedMillis) > -(60 * 1000);
+        }
+
+        function hasRequiredFields() {
+          let d = request.resource.data;
+          return d.schemaVersion == 1
+              && d.deviceId is string
+              && d.publicKey is string
+              && d.signingPublicKey is string
+              && d.signedTimestamp is int
+              && d.signature is string
+              && d.algorithm == "x25519+ed25519";
+        }
+
+        function isOwnDevice() {
+          return exists(/databases/$(database)/documents/links/$(linkId)/deviceOwnership/$(deviceId))
+              && get(/databases/$(database)/documents/links/$(linkId)/deviceOwnership/$(deviceId)).data.ownerUid == request.auth.uid;
+        }
+
+        // Любой member пары может read peer's Pub'ы.
+        allow read:   if isLinkParty(linkId);
+        // Create: link party, deviceId совпадает с path, все поля валидны, signedTimestamp свежий.
+        allow create: if isLinkParty(linkId)
+                       && request.resource.data.deviceId == deviceId
+                       && hasRequiredFields()
+                       && freshSignedTimestamp();
+        // Update: только own device (через deviceOwnership claim), валидация полная.
+        allow update: if isLinkParty(linkId)
+                       && isOwnDevice()
+                       && hasRequiredFields()
+                       && freshSignedTimestamp();
+        // Delete: только own device.
+        allow delete: if isOwnDevice();
+      }
+
+      // ─── /links/{linkId}/deviceOwnership/{deviceId} (spec 011) ─────
+      // Auxiliary collection: race-free deviceId claim. Только первый writer
+      // (с тем же uid) может create — далее immutable.
+      match /deviceOwnership/{deviceId} {
+        allow read: if isLinkParty(linkId);
+        allow create: if isSignedIn()
+                       && request.resource.data.ownerUid == request.auth.uid
+                       && !exists(/databases/$(database)/documents/links/$(linkId)/deviceOwnership/$(deviceId));
+        allow update, delete: if false;
       }
     }
 

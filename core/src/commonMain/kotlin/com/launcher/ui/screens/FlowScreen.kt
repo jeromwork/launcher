@@ -3,10 +3,15 @@ package com.launcher.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -21,6 +26,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.launcher.api.action.DispatchResult
 import com.launcher.ui.components.TileCard
@@ -64,18 +70,32 @@ fun FlowScreen(
         component.acknowledgeDispatchResult()
     }
 
+    val pairedDevices by component.pairedDevices.collectAsState()
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         snackbarHost = { SnackbarHost(snackbarHost) },
+        floatingActionButton = {
+            if (state.templateId == "admin_devices") {
+                ExtendedFloatingActionButton(
+                    onClick = component.onOpenScanner,
+                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    text = { Text("Сканировать QR") },
+                    modifier = Modifier.testTag("admin_devices_scan_fab"),
+                )
+            }
+        },
     ) { padding ->
         Surface(
             modifier = Modifier.fillMaxSize().padding(padding),
             color = MaterialTheme.colorScheme.background,
         ) {
-            if (state.slots.isEmpty()) {
-                EmptyFlow(state.flowName)
-            } else {
-                LazyVerticalGrid(
+            when {
+                state.templateId == "admin_devices" ->
+                    if (pairedDevices.isNotEmpty()) AdminDevicesList(pairedDevices)
+                    else AdminDevicesEmptyState()
+                state.slots.isEmpty() -> EmptyFlow(state.flowName)
+                else -> LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 180.dp),
                     contentPadding = PaddingValues(Spacing.md),
                     horizontalArrangement = Arrangement.spacedBy(Spacing.md),
@@ -90,6 +110,61 @@ fun FlowScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AdminDevicesList(links: List<com.launcher.api.link.Link>) {
+    androidx.compose.foundation.layout.Column(
+        modifier = Modifier.fillMaxSize().padding(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+    ) {
+        links.forEach { link ->
+            androidx.compose.material3.Card(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                androidx.compose.foundation.layout.Column(
+                    modifier = Modifier.padding(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                ) {
+                    Text(
+                        text = "Устройство",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = "ID: ${link.managedDeviceId.take(8)}…",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = "Подключено",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdminDevicesEmptyState() {
+    androidx.compose.foundation.layout.Column(
+        modifier = Modifier.fillMaxSize().padding(Spacing.xl),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "Нет привязанных устройств",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        androidx.compose.foundation.layout.Spacer(Modifier.padding(top = Spacing.sm))
+        Text(
+            text = "Нажмите «+» внизу, чтобы отсканировать QR-код другого телефона.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

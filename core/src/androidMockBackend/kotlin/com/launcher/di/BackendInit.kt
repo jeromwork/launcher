@@ -17,11 +17,16 @@ import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
 import com.launcher.api.lifecycle.AppForegroundEvents
 import com.launcher.api.lifecycle.NetworkAvailability
 import com.launcher.api.link.LinkRegistry
+import com.launcher.api.link.ManagedDevicesRegistry
 import com.launcher.api.paired.LocalLinkRevocationStore
 import com.launcher.api.push.PushReceiver
 import com.launcher.api.push.PushSender
 import com.launcher.api.sync.RemoteSyncBackend
+import com.launcher.api.crypto.DeviceIdentityRepository
+import com.launcher.api.crypto.EncryptedMediaStorage
 import com.launcher.fake.apps.FakeInstalledAppsCatalog
+import com.launcher.fake.crypto.InMemoryDeviceIdentityRepository
+import com.launcher.fake.crypto.InMemoryEncryptedMediaStorage
 import com.launcher.fake.apps.FakeOpenAppDispatcher
 import com.launcher.fake.config.FakeConfigApplier
 import com.launcher.fake.config.FakeConfigEditor
@@ -34,6 +39,7 @@ import com.launcher.fake.identity.FakeIdentityProvider
 import com.launcher.fake.lifecycle.FakeAppForegroundEvents
 import com.launcher.fake.lifecycle.FakeNetworkAvailability
 import com.launcher.fake.link.FakeLinkRegistry
+import com.launcher.fake.link.FakeManagedDevicesRegistry
 import com.launcher.fake.paired.InMemoryLocalLinkRevocationStore
 import com.launcher.fake.push.FakePushReceiver
 import com.launcher.fake.push.FakePushSender
@@ -85,8 +91,14 @@ val backendModule: Module = module {
             ),
         )
     }
+    // Spec 007 admin-side multi-link view (separate from single-link LinkRegistry).
+    single<ManagedDevicesRegistry> { FakeManagedDevicesRegistry() }
     single<PushSender> { FakePushSender() }
     single<PushReceiver> { FakePushReceiver() }
+
+    // ─── Spec 011 mockBackend wiring ──────────────────────────────────────
+    single<DeviceIdentityRepository> { InMemoryDeviceIdentityRepository() }
+    single<EncryptedMediaStorage> { InMemoryEncryptedMediaStorage() }
 
     // ─── Spec 008 mockBackend wiring ──────────────────────────────────────
 

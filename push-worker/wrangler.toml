@@ -17,6 +17,17 @@ account_id = "c8f9c8c59e930e0283d713b91c01fb13"
 # Public (не secret) — Firebase project ID для FCM HTTP v1 send API.
 FIREBASE_PROJECT_ID = "launcher-old-dev"
 
+# Spec 011 — Backblaze B2 (S3-compatible) bucket для encrypted blob storage.
+# Не secret — это публичный endpoint (как s3.amazonaws.com — публичный адрес).
+# Worker использует aws4fetch для подписи S3 v4 requests с credentials из
+# B2_KEY_ID + B2_APPLICATION_KEY secrets (см. `wrangler secret list`).
+#
+# Exit ramp (CLAUDE.md rule 3, server-roadmap.md SRV-CRYPTO-001):
+# S3-совместимый API → при миграции на свой backend (MinIO / R2 / S3) меняется
+# только endpoint + credentials, envelope format и Kotlin adapter — без изменений.
+B2_ENDPOINT = "s3.eu-central-003.backblazeb2.com"
+B2_BUCKET_NAME = "launcher-private-media-eastclinic"
+
 # routes — раскомментировать при миграции на custom domain (TODO-ARCH-001 backlog).
 # [[routes]]
 # pattern = "push.<our-domain>/notify"

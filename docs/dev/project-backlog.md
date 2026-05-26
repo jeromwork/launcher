@@ -128,6 +128,24 @@
 - **Status**: 🟢 OPEN
 - **Origin**: Spec 007 C13 = C stub.
 
+### TODO-ARCH-007: Persistent flow storage (`FlowRepository.addFlow` сейчас in-memory) 🟡
+
+- **What**: `MockFlowRepository.addFlow()` хранит созданные runtime flows в `mutableListOf` поверх JSON-ассетов. После перезапуска процесса добавленные пользователем вкладки исчезают.
+- **Why**: Минимально жизнеспособный путь для интерактивного теста pairing'а в спеке 007 (нужно «Управление телефонами» как inline-flow с FAB). Полноценное хранилище flows было в плане спека 005, но в имплементацию не попало.
+- **How**: Добавить SQLDelight-таблицу `flow_descriptors` (или DataStore JSON-list), миграционно загружать дефолтные flows из JSON-ассетов один раз, дальше — write-through. Wire-format спека 005 должен иметь `schemaVersion`.
+- **When**: Когда понадобится: (а) персистентный admin-flow со списком привязанных Managed-устройств, либо (б) пользовательское создание flow в спеке 008/009.
+- **Status**: 🟡 OPEN
+- **Origin**: Спек 007 inline-test session 2026-05-13 — minimal addFlow API введён в `FlowRepository` interface без write-through; см. коммит с `MockFlowRepository.runtimeFlows`.
+
+### TODO-ARCH-008: Real admin-side device list (replace `admin_devices` empty-state stub) 🟡
+
+- **What**: Сейчас `FlowScreen` при `templateId == "admin_devices"` рендерит фиксированный «Нет привязанных устройств» + FAB «Сканировать QR». Реального списка из Firestore (`/links where adminId == currentUid`) нет.
+- **Why**: Минимально достаточный путь для тестирования камеры/сканера. Полноценный список — это admin-mode (спек 009).
+- **How**: Добавить `ManagedDevicesRegistry` port в `:core/api/link/` с `observeAll(): Flow<List<Link>>`. Firebase adapter: `firestore.collection("links").where("adminId", "==", currentUid)`. Реализовать в FlowScreen `templateId == "admin_devices"` рендеринг списка `Link` + revoke на свайп.
+- **When**: Спек 009 (admin-mode-flows).
+- **Status**: 🟡 OPEN
+- **Origin**: Спек 007 inline-test session 2026-05-13.
+
 ### TODO-ARCH-006: Enable R8 minification on `release` buildType 🟡 🚨 PLAY-STORE-BLOCKER
 
 - **What**: Включить `isMinifyEnabled = true` + `isShrinkResources = true` для `release` buildType в `app/build.gradle.kts`.
@@ -665,6 +683,46 @@ Code in main is complete; these only need *running* against a build.
 - **Status**: 🟢 OPEN
 - **Origin**: spec 010 clarify session 2026-05-19 — изначально US-8 (tutorial overlay для бабушки про 7-tap), решено вынести в отдельный спек с большим scope.
 
+### TODO-FUTURE-SPEC-007: symmetric-pairing-bidirectional-control (двусторонний pairing) 🟢
+
+- **What**: После `consent.allow` оба устройства пары получают возможность стать управляющими по взаимному согласию. Сейчас (спеки 7-9 + 011) модель строго односторонняя admin→Managed.
+- **Why**: В discussion-сессии спека 011 (2026-05-21) пользователь зафиксировал видение «все телефоны равноценны, любой может управлять любым после pairing'а». В 011 это вынесено отдельным спеком (см. spec 011 §Clarifications C-1), потому что требует изменения Security Rules + UX consent flow + расширения pairing semantics — затрагивает 3 уже смерженных спека.
+- **How**: Firestore Security Rules расширяются на симметричный case; UI «разреши мне видеть твою раскладку»; crypto-инфраструктура из 011 (per-device key pairs, `RecipientResolver`) уже поддерживает — менять её не нужно.
+- **When**: После production-стабилизации 011. Не ранее реальных user requests на двустороннее управление.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 011 mentor discussion 2026-05-21.
+- **Roadmap entry**: [Spec 015](../product/roadmap.md#spec-015--symmetric-pairing-bidirectional-control).
+
+### TODO-FUTURE-SPEC-008: family-group-shared-encryption (групповые ключи в стиле WhatsApp) 🟢
+
+- **What**: Понятие «семейная группа» — N≥3 устройств с общим членством. Любое зашифрованное медиа в группе грузится один раз; envelope содержит `recipients` для всех N членов. Управление членством через приглашения от существующих членов; key rotation при выходе участника.
+- **Why**: В discussion-сессии 011 пользователь чётко высказал: «доверенное устройство = семья, не пара». В 011 это вынесено отдельным спеком, но crypto-инфраструктура 011 уже membership-agnostic (envelope `recipients` — массив произвольной длины, see [spec 011 C-2](../../specs/011-contacts-and-e2e-encrypted-media/spec.md)). Этот спек добавляет `GroupRecipientResolver` (вторая реализация интерфейса из 011), management UX и Firestore схему групп.
+- **How**: Новый Firestore namespace `/groups/{groupId}/`. Group key — общий симметричный, обновляется при выходе участника. Crypto-протокол шифрования blob'ов остаётся прежним из 011 (только меняется содержимое `recipients`).
+- **When**: После production-стабилизации 011 и появления реального user request на семейный pooling.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 011 mentor discussion 2026-05-21.
+- **Roadmap entry**: [Spec 016](../product/roadmap.md#spec-016--family-group-shared-encryption).
+
+### TODO-FUTURE-SPEC-009: multi-device-recovery (восстановление при потере телефона + multi-device для одного владельца) 🟢
+
+- **What**: Понятие `ownerId` — несколько физических устройств одного владельца имеют общий identity. При шифровке envelope содержит `recipients` для **всех** устройств владельца. При потере одного устройства — re-pairing нового устройства, добавление в `ownerId`; старые медиа доступны через оставшиеся устройства.
+- **Why**: В 011 при потере одного из устройств пары без revoke медиа становятся недоступны (зашифрованы только для потерянного устройства). Это accepted trade-off для 011 — настоящий e2e. Этот спек закрывает кейс «у одного человека телефон+планшет», а также «бабушка получила новый телефон — внук вернул её конфиг».
+- **How**: `MyDevicesRecipientResolver` (третья реализация интерфейса из 011). Optional Android Backup Service для owner-key (восстанавливаемый при re-installation). Альтернатива — Shamir secret sharing across trusted contacts.
+- **When**: После 011, по приоритету выше чем ~016 если user feedback покажет частое «потерял телефон».
+- **Status**: 🟢 OPEN
+- **Origin**: spec 011 mentor discussion 2026-05-21.
+- **Roadmap entry**: [Spec 017](../product/roadmap.md#spec-017--multi-device-recovery).
+
+### TODO-FUTURE-SPEC-010: key-rotation-forward-secrecy (защита от компрометации устройств) 🟢
+
+- **What**: Периодическое обновление ключей пары/группы; forward secrecy для новых сообщений; manual key rotation при подозрении на компрометацию устройства.
+- **Why**: В discussion 011 пользователь поднял вопрос «компрометация одного устройства = компрометация всей цепи». В 011 принята модель single-key per device без rotation — accepted trade-off. Этот спек добавляет periodic rotation и forward secrecy (ratchet-style schemes, например Signal's Double Ratchet или X3DH).
+- **How**: envelope `cipherSuiteId` (из 011) уже допускает версионирование. Новые blob'ы шифруются новыми ключами; старые остаются доступны через deprecated ключи (не удаляются сразу). Полный ratchet — серьёзная сложность, стартовая модель — periodic rotation без ratchet.
+- **When**: После 011 + 016 (групповая ротация требует group-aware rotation).
+- **Status**: 🟢 OPEN
+- **Origin**: spec 011 mentor discussion 2026-05-21.
+- **Roadmap entry**: [Spec 018](../product/roadmap.md#spec-018--key-rotation-forward-secrecy).
+
 ---
 
 ## Legal & Compliance
@@ -720,6 +778,126 @@ Code in main is complete; these only need *running* against a build.
 - **Resolved**: 2026-05-16 в спека 009 Phase G — contract doc обновлён, path-note добавлена в `contracts/config-history.md` поясняющая historical drift. plan.md / spec.md сохраняют исторический путь — это снапшоты процесса проектирования, не source-of-truth.
 - **Origin**: spec 009 Phase 5 implementation 2026-05-15 (mentor critical review).
 - **Status**: ✅ Closed
+
+---
+
+## Spec 011 mentor session 2026-05-23 — architecture follow-ups
+
+Эти 8 entries появились в одной mentor-сессии 2026-05-23 при обсуждении распределения крипто-фундамента между лаунчером и будущим Jitsi-мессенджером. Все они вне scope текущего спека 011 (фундамент), но **должны быть зафиксированы**, чтобы будущие спеки строились на согласованных архитектурных решениях.
+
+Подробный transcript решений — в [ADR-008](../adr/ADR-008-social-recovery-architecture.md) (recovery) и в обновлённом spec 011 §Clarifications.
+
+### TODO-SPEC011-C1-CLARIFY: уточнить trust model в spec 011 §Clarifications C-1 🟡
+
+- **What**: Текущая формулировка C-1 «односторонняя пара admin→Managed» неоднозначна. В mentor-сессии 2026-05-23 уточнено: роль admin/managed это **per-pairing**, не **per-device**. Одно устройство может участвовать в нескольких pairings с разными ролями. Двусторонний контроль = две независимые pairings в обе стороны.
+- **Why**: Без уточнения Phase 1 (T010-T028) рискует определить API под неверной model assumption. `DeviceIdentity` per-link, `RecipientResolver` per-link уже корректны — нужно только обновить **формулировку**, не код.
+- **How**: Отредактировать `specs/011-contacts-and-e2e-encrypted-media/spec.md` §Clarifications C-1: заменить «односторонняя модель» на «one-way per pairing; device can hold multiple pairings with different roles; bidirectional control = two pairings».
+- **When**: **До старта Phase 1** (T010).
+- **Status**: 🟡 OPEN — закрывается одновременно с этим backlog-entry (см. коммит того же mentor-session block'а).
+- **Origin**: spec 011 mentor session 2026-05-23.
+
+### TODO-AUTH-001: AuthProvider port + Firebase Email/Password adapter 🟡
+
+- **What**: Ввести `AuthProvider` port в `core/commonMain/api/auth/` + `FirebaseEmailAuthProvider` adapter в `androidMain`. Port абстрагирует identity provider; следующие adapters (SMS gateway, Telegram OAuth, own backend) добавляются без изменения domain-кода.
+- **Why**: Без named identity невозможен recovery (TODO-RECOVERY-001) и cross-app SSO (TODO-SSO-001). В mentor-сессии 2026-05-23 пользователь подтвердил переход на email+password как baseline named auth. Abstraction нужна, чтобы переезд с Firebase Auth на свой backend / SMS / Telegram не требовал переписывания (CLAUDE.md rule 1+4).
+- **How**:
+  - Port: `AuthProvider { signIn(Credentials): Result<UserIdentity, AuthError>; signOut; observeIdentity: Flow<UserIdentity?> }`
+  - `sealed interface Credentials { EmailPassword; PhoneOtp; TelegramToken; ... }`
+  - `UserIdentity(externalId, displayId, providerKind)` — externalId используется как корень всех wire-formats (recovery backup, pairing identity proof)
+  - Firebase Email/Password — бесплатно на Spark plan (не требует Blaze)
+- **When**: Отдельный спек **TBD** — prerequisite для spec 015 (multi-device-recovery). Точный номер определится при следующей renumerации (между текущим 014 family-group и 015 recovery, либо как 017 с recovery shifted ниже).
+- **Status**: 🟡 OPEN
+- **Origin**: spec 011 mentor session 2026-05-23.
+- **Exit ramp**: переход на свой backend через новый `OwnBackendAuthProvider` adapter; existing wire-formats используют `externalId`, не email напрямую — миграция users через delegation-flow или silent re-auth. Refs `server-roadmap.md` SRV-CRYPTO-001.
+
+### TODO-RECOVERY-001: Social recovery (password + peer_nonce → HKDF → AEAD backup) 🟡
+
+- **What**: Криптографическая схема восстановления ключей при потере устройства. Concretizes high-level TODO-FUTURE-SPEC-009 с конкретным дизайном.
+  - Setup phase (при первом pairing): бабушка задаёт passphrase (PIN 4-6 цифр); приложение генерирует `peer_nonce` 32 байта; `recovery_key = HKDF(passphrase, peer_nonce, "recovery-v1")`; `encrypted_backup = AEAD(recovery_key, priv_keys_bundle)`; `encrypted_backup` → сервер, `peer_nonce` → encrypted для trusted peer через 011 envelope, `passphrase` → в голове бабушки.
+  - Recovery phase: новое устройство → email+password login → server initiates 2FA push к trusted peer → peer тапает «подтвердить» → peer device пере-шифровывает `peer_nonce` для freshly-generated Pub нового устройства → новое устройство просит passphrase → derives `recovery_key` → decrypts `encrypted_backup` → получает старые priv keys → доступ к старым blob'ам восстановлен.
+- **Why**: Без recovery потеря телефона = безвозвратная потеря всех зашифрованных blob'ов (включая медкарты). Pure E2E + named auth + peer-based 2FA даёт восстановление **без** server-side key escrow и **без** compromise privacy (peer не видит plaintext данных, только участвует как 2FA factor).
+- **How**: см. [ADR-008](../adr/ADR-008-social-recovery-architecture.md). MVP — 1-of-N peer authorization (любой trusted peer достаточен). Future — N-of-M через Shamir Secret Sharing (2-of-3 для устойчивости к single-peer loss).
+- **When**: Спек **015** (multi-device-recovery per C-9 renumerации 2026-05-22). Зависит от TODO-AUTH-001 (named identity prerequisite).
+- **Status**: 🟡 OPEN — supersedes high-level TODO-FUTURE-SPEC-009 с конкретным crypto design.
+- **Origin**: spec 011 mentor session 2026-05-23.
+
+### TODO-SSO-001: Cross-app SSO via intent delegation 🟢
+
+- **What**: Когда лаунчер и Jitsi-мессенджер (отдельное приложение) оба установлены и в одном залогинен пользователь — второе приложение может получить auth token делегацией через intent, без повторного ввода email+password.
+- **Why**: UX improvement для пользователей с обоими приложениями. Baseline SSO-A (re-enter credentials) работает всегда; SSO-B убирает лишний ввод когда один app уже залогинен. Не критично, но приятно для бабушек.
+- **How**:
+  - Лаунчер экспортирует AIDL service (или Activity с intent action) `com.launcher.action.DELEGATE_AUTH`
+  - Мессенджер при первом запуске проверяет `PackageManager.getPackageInfo("com.launcher.app")` + signature check (same dev key)
+  - Если лаунчер найден и залогинен — мессенджер запрашивает delegation token через intent
+  - Лаунчер показывает диалог пользователю «Мессенджер запрашивает доступ. Разрешить?»
+  - При согласии → лаунчер обращается на сервер `POST /auth/delegate` с current session + target package
+  - Сервер возвращает one-time delegation_token (TTL 5 минут)
+  - Лаунчер возвращает токен через intent result → мессенджер обменивает на свою session
+- **When**: Отдельный спек **TBD** (post-renumerации) — после того как Jitsi-мессенджер реально стартует разработкой. Зависит от TODO-AUTH-001.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 011 mentor session 2026-05-23.
+- **Notes**: Никогда не передавать plaintext password через IPC — только короткоживущий delegation token. Signature pinning обязателен (защита от подделки package name).
+
+### TODO-VENDOR-001: Vendor integration security pattern (TLS pinning + JWT) 🟢
+
+- **What**: Reference-архитектура для будущих vendor integrations (клиники, центры поддержки пожилых, health бракелеты-как-API, network of caregivers). Эти integrations используют **REST/gRPC API**, **не** наш envelope.
+- **Why**: Vendor channels — B2B, не e2e. Используются: TLS pinning (защита от MITM на vendor cloud), JWT с Ed25519 signing (request authentication; primitive из 011 годится), optional mTLS (если vendor требует client cert — отдельный X.509 adapter через Bouncy Castle, **не** наш envelope per spec.md §Out-of-scope).
+- **How**:
+  - OkHttp CertificatePinner с pinned SHA-256 fingerprints per vendor
+  - Ed25519 sign из 011 `DigitalSignature` port для JWT claims signing
+  - X.509 client cert (если vendor требует) — отдельный adapter в `core/androidMain/adapters/vendor-pki/` через Bouncy Castle / Conscrypt
+  - Per-vendor adapter module (см. CLAUDE.md rule 2 — ACL для каждого внешнего API)
+- **When**: При появлении первого vendor integration спека (TBD).
+- **Status**: 🟢 OPEN — концепт-задача, не имеет триггера сейчас.
+- **Origin**: spec 011 mentor session 2026-05-23 §«Будущие клиенты фундамента 011».
+
+### TODO-LEGAL-002: Legal review для медицинских данных (152-ФЗ + 323-ФЗ + Play Store medical) 🟡
+
+- **What**: В mentor-сессии 2026-05-23 пользователь подтвердил, что «значимые приватные документы, мед карты» — целевой use-case spec 012 (личные документы). Это поднимает регуляторную планку.
+- **Why**: Медданные в РФ — **специальная категория** персональных данных (152-ФЗ ст. 10). Требуется:
+  - **Локализация** (152-ФЗ ст. 18 ч. 5) — серверы в РФ. Firebase Storage за пределами РФ — потенциальный риск, **но** E2E шифрование снимает большую часть требований (server не имеет plaintext доступа)
+  - **Explicit informed consent** для медданных (не общее)
+  - **323-ФЗ** ограничения на медицинскую документацию (ст. 22) — мы **не оператор медучреждения**, поэтому формально не подпадаем под все требования, но spirit закона требует осторожности
+  - **Play Store** — Google требует privacy policy + Data Safety form для health-related apps; отдельный review process для категории Medical
+- **How**:
+  - Получить юр-консультацию (РФ-юрист по 152-ФЗ + Google Play лицензированию)
+  - Уточнить формулировку UI: называть «значимые личные документы», **не** «медкарта» — снижает юр. экспозицию
+  - Privacy policy с явным указанием категории данных и их защиты
+  - Подготовить ответы на Google Play Data Safety form
+  - **НЕ** хранить metadata, явно указывающие на медицинский характер blob'ов (наш envelope opaque — это уже хорошо)
+- **When**: До публикации UI с упоминанием «медкарт» (spec 012); **до** публикации в Play Store.
+- **Status**: 🟡 OPEN
+- **Origin**: spec 011 mentor session 2026-05-23.
+
+### TODO-DESIGN-001: Продуктовая модель «приватные vs shared» документы 🟡
+
+- **What**: В mentor-сессии 2026-05-23 уточнено: «приватные документы доступны только владельцу; если документами поделились, они доступны всем с кем поделились». Этот product-level pattern требует UX-дизайна для spec 012 (visible feature).
+- **Why**: От ответа зависит envelope `recipients[]` для каждого blob'а:
+  - **Приватные** — `recipients = [только владелец]` — никто кроме владельца не видит, при потере без recovery = потеря данных
+  - **Shared** — `recipients = [владелец + получатели]` — все из recipients видят
+- **How**: UX-design.md для spec 012 должен покрывать:
+  - При загрузке документа — UI выбора «приватный / поделиться с (кем)»
+  - Default — приватный
+  - UI «кто видит этот документ» (список recipients) + возможность revoke share (требует пере-шифровки blob'а без revoked recipient — это **отдельная** complexity, см. ниже)
+  - Warning при выборе «приватный»: «При потере телефона эти документы будут потеряны, если не настроен recovery»
+  - Special category — `medical/health` documents должны быть приватными по default (legal hygiene per TODO-LEGAL-002)
+- **Tricky case — revoke share**: если бабушка поделилась документом с внуком и хочет отозвать — blob уже у внука на устройстве, **нельзя «удалить» расшифрованную копию** retrospectively. Можно только пере-зашифровать blob на сервере без recipient'а внука + локально удалить (но если внук уже скачал — оффлайн копия остаётся). Это надо честно отразить в UX: «отзыв share не удаляет уже скачанные копии».
+- **When**: При работе над spec 012 (visible feature — фото контактов и личных документов).
+- **Status**: 🟡 OPEN
+- **Origin**: spec 011 mentor session 2026-05-23.
+
+### TODO-PRIVACY-001: Server-side metadata minimization 🟢
+
+- **What**: Даже при E2E шифровании content'a, сервер видит **metadata**: IP-адреса при auth, timestamps Storage uploads, размеры blob'ов, pairing graph (кто с кем спарен через Pub-key references). Это **inevitable cost** server-mediated архитектуры, но можно минимизировать.
+- **Why**: В mentor-сессии 2026-05-23 surface'нуто как 20%-ный остаточный privacy concern. Не катастрофа, но **hygiene matters** — особенно при компрометации сервера.
+- **How**:
+  - **Не сохранять IP-адреса** дольше 24h в server logs (Cloudflare Worker logs + Firebase audit logs)
+  - **Не индексировать** pairing graph в queryable виде (если злоумышленник попадёт на сервер — let it be tedious to extract)
+  - **Future**: anonymous credentials (Privacy Pass, anonymous tokens) — позволяют auth без раскрытия user identity на каждый request. **Сложная архитектура**, не для текущего scope
+  - **Future**: Tor-onion routing или P2P для metadata-free connectivity — несовместимо с FCM push на Android, не для нас
+- **When**: Server-roadmap — при переезде на свой backend (SRV-CRYPTO-001 / 015+). До тех пор — ограничено Firebase/Cloudflare retention policies.
+- **Status**: 🟢 OPEN — не блокер, hygiene improvement.
+- **Origin**: spec 011 mentor session 2026-05-23.
 
 ---
 

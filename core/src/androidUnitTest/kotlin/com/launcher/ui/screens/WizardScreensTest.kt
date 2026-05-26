@@ -48,11 +48,12 @@ class WizardScreensTest {
                         componentContext = newContext(),
                         onBack = {},
                         onDone = {},
+                        onTemplateChosen = {},
                     ),
                 )
             }
         }
-        rule.onNodeWithText("Новый flow").assertIsDisplayed()
+        rule.onNodeWithText("Новая вкладка").assertIsDisplayed()
         rule.onNodeWithText("Контакты").assertIsDisplayed()
     }
 
@@ -139,14 +140,13 @@ class WizardScreensTest {
                 AdminDevicesScreen(
                     component = AdminDevicesComponent(
                         componentContext = newContext(),
-                        linkRegistry = com.launcher.fake.link.FakeLinkRegistry(
-                            backend = com.launcher.fake.sync.FakeRemoteSyncBackend(),
-                        ),
+                        managedDevices = com.launcher.fake.link.FakeManagedDevicesRegistry(),
                         onBack = {},
                         onEditLink = {},
                         onHistoryLink = {},
                         onContactsLink = {},
                         onHealthLink = {},
+                        onAddDevice = {},
                     ),
                 )
             }

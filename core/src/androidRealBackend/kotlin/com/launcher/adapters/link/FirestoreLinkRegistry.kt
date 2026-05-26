@@ -3,12 +3,14 @@ package com.launcher.adapters.link
 import com.google.firebase.firestore.FirebaseFirestore
 import com.launcher.adapters.push.FcmRegistration
 import com.launcher.adapters.sync.FirestoreDocMapper
+import com.launcher.api.crypto.EncryptedMediaStorage
 import com.launcher.api.link.Link
 import com.launcher.api.link.LinkRegistry
 import com.launcher.api.result.Outcome
 import com.launcher.api.sync.BackendError
 import com.launcher.api.sync.DocPath
 import com.launcher.api.sync.RemoteSyncBackend
+import kotlin.uuid.ExperimentalUuidApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,10 +38,15 @@ import kotlin.coroutines.cancellation.CancellationException
  * (project-backlog TODO-ARCH-003), replace the client-side iteration with
  * a Cloud Function that calls Firestore Admin SDK's recursiveDelete().
  */
+@OptIn(ExperimentalUuidApi::class)
 class FirestoreLinkRegistry(
     private val backend: RemoteSyncBackend,
     private val firestore: FirebaseFirestore,
     private val fcmRegistration: FcmRegistration,
+    // Spec 011 — recursive Storage cleanup на revoke (FR-043). Optional —
+    // mockBackend builds или старые tests могут передавать null, тогда
+    // Storage cleanup пропускается.
+    private val encryptedMediaStorage: EncryptedMediaStorage? = null,
 ) : LinkRegistry {
 
     private val state = MutableStateFlow<Link?>(null)
@@ -82,6 +89,16 @@ class FirestoreLinkRegistry(
 
             for (sub in Link.KNOWN_SUBCOLLECTIONS) {
                 deleteSubcollection(linkId, sub)
+            }
+            // Spec 011 FR-043 — Storage cleanup: enumerate KNOWN_STORAGE_PATHS,
+            // delete все blobs. Сейчас один path — "private-media".
+            encryptedMediaStorage?.let { storage ->
+                runCatching {
+                    val uuids = storage.list(linkId)
+                    for (uuid in uuids) {
+                        storage.delete(linkId, uuid)
+                    }
+                }
             }
             backend.deleteDoc(DocPath.Links(linkId))
             state.value = null

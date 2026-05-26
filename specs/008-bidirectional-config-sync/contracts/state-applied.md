@@ -52,7 +52,7 @@ Subset of `/config/current.flows[i]` after apply. Same `id` (UUIDv4) as `/config
 |---|---|---|---|
 | `id` | `String` (UUIDv4) | ✓ | matches /config Contact.id |
 | `displayName` | `String` | ✓ | may differ if Managed's contact-provider rewrote |
-| `appliedSuccessfully` | `Boolean` | ✓ | `false` if e.g. e2e photo decryption failed (future spec 011) |
+| `appliedSuccessfully` | `Boolean` | ✓ | `false` if e.g. e2e photo decryption failed (introduced by spec 012, uses crypto foundation of spec 011) |
 
 ### Nested: `PartialReason`
 
@@ -62,7 +62,7 @@ Enum-keys (NOT human-readable strings — localization-safe per ux-quality check
 |---|---|
 | `provider_unavailable` | Provider (e.g. dialer) not installed on Managed |
 | `contact_permission_denied` | READ_CONTACTS permission revoked |
-| `media_decrypt_failed` | spec 011 e2e media couldn't be decrypted (future) |
+| `media_decrypt_failed` | e2e media couldn't be decrypted — namespace `private:<uuid>` from spec 011 (crypto foundation), эмитится впервые в spec 012 (contact photos) |
 | `unknown_slot_kind` | Slot.kind не понятен текущему apply'еру (forward-compat) |
 
 ---
