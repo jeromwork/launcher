@@ -249,3 +249,43 @@ Cross-checked against shipped manifests:
   - T107 macrobenchmark cold-start ≤ 1 sec p95.
   - T106 OEM matrix smoke (Samsung One UI / Xiaomi MIUI / Pixel) — verify FR-020b exception path on Xiaomi.
   - All 13 checklists re-run clean at `/speckit.analyze` Phase 8.
+
+### spec 012: contact-photos-and-private-documents **(in implementation, branch `012-contact-photos-and-private-documents`)**
+
+- **Feature**: первый видимый клиент крипто-фундамента 011. Реализует (1) фото контактов на плитках бабушки через VCard share intent + system contacts picker — фото шифруется на admin device → грузится в Backblaze B2 через Cloudflare Worker proxy (011 infrastructure) → бабушка видит расшифрованный аватар. (2) Новый UX-flow «+ Документ» для личных документов (паспорт, СНИЛС, медкарта) — fullscreen `DocumentViewer` с pinch-zoom + TalkBack-friendly +/- buttons.
+- **Permissions added (vs spec 011)**: **ZERO new permissions** (SC-007). MediaPicker adapter использует system Photo Picker (`ACTION_PICK_IMAGES`, API 33+) ИЛИ androidx `PickVisualMedia` compat (29-32) ИЛИ SAF `ACTION_OPEN_DOCUMENT` (26-28) — none of these require READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE.
+- **Manifest deltas vs spec 011**:
+  - **`<exclude path="private-media/" />`** добавлено в `app/src/main/res/xml/data_extraction_rules.xml` (`<cloud-backup>` + `<device-transfer>`) и `backup_rules.xml` (pre-Android-12 fallback). **🚨 CRITICAL** per FR-025 — без этого расшифрованные фото паспортов / медкарт бабушки автоматически уйдут в её Google Drive backup, превращая E2E крипто-фундамент 011 в бесполезный. Verified by `BackupRulesTest` (JVM unit test, 3 assertions across both XML files).
+  - **No new Activities / Services / Receivers / Providers**.
+- **Background/runtime impact**:
+  - **Zero new background work**. Spec 012 переиспользует existing 011 `BackgroundReconciler` (WorkManager, 24h cadence) для cleanup orphaned blobs — только refSource bookkeeping добавляется на admin side при contact / document add / delete.
+  - **No polling, no broadcasts**.
+- **Startup impact**:
+  - **Zero cold-start delta**. New DI bindings (PrivateMediaUploader / Resolver / LocalMediaStore / MediaPicker / BlobReferenceWriter / Remover / JpegCompressor / MediaDecryptFailedReporter) — все singletons lazy-init, ≤ 5 ms total registration cost.
+- **Memory/storage impact**:
+  - **`Context.filesDir/private-media/<uuid>`** persistent app-private storage for **расшифрованных** media files (фото контактов + документов). Typical usage:
+    - Avatars: ~30 KB × 15 contacts = ~450 KB per pair.
+    - Documents: ~200 KB × 10 docs = ~2 MB per pair.
+    - **Typical total ≤ 30 MB per pair**. NO LRU eviction, NO TTL — files persist через process death / Activity recreation / device reboot (per Clarification Q5).
+    - **No size cap в спеке 012** — overflow protection отслеживается в [`TODO-ARCH-019`](../dev/project-backlog.md).
+  - APK delta budget: ≤ +500 KB vs spec 011 release build (SC-006).
+  - **`androidx.documentfile`** dependency ~50 KB added для SAF ветки на API 26-28.
+  - SQLDelight delta: **zero** — переиспользует existing `BlobReferenceLedger` table из 011.
+- **Network impact**:
+  - **Inherits 011 budget** (Backblaze B2 + Cloudflare Worker proxy). Spec 012 — first real consumer, ничего нового не вводит.
+  - Per-blob: ~200 KB upload (admin) + ~200 KB download per first-show (Managed). After first show — local read, zero network.
+- **Monitoring/observability**:
+  - New diagnostic events: `media.upload.{success,fail}`, `media.resolve.{cache_miss,cache_hit}`, `media.decrypt.fail.<subcategory>`, `media.partial_apply` — categorical, NO PII (uuid prefix only first 8 chars for correlation).
+  - **`PartialReason.MediaDecryptFailed`** эмитируется впервые в спеке 012 (enum value был reserved в спеке 008). Closes 008 obligation per `state-applied.md:65`.
+- **Privacy classification**:
+  - **Decrypted media files в `filesDir/private-media/`** = PII (фото лиц + документов с personal data). 🚨 MUST be excluded из cloud-backup + device-transfer per FR-025 (addressed выше через `data_extraction_rules.xml`).
+  - **Sensitive labels** («Паспорт», «Медкарта», «СНИЛС») — encrypted **внутри ciphertext** (через `DocumentPayload` JSON wrapper). NEVER в `envelope.metadata` (plaintext + AAD-bound). Privacy invariant FR-006 / SC-008 verified gate test `PrivateMediaPipelineTest.no_label_leak_in_plaintext_metadata` (🚨 mandatory CI gate).
+  - **`envelope.metadata.kind = "image" | "document"`** — categorical hint, non-sensitive. Server (B2) видит только что blob — фото или документ; **не** видит какой именно документ.
+  - Threat model в-scope: защита канала «сервер ↔ клиент» + «admin ↔ Managed». Out-of-scope: device-local adversary (физический доступ, root, adb backup) — consistent с WhatsApp/Telegram baseline.
+  - **No FLAG_SECURE** (per Clarification Q5). Consistent с industry baseline — родственник может screen-share remote help бабушке.
+- **Decision**: 🟡 in implementation. Pre-merge gates:
+  - 🚨 `BackupRulesTest` (Phase 1) — ALWAYS green в CI.
+  - 🚨 `PrivateMediaPipelineTest.no_label_leak_in_plaintext_metadata` (Phase 3) — ALWAYS green (privacy gate).
+  - 🚨 `DocumentViewerScreenTest.zoom_buttons_visible_when_TalkBack_on` (Phase 6, emulator) — verified manual TalkBack walkthrough.
+  - APK delta ≤ 500 KB (release build measurement).
+  - Manual UAT на Samsung medium-tier + Xiaomi medium-tier (CHK019 OEM quirks + senior-walkthrough simulation).
