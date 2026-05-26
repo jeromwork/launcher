@@ -46,6 +46,12 @@ fun Slot.toAction(contacts: List<Contact>): Action? {
                 payload = ActionPayload.OpenApp(packageHint = packageName),
             )
         }
+        SlotKind.Document -> {
+            // Spec 012 — Document slot не маппится в Action (это UI navigation:
+            // tap → fullscreen DocumentViewer, не provider dispatch).
+            // Caller (home screen) распознаёт Document kind напрямую и open'ает viewer.
+            null
+        }
     }
 }
 

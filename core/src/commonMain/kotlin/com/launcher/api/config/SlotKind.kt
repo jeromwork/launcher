@@ -23,6 +23,27 @@ enum class SlotKind(val wireValue: String) {
 
     /** Open Android app — args.packageName specifies target. */
     OpenApp(wireValue = "open-app"),
+
+    /**
+     * Private document slot (spec 012).
+     *
+     * args structure:
+     * ```
+     * {
+     *   "documentRef": "private:<uuid>",  // iconId namespace per spec 006
+     *   "label": "Паспорт"                  // 1..40 graphemes, sanitised
+     * }
+     * ```
+     *
+     * Tap → opens fullscreen DocumentViewer (FR-018).
+     *
+     * Added additive without /config schemaVersion bump (per Clarification Q2 deviation —
+     * pre-production свобода до spec 030+). Old readers without Document support emit
+     * PartialReason.UnknownSlotKind (FR-017).
+     *
+     * See [contracts/tile-document-kind.md](../../specs/012-contact-photos-and-private-documents/contracts/tile-document-kind.md).
+     */
+    Document(wireValue = "document"),
     ;
 
     companion object {

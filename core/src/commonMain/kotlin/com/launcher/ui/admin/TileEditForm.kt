@@ -103,19 +103,43 @@ fun TileEditForm(
                     packageName = packageName,
                     onPickApp = onPickApp,
                 )
+                SlotKind.Document -> {
+                    // Spec 012 — Document slots добавляются через отдельный
+                    // flow (AdminAddDocumentScreen), не через этот editor.
+                    // Эта ветка достижима только при редактировании уже-
+                    // существующего Document slot — content не редактируется
+                    // здесь, только metadata (label через label-поле выше).
+                }
             }
 
             val canSave = when (kind) {
                 SlotKind.Call, SlotKind.Sms -> contactId.isNotEmpty()
                 SlotKind.OpenApp -> packageName.isNotBlank()
+                // Spec 012 — Document slot requires documentRef в args; при
+                // редактировании из этого editor'а documentRef не меняется,
+                // только label. См. AdminAddDocumentScreen для create flow.
+                SlotKind.Document -> initialSlot.args?.let {
+                    (it["documentRef"] as? JsonPrimitive)?.content?.startsWith("private:") == true
+                } ?: false
             } && label.isNotBlank()
 
             Button(
                 onClick = {
+                    val newArgs = buildArgs(kind, contactId, packageName, label)
+                    // Spec 012 — preserve documentRef for Document slots (not editable here).
+                    val finalArgs = if (kind == SlotKind.Document) {
+                        val existingDocRef = (initialSlot.args?.get("documentRef") as? JsonPrimitive)?.content
+                        if (existingDocRef != null) {
+                            buildJsonObject {
+                                newArgs.forEach { (k, v) -> put(k, v) }
+                                put("documentRef", JsonPrimitive(existingDocRef))
+                            }
+                        } else newArgs
+                    } else newArgs
                     onSave(
                         initialSlot.copy(
                             kind = kind,
-                            args = buildArgs(kind, contactId, packageName, label),
+                            args = finalArgs,
                         ),
                     )
                 },
@@ -230,5 +254,10 @@ private fun buildArgs(
     when (kind) {
         SlotKind.Call, SlotKind.Sms -> if (contactId.isNotEmpty()) put("contactId", JsonPrimitive(contactId))
         SlotKind.OpenApp -> if (packageName.isNotBlank()) put("packageName", JsonPrimitive(packageName))
+        SlotKind.Document -> {
+            // Spec 012 — Document slot args (documentRef) builds через
+            // AdminAddDocumentScreen, не здесь. label обновляется через
+            // основной label put() выше — documentRef preserved из initialSlot.
+        }
     }
 }

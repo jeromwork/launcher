@@ -156,6 +156,10 @@ internal fun iconForSlotKind(slotKind: SlotKind?): ImageVector = when (slotKind)
     SlotKind.Call -> Icons.Filled.Phone
     SlotKind.Sms -> Icons.Filled.Send
     SlotKind.OpenApp -> Icons.Filled.Star
+    // Spec 012 — Document slot uses generic image-shape icon. Real thumbnail
+    // (decrypted document photo) рендерится отдельно через PrivateMediaResolver;
+    // эта icon — placeholder fallback (while decrypting OR при ошибке).
+    SlotKind.Document -> Icons.Filled.Star
     null -> Icons.Filled.Call
 }
 
