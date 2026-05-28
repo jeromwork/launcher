@@ -43,6 +43,7 @@ Workflow: user открывает README → видит, что не обдум�
 | 10 | [10-monetization-distribution-legal.md](10-monetization-distribution-legal.md) | 🔵 **FROZEN** (out of dev roadmap per user 2026-05-27). Только **anti-tampering / защита от взлома** остаётся (M-009 + ADR-002). Остальное — отдельный проект. | 🔵 заморожено |
 | 11 | [11-support-dev-process-future.md](11-support-dev-process-future.md) | support / ops / dev process / spec-kit / future verticals | 🆕 первый проход |
 | 12 | [12-ai-integration.md](12-ai-integration.md) | AI affordance — App Actions (Layer 2), MCP server (Layer 3), Gemini Nano (Layer 1), AI-ready architecture | 🆕 первый проход |
+| 13 | [13-risks-and-critique.md](13-risks-and-critique.md) | 🔴 **Critical reading** — research + критика принятых решений. WhatsApp Communities как threat, retention metrics, missing use cases, killer scenarios, 8 open Q's pre-F-1. | 🆕 первый проход |
 
 **Status legend**:
 - 🆕 первый проход — документ создан, но ещё не обсуждался с user'ом
