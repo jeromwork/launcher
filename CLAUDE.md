@@ -77,6 +77,61 @@ When an architectural invariant can be checked automatically, prefer that to man
 
 Это даёт **specific exit ramp destination** для one-way door'ов (rule 3) — куда именно мы отступаем, а не «как-нибудь потом».
 
+## 9. Shareability-readiness for non-identity configurations
+
+Любая user-facing конфигурация, **не зависящая** от identity / secrets / PII / device-specific state, **должна** быть спроектирована как **portable shareable artifact с первого коммита**, даже если sharing UI не строится сейчас.
+
+Применяется к: layout templates, tile arrangements, custom action mappings, theme variants, tutorial sequences, wizard manifests, preset configurations — всё, что один пользователь может **разумно захотеть** поделиться с другим (или импортировать из community / marketplace в будущем).
+
+Требования:
+- Хранится в wire-format (JSON / Protobuf / etc.) с явным `schemaVersion` (это rule 5, применённый специфически).
+- **Обезличенная форма**: никаких identity-bound значений внутри (нет UID'ов, Firebase токенов, package-specific identifiers текущего устройства, contact phone numbers, photo blob references из приватного storage).
+- Загружается через **adapter pattern** (`ConfigSource` или аналог), где `BundledSource` — **одна из** реализаций. Другие (`ImportFromFileSource`, `NetworkSource`, `ShareIntentSource`, future `MarketplaceSource`) добавляются **additively**, без изменения формата config'а.
+- Roundtrip-тест + cross-device-test с первого коммита.
+- Inline-TODO у `BundledSource` сайта: `// TODO(shareability): future ConfigSource adapters — file import, share intent, marketplace`.
+
+**Что это правило НЕ требует**:
+- Строить sharing UI сейчас.
+- Строить curated marketplace.
+- Строить import-from-file UI.
+
+**Что это правило ОБЕСПЕЧИВАЕТ**:
+- Когда sharing добавляется позже — это additive change (новый `ConfigSource` adapter), **не rewrite** существующих template'ов.
+- Cross-version compatibility (user X на app v1.2 шарит template'ом, который user Y на app v1.3 принимает).
+- Privacy by design: невозможно случайно зашить identity в shareable artifact, если структура запрещает identity поля.
+
+**Что НЕ применяется**:
+- Identity-bound state: pairing keys, Firebase tokens, contact PII, photo blobs — это **НЕ shareable**, они **остаются на устройстве** или зашифрованы для конкретных recipient'ов.
+- Application code / system permissions — не shareable through this mechanism.
+
+Combined с rule 2 (ACL) и rule 5 (wire-format versioning), это правило делает shareability **архитектурным свойством**, а не afterthought.
+
+## 10. Notification minimization (push hygiene)
+
+User-facing push notifications должны быть **минимизированы**. Каждый push должен **обосновать своё существование** через explicit severity criterion. Без такого обоснования push не существует.
+
+**Иерархия предпочтений** (от naturally preferred к last-resort):
+1. **In-app indicator** (badge, banner, list item на главном экране app'а) — default. Не disrupts user'а, виден при следующем открытии app'а.
+2. **In-app notification center** (collected nested notifications внутри app'а — список «что произошло пока вас не было») — для accumulated low-urgency events.
+3. **System push notification** — **последняя инстанция**, только если все три критерия соблюдены (см. ниже).
+
+**Каждая push notification обязана** соответствовать **трём критериям одновременно**:
+- **Actionable**: user может (или должен) что-то сделать прямо сейчас.
+- **Time-sensitive**: ждать до момента следующего открытия app'а **нельзя** (потеря value или risk).
+- **User-relevant**: касается user'а лично, не aggregate state системы.
+
+**Применение к нашему контексту** (примеры):
+- ✅ SOS triggered → push admin'у (actionable + time-sensitive + relevant).
+- ✅ Family member call coming → system ringtone (built-in OS mechanism, **не** наш push).
+- ❌ «У вас новое фото от внука» → in-app indicator, **не** push.
+- ❌ «Бабушка online» → не notification **вообще**.
+- ⚠️ «Permission revoked» → in-app banner; push **только если** ROLE_HOME revoked (critical loss).
+- ❌ «X выполнил активность Y» (gamification) → in-app indicator, **никогда** push.
+
+**Spec author requirement**: при добавлении push event'а в спеку обязана быть declared **severity criterion** и **actionable destination**. Без этого refuse.
+
+**Соответствующий skill**: `checklist-notification-minimization` (создаётся для активации через `procedure-assess-spec-complexity` при обнаружении push events в спеке).
+
 ## Refuse and propose alternative if you see
 
 1. Vendor or system type embedded in a domain value.
@@ -90,6 +145,8 @@ When an architectural invariant can be checked automatically, prefer that to man
 9. Premature abstraction: single-implementation interface with no port-shaped seam.
 10. New external dependency added to the domain layer for one feature.
 11. Public contract change without a major-version bump.
+12. User-facing non-identity configuration (template, layout, theme, tutorial) hardcoded as bundled resource без `schemaVersion` + `ConfigSource` adapter pattern (нарушает rule 9 shareability-readiness).
+13. Push notification без declared severity criterion (actionable + time-sensitive + user-relevant) и без actionable destination (нарушает rule 10 notification minimization). Alternative: in-app indicator или in-app notification center.
 
 For each: surface the issue in one sentence, propose the corrected shape, then continue.
 

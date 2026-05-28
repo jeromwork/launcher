@@ -34,3 +34,6 @@ Thumbs.db
 
 # Claude Code harness — runtime locks/state, not project content
 .claude/scheduled_tasks.lock
+
+# Cloudflare Wrangler local runtime cache (regenerated on every wrangler dev/run)
+.wrangler/
