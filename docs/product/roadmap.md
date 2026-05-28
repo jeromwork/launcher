@@ -101,24 +101,29 @@ Launcher — только interface surface. **Ядро** продукта: за
 Phase 0: Vision ✅ DONE
         │
         ▼
-Phase 1: Foundation (4 specs, ~10-12 weeks parallelized)
-   F-1 Family Group Foundation        ─┐
-   F-2 Capability Registry            ─┤
+Phase 1: Foundation (4 active specs + F-5 production-blocker, ~10-14 weeks)
+   F-1 Family Group Foundation        ❌ DEPRECATED 2026-05-28
+                                      (moved to ecosystem-vision.md)
+   F-2 Capability Registry            ─┐
    F-3 Wizard Module + Localization   ─┼─── могут параллелизоваться
    F-4 AuthProvider + Google Sign-In  ─┘
+   F-5 ConfigDocument E2E Encryption  🔴 PRODUCTION BLOCKER
+                                      (must complete before release;
+                                       does NOT block S-features dev)
         │
         ▼
-Phase 2: MVP Vertical Slices (8 specs, ~16-20 weeks parallelized)
+Phase 2: MVP Vertical Slices (~16-20 weeks parallelized)
    S-1 Simple Launcher Wizard          (needs F-3, F-2)
-   S-2 Admin App + Remote Pairing      (needs F-1, F-3, F-4)
-   S-3 Contact Tiles + Calling         (needs F-1, F-2, S-1, S-2)
+   S-2 Admin App + Remote Pairing      (needs F-3, F-4)
+   S-3 Contact Tiles + Calling         (needs F-2, S-1, S-2)
    S-4 SOS Capability                  (needs F-2, S-1, S-2)
-   S-5 Contact Photos                  (needs F-1, S-3)
-   S-6 Account Deletion                (needs F-1, F-4)
-   S-7 Caregiver Invite                (needs F-1, F-4)
-   S-8 Family Group Editor             (needs F-1, S-2)
+   S-5 Contact Photos                  (needs S-3)
+   S-6 Account Deletion                (needs F-4)
+   S-7 Caregiver Invite                (needs F-4)
+   S-8 Layout Editor + History         (needs S-2; was "Family Group
+                                       Editor" — renamed since no group)
         │
-        ▼ (MVP RELEASE)
+        ▼ (PRODUCTION RELEASE — F-5 must be complete)
         │
         ▼
 Phase 3: Post-MVP v2 (5 specs)
@@ -129,9 +134,13 @@ Phase 4: Long-term (open)
    L-x: Clinic B2B · Marketplace · AI providers · etc.
 ```
 
-**Critical path для first demo**: F-1 → S-1 → S-3 (~3 months sequential).
+**Critical path для first demo**: F-3 → S-1 → S-3 (~2-3 months sequential).
+
+**Critical path для production release**: above + F-5 (E2E config encryption) + F-4 (AuthProvider). F-5 can be parallelized with S-features in development phase but MUST be merged before release.
 
 **MVP total estimate**: ~6-8 months parallelized.
+
+**Vision shift 2026-05-28**: Family Group primitive removed from launcher (was F-1). Multi-admin scenarios handled by N independent pair-edits merged via spec 008. Shared content (album, messenger) moved to separate ecosystem apps. Group primitive design preserved in [ecosystem-vision.md](future/ecosystem-vision.md) for future messenger/album specs. See research docs in `docs/research/2026-05-28-*.md`.
 
 ---
 
@@ -143,7 +152,15 @@ Phase 4: Long-term (open)
 
 ---
 
-## F-1: Family Group Foundation
+## F-1: Family Group Foundation — ❌ DEPRECATED 2026-05-28
+
+> **Status**: ARCHIVED — moved to future companion apps (messenger, family album).
+> **Reason**: Group primitive is not needed in launcher itself. Multi-admin scenarios solved via N independent pair-edits, merged on grandma's device through spec 008 bidirectional sync. Shared content (family album, group chat) belongs in separate ecosystem apps, NOT the launcher.
+> **Where it lives now**: [docs/product/future/ecosystem-vision.md](future/ecosystem-vision.md) §Family Messenger / §Family Album. Archived spec at `specs/013-family-group-foundation/spec.md` (with DEPRECATED header).
+> **Replacement**: F-5 (ConfigDocument E2E encryption) takes the Foundation slot as the new must-fix-before-production item. F-1 work redirected to expanding pair-based architecture in spec 014 (Contact Sharing UX Refinements).
+> **Decision discussion**: research artifacts in `docs/research/2026-05-28-*.md`.
+
+---
 
 ### Что строим (mentor explanation)
 
@@ -692,6 +709,113 @@ REFERENCE DOCS:
 - **Hybrid — это критично**. Admin = named Google. Managed = anonymous + paired. Если кто-то предложит «давайте Managed тоже Google» — refuse, это нарушит UX для бабушки (бабушка не помнит Google пароль).
 - **Email — REQUIRED для admin, NULL для Managed**. Domain model должна это enforce'ить (sealed types или required field в Admin User type).
 - **Subscription state — пока stub field**. Реальное billing — отдельная спека post-MVP. Но field уже добавляется в User для compatibility.
+
+---
+
+## F-5: ConfigDocument E2E Encryption — 🔴 PRODUCTION BLOCKER
+
+### Что строим (mentor explanation)
+
+Сейчас `ConfigDocument` (то, что admin отправляет бабушке: имена контактов, телефоны, layout'ы плиток, labels) лежит в Firestore **в plaintext**. Firebase / Google / любой с доступом к Firestore project видит **всё**: имена пожилых, телефоны их родственников, какие приложения они открывают, как зовут их соседку. Это **критическая privacy regression**.
+
+F-5 закрывает эту дыру: `ConfigCipher` port в domain (CLAUDE.md rule 1+2), libsodium AEAD adapter — шифрует ConfigDocument **полностью** перед записью в Firestore, расшифровывает при чтении. Остальной код не знает, что шифрование вообще существует — он работает с `ConfigDocument` как раньше.
+
+**Trade-off**: server теряет возможность field-level merge / diff. Все merge-операции переезжают на клиент. Это переписывает часть спеки 008 (optimistic concurrency остаётся, но на уровне document hash, не fields).
+
+### Зачем именно сейчас
+
+Решение 2026-05-28 (vision review): **production blocker**, нельзя выпустить app пока plaintext config летает в Firebase. **Не блокирует development** S-features в dev environment (admin'ская команда работает с plaintext'ом локально). Поэтому в Phase 1 Foundation, после F-4 (AuthProvider) — чтобы у нас был **стабильный** named admin identity, к которому привязываются encryption keys.
+
+### Источники и резолюции
+
+- User raised 2026-05-28 при обсуждении спеки 014 (Contact Sharing UX).
+- Backlog entry: [TODO-SEC-CRITICAL-024](../dev/project-backlog.md).
+- Closes: privacy gap не покрытый спекой 011 (она закрывает только media blobs, не config).
+- Extends: спека 008 (config sync) — переписывает field-level merge на client-side.
+
+### Scope: что входит
+
+- `ConfigCipher` port в `core/domain/`:
+  ```kotlin
+  interface ConfigCipher {
+      suspend fun seal(linkId: String, config: ConfigDocument): SealedConfig
+      suspend fun open(linkId: String, sealed: SealedConfig): Outcome<ConfigDocument, CryptoError>
+  }
+  ```
+- libsodium AEAD adapter (`AeadConfigCipherImpl`).
+- Pair-derived encryption key (X25519 ECDH между admin pub и Managed pub → symmetric key для config).
+- `SealedConfig` wire-format: `{schemaVersion, encrypted_payload, nonce, recipients[]}` — backward-compat с plain ConfigDocument schemaVersion 1 (legacy read path).
+- Wire-format schemaVersion bump: ConfigDocument v1 (plain) → SealedConfig v2 (encrypted). Cross-version roundtrip + backward-compat tests.
+- Multi-admin case: каждый admin pair имеет свой ключ → server хранит N зашифрованных копий config'а (по одной на pair) ИЛИ один config + wrapped key envelope (как FR-025 в архивированной спеке 013). Decision — отдельная подсекция спеки.
+- Client-side merge/diff/search: переписать `ConfigEditor.pushPending` optimistic concurrency на document-hash level, не field-by-field. `ConfigDiff` (sealed type) переезжает полностью на клиент.
+- Migration: existing pair'ов с plain config → re-encrypt. **Одноразовый server-triggered job** (как FR-019 в архивированной спеке 013).
+
+### Scope: что НЕ входит
+
+- ❌ Group-level encryption (priv_G, N>2 recipients) — в launcher не нужно, в мессенджер позже.
+- ❌ Personal vault (admin's private storage) — отдельная спека (TODO-FUTURE-SPEC-005).
+- ❌ Server-side search / index (исчезает — search на client).
+- ❌ Cross-version migration UI — server side migration однократно.
+
+### Dependencies
+
+- F-4 AuthProvider — нужен stable admin identity для key management.
+- Спека 011 — reuse `AeadCipher`, `AsymmetricCrypto` ports.
+- Спека 008 — переписывается часть `ConfigEditor` + `LocalConfigStore`.
+
+### Local Test Path
+
+- JVM unit tests на `ConfigCipher` roundtrip (encrypt → decrypt → assert equal).
+- Cross-version test: read SealedConfig schemaVersion 2 → assert correct ConfigDocument; read plain v1 fixture → assert correct ConfigDocument (legacy path).
+- Integration test через Miniflare: admin pushes encrypted config → server stores opaque bytes → Managed pulls → decrypts → renders correctly.
+- Cross-device test: D1 (admin) seals → D2 (Managed) opens, и наоборот.
+
+### Effort
+
+**Large** (~2-3 weeks).
+
+### Copy-paste prompt для `/speckit.specify`
+
+```
+Напиши спецификацию для F-5: ConfigDocument E2E Encryption.
+
+КОНТЕКСТ:
+Сейчас ConfigDocument хранится plaintext в Firestore — privacy regression
+(имена, телефоны, layout видны Firebase). F-5 закрывает дыру через
+прозрачный port/adapter pattern — ConfigCipher port в domain, libsodium
+AEAD adapter, остальной код не знает про шифрование.
+
+ЦЕЛЬ:
+ConfigDocument никогда не лежит plaintext на сервере. Server side comparisons
+переезжают на клиент.
+
+SCOPE ВКЛЮЧАЕТ:
+- ConfigCipher port + AeadConfigCipherImpl adapter.
+- SealedConfig wire-format с schemaVersion (v2 vs v1 plain legacy).
+- Pair-derived encryption key (X25519 ECDH).
+- Multi-admin case: N encrypted copies или wrapped key envelope.
+- Client-side ConfigDiff / merge / search.
+- Server-triggered migration job для existing pair configs.
+- Backward-compat read для plain v1 ConfigDocument.
+
+SCOPE НЕ ВКЛЮЧАЕТ:
+- Group-level encryption (не в launcher).
+- Personal vault.
+- Server-side search.
+
+REFERENCE DOCS:
+- CLAUDE.md rules 1, 2, 5
+- specs/008 — extends
+- specs/011 — reuses AeadCipher, AsymmetricCrypto
+- TODO-SEC-CRITICAL-024 в backlog
+```
+
+### Notes / gotchas
+
+- **Многоадминный кейс** — открытый design point. Два варианта: (a) server хранит N зашифрованных копий config'а, по одной на admin-pair; (b) wrapped key envelope (один encrypted config + N wrapped keys, как in FR-025 архивированной спеки 013). Решение принимается в clarify-phase.
+- **Server arbitration исчезает на field-level**. `ConfigEditor.pushPending` optimistic concurrency остаётся, но на уровне document hash. Это означает, что merge при conflict делается полностью на клиенте — admin'у показывается merge UI с full diff (это уже есть в спеке 008 §MergeScreen).
+- **Migration of existing data**: production не запущен → существующие test data можем просто стереть. Migration job не критичен, но желателен для smooth transition.
+- **Performance**: AEAD encryption на 10 KB config = микросекунды, не bottleneck.
 
 ---
 
