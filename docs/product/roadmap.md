@@ -179,6 +179,7 @@ Phase 4: Long-term (open)
   - Endpoint для membership operations (add / remove / promote / kick), подписанных admin'ом.
   - Verify подпись против primary_admin_id или CoAdmin.
   - **Multi-admin promotion safeguard** (added 2026-05-28 evening — pre-F-1 adjustment): promotion нового admin'а требует подписи **большинства существующих admin'ов** (N/2+1). Singleton admin (без co-admin) — может promote единолично. Timeout 30 дней если N/2+1 не достигнут → request expires → repropose.
+  - **Atomic membership ops via Firestore Transactions** (2nd pass 2026-05-28 evening): membership read + verification + write выполняются в Firestore Transaction для atomicity (защита от race condition «Bob удаляет Carol, Carol параллельно добавляет Dan»). Long-term — переезд на own server с настоящими ACID транзакциями (server-roadmap entry).
   - Update membership list, revoke tokens.
 - **Two-tier audit log architecture** (added 2026-05-28 evening — pre-F-1 adjustment):
   - **Tier 1 (public metadata)**: actor pub_id, timestamp, action_type — в plaintext в Firestore. Нужно для multi-admin merge UI.
@@ -890,11 +891,12 @@ Remote pairing — admin генерирует **signed invite link** в admin ap
   - Карточки paired Managed устройств.
   - Health snapshot: battery, online/offline, last activity, app version, permissions OK/not.
   - Tap card → device detail view (later expanded в S-8).
-- Remote pairing flow:
+- Remote pairing flow с **two-factor accept** (2nd pass 2026-05-28 evening):
   - Signed invite link generation (подпись `priv_admin` + group_id + role + ttl + nonce).
   - Share intent integration (Android `ACTION_SEND` с pre-filled text + link).
-  - Server endpoint в Cloudflare Worker (extends F-1 arbitration): verify signature, add Managed to group.
-  - Managed side: open link → preview → accept → server confirms → pair established.
+  - Managed side: open link → preview → claim → **server отправляет push admin'у** «X принял invite, подтвердить?».
+  - **Admin confirmation step**: admin видит claim запрос в-app → confirm/reject → only then server adds Managed to group.
+  - Защищает от leaked / forwarded invite links — любой может claim, но не присоединится без admin's explicit confirmation.
 - Admin's first Family Group auto-created при first launch.
 
 ### Scope: что НЕ входит
@@ -1179,9 +1181,9 @@ SOS — **критическая safety net**. Бабушка нажимает �
   - Cancel button visible до timer expiry.
   - На expiry → parallel SMS + sequential calls.
 - Default actions implementation:
-  - SMS with GPS coordinates (если permission granted), fallback без coordinates.
-  - Sequential calls по списку recipients до первого ответа.
-  - System emergency number (112 / 911) fallback если no recipients answered.
+  - **PRIMARY mechanism (2nd pass 2026-05-28 evening, user clarification)**: **System emergency call to 112 / 911 + SMS с GPS coordinates** (если permission granted). Это **главный** safety net — работает даже когда: admin device offline, push не доехал, notification permission denied. Используем system phone API напрямую, не через любые мессенджеры.
+  - **Secondary mechanism**: parallel **push admin'ам** через FCM (для awareness, не safety net). Если admin не получил — primary still works.
+  - **Tertiary fallback**: sequential calls по списку Family Group recipients (через system phone) до первого ответа.
 - Settings reminder banner если SOS not configured.
 - **App update SOS-deferral** (2026-05-28 evening — pre-S-4 adjustment):
   - WorkManager-based deferral для Play Store auto-update в течение **30 минут после SOS triggered**.
@@ -1328,6 +1330,21 @@ Photo на тайле — **emotional infrastructure** (vision §Real-Time Care 
   - Contact deleted → blob orphaned.
   - 7-day grace period → batch cleanup.
 - Settings: clear cached photos option (privacy).
+- **Content recall before consumption** (2nd pass 2026-05-28 evening):
+  - Producer (admin) может **отозвать** uploaded blob, пока recipients не скачали.
+  - UI: long-press on uploaded content → «отозвать / удалить / re-categorize».
+  - Server side: если recipient ещё не download'нул envelope wrapper → удаляем wrapper → recipient никогда не decrypt.
+  - Если recipient уже download'нул → too late, content на их device.
+  - **Mitigation для producer mistake** (например, family photo accidentally categorized как care content → caregiver получит wrapper, но если admin recall'ит до открытия — caregiver не увидит).
+- **Storage health monitoring for Managed device** (2nd pass 2026-05-28 evening):
+  - Managed reports current cache size + free storage в health snapshot (см. S-8).
+  - Admin видит в Managed health: «Cache: 1.2 GB / Free: 800 MB low».
+  - Admin может **clear cache** via remote action:
+    - «Clear all photos» (nuclear option).
+    - «Clear photos older than 1 month» (default suggestion).
+    - «Clear least-recently-viewed 50%» (smart cleanup).
+  - **Auto-cleanup option** в Settings: «automatically clean cache when free storage < 1 GB».
+  - Cache survives basic «privacy» clear (user-triggered) и admin-triggered cleanup (settings-driven).
 
 ### Scope: что НЕ входит
 
@@ -1783,6 +1800,12 @@ Admin'у нужно **управлять конфигурацией**, не то
   - Battery history graph (optional, может быть post-MVP).
   - Permission status per critical permission.
   - Last sync time, last activity.
+  - **Cache size + free storage** (2nd pass 2026-05-28 evening) — admin видит texno состояние Managed device.
+  - **Remote cache cleanup actions** (см. S-5 §Storage health monitoring):
+    - «Clear all cached photos» button.
+    - «Clear photos older than 1 month».
+    - «Clear least-recently-viewed 50%».
+    - Auto-cleanup settings toggle.
 
 ### Scope: что НЕ входит
 
@@ -1979,6 +2002,7 @@ Wearable detection (BLE pairing с smart watches). Basic health data integration
 - **checklist-ai-readiness** — AI affordance check (D-20). Создаётся в составе F-2.
 - **checklist-shareability** — rule 9 enforcement (опционально). Может быть pre-F-3 standalone.
 - **checklist-notification-minimization** — rule 10 enforcement. Можно как stand-alone до F-1.
+- **checklist-dev-experience** (NEW 2026-05-28 evening, user proposal) — проверка, что при написании spec'и учтены: local dev tools, reproducibility средства (staging-style env, fixtures, mock backends), debugging access. Активируется через `procedure-assess-spec-complexity` для любой спеки с backend interaction или multi-device flow. **Сэкономит часы при production debugging.**
 
 ## Spec-kit updates
 

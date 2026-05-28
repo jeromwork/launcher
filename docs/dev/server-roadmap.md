@@ -208,3 +208,58 @@
 | 2026-05-15 | Создан файл; зафиксированы SRV-CONFIG-001..004, SRV-MONITOR-001..002, SRV-CONTACTS-001..002, SRV-SEC-001..004, SRV-CMD-001, SRV-INFRA-001..002 | Spec 009 pre-specify discovery, mentor-сессия |
 | 2026-05-22 | Добавлен SRV-CRYPTO-001 (универсальный маршрут переезда крипто-инфраструктуры на свой backend) — независимо от Firebase Storage лимитов | Spec 011 mentor-сессия |
 | 2026-05-25 | SRV-CRYPTO-001 rev. 2 — переключение storage с Firebase Storage (требует Blaze) на Backblaze B2 + Cloudflare Worker proxy. Free tier 10 GB, без credit card. Exit ramp сохранён через S3-compatible API. | Spec 011 mentor-сессия по billing |
+| 2026-05-28 | Добавлены SRV-CMD-002 (Firestore Transactions inadequacy для membership ops), SRV-SEC-005 (Firestore Rules complexity → server-side auth logic), SRV-INFRA-003 (Cloudflare Worker CPU time limit), SRV-DEV-001 (staging environment), SRV-CRYPTO-002 (manual key rotation FUTURE-SPEC-010) | Pre-F-1 mentor critique walkthrough |
+
+---
+
+## SRV-CMD-002: Atomic membership operations через настоящие ACID transactions
+
+**Контекст**: F-1 server arbitration делает membership ops (add / remove / promote / kick) через Cloudflare Worker + Firestore. Firestore Transactions работают, но cross-document атомарность ограничена. При сложных multi-document membership ops — **race conditions** возможны.
+
+**MVP workaround**: Firestore Transactions для single-document ops + optimistic locking через `lastModified` field. Acceptable для семейного scale.
+
+**Own-server destination**: настоящие ACID transactions across multiple tables / documents (Postgres / SQLite).
+
+**Inline TODO в F-1**: `// TODO(SRV-CMD-002): migrate membership ops to own server with proper cross-document ACID transactions when scale exposes race conditions`.
+
+## SRV-SEC-005: Firestore Security Rules complexity → server-side authorization
+
+**Контекст**: Family Group + envelope encryption + role-based access делают Firestore Rules **очень сложными** (потенциально тысячи строк). Bug в rules = privacy breach.
+
+**MVP workaround**: comprehensive Rules unit tests через Firebase Rules Test SDK + code review on Rules changes.
+
+**Own-server destination**: authorization logic в обычном коде (typed, debuggable, fully testable).
+
+**Trigger**: первый Rules-related privacy bug → ускоряем переход.
+
+## SRV-INFRA-003: Cloudflare Worker CPU time limit
+
+**Контекст**: Cloudflare Workers free tier = 10ms CPU per request, paid = 50ms. F-1 membership ops (signature verify + Firestore txn + FCM update) могут приблизиться к limit.
+
+**MVP workaround**: profile в F-1, optimize hot path, split async через durable objects если нужно.
+
+**Own-server destination**: unlimited CPU per request, proper distributed system primitives.
+
+## SRV-DEV-001: Staging environment
+
+**Контекст**: production debugging без staging environment — нельзя безопасно воспроизвести user-reported bugs.
+
+**MVP workaround**: setup до S-6 release. Существующий TODO-OPS-004 в backlog → должен быть закрыт до production.
+
+**Связанная задача (вне server-roadmap)**: предложить `checklist-dev-experience` skill для spec-kit — при написании каждой spec'и проверять, что local dev tools + reproducibility учтены (см. proposal в roadmap Cross-cutting section).
+
+## SRV-CRYPTO-002: Manual key rotation flow (FUTURE-SPEC-010)
+
+**Контекст**: если admin's `priv` leaked — нужна возможность rotate keys без потери всех данных. В MVP — нет infrastructure.
+
+**MVP workaround**: account deletion (S-6) — start fresh, accept data loss как security reset. Document в Privacy Policy.
+
+**Own-server destination**: atomic key rotation flow:
+- Generate new keypair locally на admin device.
+- Server-side re-wrap K (envelope wrappers) для new pub (требует server-side decrypt access? **NO** — лучше re-encrypt на client после download, через ACID-coordinated transaction).
+- Atomic switch identity reference.
+- Old priv invalidated, old wrappers garbage-collected.
+
+**Research finding (pre-F-1 mentor walkthrough)**: Signal Double Ratchet — overkill для at-rest encryption (designed for real-time message streams). Matrix Megolm periodic rotation — closer pattern, но still overhead. **Recommendation: on-demand manual rotation, не automatic**. Implementation as separate spec FUTURE-SPEC-010, post-MVP.
+
+**Sources**: [Signal Double Ratchet spec](https://signal.org/docs/specifications/doubleratchet/), [Matrix Cryptographic Analysis](https://arxiv.org/pdf/2408.12743v1).

@@ -6,9 +6,9 @@
 
 ---
 
-## 🟢 Resolution log (2026-05-28 evening)
+## 🟢 Resolution log (2026-05-28 evening — 2 passes)
 
-После mentor walkthrough — applied следующие adjustments к roadmap:
+После mentor walkthrough — applied следующие adjustments к roadmap (Pass 1 + Pass 2 = honest 2nd-pass critique addressing 26 dev-specific gaps):
 
 | Topic | Decision | Where |
 |---|---|---|
@@ -28,7 +28,25 @@
 | Court-ordered communication market | **Not our positioning** (OurFamilyWizard territory). | Privacy Policy disclaimer |
 | Acceptable residual risks | WhatsApp Communities competition, ROLE_HOME deprecation, first-data-breach, single-point-failure (Cloudflare+Firebase). | Acceptable per vision, monitor only |
 
-**Net effect**: vision и roadmap **дополнены**, не пересмотрены. Phase 1 — F-1 — может стартовать.
+### Pass 2 adjustments (26-item dev critique 2026-05-28 evening, second mentor walkthrough)
+
+| Topic | Decision | Where |
+|---|---|---|
+| Server arbitration NOT atomic (race conditions) | Firestore Transactions для membership ops в MVP + own server via SRV-CMD-002 long-term | F-1 roadmap, server-roadmap SRV-CMD-002 |
+| POST_NOTIFICATIONS deny → SOS silent fail | **SOS primary mechanism reframed**: 112/911 + GPS via system phone API (works even when push fails). Admin push — secondary awareness, not safety net. | S-4 roadmap section reframed |
+| Invite link forwarded / leaked | **Two-factor accept**: claim → push admin → explicit confirmation → membership granted | S-2 + S-7 roadmap |
+| Producer mistake content categorization | **Content recall before consumption**: producer может отозвать blob если recipients не download'нули. Inherent limit если уже downloaded — accept. | S-5 roadmap |
+| Library SPOF (libsodium KMP) | EnvelopeAdapter port (rule 2 ACL) — fallback to BouncyCastle если libsodium breaks | F-1 roadmap |
+| Compose Multiplatform iOS stability | Accept risk — rewrite to SwiftUI в V-1 если CMP не production-ready | V-1 notes (accepted as risk) |
+| Firestore Security Rules complexity | Comprehensive Rules unit tests + own server via SRV-SEC-005 long-term | F-1 testing + server-roadmap SRV-SEC-005 |
+| Cloudflare Worker CPU time limit | Profile в F-1 + split async if needed + own server via SRV-INFRA-003 | F-1 + server-roadmap SRV-INFRA-003 |
+| R8 minification (ARCH-006 PLAY-STORE-BLOCKER) | Mandatory before MVP release | Existing backlog, escalated |
+| No staging environment | Setup до S-6 release (OPS-004) + propose `checklist-dev-experience` skill | server-roadmap SRV-DEV-001 + new skill in cross-cutting |
+| Storage health monitoring on Managed | Cache size в health snapshot + admin-driven cache cleanup actions (clear all / older than month / 50% LRU / auto-clean) | S-5 + S-8 roadmap |
+| Key rotation research | **Research done**: Signal Double Ratchet overkill для at-rest. Matrix Megolm closer. **Recommendation**: NO automatic rotation в MVP, on-demand manual в FUTURE-SPEC-010 post-MVP. Account deletion (S-6) — de facto rotation для MVP. | server-roadmap SRV-CRYPTO-002, roadmap §Phase 4 |
+| Caregiver TTL expired UX | Deferred (simple future solution, не blocker) | Future work |
+
+**Net effect after 2 passes**: roadmap honest и comprehensive. F-1 ready to start. Key rotation deferred с documented reasoning.
 
 ---
 
