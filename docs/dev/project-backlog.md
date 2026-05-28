@@ -21,6 +21,21 @@
 
 ## Security & Operations
 
+### TODO-SEC-CRITICAL-024: ConfigDocument E2E encryption 🔴 PRODUCTION BLOCKER
+
+- **What**: Сейчас `ConfigDocument` хранится в Firestore в **plaintext**. Firebase / Google / любой с доступом к Firestore project видит: имена контактов, телефоны (E.164), labels слотов («Внук Петя», «Скорая помощь»), package names приложений, структуру layout. Зашифрованы (через спеки 011/012) **только** photo и document blob'ы — но **сам конфиг — нет**.
+- **Why**: Это **критическая privacy regression**. Решено 2026-05-28: F-5 в Phase 1 Foundation roadmap'а, **production blocker** (не можем выпустить в работу пока не закрыто), но **не блокирует development** S-features (можем разрабатывать с plaintext config'ом в dev environment).
+- **How** (требования к будущей спеке F-5):
+  1. **Транспарентность через ACL** — `ConfigCipher` port в `core/domain/` с verbs `seal(ConfigDocument): SealedConfig` и `open(SealedConfig): ConfigDocument`. Реализация (libsodium AEAD под капотом) скрыта в adapter. **Никакого другого кода в проекте не должно знать**, что конфиг шифруется/расшифровывается. CLAUDE.md rule 1 + 2.
+  2. **Server side comparisons исчезают** — сервер видит opaque bytes, не может diff'ить, не может field-level merge'ить. Все merge / conflict resolution / diff операции переезжают **на клиент**. Это переписывает часть спеки 008 (`ConfigEditor.pushPending` optimistic concurrency остаётся, но на уровне document hash, не field-by-field).
+  3. **Wire-format migration**: ConfigDocument schemaVersion bump → 2 (или новый wire-format SealedConfigDocument). Backward-compat read v1 (plaintext) → v2 (sealed) во время transition.
+  4. **Key management**: ключ для шифрования config'а — пара-зависимый (admin ↔ Managed пара имеет общий symmetric ключ, выведенный из X25519 ECDH). Multi-admin случай: каждый admin'ский pair имеет свой ключ → каждый admin шифрует config своим pair-ключом → server хранит N зашифрованных копий или **wrapped key envelope** (как FR-025 в архивированной спеке 013).
+  5. **Search invariant**: search по контактам в admin Editor (FR в спеке 009) переезжает **полностью на клиент** — admin'ский телефон расшифровывает config, ищет локально, повторно отправляет на сервер уже отфильтрованную операцию. Server search **исчезает**.
+  6. **Backup / export**: bulk export ConfigDocument для пользователя становится возможным **только** для аутентифицированного admin'а — он расшифровывает локально + экспортирует.
+- **When**: после F-4 (AuthProvider) и до production release. Не блокирует S-features в development.
+- **Status**: 🔴 OPEN — production blocker
+- **Origin**: User raised 2026-05-28 — обнаружено при обсуждении spec 014 (Contact Sharing UX). Зафиксировано как F-5 в roadmap.md.
+
 ### TODO-OPS-001: Включить 2FA на Cloudflare account 🔴
 
 - **What**: Two-Factor Authentication для `gpt1.jeromwork@gmail.com` на Cloudflare.
@@ -77,6 +92,67 @@
 - **Origin**: Spec 007 §Assumptions.
 
 ---
+
+## Future Products (ecosystem)
+
+### TODO-FUTURE-PRODUCT-001: Family Messenger 🟢
+
+- **What**: Отдельное Android-приложение для family communication (group chat, direct messages, voice messages, location sharing).
+- **Why**: Vision (см. [docs/product/future/ecosystem-vision.md](../product/future/ecosystem-vision.md)). Конкурентное преимущество launcher'а — пресеты, **не** messenger; разделение продуктов сохраняет focus.
+- **How** (когда настанет время):
+  1. Скопировать verbatim из `specs/013-family-group-foundation/spec.md` (archived) разделы: Group/Membership domain model, Envelope encryption (N>1 recipients), Server arbitration via Cloudflare Worker, Audit log Tier 1/Tier 2, Edge cases.
+  2. Reuse из launcher'а: Pair primitive (spec 007), EncryptedMediaStorage (spec 011), AeadCipher / AsymmetricCrypto (spec 011).
+  3. Новое: GroupRepository, MembershipRepository, envelope с N>1 recipients, signed membership operations.
+- **When**: post-MVP, после market validation launcher'а.
+- **Status**: 🟢 VISION — не в текущем roadmap'е.
+- **Origin**: User vision 2026-05-28, ecosystem-vision.md §Family Messenger.
+
+### TODO-FUTURE-PRODUCT-002: Family Album / Content Viewer 🟢
+
+- **What**: Отдельное Android-приложение для shared family media (photos, videos, care notes) с role-based access (medical worker sees CareContent но не FamilyContent).
+- **Why**: Vision. Альтернатива — интеграция с Google Photos SDK; **build-vs-integrate** decision отложен до validation.
+- **How** (когда настанет время):
+  1. Group primitive из ecosystem-vision.md (повторно используется messenger'ом).
+  2. Decision: build from scratch (reuse envelope encryption) vs integrate Google Photos (faster, less control).
+- **When**: post-MVP.
+- **Status**: 🟢 VISION.
+- **Origin**: User vision 2026-05-28, ecosystem-vision.md §Family Album.
+
+### TODO-FUTURE-PRODUCT-003: Family Flow / activity dashboard 🟢
+
+- **What**: Отдельное Android-приложение — family activity timeline, upcoming events (birthdays, doctor appointments), health summaries из managed devices.
+- **Why**: Vision. Тип контента, который не вписывается ни в launcher (это не tile), ни в messenger (это не conversation).
+- **How**: TBD.
+- **When**: post-MVP.
+- **Status**: 🟢 VISION.
+- **Origin**: User vision 2026-05-28.
+
+### TODO-FUTURE-RESEARCH-004: Cross-app ecosystem identity / group sync 🟢
+
+- **What**: Когда пользователь устанавливает пресет, который **bundles** launcher + messenger + album, должен ли он регистрироваться / Google Sign-In / создавать family group **один раз** или **в каждом app отдельно**?
+- **Why**: UX friction при separate registration vs architectural complexity при shared identity. Privacy trade-off (больше cross-app integration = больше attack surface).
+- **How** (research questions to answer when ≥2 ecosystem apps exist):
+  1. Single identity vs per-app identity.
+  2. Centralized "group manager" service vs first-installed-app-becomes-manager.
+  3. IPC story между launcher и messenger (Bound services? Content provider? Share intents?).
+  4. Version compatibility (launcher v2 + messenger v1).
+- **When**: когда launcher MVP стабилен И есть signal на adjacent product (messenger или album).
+- **Status**: 🟢 OPEN RESEARCH.
+- **Origin**: User raised 2026-05-28, ecosystem-vision.md §Cross-app group sync.
+
+### TODO-FUTURE-SPEC-005: Personal vault для admin'ского долгосрочного storage 🟢
+
+- **What**: Личный архив admin'а на сервере (документы, workflow config), зашифрованный pre-derived ключом из strong password admin'а. PBKDF2 / Argon2id key derivation. Восстановление при смене устройства через ввод пароля.
+- **Why**: Admin теряет / меняет телефон → его personal workflow / documents восстанавливаются. **Это другой примитив**, не group и не pair. Решение 2026-05-28: in MVP.
+- **How** (когда настанет время для спеки):
+  1. `PersonalVault` domain port.
+  2. PBKDF2 key derivation с salt (per-admin).
+  3. Strong password validation (минимум 12 символов, complexity rules).
+  4. Server-side rate-limiting на попытки login (защита от brute-force).
+  5. Fail-closed на forgot password (никакого recovery — данные потеряны).
+- **When**: после F-1 (Multi-pair admin management) и F-5 (ConfigDocument encryption), до production release. Может быть параллельно с F-4 (AuthProvider).
+- **Status**: 🟢 OPEN — MVP-critical per user 2026-05-28.
+- **Origin**: User vision 2026-05-28.
 
 ## Architecture Exit Ramps
 
