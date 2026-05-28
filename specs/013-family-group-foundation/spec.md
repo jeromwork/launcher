@@ -1,8 +1,26 @@
-# Feature Specification: Family Group Foundation
+# Feature Specification: Family Group Foundation — ❌ DEPRECATED 2026-05-28
+
+> **STATUS: DEPRECATED — DO NOT IMPLEMENT**
+>
+> This spec was archived 2026-05-28 after product vision review.
+>
+> **Reason**: Family Group as a primitive is **not needed in the launcher**. Multi-admin scenarios (3 admins managing 1 grandma) are solved by N independent pair-edits merged on grandma's device through spec 008 bidirectional sync. Shared content use cases (family album, group chat) belong in **separate ecosystem apps** (Family Messenger, Family Album), not the launcher.
+>
+> **Where the design lives now**:
+> - [docs/product/future/ecosystem-vision.md](../../docs/product/future/ecosystem-vision.md) — Family Group primitive will be implemented in future Family Messenger spec; all design from sections below (domain model, envelope encryption, server arbitration, audit log Tier 1/2) preserved for copy-paste into that future spec.
+> - [docs/research/2026-05-28-contact-sharing-ux-patterns.md](../../docs/research/2026-05-28-contact-sharing-ux-patterns.md) — UX research that informed the decision.
+> - [docs/research/2026-05-28-shared-editor-deep-dive.md](../../docs/research/2026-05-28-shared-editor-deep-dive.md) — Pattern research.
+> - [docs/dev/project-backlog.md](../../docs/dev/project-backlog.md) — TODO-FUTURE-PRODUCT-001 (Family Messenger), TODO-FUTURE-PRODUCT-002 (Family Album).
+>
+> **Replacement work**:
+> - **spec 014 (Contact Sharing UX Refinements)** picks up the part of this spec that's actually needed in MVP — share-target intent, dedup dialog, snackbar undo, background photo prefetch.
+> - **F-5 (ConfigDocument E2E Encryption)** in `docs/product/roadmap.md` is the new Phase 1 Foundation production-blocker that replaces F-1 in the roadmap.
+>
+> ---
 
 **Feature Branch**: `013-family-group-foundation`
 **Created**: 2026-05-28
-**Status**: Draft
+**Status**: ARCHIVED 2026-05-28
 **Input**: User description: "F-1: Family Group Foundation — primary architectural primitive (N admins + M Managed + caregivers + roles), envelope encryption for shared content, server arbitration for membership operations. Extends spec 011 per-pairing crypto; pair from spec 007 remains as 1-to-1 channel."
 
 ---
