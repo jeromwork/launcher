@@ -126,3 +126,54 @@
 - [Assumption about scope boundaries, e.g., "Mobile support is out of scope for v1"]
 - [Assumption about data/environment, e.g., "Existing authentication system will be reused"]
 - [Dependency on existing system/service, e.g., "Requires access to the existing user profile API"]
+
+## Local Test Path *(mandatory)*
+
+<!--
+  How can a developer verify this feature locally — without depending on real users,
+  external services that cost money, or physical hardware we don't own?
+  Be concrete: which emulator preset, which fake adapter, which fixture, which command.
+  If a critical path can ONLY be tested on a real device, say so explicitly and add an
+  inline-TODO(physical-device) where the gap is — do NOT pretend it can be tested when it can't.
+  Reference: memory `reference_testing_environment.md`.
+-->
+
+- **Emulator / device**: [e.g., `pixel_5_api_34` via skill `android-emulator`, or "logic only — JVM unit tests"]
+- **Fake adapters used**: [list every port whose real adapter is replaced for this test — e.g., `FakeAuthProvider`, `FakeContactsRepository`]
+- **Fixtures / seed data**: [where the test data lives — e.g., `core/src/test/resources/fixtures/family-group-v1.json`]
+- **Verification command**: [exact command(s) — e.g., `./gradlew :core:test --tests *FamilyGroupTest`, or `./gradlew :app:connectedDebugAndroidTest`]
+- **Cannot-test-locally gaps**: [each gap explicit, e.g., "OEM-specific background-restrict behavior on Xiaomi MIUI → inline TODO(physical-device)"; or `none`]
+
+## AI Affordance *(mandatory)*
+
+<!--
+  Even if no AI provider ships in this spec, declare how an AI agent could later operate on this feature.
+  Goal: Capability Registry readiness without committing to a provider today.
+  If the feature has zero AI surface (e.g., crypto primitives, build infrastructure), explicitly state
+  "no AI affordance — internal capability only" and explain why.
+-->
+
+- **Exposable capabilities**: [verbs an AI could invoke later — e.g., `createFamilyGroup(name, locale)`, `inviteMember(groupId, contactRef)`. Domain verbs, NOT SDK calls.]
+- **Required affordances on data**: [what an AI would need to inspect or change — e.g., "read-only access to `FamilyGroup.members` for suggestion flows; no PII leaves device"]
+- **Provider-agnostic shape**: [confirm: capability is expressed as domain port, no Gemini/OpenAI/Claude types in signatures. Reference CLAUDE.md rule 1.]
+- **Out of scope for this spec**: [explicit: "no provider implementation, no LLM prompt design, no telemetry — that ships in FUTURE-SPEC-AI-***"]
+- **Or**: `no AI affordance — [reason]`
+
+## OEM Matrix *(mandatory if feature touches device behavior)*
+
+<!--
+  Anything that runs on real Android devices may behave differently across OEMs.
+  Required when the feature touches: background work, permissions, launcher role, notifications,
+  battery optimization, autostart, doze, app standby, foreground service, content provider exposure,
+  storage scoping, telephony, SMS, contacts, accessibility services.
+  Skip ONLY if the feature is purely server-side / build-time / pure-Kotlin domain logic — state so explicitly.
+-->
+
+| OEM / surface | Known divergence | Mitigation in this spec | Verification source |
+|---------------|------------------|-------------------------|---------------------|
+| Stock Android (Pixel) | baseline | — | emulator `pixel_5_api_34` |
+| Samsung One UI | [e.g., aggressive background kill of non-system launchers] | [e.g., guide user through "Battery → Allow background activity"] | [device matrix entry / TODO(physical-device)] |
+| Xiaomi MIUI | [e.g., autostart manager blocks foreground service] | [e.g., post-onboarding deep-link to autostart settings] | [TODO(physical-device)] |
+| Huawei EMUI | [e.g., protected apps list] | [e.g., user instruction page] | [TODO(physical-device)] |
+
+If OEM matrix does not apply: state `not applicable — [reason]` and remove the table.

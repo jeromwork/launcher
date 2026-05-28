@@ -38,6 +38,10 @@ Read the spec. Match its content against this table. **Recommend a checklist if 
 | `checklist-core-quality` | mentions release, store, Play, distribution, signing, baseline-profile, R8 |
 | `checklist-modular-delivery` | **any new feature, module, preset, or profile** — also fires on form-factor mentions (Android TV, TV, leanback, smart speaker, voice assistant, Assistant SDK, Android Auto, automotive, Wear, watch, foldable, tablet) and on form-factor-specific SDKs (Leanback, TIF, Tizen, CarAppService, Wear Compose). Err toward firing: this is the gate that catches one-way doors and core-bloat before they ship. |
 | `checklist-backend-substitution` | **any backend touch** — mentions of backend, server, Firebase, Firestore, Realtime DB, Cloud Storage, Cloud Functions, Cloudflare, Worker, Spark plan, sync, remote config, remote command, auth, login, sign-in, user identity, UID, session, token, persisted user data, shared storage, security rules, transactions, document, collection. Also fires on any phrasing that implies a third-party backend choice. Purpose: keep the eventual swap to own-server visible in design discussions; produces a cost-of-swap paragraph, does not block. |
+| `checklist-preset-readiness` | mentions of preset, template, layout, tile arrangement, theme variant, tutorial sequence, wizard manifest, action mapping, bundled config, `ConfigSource`, default profile — any user-facing configuration that is NOT identity-bound. Per CLAUDE.md rule 9 (shareability-readiness) and refuse pattern #12. |
+| `checklist-ai-readiness` | mentions of AI, LLM, MCP, agent, assistant, automation, suggest, recommend, Gemini, OpenAI, Claude, Capability Registry, Exposure Adapter. Also fires when a spec adds a user-facing capability an AI agent could plausibly invoke later, even if no AI ships in this spec. Enforces provider-agnostic capability shape. |
+| `checklist-notification-minimization` | mentions of push, notification, FCM, system tray, banner, badge, alert, ping, reminder, in-app indicator, notification center. Per CLAUDE.md rule 10 and refuse pattern #13. |
+| `checklist-dev-experience` | **always** — local-test-path and dev-loop quality is universal |
 
 ---
 
@@ -45,6 +49,7 @@ Read the spec. Match its content against this table. **Recommend a checklist if 
 
 - `checklist-requirements-quality` — runs on every spec, no exceptions.
 - `checklist-meta-minimization` — runs on every spec, no exceptions (Article XI is project-wide).
+- `checklist-dev-experience` — runs on every spec; local test path is mandatory (spec-template).
 
 ---
 
@@ -57,6 +62,7 @@ ASSESSMENT for spec <path>:
   always-on:
     - checklist-requirements-quality
     - checklist-meta-minimization
+    - checklist-dev-experience
   triggered:
     - <name> — reason: "<signal that fired>"
     - ...
