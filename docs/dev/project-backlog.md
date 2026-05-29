@@ -116,6 +116,33 @@
 - **Status**: 🟡 OPEN — primary research input для F-2 spec phase.
 - **Origin**: User vision 2026-05-29 при обсуждении F-014 clarify Q2. Записано подробно в [docs/product/future/ecosystem-vision.md §Compositable Presets](../product/future/ecosystem-vision.md#compositable-presets--long-term-architectural-vision).
 
+### TODO-UX-025: Tutorial / onboarding overlay для new admin'ов 🟡
+
+- **What**: Onboarding overlay (highlight + tip cards) для **первого запуска** admin'ского Workspace — учит long-press входу в edit mode, tap на empty «+» tile, и как работает paired-device editing.
+- **Why**: F-014 long-press entry — discovery problem (см. spec accessibility.md CHK014). Без onboarding admin'у в первый раз будет непонятно как настраивать. Текущий compromise — empty-state «+» tile (FR-020a) даёт direct entry для нулевого state, но дальше admin застрянет.
+- **How** (when implementing):
+  1. Tip card sequence — 3-4 шага maximum (overload counter-productive).
+  2. Skip / dismiss всегда доступен (Article XV — user dignity).
+  3. Trigger: только на самой первой загрузке (track flag в DataStore).
+  4. Russian + EN copy.
+- **When**: Post F-014.0 ship, перед public release. Полезно для бета-тестеров.
+- **Status**: 🟡 OPEN — referenced from F-014 §"Что НЕ строит этот спек".
+- **Origin**: F-014 deferral 2026-05-29.
+
+### TODO-UX-026: Recently deleted / Trash bin 30-day retention 🟡
+
+- **What**: «Корзина» для удалённых tiles — undo доступен в течение 30 дней после deletion. Сейчас (F-014.0) только 8-секундный snackbar undo.
+- **Why**: Admin может accidentally удалить tile и не успеть undo. 30-day retention даёт safety net. Mainstream pattern (Gmail / iOS Photos).
+- **How** (when implementing):
+  1. Wire-format change: добавить `/config/deletedTiles/` collection (separate from current `/config/current`).
+  2. Schema: `{ tileId, originalFlow, deletedAt, expiresAt }`.
+  3. UI entry: Settings → «Корзина» (показывается только если non-empty).
+  4. Auto-cleanup на read (client-side, no cron нужен).
+  5. Restore action → re-add в original Flow (если ещё существует) или новый Flow.
+- **When**: Post F-014.0 ship. **Не блокер MVP**.
+- **Status**: 🟡 OPEN — referenced from F-014 §"Что НЕ строит этот спек".
+- **Origin**: F-014 deferral 2026-05-29.
+
 ### TODO-UX-027: Widget tile-type real rendering 🟡
 
 - **What**: Реализация **functional rendering Android widgets** как plate type на admin home screen. Закрывает placeholder вкладку «Виджеты» в admin picker'е (F-014 FR-018).

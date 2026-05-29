@@ -263,3 +263,24 @@
 **Research finding (pre-F-1 mentor walkthrough)**: Signal Double Ratchet — overkill для at-rest encryption (designed for real-time message streams). Matrix Megolm periodic rotation — closer pattern, но still overhead. **Recommendation: on-demand manual rotation, не automatic**. Implementation as separate spec FUTURE-SPEC-010, post-MVP.
 
 **Sources**: [Signal Double Ratchet spec](https://signal.org/docs/specifications/doubleratchet/), [Matrix Cryptographic Analysis](https://arxiv.org/pdf/2408.12743v1).
+
+## SRV-CFG-006: Named configs persistence (F-014.1 backup + F-014.2 encryption)
+
+**Контекст**: F-014.0 (текущий phase) хранит admin'ские named configs **локально** в DataStore Preferences. F-014.1 планируется как backup на Firestore в `/admin-self-configs/{adminUid}/configs/{configName}/current`. Это сохраняет vendor lock-in (Firebase) и платит за cross-device sync free-tier Spark limits.
+
+**MVP workaround**: F-014.0 local-only работает без Firebase. F-014.1 server backup depends on F-4 (Google Sign-In + AuthProvider) и вводит Firestore `/admin-self-configs/{adminUid}/configs/{configName}` collection с Security Rules: write only by `ownerUid`. Atomic single-default invariant (FR-003a) через Firestore transaction. Auto-delete орфан-configов (FR-003b) **не реализуется в F-014.1** — только UI marker; real auto-delete deferred (TODO-FUTURE-SPEC-008).
+
+**Own-server destination**:
+- `NamedConfigsLocalStore` port остаётся неизменным; добавляется parallel `RemoteNamedConfigsStore` port, реализация сменяется Firestore→REST.
+- Cost-of-swap: ≤1 module (новый adapter), ConfigEditor port (спека 008) untouched.
+- Real auto-delete орфан-configов через server-side cron (TODO-FUTURE-SPEC-008).
+
+**Inline TODO в F-014**:
+```kotlin
+// TODO(server-roadmap): F-014.1 add RemoteNamedConfigsStore adapter;
+// merge local + remote at use site via MergedNamedConfigsRepository.
+```
+
+**Trigger**: F-4 ships (Google Sign-In) → unblocks F-014.1 server backup phase. F-5 (E2E encryption) работает с этими documents автоматически без изменений в wire format.
+
+**Source**: [spec 014 plan.md §11.4](../../specs/014-tile-editing-admin-senior-profiles/plan.md), [research.md §2](../../specs/014-tile-editing-admin-senior-profiles/research.md), [data-model.md §10](../../specs/014-tile-editing-admin-senior-profiles/data-model.md).

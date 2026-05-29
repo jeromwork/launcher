@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Spec 014 Russian plurals — per localization.md CHK002.
+
+  ICU pluralisation: Russian distinguishes one / few / many / other forms.
+  English default forms in values/; Russian-specific forms in values-ru/.
+-->
+<resources>
+
+    <!-- Orphan config countdown (FR-003b) — "expires in N days" / "истёк через N дней" -->
+    <plurals name="f014_orphan_countdown_days">
+        <item quantity="one">Expires in %d day</item>
+        <item quantity="other">Expires in %d days</item>
+    </plurals>
+
+    <!-- Orphan config message — "not used for N days" / "не используется N дней" -->
+    <plurals name="f014_orphan_unused_days">
+        <item quantity="one">not used for %d day</item>
+        <item quantity="other">not used for %d days</item>
+    </plurals>
+
+</resources>

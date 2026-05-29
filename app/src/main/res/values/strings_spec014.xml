@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Spec 014 tile-editing strings (FR-010, FR-014, FR-018, FR-008b, FR-020).
+
+  Per spec 014 localization.md + Article IV ADR-004 — all user-facing strings
+  externalized. No hardcoded copy in Compose / Activity bodies.
+
+  English default; Russian forms in values-ru/strings_spec014.xml.
+-->
+<resources>
+
+    <!-- Edit-mode banner (FR-010, FR-014, FR-015) -->
+    <string name="f014_remote_edit_banner_format">Editing %s\'s phone</string>
+    <string name="f014_remote_edit_banner_fallback">Editing paired device</string>
+    <string name="f014_banner_back">← Back</string>
+    <string name="f014_banner_done">Done</string>
+
+    <!-- Tile remove snackbar (FR-010) -->
+    <string name="f014_remove_snackbar_format">Removed: %s</string>
+    <string name="f014_remove_snackbar_undo">Undo</string>
+
+    <!-- Concurrent edit conflict admin-side (FR-016 admin branch) -->
+    <string name="f014_conflict_admin_snackbar_format">%s just made changes. Update?</string>
+    <string name="f014_conflict_admin_update">Update</string>
+    <string name="f014_conflict_admin_overwrite">Overwrite</string>
+
+    <!-- Unified picker tabs (FR-018) -->
+    <string name="f014_picker_tab_apps">Apps</string>
+    <string name="f014_picker_tab_contacts">Contacts</string>
+    <string name="f014_picker_tab_widgets">Widgets</string>
+    <string name="f014_picker_tab_documents">Documents</string>
+    <string name="f014_picker_tab_actions">Actions</string>
+
+    <!-- "В разработке" placeholder screens (FR-018, FR-008b) -->
+    <string name="f014_placeholder_widget_title">In development</string>
+    <string name="f014_placeholder_widget_body">Widgets will be added in future updates. For now, you can add app, contact, and document tiles.</string>
+    <string name="f014_placeholder_action_title">In development</string>
+    <string name="f014_placeholder_action_body">Quick actions (SOS, flashlight, one-tap call) will be added in future updates.</string>
+    <string name="f014_placeholder_custom_preset_title">In development</string>
+    <string name="f014_placeholder_custom_preset_body">Custom presets will be added in future updates.</string>
+    <string name="f014_placeholder_back">Back</string>
+
+    <!-- Empty state tile (FR-020/FR-020a) -->
+    <string name="f014_empty_state_add">Add tile</string>
+
+    <!-- TalkBack context menu (FR-012a — accessibility alternative to drag) -->
+    <string name="f014_context_menu_move_up">Move up</string>
+    <string name="f014_context_menu_move_down">Move down</string>
+    <string name="f014_context_menu_move_left">Move left</string>
+    <string name="f014_context_menu_move_right">Move right</string>
+    <string name="f014_context_menu_delete">Delete</string>
+
+    <!-- contentDescription for interactive elements (accessibility CHK008) -->
+    <string name="f014_a11y_remove_tile_format">Remove tile %s</string>
+    <string name="f014_a11y_move_tile_format">Move tile %s</string>
+    <string name="f014_a11y_exit_edit_mode">Exit edit mode</string>
+    <string name="f014_a11y_finish_editing">Finish editing</string>
+
+    <!-- 5-config limit prompt (FR-003c) — used by F-014.1 My Configs UI -->
+    <string name="f014_limit_reached_title">Config limit reached</string>
+    <string name="f014_limit_reached_body_format">You have 5 of 5 configs. Delete the oldest orphan config %s?</string>
+    <string name="f014_limit_reached_delete_oldest">Delete oldest</string>
+
+    <!-- ConfigName validation (R6) -->
+    <string name="f014_name_empty">Name cannot be empty</string>
+    <string name="f014_name_too_long">Name must be at most 32 characters</string>
+    <string name="f014_name_invalid_chars">Name can contain letters, digits, spaces, and hyphens only</string>
+    <string name="f014_name_duplicate_format">A config named \"%s\" already exists</string>
+
+    <!-- Toast on first multi-config creation (FR-003d State 0→2 transition) -->
+    <string name="f014_toast_first_named_config_format">Config \"%s\" created. Manage in Settings.</string>
+
+</resources>
