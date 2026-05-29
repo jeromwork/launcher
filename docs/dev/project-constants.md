@@ -124,6 +124,39 @@ If you (agent or human) are about to ask the user "how should X work?" — first
 
 ---
 
+## Progressive Disclosure — multi-X UI hidden until X count > 1
+
+**Status**: ✅ ARCHITECTURAL PRINCIPLE 2026-05-29 (F-014 spec)
+
+**Правило**: Любая user-facing feature, которая работает с **N экземпляров** какой-то сущности (configs, flows, paired devices, admins, etc.), MUST скрывать всю multi-X UI complexity пока у пользователя **только 1 экземпляр**. UI complexity появляется **только** когда `count > 1`.
+
+**Reference industrial patterns**:
+- **Chrome Profiles**: 1 profile → no switcher visible anywhere. 2+ profiles → profile icon в title bar.
+- **VS Code Profiles**: введён 2023; Profile concept скрыт пока не открыл `Settings → Profiles`.
+- **Notion Workspaces**: 1 workspace = invisible switcher; multiple = visible at top-left.
+- **Google Account on Android**: 1 account = no account switcher; 2+ = появляется.
+
+**Применение в проекте** (current consumers):
+- **Named configs** (F-014, FR-003d) — Settings → «Мои конфиги» entry hidden if `configCount == 1`. Появляется при создании второго named config. Сворачивается обратно если admin удаляет все non-default.
+- **Future consumers** (TODO-FUTURE-DESIGN-PRINCIPLE — apply to):
+  - Flow tabs (BottomFlowBar): 1 flow → no tab bar at bottom (single flow рендерится full-screen). 2+ flows → tab bar появляется.
+  - Paired devices: 1 paired → упрощённая навигация без device picker. 2+ paired → device picker появляется.
+  - Admin-managed bondings: 1 ↔ упрощённый UI. 2+ → расширенный.
+
+**Implementation pattern**:
+- Conditional rendering на основе observable `flow<Boolean> = sourceRepository.count.map { it > 1 }`.
+- `derivedStateOf` в Compose layer для efficient subscription.
+- НЕ persistent state «admin once saw multi-X UI» в DataStore — UI следует за current count, не за history.
+
+**Что НЕ ставить под сомнение**:
+- Не предлагать «всегда показывать switcher для discoverability» — нарушает CLAUDE.md rule 4 (MVA в presentation layer). Bloat для 80% users.
+- Не предлагать «one-way transition: появился раз — навсегда» — если пользователь вернулся к single state, UI должен сворачиваться обратно. Чистый stateless rendering.
+- Не предлагать tutorial overlay при first transition — только subtle toast (3 сек), не блокирующий UI.
+
+**Reference**: [F-014 spec FR-003d](../../specs/014-tile-editing-admin-senior-profiles/spec.md), [NN/g Progressive Disclosure](https://www.nngroup.com/articles/progressive-disclosure/).
+
+---
+
 ## Когда добавлять в этот файл
 
 После решения, которое:

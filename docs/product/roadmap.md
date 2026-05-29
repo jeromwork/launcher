@@ -586,7 +586,9 @@ REFERENCE DOCS:
 
 ---
 
-## F-4: AuthProvider + Google Sign-In
+## F-4: AuthProvider + Google Sign-In — 🔴 ELEVATED PRIORITY 2026-05-29
+
+> **Priority shift (2026-05-29)**: F-4 поднят как **dependency для F-014.1** (Server backup of named configs). Без stable Google identity невозможно cross-device sync admin'ского self-config. См. specs/014-tile-editing-admin-senior-profiles/spec.md §Phase Dependencies.
 
 ### Что строим (mentor explanation)
 

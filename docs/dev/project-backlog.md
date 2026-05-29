@@ -95,6 +95,31 @@
 
 ## Future Products (ecosystem)
 
+### TODO-FUTURE-UX-012: First multi-config creation toast/hint copy 🟢
+
+- **What**: Дизайн **microcopy** для subtle toast при transition State 0 → State 2 в named configs (F-014 FR-003d). Когда admin впервые создаёт второй named config через push dialog — показывается toast «Конфиг "X" создан. Управление — в настройках» (3 sec, не overlay, не tutorial).
+- **Why**: First-time encounter с multi-config concept — нужна короткая подсказка где найти Settings entry. Не overlay (агрессивно), не tutorial (читать никто не будет), но и не silent (admin не поймёт что произошло). Subtle toast — sweet spot.
+- **How** (when implementing):
+  1. Write 2-3 copy alternatives и user-test через 5 senior-adjacent admin'ов.
+  2. Test on actual device (timing 3 sec adequate? auto-dismiss vs swipe?).
+  3. Include locale variants (ru / en).
+- **When**: Параллельно F-014.1 (когда multi-config UI implemented).
+- **Status**: 🟢 OPEN.
+- **Origin**: User decision 2026-05-29 — «появление multi-config UI — explicit moment, без tutorial overlay».
+
+### TODO-FUTURE-DESIGN-PRINCIPLE-013: Apply progressive disclosure to other multi-X features 🟢
+
+- **What**: Применить **«Progressive disclosure: multi-X UI hidden until X count > 1»** (зафиксировано в `docs/dev/project-constants.md`) к другим multi-X features в проекте: Flow tabs (BottomFlowBar), paired devices list, admin-managed bondings.
+- **Why**: Текущее implementation BottomFlowBar показывает tab bar **всегда** (даже когда 1 flow). Это **нарушение** только что зафиксированного principle. Аналогично paired devices list — показывается даже когда 1 paired (мы видели это в device-testing спеки 012).
+- **How**:
+  1. **BottomFlowBar**: hide tab bar если `flows.count == 1`. Single flow renders full-screen, no bottom navigation.
+  2. **Paired devices**: simplified UI for 1 paired device (direct entry into target, no list picker). 2+ → list picker.
+  3. **Admin-managed bondings**: 1 ↔ упрощённый UI, 2+ → расширенный.
+  4. Refactor existing code в conditional rendering pattern (Compose `derivedStateOf`).
+- **When**: Параллельно общему UX-polish phase после F-014, до production release.
+- **Status**: 🟢 OPEN — applies after F-014 lands.
+- **Origin**: F-014 spec FR-003d + `docs/dev/project-constants.md` architectural principle 2026-05-29.
+
 ### TODO-FUTURE-PRODUCT-006: Professional Configurator (B2B) 🟢
 
 - **What**: Расширение продукта на B2B рынок — профессиональные настройщики (Geek Squad-style сервис, IT helpdesk для пожилых, операторские помощь типа «МТС Любимая»), которые удалённо настраивают раскладку 100+ клиентов.

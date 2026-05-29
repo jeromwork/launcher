@@ -7,6 +7,33 @@
 
 ---
 
+## Clarifications
+
+### 2026-05-29 — Pre-plan clarification pass (Q1: Self-config storage architecture)
+
+| # | Question | Resolution |
+|---|----------|------------|
+| Q1.1 | Где хранится self-config admin'а на сервере? | **Named configs model** в новой Firestore коллекции `/admin-self-configs/{adminUid}/configs/{configName}/current` (после F-4). Phasing: F-014.0 = local-only DataStore, F-014.1 = server backup (after F-4), F-014.2 = encryption (after F-5). |
+| Q1.2 | Multi-device admin'а — один общий конфиг или разные? | **Named configs** до 5 per Google account. Каждый config имеет `configName` + `isDefault` flag + compatibility key `(presetId, deviceClass)`. Sync **внутри одного** named config; divergence через **создание нового**. UX: «У вас есть конфиги home/job. Какой применить?» при first install на новом устройстве. |
+| Q1.3 | Default config — семантическое имя или флаг? | **Флаг `isDefault: true`** на любом named config. Переключается между configs (one-default invariant enforced via atomic transaction). При rename "default" → "home" — флаг сохраняется. |
+| Q1.4 | Deletion semantics для named configs? | **No explicit delete UI**. Reference-counting model: config = ACTIVE если ≥1 device использует, ORPHAN если 0 devices (с timestamp `orphanedAt`). 30-day grace **только UI marker** в MVP — реального auto-delete нет, отложено до own-server (TODO-FUTURE-SPEC-008). При 5/5 configs + попытка create → prompt «Удалить самый старый orphan config?» |
+| Q1.5 | Migration anonymous → Google Sign-In с existing local configs? | **Explicit user choice** на first sign-in dialog: (a) заменить серверным default, (b) сохранить локальное как новый named config (prompt for name), (c) skip server backup (privacy mode). |
+
+**Adjacent decisions captured** (in backlog as new TODOs):
+- TODO-FUTURE-PRODUCT-006: Professional Configurator (B2B) — Post-MVP vision.
+- TODO-FUTURE-SPEC-007: Named config export/import as shareable preset (CLAUDE.md rule 9).
+- TODO-FUTURE-SPEC-008: Auto-GC orphan configs (server-side cron, own-server prerequisite).
+- TODO-RESEARCH-009 🟡 BLOCKER for F-014.1: Stable device identity strategy (Firebase Installations + Auto Backup UUID, ZERO new permissions).
+- TODO-RESEARCH-010 🟡 BLOCKER for F-014.1: Local→server migration UX flow.
+- TODO-FUTURE-RESEARCH-011: Concurrent edit merge UI/UX.
+
+**Target named configs** (бабушкин кейс):
+- Та же named configs модель, но **ownership** = admin Google UID (бабушка не имеет Google Sign-In).
+- Admin создаёт/переименовывает/выбирает configs для каждого бабушкиного устройства удалённо.
+- Бабушка **не видит** список configs — только active layout (senior-safe, no cognitive load).
+
+---
+
 ## Контекст и цель спека
 
 ### Зачем существует этот спек
@@ -153,7 +180,23 @@ Admin одновременно поддерживает: (а) свой Workspace
 
 - **FR-001**: System MUST expose в `core/domain/` domain verbs для операций над ConfigDocument.Flow.slots[]: `addSlot(flowId, slot)`, `removeSlot(flowId, slotId)`, `moveSlot(flowId, slotId, newPosition)`, `replaceSlot(flowId, slotId, newSlot)`. Все операции возвращают `Outcome<ConfigDocument, EditError>`.
 - **FR-002**: System MUST использовать существующий `ConfigEditor` port (спека 008) для persisting изменений. `updateDraft { config -> config.copy(flows = newFlows) }`. Никаких новых wire-format'ов не вводится.
-- **FR-003**: System MUST поддерживать операции над **обоими** target'ами: self-config (admin'ский linkId = "self" или derived от own pub) и remote-config (linkId сопряжённого Managed). API одинаковая — разный только linkId argument.
+- **FR-003**: System MUST поддерживать операции над **обоими** target'ами: self-config (admin'ский собственный workspace на своём устройстве) и remote-config (config сопряжённого Managed устройства). Self-config структурирован как **named configs** — admin может иметь до **5 named configs** per Google account, каждый со своим `configName`, `description`, `isDefault` флагом, compatibility key (`presetId` + `deviceClass`), и `activeDeviceIds` map. Lifecycle: ACTIVE (≥1 device uses) → ORPHAN (0 devices, `orphanedAt` set). Auto-delete deferred до own-server (TODO-FUTURE-SPEC-008); MVP только помечает ORPHAN с UI marker «истёк». Phasing: F-014.0 = local-only (DataStore), F-014.1 = server backup в `/admin-self-configs/{adminUid}/configs/{configName}/current` (depends on F-4 Google Sign-In), F-014.2 = encryption (depends on F-5).
+- **FR-003a (Default flag)**: System MUST enforce single-default invariant: ровно один named config admin'а имеет `isDefault: true` в любой момент. При `markDefault(configName)` — флаг автоматически снимается со всех остальных configs (atomic Firestore transaction в F-014.1). При rename "default" → "home" — флаг сохраняется на переименованном config'е (флаг привязан к config, не к имени).
+- **FR-003b (Orphan UI marker)**: System MUST помечать ORPHAN configs в UI как «не используется, истёк через N дней» (N = 30 − days since `orphanedAt`). Admin может восстановить ORPHAN config через `applyToCurrentDevice` — config становится ACTIVE, `orphanedAt` сбрасывается на null.
+- **FR-003c (5-config soft limit)**: System MUST блокировать создание 6-го named config; при попытке — prompt «Достигнут лимит 5 конфигов. Удалить самый старый orphan config "X" (не используется N дней)?» с confirmation. Если нет orphan configs — refuse с error «Удалите неиспользуемый конфиг вручную через My Configs screen».
+- **FR-003d (Multi-config UI — progressive disclosure)**: System MUST скрывать всю named-configs UI complexity пока у admin'а **только 1 config** (count includes orphan). State derives from observable `configCount > 1`. State machine:
+  - **State 0/1 (Single config)**: НЕТ entry «Мои конфиги» в Settings. НЕТ dialog при push edit'ов — silent save в default config. Edit mode UI идентичен любому mainstream launcher'у. Admin не подозревает о существовании named configs.
+  - **State 2+ (Multi-aware)**: Settings содержит entry «Мои конфиги (N/5)». Edit mode push — dialog «Сохранить как X / Создать новый». Config switcher доступен из Settings.
+  - **Transition 0→2**: explicit user action «Создать новый named config» через push dialog (это first moment admin encounters concept). Subtle toast «Конфиг "X" создан. Управление — в настройках» (3 sec, no overlay, no tutorial).
+  - **Transition 2→0**: rollback автоматический если admin удалил все non-default configs (UI сворачивается обратно).
+- **FR-003e (Push edit dialog logic)**: System MUST показывать different dialog при push edit'ов в зависимости от state:
+  - Single device + single config → silent save в default, snackbar «Сохранено».
+  - Single device + multi-config → dialog «Сохранить как [active config name] / Создать новый named config».
+  - Multi-device + push → dialog «Сохранить как [active config name] (применится на N устройствах) / Создать новый named config».
+- **FR-003f (My Configs screen)**: System MUST в State 2+ предоставлять admin Settings → «Мои конфиги» screen со списком: имя + description + флаг `isDefault` + список активных устройств + countdown для orphan + affordances (Применить сюда / Переименовать / Edit description / Сделать default).
+- **FR-003g (Anonymous → Google migration)**: System MUST при first successful Google Sign-In (F-014.1 transition) показать migration dialog если local DataStore содержит non-empty config AND server account содержит pre-existing configs. Варианты: (a) заменить серверным default (loss local work — confirmation needed), (b) сохранить local как новый named config (prompt for name), (c) skip server backup (privacy/opt-out mode). См. TODO-RESEARCH-010 для full UX design.
+- **FR-003h (Target named configs — admin-only ownership)**: System MUST для бабушкиных устройств поддерживать ту же named configs модель, но `ownerUid` = admin Google UID (бабушка не имеет Google Sign-In, не управляет configs). Admin через target editing видит список бабушкиных configs, применяет к каждому её устройству. Бабушка **не видит** список configs — только active layout (senior-safe, no cognitive load).
+- **FR-003i (Compatibility check)**: System MUST при first install на новом устройстве + Google Sign-In success фильтровать server configs по `(presetId, deviceClass)` match. Показывать только compatible configs в picker «Какой конфиг применить?». Incompatible configs (например TV preset на phone) скрыты от выбора с visual indicator «несовместим с этим устройством».
 - **FR-004**: System MUST поддерживать операции в **обоих** профилях (admin / senior). Domain верба одинаковые; разница только в presentation rules (что можно делать через какие affordances).
 
 ### Functional Requirements — Edit mode entry
@@ -235,7 +278,9 @@ Admin одновременно поддерживает: (а) свой Workspace
 
 - **SC-001**: Admin может добавить контакт-плитку в свой Workspace за **≤ 4 тапа** от home screen (long-press → «+» → contact picker → выбрать). Подтверждается UI smoke test.
 - **SC-002**: Бабушка может удалить плитку через 7-tap path за **≤ 5 тапов** (7-tap → challenge → «×» → confirm dialog «Удалить»). Подтверждается UI smoke test.
-- **SC-003**: Admin remote-edit бабушкиного config'а появляется на бабушкином home screen в **≤ 5 секунд** (network-dependent: Firestore push + applier). Подтверждается integration test.
+- **SC-003**: Admin'ский edit push'ится в Firestore (Phase F-014.1 only) за **≤ 2 секунды** от tap'а Готово (p95, Wi-Fi эмулятор). End-to-end latency на бабушкином home — observable, не measured как hard SLA (зависит от network conditions, FCM delivery, OEM battery management).
+- **SC-003a (named configs)**: System предоставляет до **5 named configs** per admin Google account; UI complexity hidden when count == 1; visible when count > 1 (включая orphan). Подтверждается UI smoke test + unit test на observable `configCount > 1`.
+- **SC-003b (orphan UI marker)**: ORPHAN configs показываются в My Configs screen с countdown «истёк через N дней» (N = 30 − days since orphanedAt). Real auto-delete deferred (TODO-FUTURE-SPEC-008).
 - **SC-004**: Concurrent edit conflict resolution **никогда не приводит** к split-brain или потере данных — либо admin'ский edit применяется, либо бабушкин, но не оба частично. Подтверждается integration test через Miniflare + 2 параллельных push'а.
 - **SC-005**: Profile selection корректен в 100% случаев — admin'ский Workspace всегда показывает admin profile, Simple Launcher всегда senior profile. Подтверждается unit test на `EditUiProfileSelector`.
 - **SC-006**: Senior profile **никогда не показывает виджеты** в picker'е (privacy: admin не должен случайно добавить tracker-widget на бабушкин экран). Подтверждается unit test + UI smoke.
@@ -305,21 +350,32 @@ Admin одновременно поддерживает: (а) свой Workspace
 
 ### Extends
 
-- **Спека 008** (Bidirectional Config Sync) — F-014 использует `ConfigEditor.updateDraft` + `pushPending` + `pendingDraft`. Не меняет wire-format.
+- **Спека 008** (Bidirectional Config Sync) — F-014 использует `ConfigEditor.updateDraft` + `pushPending` + `pendingDraft`. Wire-format ConfigDocument extended в Phase F-014.1: schemaVersion bump → 2 для named-config полей (`configName`, `description`, `isDefault`, `activeDeviceIds`). Backward-compat read v1 (plain) сохраняется.
 - **Спека 009** (Admin Mode Flows) — F-014 расширяет existing `EditorScreen` / `EditorComponent` концепцией profile + visual indicators для remote target.
 - **Спека 010** (Setup Assistant) — F-014 переиспользует 7-tap gesture FR-021 для senior local edit entry.
 - **Спека 003** (UI Skeleton) — F-014 расширяет `FlowTemplate` + `Flow.templateId` для profile selection.
 - **Спека 011** (Contacts) — F-014 использует Contact domain type как tile type.
 - **Спека 012** (Private Documents) — F-014 использует Document slot kind как tile type.
 
+### Phase Dependencies
+
+- **F-014.0** (current spec scope) — local-only DataStore для named configs, no server backup, no Google Sign-In requirement. Может быть имплементирован **сейчас**.
+- **F-014.1** (server backup + cross-device sync) — REQUIRES **F-4 (AuthProvider + Google Sign-In)**: без stable Google UID server backup не имеет смысла. Также blocked by TODO-RESEARCH-009 (device identity) + TODO-RESEARCH-010 (migration UX).
+- **F-014.2** (server-side encryption) — REQUIRES **F-5 (ConfigDocument E2E Encryption)**. До F-5 server-side configs хранятся plaintext (privacy regression — production-blocker per F-5 status).
+
 ### Updates
 
-- **`docs/dev/project-constants.md`** — добавить запись «Edit UX profiles (admin / senior)» как новую константу.
+- **`docs/dev/project-constants.md`** — добавить:
+  - Запись «Edit UX profiles (admin / senior)» как новую константу.
+  - Architectural principle **«Progressive disclosure: multi-X UI hidden until X count > 1»** (applies to named configs, Flow tabs, paired devices, etc.).
+- **`docs/product/roadmap.md`** — повысить приоритет F-4 (AuthProvider): становится dependency для F-014.1.
 - **`docs/dev/project-backlog.md`** — добавить future enhancements:
   - `TODO-UX-025: Tutorial / onboarding overlay для new admin'ов`.
   - `TODO-UX-026: Recently deleted / Trash bin 30-day retention`.
   - `TODO-UX-027: Widget tile-type real rendering (spec follow-up)`.
   - `TODO-UX-028: Action tile-type (SOS, phone, flashlight)`.
+  - `TODO-FUTURE-UX-012: Tutorial / hint copy for first multi-config creation` (one subtle toast, no overlay).
+  - `TODO-FUTURE-DESIGN-PRINCIPLE: Apply progressive disclosure to other multi-X features` (flows, paired devices, etc.).
 
 ### Reference docs
 
@@ -343,8 +399,16 @@ Admin одновременно поддерживает: (а) свой Workspace
 4. **Visual frame + banner** при remote target editing — admin сразу видит, что редактирует чужое.
 5. **Domain unified**, presentation двух видов. Никакого pixel mirror — структурный shared editor (Figma pattern).
 
-**Что НЕ строится**: vCard share-target, Tutorial, Trash bin retention, new tile types (Widget/Action — placeholders), Family Group (deprecated), ConfigDocument encryption (отдельная F-5), Personal vault.
+**Named configs (Q1 clarification 2026-05-29)**:
+- Admin может иметь до **5 named configs** per Google account (default, home, job, ...) с compatibility key (presetId + deviceClass).
+- **Default = флаг**, не имя. Переключается между configs (atomic transaction).
+- **Reference-counting lifecycle**: ACTIVE (≥1 device) → ORPHAN (0 devices, marked с countdown «истёк через N дней»). Auto-delete deferred (own-server prerequisite).
+- **No explicit delete UI**. При 5/5 limit + создание нового → prompt «Удалить самый старый orphan?»
+- **Progressive disclosure**: вся multi-config UI **скрыта** пока admin имеет 1 config. State derives from observable `configCount > 1`. При создании второго — Settings → «Мои конфиги (2/5)» появляется. Если admin удалит все non-default — UI сворачивается обратно.
+- **Phasing**: F-014.0 = local DataStore (now), F-014.1 = server backup (after F-4), F-014.2 = encryption (after F-5).
 
-**Inherent ограничения**: drag-and-drop отключён в senior profile (compromise UX-wise vs accessibility); виджеты скрыты в senior profile (admin не может добавить виджет на бабушкин экран — это by design, privacy/safety).
+**Что НЕ строится**: vCard share-target, Tutorial, Trash bin retention, new tile types (Widget/Action — placeholders), Family Group (deprecated), ConfigDocument encryption (отдельная F-5), Personal vault, auto-delete orphan configs (отложено до own-server).
 
-**Risk**: главный — concurrent edit conflict при admin remote-edit одновременно с senior local edit через 7-tap. Resolved через optimistic concurrency спеки 008 + snackbar admin'у «Обновить / Перезаписать».
+**Inherent ограничения**: drag-and-drop отключён в senior profile (compromise UX-wise vs accessibility); виджеты скрыты в senior profile (admin не может добавить виджет на бабушкин экран — это by design, privacy/safety); orphan configs накапливаются до own-server (но max 5 hard limit предотвращает unbounded growth).
+
+**Risk**: главный — concurrent edit conflict при admin remote-edit одновременно с senior local edit через 7-tap. Resolved через optimistic concurrency спеки 008 + snackbar admin'у «Обновить / Перезаписать». Вторичный — orphan config restoration window (admin может думать что config удалён, на самом деле marked истёкшим в UI).
