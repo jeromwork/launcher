@@ -119,6 +119,84 @@ When messenger spec is written, copy these sections verbatim — they were thoro
 
 ---
 
+## Compositable Presets — long-term architectural vision
+
+**Date**: 2026-05-29 (vision discussion)
+**Status**: VISION — реализация в F-2 Capability Registry Foundation.
+
+### Что планируется
+
+**Переосмысление слова "preset"** в продукте: preset перестаёт быть **monolithic bundle** (Workspace / Simple Launcher как jumbo configs) и становится **compositable unit of capability** — каждый preset закрывает **один маленький aspect** UX/функциональности, конечная конфигурация лаунчера — composition из N таких маленьких preset'ов.
+
+### Зачем это нужно
+
+**Проблемы monolithic model**:
+- Каждый новый «вариант лаунчера» требует **отдельной полной спеки** (Simple Launcher = одна big spec, Workspace = другая big spec, Caregiver Mode = ещё одна).
+- Невозможно **смешивать** features (нельзя взять «жёлтые акценты» из Simple Launcher + «drag-and-drop» из Workspace без переписывания обоих).
+- Невозможно **community sharing** (пользователи не могут публиковать «свой preset» — слишком монолитно).
+- Cross-platform поддержка дублирует код per-platform per-preset.
+
+**Преимущества compositable model**:
+- Новые «варианты» — это **композиции** existing capabilities. Не требуют новой спеки на каждый.
+- Marketplace / community: пользователи публикуют **mini-presets** (1-aspect bundles), другие применяют.
+- A/B testing / personalization: dynamic capability switching без app update.
+- Accessibility/preferences: tap-target size, motion, contrast — отдельные capabilities, перекомбинируемые.
+- Cross-platform: capability компилируется per-platform с consistent semantic.
+
+### Примеры compositable presets (user vision 2026-05-29)
+
+- **Tremor-fix**: увеличенные tap-targets + delay before activation + ignore double-tap.
+- **Notification shutter lock**: блокировать swipe-down notification shade (Android — пожилой не отключит WiFi случайно).
+- **Volume key lock**: отключить системные кнопки громкости (антипотеря, антипробуждение в кармане).
+- **Yellow accent theme**: цветовая схема — жёлтые акценты для лучшего contrast при катаракте.
+- **Tile shadows**: depth shadows под плитками.
+- **Tile delete via X-button**: крестики на плитках в edit mode (senior-friendly).
+- **Tile move via arrows**: стрелки ↑/↓/←/→ на плитках в edit mode (no drag-and-drop).
+- **Tile drag-and-drop**: mainstream drag-and-drop (admin-style).
+- **Status bar lock**: блокировать swipe up status bar для предотвращения accidental settings.
+- **Confirmation dialogs everywhere**: каждое destructive action требует modal confirm.
+
+### Big bundled presets как pre-packaged compositions
+
+«Simple Launcher» становится **named composition** = `[tremor-fix, notification-shutter-lock, volume-key-lock, yellow-accent, tile-shadows, tile-delete-via-X, tile-move-via-arrows, confirmation-dialogs]`.
+
+«Workspace» становится `[tile-drag-and-drop, mainstream-jiggle, mainstream-snackbar-undo, widget-picker-visible]`.
+
+Эти **bundled** composition'ы остаются как «pre-packaged starting points» для типичных пользователей, но опытный пользователь / community может **collect** свою.
+
+### Cross-platform considerations
+
+- Capability определена в `commonMain` с semantic интерфейсом.
+- Platform-specific implementations (Android / iOS / TV) в `androidMain` / `iosMain` / `tvMain`.
+- Если capability **не применимо** на платформе (например, "notification shutter lock" не существует на iOS) — capability помечает себя `availableOnPlatforms: Set<Platform>`.
+- Composition при applying фильтрует incompatible capabilities silently.
+
+### Sharing / marketplace
+
+- Capability composition serializable как `ExportablePreset` wire-format (CLAUDE.md rule 9 — preset-readiness).
+- Identity-bound данные strip'ятся при export.
+- Import flow — `ConfigSource` adapter.
+- Future: community marketplace / curated collections.
+
+### Где реализуется
+
+**F-2 (Capability Registry Foundation)** в roadmap.md Phase 1 — primary home. F-2 уже описана в подходящих терминах ("каталог того, что app умеет делать с богатой metadata"). Capability/preset distinction нужно уточнить в F-2 phase clarification.
+
+### Что **не делается** в текущих спеках до F-2
+
+- **Spec 014 (Tile Editing)** использует current monolithic `FlowPreset.WORKSPACE / SIMPLE_LAUNCHER` как **placeholder**. В spec.md явно записан exit ramp на refactor когда F-2 закроется.
+- **Не плодить новые monolithic preset enum'ы** в краткосрочной перспективе.
+- **Не строить marketplace UI** пока нет capability model.
+- **Не делать compositable presets как-нибудь по дороге** в любой другой спеке — это F-2 scope.
+
+### Связь с другими vision items
+
+- **CLAUDE.md rule 9** (preset-readiness) уже supports compositable model — wire-format с schemaVersion, identity strip.
+- **Family Album / Messenger** (other ecosystem apps) — будут consumers того же Capability Registry.
+- **TODO-FUTURE-SPEC-007** (Named config export/import as preset) — пересекается с capability sharing.
+
+---
+
 ## TL;DR на русском
 
 **Family Group** как примитив **не нужен в лаунчере** — multi-admin сценарий решается через N независимых pair-edit'ов, shared content (фото, чат) уходит в **отдельные приложения экосистемы** (мессенджер, family album, family flow). Spec 013 архивируется как DEPRECATED, всё ценное из неё (доменная модель Group/Membership, envelope encryption на N recipients, server arbitration, audit log Tier 1/2) **сохраняется** в этом vision-документе и переедет в спеку мессенджера, когда придёт его время. **Конкурентное преимущество** лаунчера — система пресетов (Simple Launcher, Workspace, и будущие — для разных типов пользователей), а не шифрование группы. **Открытый вопрос на будущее** — cross-app group sync (если установлен пресет с lauchner + messenger + album, должен ли пользователь регистрироваться один раз или в каждом app отдельно?). Не решаем сейчас — записываем constraints и criteria для решения, когда будет ≥2 ecosystem app'а в разработке.

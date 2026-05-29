@@ -18,6 +18,7 @@
 | Q1.3 | Default config — семантическое имя или флаг? | **Флаг `isDefault: true`** на любом named config. Переключается между configs (one-default invariant enforced via atomic transaction). При rename "default" → "home" — флаг сохраняется. |
 | Q1.4 | Deletion semantics для named configs? | **No explicit delete UI**. Reference-counting model: config = ACTIVE если ≥1 device использует, ORPHAN если 0 devices (с timestamp `orphanedAt`). 30-day grace **только UI marker** в MVP — реального auto-delete нет, отложено до own-server (TODO-FUTURE-SPEC-008). При 5/5 configs + попытка create → prompt «Удалить самый старый orphan config?» |
 | Q1.5 | Migration anonymous → Google Sign-In с existing local configs? | **Explicit user choice** на first sign-in dialog: (a) заменить серверным default, (b) сохранить локальное как новый named config (prompt for name), (c) skip server backup (privacy mode). |
+| Q2 | Где живёт логика `selectProfile(presetId): EditUiProfile`? | **Domain-level pure function** в `core/commonMain/.../api/edit/EditUiProfileSelector.kt`. Hardcoded `when` mapping: Workspace → AdminProfile, SimpleLauncher → SeniorProfile, else → AdminProfile fallback. Unit-testable без UI. **Exit ramp на F-2**: F-014 использует current monolithic `FlowPreset` enum как **placeholder**. Когда F-2 (Capability Registry Foundation) закроется, selector refactor'ится: `selectProfile(presetId)` → `selectProfile(capabilities: Set<Capability>)`. См. [ecosystem-vision.md §Compositable Presets](../../docs/product/future/ecosystem-vision.md). Vision записан, реализация — в F-2. |
 
 **Adjacent decisions captured** (in backlog as new TODOs):
 - TODO-FUTURE-PRODUCT-006: Professional Configurator (B2B) — Post-MVP vision.
@@ -207,11 +208,13 @@ Admin одновременно поддерживает: (а) свой Workspace
 
 ### Functional Requirements — Profile selection
 
-- **FR-008**: System MUST выбирать UX profile по **target preset'у**:
-  - Target preset = Workspace → admin profile UX.
-  - Target preset = Simple Launcher → senior profile UX.
-  - Target preset = (future presets) → fallback to admin profile (по умолчанию).
-- **FR-009**: System MUST применять profile **независимо** от того, кто редактирует (admin remote vs senior local). Admin редактирует Simple Launcher → senior profile. Бабушка с продвинутым телефоном настраивает Workspace на себе → admin profile.
+- **FR-008**: System MUST реализовать profile selection как **domain pure function** `EditUiProfileSelector.selectProfile(presetId: String): EditUiProfile` в `core/commonMain/kotlin/com/launcher/api/edit/EditUiProfileSelector.kt`. Hardcoded `when` mapping:
+  - Target preset = `"workspace"` → `AdminProfile`.
+  - Target preset = `"simple-launcher"` → `SeniorProfile`.
+  - Target preset = (any other / unknown) → `AdminProfile` fallback (least restrictive default).
+  Pure function: no I/O, no side effects, no Compose dependency. Unit-testable без UI runtime.
+- **FR-008a (Exit ramp на F-2)**: System MUST use current monolithic `FlowPreset` enum (Workspace / Launcher / SimpleLauncher) as **placeholder until F-2 (Capability Registry Foundation) lands**. Vision (см. [ecosystem-vision.md §Compositable Presets](../../docs/product/future/ecosystem-vision.md)) — preset станет compositable unit of capability. Когда F-2 закроется, F-014 refactor: `selectProfile(presetId: String)` → `selectProfile(capabilities: Set<Capability>)`. Backward-compat сохраняется через retention enum как pre-packaged composition.
+- **FR-009**: System MUST применять profile **независимо** от того, кто редактирует (admin remote vs senior local). Admin редактирует Simple Launcher → senior profile. Бабушка с продвинутым телефоном настраивает Workspace на себе → admin profile. Profile определяется **target preset'ом**, не identity of editor.
 
 ### Functional Requirements — Admin profile UX
 

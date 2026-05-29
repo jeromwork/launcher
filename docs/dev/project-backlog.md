@@ -95,6 +95,27 @@
 
 ## Future Products (ecosystem)
 
+### TODO-RESEARCH-014: Compositable preset architecture for F-2 Capability Registry 🟡
+
+- **What**: Research и design **compositable preset model** — переход от monolithic preset enum (Workspace / Simple Launcher) к compositable units of capability, которые комбинируются в финальную конфигурацию лаунчера.
+- **Why**: User vision 2026-05-29 — preset = compositable unit (1 aspect: tremor-fix, notification-shutter-lock, yellow-accent, tile-shadows, etc.). Bundled presets (Simple Launcher / Workspace) становятся pre-packaged compositions. Преимущества: marketplace-ready, A/B testing, accessibility-friendly, cross-platform consistency.
+- **How (research targets)**:
+  1. **Capability primitive design** — что такое "atomic capability"? Toggleable boolean? Composable settings? Strategy pattern?
+  2. **Composition resolution** — как разрешаются конфликты (2 capabilities имеют overlapping effect)? Priority? Override semantics?
+  3. **Wire-format** — `ExportablePreset` schema с schemaVersion, identity-strip rules.
+  4. **Cross-platform availability** — как capability помечает supported platforms; fallback при mismatch.
+  5. **Migration path** — backward-compat с current `FlowPreset` enum; existing spec 014 references на Workspace / SimpleLauncher продолжают работать.
+  6. **UI для composition** — пользователь видит/собирает свою конфигурацию (TODO: какой UI pattern — checklist? marketplace? wizard?).
+  7. **Performance** — composition resolution не должен влиять на startup time или frame rate.
+- **Research patterns**:
+  - **Tailwind CSS utility-first** — каждый class atomic, композиция через concat.
+  - **VS Code Settings Sync packs** — shareable settings collections.
+  - **iOS Accessibility Shortcuts** — independent toggles, composable.
+  - **Home Assistant Themes** — composable presets с inheritance.
+- **When**: F-2 Capability Registry Foundation (roadmap.md Phase 1). До F-2 — capability model **не существует**; spec 014 + другие специки используют current monolithic enum как placeholder.
+- **Status**: 🟡 OPEN — primary research input для F-2 spec phase.
+- **Origin**: User vision 2026-05-29 при обсуждении F-014 clarify Q2. Записано подробно в [docs/product/future/ecosystem-vision.md §Compositable Presets](../product/future/ecosystem-vision.md#compositable-presets--long-term-architectural-vision).
+
 ### TODO-FUTURE-UX-012: First multi-config creation toast/hint copy 🟢
 
 - **What**: Дизайн **microcopy** для subtle toast при transition State 0 → State 2 в named configs (F-014 FR-003d). Когда admin впервые создаёт второй named config через push dialog — показывается toast «Конфиг "X" создан. Управление — в настройках» (3 sec, не overlay, не tutorial).
