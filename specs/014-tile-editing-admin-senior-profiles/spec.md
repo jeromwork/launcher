@@ -19,7 +19,8 @@
 | Q1.4 | Deletion semantics для named configs? | **No explicit delete UI**. Reference-counting model: config = ACTIVE если ≥1 device использует, ORPHAN если 0 devices (с timestamp `orphanedAt`). 30-day grace **только UI marker** в MVP — реального auto-delete нет, отложено до own-server (TODO-FUTURE-SPEC-008). При 5/5 configs + попытка create → prompt «Удалить самый старый orphan config?» |
 | Q1.5 | Migration anonymous → Google Sign-In с existing local configs? | **Explicit user choice** на first sign-in dialog: (a) заменить серверным default, (b) сохранить локальное как новый named config (prompt for name), (c) skip server backup (privacy mode). |
 | Q2 | Где живёт логика `selectProfile(presetId): EditUiProfile`? | **Domain-level pure function** в `core/commonMain/.../api/edit/EditUiProfileSelector.kt`. Hardcoded `when` mapping: Workspace → AdminProfile, SimpleLauncher → SeniorProfile, else → AdminProfile fallback. Unit-testable без UI. **Exit ramp на F-2**: F-014 использует current monolithic `FlowPreset` enum как **placeholder**. Когда F-2 (Capability Registry Foundation) закроется, selector refactor'ится: `selectProfile(presetId)` → `selectProfile(capabilities: Set<Capability>)`. См. [ecosystem-vision.md §Compositable Presets](../../docs/product/future/ecosystem-vision.md). Vision записан, реализация — в F-2. |
-| Q3 | Widget и Action tile-types в admin picker — placeholder или remove? | **Гибрид: UI placeholder, no implementation в F-014**. Picker admin'а имеет 5 вкладок: Приложения / Контакты / Виджеты / Документы / Действия. Виджеты и Действия — visible вкладки в UI с **«В разработке»** screen при тапе (informs admin'а о roadmap'е, не dead-end crash). Real rendering — отдельные future специки: `TODO-UX-027` (Widget tile-type rendering, AppWidgetHost), `TODO-UX-028` (Action tile-type — SOS/phone/flashlight). Senior profile (FR-019) скрывает обе вкладки полностью. |
+| Q3 | Widget и Action tile-types в admin picker — placeholder или remove? | **Гибрид: UI placeholder, no implementation в F-014**. Picker имеет 5 вкладок: Приложения / Контакты / Виджеты / Документы / Действия. Виджеты и Действия — visible вкладки в UI с **«В разработке»** screen при тапе (informs admin'а о roadmap'е, не dead-end crash). Real rendering — отдельные future специки: `TODO-UX-027` (Widget tile-type rendering, AppWidgetHost), `TODO-UX-028` (Action tile-type — SOS/phone/flashlight). При editing Simple Launcher target — Widget/Action скрываются полностью (privacy + simplicity на бабушкином экране). |
+| Q4 | Senior profile movement UX (drag отключён, нужны кнопки на плитке) — какой pattern? | **Вопрос невалиден — отменён 2026-05-29**. Edit mode UX **универсален** для всех контекстов (admin Workspace, бабушкин Simple Launcher после 7-tap, admin remote editing). Senior profile rules применяются **только в use mode** (рендеринг home для конечного пользователя), не в edit mode. Per [project-constants.md §Senior-safe vs mainstream](../../docs/dev/project-constants.md) — already-fixed project constant. FR-012 переписан: единый edit mode UX (mainstream Android-конвенции). FR-013 переехало на use-mode tap-targets. |
 
 **Adjacent decisions captured** (in backlog as new TODOs):
 - TODO-FUTURE-PRODUCT-006: Professional Configurator (B2B) — Post-MVP vision.
@@ -232,16 +233,8 @@ Admin одновременно поддерживает: (а) свой Workspace
 
 ### Functional Requirements — Senior profile UX
 
-- **FR-012**: System MUST в senior profile предоставлять:
-  - Edit mode entry через 7-tap → challenge gate (existing) ИЛИ admin remote editing.
-  - Add tile через видимый «+» в пустых ячейках (всегда видимый, не только в edit mode).
-  - Move tile через кнопки «↑» / «↓» / «←» / «→» на плитке (в edit mode). Drag-and-drop **отключён**.
-  - Remove tile через красный «×» в углу плитки → modal dialog «Удалить ‘<label>’? [Отмена] [Удалить]».
-  - **Нет snackbar undo** — modal dialog уже даёт chance отменить.
-  - Edit mode indicator: **top banner** «Готово» (текстовый). **Без jiggle**.
-  - Edit mode exit **только** через явную кнопку «Готово» (не tap-anywhere — защита от случайного выхода).
-  - Unified picker для add — типы плиток **без вкладки «Виджеты»** (Приложения / Контакты / Документы / Действия).
-- **FR-013**: System MUST в senior profile использовать **tap-target ≥56dp** для всех edit-affordances («+», «×», «↑/↓»). Per Article VIII §7.
+- **FR-012**: System MUST использовать **единый edit mode UX** для всех контекстов и target preset'ов — admin Workspace, бабушкин Simple Launcher (после 7-tap), admin remote editing. Конкретно — те же mainstream Android-конвенции что определены в FR-010 для admin profile: long-press вход, drag-and-drop, drag-to-X удаление, snackbar undo, jiggle, единый picker для add. **Senior profile НЕ влияет на edit mode UX** — все различия профилей живут только в **use mode** (рендеринг home для конечного пользователя). Per [docs/dev/project-constants.md §Senior-safe vs mainstream UX rules](../../docs/dev/project-constants.md) — already-fixed project constant.
+- **FR-013 (use-mode tap-targets)**: System MUST в **use mode** Simple Launcher (бабушкино рендеринг home) использовать **tap-target ≥56dp** для всех interactive плиток. В edit mode tap-target governed mainstream Android-конвенциями (Material guidelines ≥48dp). Per Article VIII §7 — applies к use-mode, не к edit-mode.
 
 ### Functional Requirements — Remote editing visual indicators
 
@@ -264,12 +257,12 @@ Admin одновременно поддерживает: (а) свой Workspace
   - **Widget** — **placeholder вкладка**. Visible в UI; при тапе показывает full-screen «В разработке» screen с текстом «Виджеты появятся в будущих обновлениях. Сейчас можно добавлять плитки приложений, контактов и документов.» + кнопка «Назад». **Никакой functional implementation в F-014** — реальный widget rendering (через `AppWidgetHost`) откладывается до отдельной спеки `TODO-UX-027`.
   - **Action** — **placeholder вкладка**. Visible в UI; при тапе показывает full-screen «В разработке» screen с текстом «Быстрые действия (SOS, фонарик, звонок одной кнопкой) появятся в будущих обновлениях.» + кнопка «Назад». **Никакой functional implementation в F-014** — реальная Action implementation (SOS / phone / flashlight) откладывается до отдельной спеки `TODO-UX-028`.
 - **FR-018a (Placeholder visibility rationale)**: Placeholder вкладки **видимы в UI**, чтобы admin понимал roadmap продукта и не считал, что эти возможности невозможны вообще. Это **не dead-end crash** — это honest UX о planned features. Альтернатива (hide tabs полностью до implementation) скрывает roadmap от admin'а и создаёт surprise при появлении в будущем.
-- **FR-019**: System MUST в senior profile picker предлагать **только** fully implemented tile types: Application, Contact, Document. Widget и Action вкладки **скрыты полностью** (privacy: admin не должен случайно добавить experimental UI на бабушкин экран; senior cognitive load minimisation).
+- **FR-019**: System MUST при editing **Simple Launcher target** (бабушкин config) в picker'е предлагать **только** fully implemented tile types: Application, Contact, Document. Widget и Action вкладки **скрыты полностью** (privacy: experimental UI не попадает на бабушкин экран; minimisation сложности на её home). Это **target-preset-driven**, не editor-identity-driven — даже admin при remote editing бабушки видит picker без Widget/Action. При editing Workspace target (свой admin'ский) — все 5 вкладок visible (per FR-018).
 
 ### Functional Requirements — Empty state
 
-- **FR-020**: System MUST в admin profile при пустом ConfigDocument рендерить пустую 2×3 grid с invisible «+» (видимыми только в edit mode после long-press) — **mainstream Android-конвенция**.
-- **FR-021**: System MUST в senior profile при пустом ConfigDocument рендерить пустую 2×3 grid с видимыми «+» в каждой ячейке (**всегда видимыми**) — accessibility-first.
+- **FR-020 (Empty state — единое поведение)**: System MUST при пустом ConfigDocument рендерить пустую 2×3 grid + **один tile с большой «+»** в первой ячейке (≥72dp иконка). Это **always-visible affordance** для входа в add-flow без необходимости long-press. Mainstream pattern (Niagara-style) для всех target preset'ов — admin Workspace и бабушкин Simple Launcher одинаково. Per research отчёт §First-launch empty state.
+- **FR-021 (Use-mode rendering для Simple Launcher)**: System MUST при rendering home для **бабушки в use mode** (NOT edit mode) использовать senior-safe правила: tap-target ≥56dp, no jiggle на плитках, no hidden gestures для primary flows, plain language labels. Edit mode (после 7-tap) НЕ затрагивает эти rules — переключается на mainstream UX согласно FR-012.
 
 ### Key Entities
 
@@ -293,7 +286,7 @@ Admin одновременно поддерживает: (а) свой Workspace
 - **SC-003b (orphan UI marker)**: ORPHAN configs показываются в My Configs screen с countdown «истёк через N дней» (N = 30 − days since orphanedAt). Real auto-delete deferred (TODO-FUTURE-SPEC-008).
 - **SC-004**: Concurrent edit conflict resolution **никогда не приводит** к split-brain или потере данных — либо admin'ский edit применяется, либо бабушкин, но не оба частично. Подтверждается integration test через Miniflare + 2 параллельных push'а.
 - **SC-005**: Profile selection корректен в 100% случаев — admin'ский Workspace всегда показывает admin profile, Simple Launcher всегда senior profile. Подтверждается unit test на `EditUiProfileSelector`.
-- **SC-006**: Senior profile **никогда не показывает виджеты** в picker'е (privacy: admin не должен случайно добавить tracker-widget на бабушкин экран). Подтверждается unit test + UI smoke.
+- **SC-006**: При editing **Simple Launcher target** picker **никогда не показывает** Widget или Action вкладки (privacy: experimental UI не попадает на бабушкин экран). Условие target-preset-driven, не editor-identity-driven — даже admin при remote editing бабушкиного config'а видит ограниченный picker. Подтверждается unit test на target-preset-based filtering + UI smoke.
 - **SC-007**: Жест 7-tap корректно срабатывает в 100% случаев при правильном паттерне (7 тапов в окне 5 сек, ±48dp tolerance). Подтверждается через existing tests спеки 010.
 - **SC-008**: APK size delta от F-014 ≤ **300 KB** (только presentation код, никакой новой libraries).
 
@@ -403,11 +396,13 @@ Admin одновременно поддерживает: (а) свой Workspace
 **Что внутри**: настройка плиток (add / move / remove) для трёх контекстов — admin'ский self-Workspace, admin'ское remote editing бабушкиного Simple Launcher'а, бабушкино локальное editing через 7-tap. **Один Editor**, общий ConfigDocument, **два UX-профиля** (admin / senior), выбираемых по preset'у target'а.
 
 **Ключевые решения** (на основе research'а Nova / BIG / Pixel / Niagara / NN/g / UXmatters):
-1. **Admin profile**: long-press вход, drag-and-drop, drag-to-X удаление, snackbar undo, jiggle, виджеты в picker'е.
-2. **Senior profile**: 7-tap вход, видимые «+» в пустых, кнопки «↑/↓» вместо drag, modal confirm на удаление, без jiggle, без виджетов, tap-target ≥56dp.
-3. **Profile выбирается по target preset'у**, не по user role. Admin remote-editing бабушкин Simple Launcher = senior profile (потому что target = Simple Launcher).
+1. **Edit mode UX универсален** для всех контекстов — admin Workspace, бабушкин Simple Launcher (после 7-tap), admin remote editing. Mainstream Android-конвенции: long-press вход, drag-and-drop, drag-to-X удаление, snackbar undo, jiggle, единый picker. Per project-constants.md §Senior-safe vs mainstream — senior-safe rules применяются **только в use mode**, не в edit mode.
+2. **Use mode rules различаются** по target preset:
+   - **Workspace use mode** (admin home) — mainstream rendering, обычные tap targets.
+   - **Simple Launcher use mode** (бабушкин home) — senior-safe rendering: tap-target ≥56dp, no jiggle, no hidden gestures для primary flows.
+3. **Picker tile types определяется target preset'ом**: Workspace target → 5 вкладок (App / Contact / Widget / Document / Action; Widget+Action как «В разработке» placeholder). Simple Launcher target → 3 вкладки (App / Contact / Document).
 4. **Visual frame + banner** при remote target editing — admin сразу видит, что редактирует чужое.
-5. **Domain unified**, presentation двух видов. Никакого pixel mirror — структурный shared editor (Figma pattern).
+5. **Domain unified**, presentation единый в edit mode + variant в use mode. Никакого pixel mirror — структурный shared editor (Figma pattern).
 
 **Named configs (Q1 clarification 2026-05-29)**:
 - Admin может иметь до **5 named configs** per Google account (default, home, job, ...) с compatibility key (presetId + deviceClass).
