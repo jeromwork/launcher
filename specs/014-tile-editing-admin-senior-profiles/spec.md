@@ -19,6 +19,7 @@
 | Q1.4 | Deletion semantics для named configs? | **No explicit delete UI**. Reference-counting model: config = ACTIVE если ≥1 device использует, ORPHAN если 0 devices (с timestamp `orphanedAt`). 30-day grace **только UI marker** в MVP — реального auto-delete нет, отложено до own-server (TODO-FUTURE-SPEC-008). При 5/5 configs + попытка create → prompt «Удалить самый старый orphan config?» |
 | Q1.5 | Migration anonymous → Google Sign-In с existing local configs? | **Explicit user choice** на first sign-in dialog: (a) заменить серверным default, (b) сохранить локальное как новый named config (prompt for name), (c) skip server backup (privacy mode). |
 | Q2 | Где живёт логика `selectProfile(presetId): EditUiProfile`? | **Domain-level pure function** в `core/commonMain/.../api/edit/EditUiProfileSelector.kt`. Hardcoded `when` mapping: Workspace → AdminProfile, SimpleLauncher → SeniorProfile, else → AdminProfile fallback. Unit-testable без UI. **Exit ramp на F-2**: F-014 использует current monolithic `FlowPreset` enum как **placeholder**. Когда F-2 (Capability Registry Foundation) закроется, selector refactor'ится: `selectProfile(presetId)` → `selectProfile(capabilities: Set<Capability>)`. См. [ecosystem-vision.md §Compositable Presets](../../docs/product/future/ecosystem-vision.md). Vision записан, реализация — в F-2. |
+| Q3 | Widget и Action tile-types в admin picker — placeholder или remove? | **Гибрид: UI placeholder, no implementation в F-014**. Picker admin'а имеет 5 вкладок: Приложения / Контакты / Виджеты / Документы / Действия. Виджеты и Действия — visible вкладки в UI с **«В разработке»** screen при тапе (informs admin'а о roadmap'е, не dead-end crash). Real rendering — отдельные future специки: `TODO-UX-027` (Widget tile-type rendering, AppWidgetHost), `TODO-UX-028` (Action tile-type — SOS/phone/flashlight). Senior profile (FR-019) скрывает обе вкладки полностью. |
 
 **Adjacent decisions captured** (in backlog as new TODOs):
 - TODO-FUTURE-PRODUCT-006: Professional Configurator (B2B) — Post-MVP vision.
@@ -256,8 +257,14 @@ Admin одновременно поддерживает: (а) свой Workspace
 
 ### Functional Requirements — Tile types в picker'е
 
-- **FR-018**: System MUST в admin profile picker предлагать следующие tile types: Application (existing OpenApp slot), Contact (existing Contact slot, спека 009/011), Document (existing Document slot, спека 012), Widget (NEW — но F-014 только определяет tile-type slot, реальные widget rendering — отдельная спека), Action (NEW — SOS, phone call, flashlight — future).
-- **FR-019**: System MUST в senior profile picker предлагать: Application, Contact, Document. **Без Widget, без Action** (deferred).
+- **FR-018**: System MUST в admin profile picker предлагать следующие tile types в виде вкладок:
+  - **Application** — fully implemented (existing OpenApp slot, спека 005).
+  - **Contact** — fully implemented (existing Contact slot, спеки 009/011).
+  - **Document** — fully implemented (existing Document slot, спека 012).
+  - **Widget** — **placeholder вкладка**. Visible в UI; при тапе показывает full-screen «В разработке» screen с текстом «Виджеты появятся в будущих обновлениях. Сейчас можно добавлять плитки приложений, контактов и документов.» + кнопка «Назад». **Никакой functional implementation в F-014** — реальный widget rendering (через `AppWidgetHost`) откладывается до отдельной спеки `TODO-UX-027`.
+  - **Action** — **placeholder вкладка**. Visible в UI; при тапе показывает full-screen «В разработке» screen с текстом «Быстрые действия (SOS, фонарик, звонок одной кнопкой) появятся в будущих обновлениях.» + кнопка «Назад». **Никакой functional implementation в F-014** — реальная Action implementation (SOS / phone / flashlight) откладывается до отдельной спеки `TODO-UX-028`.
+- **FR-018a (Placeholder visibility rationale)**: Placeholder вкладки **видимы в UI**, чтобы admin понимал roadmap продукта и не считал, что эти возможности невозможны вообще. Это **не dead-end crash** — это honest UX о planned features. Альтернатива (hide tabs полностью до implementation) скрывает roadmap от admin'а и создаёт surprise при появлении в будущем.
+- **FR-019**: System MUST в senior profile picker предлагать **только** fully implemented tile types: Application, Contact, Document. Widget и Action вкладки **скрыты полностью** (privacy: admin не должен случайно добавить experimental UI на бабушкин экран; senior cognitive load minimisation).
 
 ### Functional Requirements — Empty state
 

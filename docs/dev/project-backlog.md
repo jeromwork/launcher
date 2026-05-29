@@ -116,6 +116,38 @@
 - **Status**: 🟡 OPEN — primary research input для F-2 spec phase.
 - **Origin**: User vision 2026-05-29 при обсуждении F-014 clarify Q2. Записано подробно в [docs/product/future/ecosystem-vision.md §Compositable Presets](../product/future/ecosystem-vision.md#compositable-presets--long-term-architectural-vision).
 
+### TODO-UX-027: Widget tile-type real rendering 🟡
+
+- **What**: Реализация **functional rendering Android widgets** как plate type на admin home screen. Закрывает placeholder вкладку «Виджеты» в admin picker'е (F-014 FR-018).
+- **Why**: F-014 определяет Widget как visible placeholder вкладка с «В разработке» screen — admin понимает roadmap, но functional widget hosting deferred. Этот TODO закрывает gap.
+- **How** (когда настанет время):
+  1. Add Android `AppWidgetHost` integration в launcher app.
+  2. Permission handling — `BIND_APPWIDGET` (system permission, requires LauncherApps).
+  3. Widget picker UI (выбор виджета из installed apps).
+  4. Plate slot type `WidgetSlot` в ConfigDocument wire-format (additive, schemaVersion bump на consumer side).
+  5. Lifecycle handling (widget update broadcasts, view recycling).
+  6. Edit mode interaction (resize, remove).
+  7. Senior profile: widget вкладка остаётся **скрытой** (privacy/safety per F-014 FR-019).
+- **When**: Post-MVP UX polish phase, после F-014 lands.
+- **Status**: 🟡 OPEN — referenced from F-014 FR-018.
+- **Origin**: F-014 spec scope decision 2026-05-29 — Widget visible placeholder только, no implementation.
+
+### TODO-UX-028: Action tile-type (SOS, phone, flashlight, etc.) 🟡
+
+- **What**: Реализация **functional Action plates** — быстрые кнопки одного нажатия (SOS, фонарик, прямой звонок, погода, и т.д.). Закрывает placeholder вкладку «Действия» в admin picker'е (F-014 FR-018).
+- **Why**: F-014 определяет Action как visible placeholder вкладка с «В разработке» screen. Реальная implementation требует отдельной спеки — Action concept уже частично присутствует в спеке 005 (Action Architecture), но specific Actions (SOS, фонарик) не реализованы.
+- **How** (когда настанет время):
+  1. Определить set предустановленных Actions: SOS (emergency call + location share), Phone (direct dial), Flashlight, Camera, Weather widget, Volume mute, и т.д.
+  2. Action registry pattern (extends спека 005 ActionDispatcher).
+  3. Plate slot type `ActionSlot` в ConfigDocument wire-format (additive).
+  4. Per-action permissions handling (CALL_PHONE для phone, CAMERA для flashlight, etc.).
+  5. Action picker UI (browseable list с descriptions и preview).
+  6. Senior profile: Action вкладка остаётся **скрытой** (per F-014 FR-019).
+- **Cross-link**: Связан с TODO-UX-027 (Widget); связан со спекой 005 (Action Architecture).
+- **When**: Post-MVP UX polish phase, после F-014 lands. SOS Action имеет особо высокий приоритет для senior product fit.
+- **Status**: 🟡 OPEN — referenced from F-014 FR-018.
+- **Origin**: F-014 spec scope decision 2026-05-29 — Action visible placeholder только, no implementation.
+
 ### TODO-FUTURE-UX-012: First multi-config creation toast/hint copy 🟢
 
 - **What**: Дизайн **microcopy** для subtle toast при transition State 0 → State 2 в named configs (F-014 FR-003d). Когда admin впервые создаёт второй named config через push dialog — показывается toast «Конфиг "X" создан. Управление — в настройках» (3 sec, не overlay, не tutorial).
