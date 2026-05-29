@@ -22,6 +22,10 @@
 | Q3 | Widget и Action tile-types в admin picker — placeholder или remove? | **Гибрид: UI placeholder, no implementation в F-014**. Picker имеет 5 вкладок: Приложения / Контакты / Виджеты / Документы / Действия. Виджеты и Действия — visible вкладки в UI с **«В разработке»** screen при тапе (informs admin'а о roadmap'е, не dead-end crash). Real rendering — отдельные future специки: `TODO-UX-027` (Widget tile-type rendering, AppWidgetHost), `TODO-UX-028` (Action tile-type — SOS/phone/flashlight). При editing Simple Launcher target — Widget/Action скрываются полностью (privacy + simplicity на бабушкином экране). |
 | Q4 | Senior profile movement UX (drag отключён, нужны кнопки на плитке) — какой pattern? | **Вопрос невалиден — отменён 2026-05-29**. Edit mode UX **универсален** для всех контекстов (admin Workspace, бабушкин Simple Launcher после 7-tap, admin remote editing). Senior profile rules применяются **только в use mode** (рендеринг home для конечного пользователя), не в edit mode. Per [project-constants.md §Senior-safe vs mainstream](../../docs/dev/project-constants.md) — already-fixed project constant. FR-012 переписан: единый edit mode UX (mainstream Android-конвенции). FR-013 переехало на use-mode tap-targets. |
 | Q5 | Cross-device sync SC-003 measurability (network/FCM/OEM-dependent timing)? | **Не измеряем timing вообще**. Cross-device sync latency — **out of scope F-014 responsibility**. Наш scope заканчивается на: (1) push в Firestore без ошибок, (2) разрешение конфликтов в случае optimistic concurrency clash. Что происходит дальше — network reliability, FCM delivery, OEM battery management — **за пределами нашего контроля**. SC-003 переписан как functional outcome без числа: «admin push в Firestore успешен, конфликты разрешены через optimistic concurrency». End-to-end measurement удалён. |
+| Q6 | Empty state «+» tile (FR-020) vs long-press entry (FR-005) — конфликт affordances? | **Empty-state «+» — single-shot add без входа в edit mode**. Тап открывает picker напрямую (минуя long-press / edit mode). После добавления первой плитки admin остаётся в **use mode**. Дальнейшие операции (add 2-ю плитку, move, remove) — через long-press entry в edit mode как обычно. Это mainstream Niagara/Pixel pattern: zero-state has direct affordance, populated state requires explicit mode-switch. См. FR-020 update. |
+| Q7 | Concurrent edit conflict UX на стороне Senior? Бабушка получает «Перезаписать» dialog (когнитивная нагрузка)? | **Senior-side: last-local-write-wins, no dialog**. Если бабушка edit'ит локально пока admin push'ит remote — бабушкин edit применяется silently, admin'у возвращается `Conflict`, admin видит snackbar «Бабушка только что изменила. [Обновить]». Senior **никогда** не видит conflict UI. Article VIII §7 compliance: бабушка не делает decisions она не понимает. FR-016/FR-017 уточнены: «Перезаписать» branch доступна **только admin'у**; senior-side resolution всегда «keep local». |
+| Q8 | FR-008a fallback semantics для unknown/custom presets — silent AdminProfile или explicit refuse? | **Hybrid: silent fallback для built-in unknown enum values, explicit refuse для custom user-created presets**. Built-in enum (когда добавятся TVPreset / FoldablePreset) — `else → AdminProfile` (least restrictive). Custom presets (через TODO-FUTURE-PRODUCT-006 Configurator) — selector throws `ProfileSelectionRequiresCapabilityRegistry` error, форсит решение наружу. До F-2 (Capability Registry) **custom presets не поддерживаются вообще** — это refusal point для one-way door, не silent default. FR-008a уточнён. |
+| Q9 | Entry gesture (FR-005/FR-006) определяется target preset'ом или editor identity? | **Target preset, не identity** (consistent с Q4 + FR-009). Workspace target → long-press entry (для admin'а на своём, ИЛИ для senior'а с продвинутым телефоном на Workspace). Simple Launcher target → 7-tap entry (для бабушки локально, ИЛИ для admin'а если он провалится в bizarre scenario «admin использует Simple Launcher на своём телефоне»). FR-005/FR-006 переформулированы в терминах **target preset**, не editor role. Это уже implicit per FR-009 — теперь explicit. |
 
 **Adjacent decisions captured** (in backlog as new TODOs):
 - TODO-FUTURE-PRODUCT-006: Professional Configurator (B2B) — Post-MVP vision.
@@ -167,7 +171,7 @@ Admin одновременно поддерживает: (а) свой Workspace
 ### Edge Cases
 
 - **Empty workspace на admin'е**: первая установка, ConfigDocument пустой. Home screen рендерит пустую 2×3 сетку с видимым «+» в каждой ячейке (даже не в edit mode — потому что это явная affordance). Long-press пустого места всё равно работает.
-- **Concurrent edit conflict**: admin редактирует target бабушки удалённо, в это же время бабушка через 7-tap локально тоже редактирует. Resolved через optimistic concurrency спеки 008 (`stale version → retry`). UX: admin видит snackbar «Кто-то ещё редактирует. Обновить?», бабушка — то же самое.
+- **Concurrent edit conflict**: admin редактирует target бабушки удалённо, в это же время бабушка через 7-tap локально тоже редактирует. Resolved через optimistic concurrency спеки 008 (`stale version → retry`) + profile-aware UX (per FR-016 / Q7 clarification 2026-05-29): admin видит snackbar «Бабушка только что изменила. [Обновить] [Перезаписать]»; **бабушка не видит** никакого conflict UI — её local edit применяется silent'но (last-local-write-wins на senior-side).
 - **Profile mismatch при provider unavailable**: admin'ский Workspace включает widget от приложения, которое не установлено на бабушкином target. Widget не рендерится на target → admin получает warning при попытке добавить виджет в target editor.
 - **Drag-and-drop в senior profile отключён**: пытается senior drag'ать → ничего не происходит (но не show error — silent ignore). Edit обновления только через «↑/↓» кнопки.
 - **Last tile remove**: senior удалил последнюю плитку → home screen пустой → но всё ещё имеет видимое «+» в каждой ячейке (нечего ломать).
@@ -205,8 +209,9 @@ Admin одновременно поддерживает: (а) свой Workspace
 
 ### Functional Requirements — Edit mode entry
 
-- **FR-005**: System MUST поддерживать вход в edit mode из admin Workspace через **long-press пустого места** на home screen (admin profile).
-- **FR-006**: System MUST поддерживать вход в edit mode на бабушкином Simple Launcher через **7-tap gesture** (existing, спека 010 FR-021) → challenge gate → edit mode.
+- **FR-005**: System MUST поддерживать вход в edit mode для **Workspace target** через **long-press пустого места** на home screen. Применяется независимо от editor identity (admin на своём, senior с продвинутым телефоном на Workspace — оба используют long-press). Entry gesture определяется **target preset'ом**, не editor role (per Q9 clarification 2026-05-29 и FR-009).
+- **FR-006**: System MUST поддерживать вход в edit mode для **Simple Launcher target** через **7-tap gesture** (existing, спека 010 FR-021) → challenge gate → edit mode. Применяется независимо от editor identity — бабушка локально, или admin'ский bizarre case (если он сам использует Simple Launcher на своём телефоне). Target-preset-driven, не identity-driven (per Q9 clarification 2026-05-29).
+- **FR-006a (Remote target editing entry)**: System MUST для admin'ского remote editing **обходить** target-preset-driven entry gesture (FR-005/FR-006) — admin входит в Target Editor через **тап на target плитке** в `admin_devices` Flow (FR-007), не через long-press/7-tap на target'е. Это потому что admin не физически на target'е; gesture-based entry применим только к **local** editing.
 - **FR-007**: System MUST поддерживать вход в Target Editor (admin редактирует remote бабушкин Simple Launcher) через **тап на target плитке** в Flow с `templateId="admin_devices"` ИЛИ через Settings → Сопряжённые устройства → конкретное устройство → «Редактировать».
 
 ### Functional Requirements — Profile selection
@@ -217,6 +222,9 @@ Admin одновременно поддерживает: (а) свой Workspace
   - Target preset = (any other / unknown) → `AdminProfile` fallback (least restrictive default).
   Pure function: no I/O, no side effects, no Compose dependency. Unit-testable без UI runtime.
 - **FR-008a (Exit ramp на F-2)**: System MUST use current monolithic `FlowPreset` enum (Workspace / Launcher / SimpleLauncher) as **placeholder until F-2 (Capability Registry Foundation) lands**. Vision (см. [ecosystem-vision.md §Compositable Presets](../../docs/product/future/ecosystem-vision.md)) — preset станет compositable unit of capability. Когда F-2 закроется, F-014 refactor: `selectProfile(presetId: String)` → `selectProfile(capabilities: Set<Capability>)`. Backward-compat сохраняется через retention enum как pre-packaged composition.
+- **FR-008b (Fallback semantics — Q8 clarification 2026-05-29)**: System MUST разделять fallback поведение по типу unknown preset:
+  - **Built-in enum value** (текущая `FlowPreset` enum в spec'е 003, или будущие enum values типа `TVPreset`/`FoldablePreset` когда они добавятся через спека) → `else → AdminProfile` (least restrictive default, mainstream UX).
+  - **Custom preset** (через TODO-FUTURE-PRODUCT-006 Configurator — preset с user-defined ID не в enum) → selector throws `EditError.ProfileSelectionRequiresCapabilityRegistry`. F-014 **отказывается** silent'но fallback'ить custom presets, потому что это zafix'ит ожидание AdminProfile для unknown territory (one-way door). До F-2 custom presets не поддерживаются — selector force'ит решение наружу через explicit error. Презентация: при попытке editor открыть для custom preset показывает screen «Custom presets появятся в будущих обновлениях».
 - **FR-009**: System MUST применять profile **независимо** от того, кто редактирует (admin remote vs senior local). Admin редактирует Simple Launcher → senior profile. Бабушка с продвинутым телефоном настраивает Workspace на себе → admin profile. Profile определяется **target preset'ом**, не identity of editor.
 
 ### Functional Requirements — Admin profile UX
@@ -235,6 +243,7 @@ Admin одновременно поддерживает: (а) свой Workspace
 ### Functional Requirements — Senior profile UX
 
 - **FR-012**: System MUST использовать **единый edit mode UX** для всех контекстов и target preset'ов — admin Workspace, бабушкин Simple Launcher (после 7-tap), admin remote editing. Конкретно — те же mainstream Android-конвенции что определены в FR-010 для admin profile: long-press вход, drag-and-drop, drag-to-X удаление, snackbar undo, jiggle, единый picker для add. **Senior profile НЕ влияет на edit mode UX** — все различия профилей живут только в **use mode** (рендеринг home для конечного пользователя). Per [docs/dev/project-constants.md §Senior-safe vs mainstream UX rules](../../docs/dev/project-constants.md) — already-fixed project constant.
+- **FR-012a (TalkBack drag alternative)**: System MUST в edit mode при активном TalkBack/screen reader (`AccessibilityManager.isTouchExplorationEnabled() == true`) предоставлять **context menu alternative** для drag-and-drop: long-press на плитке открывает menu с действиями «Переместить вверх / Переместить вниз / Переместить влево / Переместить вправо / Удалить». Mainstream пользователям drag-and-drop остаётся primary affordance; context menu — visible но secondary affordance для всех (доступен через long-press всегда, primary для screen reader пользователей). Per accessibility.md CHK010 — drag-and-drop в FR-012 universal mainstream UX incompatible с screen reader без explicit alt mechanism.
 - **FR-013 (use-mode tap-targets)**: System MUST в **use mode** Simple Launcher (бабушкино рендеринг home) использовать **tap-target ≥56dp** для всех interactive плиток. В edit mode tap-target governed mainstream Android-конвенциями (Material guidelines ≥48dp). Per Article VIII §7 — applies к use-mode, не к edit-mode.
 
 ### Functional Requirements — Remote editing visual indicators
@@ -246,8 +255,10 @@ Admin одновременно поддерживает: (а) свой Workspace
 
 ### Functional Requirements — Concurrent edit conflict
 
-- **FR-016**: System MUST detect concurrent edits через `ConfigEditor.pushPending` returning `ConfigSyncError.Conflict` (спека 008). Resolution: snackbar admin'у «Кто-то ещё редактирует. [Обновить] [Перезаписать]».
-- **FR-017**: System MUST при «Перезаписать» использовать `pushPending(force=true)` (спека 008 mechanism). При «Обновить» — re-fetch + merge UI.
+- **FR-016**: System MUST detect concurrent edits через `ConfigEditor.pushPending` returning `ConfigSyncError.Conflict` (спека 008). Resolution **зависит от editor profile** (per Q7 clarification 2026-05-29):
+  - **Admin profile editor** (Workspace target self OR Simple Launcher target remote) → snackbar «Кто-то ещё редактирует. [Обновить] [Перезаписать]».
+  - **Senior profile editor** (бабушка локально на Simple Launcher target после 7-tap) → **silent last-local-write-wins**. Бабушкин edit применяется без dialog'а; admin'у возвращается `Conflict` если он был в процессе push'а; admin видит snackbar «Бабушка только что изменила. [Обновить]» (без «Перезаписать» — admin не может silently override бабушкин local edit). Article VIII §7 compliance: бабушка не делает decisions она не понимает.
+- **FR-017**: System MUST при «Перезаписать» (доступно **только в admin profile**, FR-016) использовать `pushPending(force=true)` (спека 008 mechanism). При «Обновить» — re-fetch + merge UI. Senior profile UI **никогда** не предлагает «Перезаписать» — её local writes автоматически имеют приоритет over remote admin writes (last-local-write-wins).
 
 ### Functional Requirements — Tile types в picker'е
 
@@ -263,6 +274,7 @@ Admin одновременно поддерживает: (а) свой Workspace
 ### Functional Requirements — Empty state
 
 - **FR-020 (Empty state — единое поведение)**: System MUST при пустом ConfigDocument рендерить пустую 2×3 grid + **один tile с большой «+»** в первой ячейке (≥72dp иконка). Это **always-visible affordance** для входа в add-flow без необходимости long-press. Mainstream pattern (Niagara-style) для всех target preset'ов — admin Workspace и бабушкин Simple Launcher одинаково. Per research отчёт §First-launch empty state.
+- **FR-020a (Empty-state «+» tap behavior — Q6 clarification 2026-05-29)**: System MUST при tap'е на empty-state «+» tile **открывать picker напрямую**, минуя edit mode entry. После выбора плитки + confirm — она появляется в первой ячейке, user остаётся в **use mode** (плитка кликабельна сразу). Это single-shot add для zero-state. Дальнейшие операции (add 2-ю плитку, move existing, remove) — через стандартный entry (long-press / 7-tap per FR-005/FR-006) в edit mode. Mainstream Niagara/Pixel zero-state pattern: direct affordance в empty, explicit mode-switch в populated.
 - **FR-021 (Use-mode rendering для Simple Launcher)**: System MUST при rendering home для **бабушки в use mode** (NOT edit mode) использовать senior-safe правила: tap-target ≥56dp, no jiggle на плитках, no hidden gestures для primary flows, plain language labels. Edit mode (после 7-tap) НЕ затрагивает эти rules — переключается на mainstream UX согласно FR-012.
 
 ### Key Entities
@@ -272,7 +284,7 @@ Admin одновременно поддерживает: (а) свой Workspace
 - **TargetIdentity**: who/what is being edited. `{linkId: String, presetId: String, isSelf: Boolean}`.
 - **EditUiProfile**: UX rules selector. `sealed class { AdminProfile, SeniorProfile }`. Includes affordances available (jiggle / banner / drag / buttons), picker tabs visibility, undo mechanism.
 - **PickerType**: enum для tile types в picker'е. `Application | Contact | Document | Widget | Action`.
-- **EditError**: domain error variants. `{InvalidPosition, SlotNotFound, FlowNotFound, ConcurrentEditConflict, NotAuthorized}`.
+- **EditError**: domain error variants. `{InvalidPosition, SlotNotFound, FlowNotFound, ConcurrentEditConflict, NotAuthorized, ProfileSelectionRequiresCapabilityRegistry}`. Last variant added per Q8 clarification 2026-05-29 — explicit refuse для custom user-created presets вместо silent AdminProfile fallback.
 
 ---
 
@@ -412,6 +424,12 @@ Admin одновременно поддерживает: (а) свой Workspace
 - **No explicit delete UI**. При 5/5 limit + создание нового → prompt «Удалить самый старый orphan?»
 - **Progressive disclosure**: вся multi-config UI **скрыта** пока admin имеет 1 config. State derives from observable `configCount > 1`. При создании второго — Settings → «Мои конфиги (2/5)» появляется. Если admin удалит все non-default — UI сворачивается обратно.
 - **Phasing**: F-014.0 = local DataStore (now), F-014.1 = server backup (after F-4), F-014.2 = encryption (after F-5).
+
+**Уточнения 2026-05-29 раунд 2 (Q6-Q9)**:
+- **Q6 Empty state**: «+» в пустой ячейке — direct affordance (single-shot add без edit mode). После добавления первой плитки — стандартный long-press для дальнейших операций. Mainstream Niagara/Pixel pattern.
+- **Q7 Concurrent conflict UX**: asymmetric by profile. Admin видит dialog «[Обновить] [Перезаписать]»; senior **silent last-local-write-wins** (бабушка не видит conflict UI, её local edit всегда выигрывает, admin'у — post-hoc snackbar «Бабушка только что изменила»). Article VIII §7 cognitive load compliance.
+- **Q8 Unknown preset fallback**: built-in unknown enum → silent AdminProfile (least restrictive); custom user-created preset (через TODO-FUTURE-PRODUCT-006) → explicit `EditError.ProfileSelectionRequiresCapabilityRegistry`. Не silent fallback для custom — force'ит решение наружу (rule 3 exit ramp).
+- **Q9 Entry gesture by preset**: Workspace target → long-press; Simple Launcher target → 7-tap. Target-preset-driven, не editor-identity-driven (consistent с FR-009).
 
 **Что НЕ строится**: vCard share-target, Tutorial, Trash bin retention, new tile types (Widget/Action — placeholders), Family Group (deprecated), ConfigDocument encryption (отдельная F-5), Personal vault, auto-delete orphan configs (отложено до own-server).
 
