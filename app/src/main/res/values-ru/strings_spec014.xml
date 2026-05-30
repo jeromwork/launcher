@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Spec 014 tile-editing strings — Russian translations.
+
+  Per spec 014 localization.md + Q7 clarification: conflict snackbar copy
+  uses gender-neutral fallback "Пользователь" when no alias is set.
+-->
+<resources>
+
+    <!-- Edit-mode banner -->
+    <string name="f014_remote_edit_banner_format">Редактируешь телефон %s</string>
+    <string name="f014_remote_edit_banner_fallback">Редактируешь сопряжённое устройство</string>
+    <string name="f014_banner_back">← Назад</string>
+    <string name="f014_banner_done">Готово</string>
+
+    <!-- Tile remove snackbar -->
+    <string name="f014_remove_snackbar_format">Удалено: %s</string>
+    <string name="f014_remove_snackbar_undo">Отменить</string>
+
+    <!-- Concurrent edit conflict admin-side -->
+    <string name="f014_conflict_admin_snackbar_format">%s только что внёс(ла) изменения. Обновить?</string>
+    <string name="f014_conflict_admin_update">Обновить</string>
+    <string name="f014_conflict_admin_overwrite">Перезаписать</string>
+
+    <!-- Unified picker tabs -->
+    <string name="f014_picker_tab_apps">Приложения</string>
+    <string name="f014_picker_tab_contacts">Контакты</string>
+    <string name="f014_picker_tab_widgets">Виджеты</string>
+    <string name="f014_picker_tab_documents">Документы</string>
+    <string name="f014_picker_tab_actions">Действия</string>
+
+    <!-- "В разработке" placeholder screens -->
+    <string name="f014_placeholder_widget_title">В разработке</string>
+    <string name="f014_placeholder_widget_body">Виджеты появятся в будущих обновлениях. Сейчас можно добавлять плитки приложений, контактов и документов.</string>
+    <string name="f014_placeholder_action_title">В разработке</string>
+    <string name="f014_placeholder_action_body">Быстрые действия (SOS, фонарик, звонок одной кнопкой) появятся в будущих обновлениях.</string>
+    <string name="f014_placeholder_custom_preset_title">В разработке</string>
+    <string name="f014_placeholder_custom_preset_body">Пользовательские пресеты появятся в будущих обновлениях.</string>
+    <string name="f014_placeholder_back">Назад</string>
+
+    <!-- Empty state tile -->
+    <string name="f014_empty_state_add">Добавить плитку</string>
+
+    <!-- TalkBack context menu -->
+    <string name="f014_context_menu_move_up">Переместить вверх</string>
+    <string name="f014_context_menu_move_down">Переместить вниз</string>
+    <string name="f014_context_menu_move_left">Переместить влево</string>
+    <string name="f014_context_menu_move_right">Переместить вправо</string>
+    <string name="f014_context_menu_delete">Удалить</string>
+
+    <!-- contentDescription -->
+    <string name="f014_a11y_remove_tile_format">Удалить плитку %s</string>
+    <string name="f014_a11y_move_tile_format">Переместить плитку %s</string>
+    <string name="f014_a11y_exit_edit_mode">Выйти из режима редактирования</string>
+    <string name="f014_a11y_finish_editing">Завершить редактирование</string>
+
+    <!-- 5-config limit prompt -->
+    <string name="f014_limit_reached_title">Достигнут лимит конфигов</string>
+    <string name="f014_limit_reached_body_format">У тебя 5 из 5 конфигов. Удалить самый старый неиспользуемый конфиг %s?</string>
+    <string name="f014_limit_reached_delete_oldest">Удалить самый старый</string>
+
+    <!-- ConfigName validation -->
+    <string name="f014_name_empty">Имя не может быть пустым</string>
+    <string name="f014_name_too_long">Имя не должно превышать 32 символа</string>
+    <string name="f014_name_invalid_chars">Имя может содержать только буквы, цифры, пробелы и дефисы</string>
+    <string name="f014_name_duplicate_format">Конфиг с именем «%s» уже существует</string>
+
+    <!-- Toast on first multi-config creation -->
+    <string name="f014_toast_first_named_config_format">Конфиг «%s» создан. Управление — в настройках.</string>
+
+</resources>

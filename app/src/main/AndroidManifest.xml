@@ -171,6 +171,18 @@
             android:label="Spec 011 Smoke" />
 
         <!--
+          Spec 014 F-014.0 visual smoke — renders all 7 composables on
+          one scrollable surface. No backend / DI dependencies (composables
+          are stateless / app-only). T200 verification:
+          adb shell am start -n com.launcher.app.mock/com.launcher.app.debug.Spec014SmokeDebugActivity
+          (.mock suffix for mockBackend variant).
+        -->
+        <activity
+            android:name=".debug.Spec014SmokeDebugActivity"
+            android:exported="true"
+            android:label="Spec 014 Smoke" />
+
+        <!--
           Spec 007 pairing host (Managed-side flow). Launched from Settings
           via explicit intent. Stays adb-launchable for QA via
           `am start -n com.launcher.app/.ui.pairing.PairingActivity` —

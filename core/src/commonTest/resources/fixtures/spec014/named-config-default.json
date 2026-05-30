@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "configs": [
+    {
+      "schemaVersion": 1,
+      "configName": "default",
+      "description": "",
+      "isDefault": true,
+      "presetId": "workspace",
+      "deviceClass": "phone",
+      "activeDeviceIds": ["0c8e3a5e-1e7c-4f7b-9a1d-2b3c4d5e6f7a"]
+    }
+  ]
+}

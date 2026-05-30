@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Russian plurals for F-014 orphan-config UI markers.
+
+  ICU forms:
+  - one: 1, 21, 31, ... (one item)
+  - few: 2-4, 22-24, ... (few items)
+  - many: 0, 5-20, 25-30, ... (many items, default)
+  - other: fallback (rarely used in Russian)
+-->
+<resources>
+
+    <plurals name="f014_orphan_countdown_days">
+        <item quantity="one">Истекает через %d день</item>
+        <item quantity="few">Истекает через %d дня</item>
+        <item quantity="many">Истекает через %d дней</item>
+        <item quantity="other">Истекает через %d дней</item>
+    </plurals>
+
+    <plurals name="f014_orphan_unused_days">
+        <item quantity="one">не используется %d день</item>
+        <item quantity="few">не используется %d дня</item>
+        <item quantity="many">не используется %d дней</item>
+        <item quantity="other">не используется %d дней</item>
+    </plurals>
+
+</resources>

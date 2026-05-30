@@ -95,6 +95,198 @@
 
 ## Future Products (ecosystem)
 
+### TODO-RESEARCH-014: Compositable preset architecture for F-2 Capability Registry 🟡
+
+- **What**: Research и design **compositable preset model** — переход от monolithic preset enum (Workspace / Simple Launcher) к compositable units of capability, которые комбинируются в финальную конфигурацию лаунчера.
+- **Why**: User vision 2026-05-29 — preset = compositable unit (1 aspect: tremor-fix, notification-shutter-lock, yellow-accent, tile-shadows, etc.). Bundled presets (Simple Launcher / Workspace) становятся pre-packaged compositions. Преимущества: marketplace-ready, A/B testing, accessibility-friendly, cross-platform consistency.
+- **How (research targets)**:
+  1. **Capability primitive design** — что такое "atomic capability"? Toggleable boolean? Composable settings? Strategy pattern?
+  2. **Composition resolution** — как разрешаются конфликты (2 capabilities имеют overlapping effect)? Priority? Override semantics?
+  3. **Wire-format** — `ExportablePreset` schema с schemaVersion, identity-strip rules.
+  4. **Cross-platform availability** — как capability помечает supported platforms; fallback при mismatch.
+  5. **Migration path** — backward-compat с current `FlowPreset` enum; existing spec 014 references на Workspace / SimpleLauncher продолжают работать.
+  6. **UI для composition** — пользователь видит/собирает свою конфигурацию (TODO: какой UI pattern — checklist? marketplace? wizard?).
+  7. **Performance** — composition resolution не должен влиять на startup time или frame rate.
+- **Research patterns**:
+  - **Tailwind CSS utility-first** — каждый class atomic, композиция через concat.
+  - **VS Code Settings Sync packs** — shareable settings collections.
+  - **iOS Accessibility Shortcuts** — independent toggles, composable.
+  - **Home Assistant Themes** — composable presets с inheritance.
+- **When**: F-2 Capability Registry Foundation (roadmap.md Phase 1). До F-2 — capability model **не существует**; spec 014 + другие специки используют current monolithic enum как placeholder.
+- **Status**: 🟡 OPEN — primary research input для F-2 spec phase.
+- **Origin**: User vision 2026-05-29 при обсуждении F-014 clarify Q2. Записано подробно в [docs/product/future/ecosystem-vision.md §Compositable Presets](../product/future/ecosystem-vision.md#compositable-presets--long-term-architectural-vision).
+
+### TODO-UX-025: Tutorial / onboarding overlay для new admin'ов 🟡
+
+- **What**: Onboarding overlay (highlight + tip cards) для **первого запуска** admin'ского Workspace — учит long-press входу в edit mode, tap на empty «+» tile, и как работает paired-device editing.
+- **Why**: F-014 long-press entry — discovery problem (см. spec accessibility.md CHK014). Без onboarding admin'у в первый раз будет непонятно как настраивать. Текущий compromise — empty-state «+» tile (FR-020a) даёт direct entry для нулевого state, но дальше admin застрянет.
+- **How** (when implementing):
+  1. Tip card sequence — 3-4 шага maximum (overload counter-productive).
+  2. Skip / dismiss всегда доступен (Article XV — user dignity).
+  3. Trigger: только на самой первой загрузке (track flag в DataStore).
+  4. Russian + EN copy.
+- **When**: Post F-014.0 ship, перед public release. Полезно для бета-тестеров.
+- **Status**: 🟡 OPEN — referenced from F-014 §"Что НЕ строит этот спек".
+- **Origin**: F-014 deferral 2026-05-29.
+
+### TODO-UX-026: Recently deleted / Trash bin 30-day retention 🟡
+
+- **What**: «Корзина» для удалённых tiles — undo доступен в течение 30 дней после deletion. Сейчас (F-014.0) только 8-секундный snackbar undo.
+- **Why**: Admin может accidentally удалить tile и не успеть undo. 30-day retention даёт safety net. Mainstream pattern (Gmail / iOS Photos).
+- **How** (when implementing):
+  1. Wire-format change: добавить `/config/deletedTiles/` collection (separate from current `/config/current`).
+  2. Schema: `{ tileId, originalFlow, deletedAt, expiresAt }`.
+  3. UI entry: Settings → «Корзина» (показывается только если non-empty).
+  4. Auto-cleanup на read (client-side, no cron нужен).
+  5. Restore action → re-add в original Flow (если ещё существует) или новый Flow.
+- **When**: Post F-014.0 ship. **Не блокер MVP**.
+- **Status**: 🟡 OPEN — referenced from F-014 §"Что НЕ строит этот спек".
+- **Origin**: F-014 deferral 2026-05-29.
+
+### TODO-UX-027: Widget tile-type real rendering 🟡
+
+- **What**: Реализация **functional rendering Android widgets** как plate type на admin home screen. Закрывает placeholder вкладку «Виджеты» в admin picker'е (F-014 FR-018).
+- **Why**: F-014 определяет Widget как visible placeholder вкладка с «В разработке» screen — admin понимает roadmap, но functional widget hosting deferred. Этот TODO закрывает gap.
+- **How** (когда настанет время):
+  1. Add Android `AppWidgetHost` integration в launcher app.
+  2. Permission handling — `BIND_APPWIDGET` (system permission, requires LauncherApps).
+  3. Widget picker UI (выбор виджета из installed apps).
+  4. Plate slot type `WidgetSlot` в ConfigDocument wire-format (additive, schemaVersion bump на consumer side).
+  5. Lifecycle handling (widget update broadcasts, view recycling).
+  6. Edit mode interaction (resize, remove).
+  7. Senior profile: widget вкладка остаётся **скрытой** (privacy/safety per F-014 FR-019).
+- **When**: Post-MVP UX polish phase, после F-014 lands.
+- **Status**: 🟡 OPEN — referenced from F-014 FR-018.
+- **Origin**: F-014 spec scope decision 2026-05-29 — Widget visible placeholder только, no implementation.
+
+### TODO-UX-028: Action tile-type (SOS, phone, flashlight, etc.) 🟡
+
+- **What**: Реализация **functional Action plates** — быстрые кнопки одного нажатия (SOS, фонарик, прямой звонок, погода, и т.д.). Закрывает placeholder вкладку «Действия» в admin picker'е (F-014 FR-018).
+- **Why**: F-014 определяет Action как visible placeholder вкладка с «В разработке» screen. Реальная implementation требует отдельной спеки — Action concept уже частично присутствует в спеке 005 (Action Architecture), но specific Actions (SOS, фонарик) не реализованы.
+- **How** (когда настанет время):
+  1. Определить set предустановленных Actions: SOS (emergency call + location share), Phone (direct dial), Flashlight, Camera, Weather widget, Volume mute, и т.д.
+  2. Action registry pattern (extends спека 005 ActionDispatcher).
+  3. Plate slot type `ActionSlot` в ConfigDocument wire-format (additive).
+  4. Per-action permissions handling (CALL_PHONE для phone, CAMERA для flashlight, etc.).
+  5. Action picker UI (browseable list с descriptions и preview).
+  6. Senior profile: Action вкладка остаётся **скрытой** (per F-014 FR-019).
+- **Cross-link**: Связан с TODO-UX-027 (Widget); связан со спекой 005 (Action Architecture).
+- **When**: Post-MVP UX polish phase, после F-014 lands. SOS Action имеет особо высокий приоритет для senior product fit.
+- **Status**: 🟡 OPEN — referenced from F-014 FR-018.
+- **Origin**: F-014 spec scope decision 2026-05-29 — Action visible placeholder только, no implementation.
+
+### TODO-FUTURE-UX-012: First multi-config creation toast/hint copy 🟢
+
+- **What**: Дизайн **microcopy** для subtle toast при transition State 0 → State 2 в named configs (F-014 FR-003d). Когда admin впервые создаёт второй named config через push dialog — показывается toast «Конфиг "X" создан. Управление — в настройках» (3 sec, не overlay, не tutorial).
+- **Why**: First-time encounter с multi-config concept — нужна короткая подсказка где найти Settings entry. Не overlay (агрессивно), не tutorial (читать никто не будет), но и не silent (admin не поймёт что произошло). Subtle toast — sweet spot.
+- **How** (when implementing):
+  1. Write 2-3 copy alternatives и user-test через 5 senior-adjacent admin'ов.
+  2. Test on actual device (timing 3 sec adequate? auto-dismiss vs swipe?).
+  3. Include locale variants (ru / en).
+- **When**: Параллельно F-014.1 (когда multi-config UI implemented).
+- **Status**: 🟢 OPEN.
+- **Origin**: User decision 2026-05-29 — «появление multi-config UI — explicit moment, без tutorial overlay».
+
+### TODO-FUTURE-DESIGN-PRINCIPLE-013: Apply progressive disclosure to other multi-X features 🟢
+
+- **What**: Применить **«Progressive disclosure: multi-X UI hidden until X count > 1»** (зафиксировано в `docs/dev/project-constants.md`) к другим multi-X features в проекте: Flow tabs (BottomFlowBar), paired devices list, admin-managed bondings.
+- **Why**: Текущее implementation BottomFlowBar показывает tab bar **всегда** (даже когда 1 flow). Это **нарушение** только что зафиксированного principle. Аналогично paired devices list — показывается даже когда 1 paired (мы видели это в device-testing спеки 012).
+- **How**:
+  1. **BottomFlowBar**: hide tab bar если `flows.count == 1`. Single flow renders full-screen, no bottom navigation.
+  2. **Paired devices**: simplified UI for 1 paired device (direct entry into target, no list picker). 2+ → list picker.
+  3. **Admin-managed bondings**: 1 ↔ упрощённый UI, 2+ → расширенный.
+  4. Refactor existing code в conditional rendering pattern (Compose `derivedStateOf`).
+- **When**: Параллельно общему UX-polish phase после F-014, до production release.
+- **Status**: 🟢 OPEN — applies after F-014 lands.
+- **Origin**: F-014 spec FR-003d + `docs/dev/project-constants.md` architectural principle 2026-05-29.
+
+### TODO-FUTURE-PRODUCT-006: Professional Configurator (B2B) 🟢
+
+- **What**: Расширение продукта на B2B рынок — профессиональные настройщики (Geek Squad-style сервис, IT helpdesk для пожилых, операторские помощь типа «МТС Любимая»), которые удалённо настраивают раскладку 100+ клиентов.
+- **Why**: Реальный рынок (Geek Squad ~$500M revenue/year в US). Vision shift — потенциальный pivot direction если семейный MVP не получит traction. Сейчас архитектура **не блокирует** future support — pair primitive расширяется на N clients additive way.
+- **How** (когда настанет время):
+  1. New role «Configurator» (отличная от admin/senior/caregiver) с своей trust model — temporary trust, explicit termination, может быть revoked at any moment by client.
+  2. Multi-tenancy в server-side data layer — `/configurators/{configuratorUid}/clients/{clientUid}/config/...`.
+  3. Tenant isolation (configurator видит только своих clients, никогда другого configurator).
+  4. Billing model — per-client subscription или per-setup fee.
+  5. Compliance — GDPR / российские требования к обработке PII client'ов.
+- **When**: Post-MVP v2 (V-1..V-5 уровень). Только если MVP подтвердит interest, и market analysis покажет B2B opportunity.
+- **Status**: 🟢 VISION — никаких current consumers, не блокирует MVP.
+- **Origin**: User raised 2026-05-29 при обсуждении F-014 clarify Q1. Зафиксировано как possibility, не запланировано.
+
+### TODO-FUTURE-SPEC-007: Named config export/import as shareable preset 🟢
+
+- **What**: Возможность admin'у exportнуть named config (например, "home") как **shareable preset** — другой пользователь может imported его, получить ту же раскладку плиток / theme / structure, но **без identity-bound данных** (без contacts, без phone numbers, без photo URLs).
+- **Why**: CLAUDE.md rule 9 (preset-readiness): user-facing non-identity-bound config должен быть shareable. Family может «расшарить» successful Simple Launcher template между друзьями. Senior community обмен наработками.
+- **How** (когда настанет время):
+  1. Strip identity-bound fields из ConfigDocument при export (Contact entries, Document refs, custom photos).
+  2. Wire-format `ExportablePreset` с явным `schemaVersion`, signature, anonymized fields.
+  3. Import flow — `ConfigSource` adapter (additive над BundledSource из CLAUDE.md rule 9).
+  4. UI — «Поделиться» в My Configs screen, «Импорт» как одна из опций при создании нового config.
+- **When**: Post-MVP, когда community grow и попросят.
+- **Status**: 🟢 OPEN — записан для preservation, не блокирует MVP.
+- **Origin**: User vision 2026-05-29 — «можно делиться конфигом, ну, не теми данными типа номеров телефонов, а абстрактные».
+
+### TODO-FUTURE-SPEC-008: Auto-GC orphan named configs (server-side) 🟢
+
+- **What**: Автоматическое **удаление через 30 дней** named configs со статусом ORPHAN (activeDeviceIds empty + orphanedAt > 30 days ago). Сейчас в F-014.1 ORPHAN configs **помечаются** но **не удаляются** автоматически — admin может восстановить навсегда.
+- **Why**: Garbage collection storage on server. При scale (10K+ admin'ов × 5 configs × deprecated ones) — лишние данные. Также cost containment для Firebase Spark plan limits.
+- **How** (когда настанет время — own-server):
+  1. Server-side cron job (Cloud Functions OR Cloudflare Worker cron OR own-server scheduler).
+  2. Iterate over ORPHAN configs где `orphanedAt < now - 30 days`.
+  3. Delete document atomically.
+  4. Notify admin через push «Конфиг X удалён».
+- **When**: При переходе на собственный сервер (TODO-ARCH-001 dependency) ИЛИ при Blaze upgrade (TODO-ARCH-003) — что наступит раньше.
+- **Status**: 🟢 OPEN — DEFERRED IN MVP. F-014.1 markу ORPHAN, не удаляет.
+- **Origin**: User decision 2026-05-29 — «если есть сложности с удалением через 30 дней, оставлять метку, удаление перенесём на свой сервер».
+
+### TODO-RESEARCH-009: Stable device identity strategy (no extra permissions) 🟡
+
+- **What**: Определить **стабильный device identifier** для tracking `activeDeviceIds` в named configs (F-014.1). Identifier должен переживать app reinstall, **не требовать extra permissions от пользователя**, не нарушать Google Play policy.
+- **Why**: F-014.1 needs persistent per-device ID для tracking «какие устройства используют какой config». Без stable ID — false ORPHAN detection (admin переустановил app, config думает что устройство «ушло»).
+- **How (research targets)**:
+  1. **Firebase Installations API** (`FirebaseInstallations.getId()`) — стабильный within app install, **сбрасывается при uninstall + reinstall**. Pro: zero permissions. Con: reset on reinstall.
+  2. **Android ID** (`Settings.Secure.ANDROID_ID`) — сбрасывается при factory reset; **разный per app signing key** на Android 8.0+. Pro: zero permissions. Con: per-signing-key inconsistency.
+  3. **Custom UUID в SharedPreferences + Android Auto Backup** (`android:allowBackup="true"` + backup_rules.xml inclusion) — UUID кладётся в cloud backup, восстанавливается при reinstall если у пользователя включён cloud backup. Pro: zero permissions, переживает reinstall если backup on. Con: дополнительная сложность, fallback нужен если backup off.
+  4. **Combination**: FID для primary identity + Auto Backup UUID как fallback — industry recommendation для 2025.
+- **Constraints (user-specified 2026-05-29)**:
+  - НИКАКИХ дополнительных permission requests (no READ_PHONE_STATE, no privileged permissions).
+  - НИКАКИХ запросов разрешений у Google / Android system.
+  - Только что предоставляет system по умолчанию.
+- **When**: BLOCKER для F-014.1 (server backup phase). Не блокирует F-014.0 (local-only).
+- **Status**: 🟡 OPEN RESEARCH — обязательно решить до начала F-014.1 implementation.
+- **Origin**: User raised 2026-05-29 при обсуждении F-014 named configs activeDeviceIds tracking.
+
+### TODO-RESEARCH-010: Local→server config migration UX при first Google Sign-In 🟡
+
+- **What**: Дизайн UX flow при первом Google Sign-In admin'а, у которого уже есть local-only named configs (F-014.0 → F-014.1 transition).
+- **Why**: Admin использовал local-only (F-014.0), накопил configs. F-4 (Google Sign-In) реализуется. Admin first time logs in. Что показывается?
+- **How** (per user decision 2026-05-29):
+  1. После Google Sign-In success → pull server configs для этого account.
+  2. Compare с local state.
+  3. Если local **empty** → apply server default → silent.
+  4. Если local **non-empty** → modal dialog с вариантами:
+     - «Заменить серверным default» (потеря локальной работы — confirmation needed).
+     - «Сохранить локальное как новый named config» → prompt for name.
+     - «Игнорировать сервер, продолжать локально» (skip server backup — opt-out privacy mode).
+  5. После выбора — sync continues, остальные server configs доступны для apply.
+- **When**: Параллельно F-014.1 implementation.
+- **Status**: 🟡 OPEN — design phase before F-014.1 plan.
+- **Origin**: User decision 2026-05-29.
+
+### TODO-FUTURE-RESEARCH-011: Concurrent edit merge UI/UX 🟢
+
+- **What**: Дизайн UX для **merge dialog** при concurrent edit conflict в named configs / pair configs. Сейчас optimistic concurrency (спека 008) детектит конфликт, но UX для merging еще не designed.
+- **Why**: Без хорошего merge UX admin будет терять работу при concurrent edits. Это **не блокер MVP** (rare scenario), но обязательно до production release.
+- **How (research targets)**:
+  1. Git-style merge UI — visual side-by-side diff.
+  2. Notion-style — keep both versions as branches.
+  3. Google Docs — automatic merge без UI (CRDT).
+  4. Per-field selection — пользователь выбирает «my version / their version» per field.
+- **When**: Параллельно F-014.1, до production release.
+- **Status**: 🟢 OPEN RESEARCH.
+- **Origin**: Deferred from F-014 clarify 2026-05-29.
+
 ### TODO-FUTURE-PRODUCT-001: Family Messenger 🟢
 
 - **What**: Отдельное Android-приложение для family communication (group chat, direct messages, voice messages, location sharing).
