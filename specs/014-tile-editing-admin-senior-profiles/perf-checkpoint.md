@@ -114,6 +114,75 @@ that didn't trigger recomposition — fixed by moving к `var placeholderKind by
 remember` внутри `Spec014SmokeContent`. This was Smoke-Activity-only bug —
 production composables receive state through props correctly.
 
+## T201 — Xiaomi MIUI physical device smoke
+
+### Device
+
+- **Model**: Xiaomi Mi 11 Lite 5G (`17f33878`)
+- **Android**: 11 (API 30)
+- **MIUI**: V125 (Global)
+- **Locale**: ru-RU (system Russian)
+- **Theme**: MIUI dark mode active
+
+### Method
+
+1. `./gradlew :app:assembleMockBackendDebug` produced универсальный APK.
+2. `adb -s 17f33878 install -r app/build/outputs/apk/mockBackend/debug/app-mockBackend-debug.apk` → Success.
+3. `adb -s 17f33878 shell am start -n com.launcher.app.mock/.debug.Spec014SmokeDebugActivity` → Activity launched (NotificationShade dismissed first via Back key).
+4. UI traversal via `adb input swipe` / `tap` based on `uiautomator dump` bounds.
+
+### Composables verified on Mi 11 Lite 5G
+
+| # | Composable | RU Locale | MIUI Dark Mode | Screenshot |
+|---|---|---|---|---|
+| 1 | EditTopBanner self | ✅ "Готово" | ✅ adapts | `smoke/11-xiaomi-launch.png` |
+| 2 | EditTopBanner remote (Маша) | ✅ "Редактируешь телефон Маша" + "← Назад" | ✅ adapts | `smoke/11-xiaomi-launch.png` |
+| 3 | EditTopBanner remote fallback | ✅ "Редактируешь сопряжённое устройство" | ✅ adapts | `smoke/11-xiaomi-launch.png` |
+| 4 | EmptyStateTile | ✅ ≥72dp "+" Material card | ✅ adapts | `smoke/11-xiaomi-launch.png` |
+| 5 | JiggleModifier (active) | n/a (animation) | ✅ tiles 1-5 rotate, tile 6 static border | `smoke/13-xiaomi-jiggle-frame.png` |
+| 6 | RemoteEditFrame | n/a (visual) | ✅ tertiary 4dp border visible | `smoke/13-xiaomi-jiggle-frame.png` |
+| 7 | UnifiedPickerSheet (5 tabs RU) | ✅ "Приложения/Контакты/Документы/Виджеты/Действия" | ✅ adapts | `smoke/15-xiaomi-picker-open.png` |
+| 8 | PlaceholderInDevelopmentScreen | ✅ "В разработке" + "Виджеты появятся..." + "Назад" | ✅ adapts | `smoke/16-xiaomi-widget-placeholder.png` |
+| 9 | TileContextMenu (FR-012a) | ✅ "Переместить вверх/вниз/влево/вправо" + "Удалить" | ✅ adapts | `smoke/17-xiaomi-context-menu.png` |
+
+**Smoke gate**: ✅ **PASS** for all 9 composables on physical Xiaomi MIUI device.
+
+### R2 (MIUI long-press dispatch conflict) — observation
+
+- **Plain Compose Card long-press inside our Activity**: did NOT trigger any
+  MIUI system gestures / menus / wallpaper picker. Long-press on our tiles
+  reaches our `pointerInput` handler без interception.
+- **Caveat**: production wiring will put EditModeComposable into the actual
+  HomeScreen (HOME launcher role). MIUI HOME role behavior может differ
+  (e.g. wallpaper picker on long-press of empty area). This is **deferred
+  to production-integration smoke** when EditModeComposable lands в real
+  HomeScreen — not yet F-014.0 scope.
+- **Recommendation**: revisit R2 в plan §8 при F-014.0 → production wiring
+  PR. Currently Smoke Activity has NO HOME role registration, so MIUI HOME
+  handlers don't fire.
+
+### Notes / quirks observed
+
+- MIUI dark mode applied automatically to MaterialTheme background — no per-MIUI
+  color overrides needed.
+- Russian banner copy "Редактируешь телефон Маша" uses nominative case
+  ("Маша" rather than "Маши"). This is **product copy correctness issue**
+  для future RU polish — string format is `%s` placeholder, simple solution
+  is to inject already-inflected name from caller side. Not a code bug.
+- Screen resolution 1080×2400 — Material 3 components render correctly.
+  Status bar height differs от Pixel emulator, но composables fill remaining
+  area predictably.
+- VPN / VoLTE / signal indicators visible — no impact on smoke.
+
+### Out-of-scope still для T201 (deferred)
+
+- **Production long-press dispatch** (R2): requires real HomeScreen
+  integration; smoke Activity не has HOME role.
+- **Two-emulator + Xiaomi smoke for US2 remote-edit**: requires pairing
+  spec 007 wiring + second device.
+- **Senior 7-tap entry**: requires Simple Launcher preset + спека 010
+  challenge gate integration.
+
 ---
 
 ## TL;DR на русском
