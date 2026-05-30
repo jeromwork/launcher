@@ -2,7 +2,9 @@
 
 **Feature Branch**: `014-tile-editing-admin-senior-profiles`
 **Created**: 2026-05-29
-**Status**: Draft
+**Status**: F-014.0 foundation **CLOSED** 2026-05-30 (PR ready)
+
+**🟡 Phasing note** (2026-05-30): F-014.0 closed как **foundation phase** — все domain types + composables написаны и тестированы isolated. **Production wire-up в HomeScreen / FlowScreen / EditorComponent отложено** в [followups/F-014.0b-production-wire-up.md](followups/F-014.0b-production-wire-up.md). F-014.1 (server backup) и F-014.2 (encryption) — в [followups/](followups/) (см. [followups/README.md](followups/README.md)).
 **Input**: User description: "Настройка лаунчера — добавление, перемещение, удаление плиток. Один универсальный механизм, который работает в трёх контекстах: admin self-config, admin remote-config бабушкиного телефона, senior local self-config через 7-tap. Два UX-профиля: admin (mainstream Android-конвенции — long-press, drag-to-X, snackbar undo, jiggle, виджеты в picker'е) и senior (видимые «+» кнопки, кнопки «↑/↓» вместо drag, modal confirm на удаление, нет виджетов). Профиль выбирается по target preset'у (Workspace = admin, Simple Launcher = senior). Не пиксельная мирроринг — общий ConfigDocument, рендер локально с edit-affordances в зависимости от профиля. Визуальная рамка + banner при редактировании чужого target'а. Базируется на исследовании UX-паттернов профессиональных лаунчеров 2026-05-28 (Nova, BIG, Niagara, Pixel, Microsoft, Smart Launcher) и accessibility blogs (NN/g, UXmatters, AFB AccessWorld)."
 
 ---

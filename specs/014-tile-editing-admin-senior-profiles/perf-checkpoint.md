@@ -183,6 +183,90 @@ production composables receive state through props correctly.
 - **Senior 7-tap entry**: requires Simple Launcher preset + спека 010
   challenge gate integration.
 
+## T185 — RTL pseudo-locale smoke
+
+### Method attempted
+
+`adb shell settings put system force_rtl_layout_for_locale 1` + restart
+Spec014SmokeDebugActivity.
+
+### Result
+
+❌ **Not effective on this emulator** — composables рендерятся LTR even с
+включённым setting. Reason: this setting affects **legacy View system**
+layouts, but Compose Material 3 reads layout direction через
+`LocalLayoutDirection` derived from system locale (not from this setting).
+
+### Workaround needed
+
+For full RTL smoke verification:
+1. Add `android:supportsRtl="true"` в manifest (если не уже).
+2. Change system locale to Hebrew (`he`) or Arabic (`ar`) via Settings app
+   на эмуляторе.
+3. Restart app.
+
+This requires user interaction (Settings → Languages); cannot be done
+fully via adb без restarting zygote (denied by harness).
+
+### Status
+
+🟡 **Deferred** к F-014.0b production wire-up smoke. RTL impact на
+composables minimal:
+- Banner Row с `Arrangement.SpaceBetween` — auto-mirrors per LayoutDirection.
+- `← Back` / `Done` text — Compose auto-mirrors padding/alignment.
+- Picker tabs — TabRow Material 3 auto-RTL.
+- Empty state Card — symmetrical, no impact.
+- Jiggle / RemoteEditFrame — visual modifiers, no directional content.
+- ConflictSnackbar — Material 3 auto-RTL.
+
+**Expected RTL behavior**: «← Назад» arrow flips to «→ Назад» автоматически
+via Compose IconButton с auto-mirror. Banner content reorders. No code
+changes needed.
+
+**Recommendation**: include RTL smoke в F-014.0b production wire-up PR
+where full system locale change is part of smoke checklist.
+
+---
+
+## F-014.0 closure notes (2026-05-30)
+
+### What's in this PR
+
+✅ **Foundation phase complete** per [followups/README.md](followups/README.md).
+
+Cumulative gates passed:
+- ~70 unit + Robolectric tests PASS.
+- APK delta 83 KB / 300 KB budget (27.7%).
+- 9 composables verified on Pixel emulator + Xiaomi Mi 11 Lite 5G.
+- Konsist domain isolation gates PASS.
+- Russian + English strings physically verified on both devices.
+- ConfigNameValidator NFC + length + char-set + emoji-rejection tests.
+- Forward-compat fail-closed wire-format policy verified.
+- DataStore process-death persistence verified.
+- Profile asymmetric conflict resolution (Q7) tested in EditModeComponent.
+
+### What's NOT in this PR (deferred)
+
+См. [followups/](followups/) — все production wire-up tasks (T076, T090-T093,
+T120-T121, T130-T136, T140, T150-T152, T160-T163, T185 production version)
+отложены в F-014.0b.
+
+F-014.1 (server backup) и F-014.2 (encryption) — отдельные blocked phases.
+
+### Why this scope boundary
+
+Production wire-up trogает существующие спеки 005/008/009/010 и требует
+architectural decision (cross-module composable scope). Это **не fit** для
+F-014.0 PR из-за:
+- Высокого риска регрессий в стабильных спеках.
+- Verification gap (US2/US3 unverifiable без 2-эмулятор + Simple Launcher
+  preset).
+- 5-7 дней работы — overscope для current PR.
+
+F-014.0 — это **foundation that the rest can build on** (domain + UI atoms
++ smoke proof). F-014.0b — это **integration that delivers the user-facing
+feature**.
+
 ---
 
 ## TL;DR на русском

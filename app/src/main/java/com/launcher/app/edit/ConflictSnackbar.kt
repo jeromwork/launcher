@@ -10,6 +10,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.launcher.app.R
 
@@ -35,10 +37,15 @@ fun ConflictSnackbar(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val snackbarDescription = stringResource(
+        R.string.f014_conflict_admin_snackbar_format,
+        otherActorName,
+    )
     Snackbar(
         modifier = modifier
             .padding(16.dp)
-            .testTag("f014_conflict_snackbar"),
+            .testTag("f014_conflict_snackbar")
+            .semantics { contentDescription = snackbarDescription },
         action = {
             Row {
                 TextButton(

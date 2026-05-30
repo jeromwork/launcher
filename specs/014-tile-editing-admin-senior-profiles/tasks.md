@@ -23,6 +23,48 @@
 
 ---
 
+## 🟡 Deferred to follow-ups (2026-05-30 F-014.0 closure)
+
+F-014.0 closed как **foundation phase** — domain layer + Compose composables + isolated debug Activity smoke. **Production integration в реальный HomeScreen / FlowScreen / EditorComponent отложена** в отдельные follow-up'ы.
+
+### Отложенные задачи и куда они переехали
+
+| Tasks | Куда отложены | Why |
+|---|---|---|
+| T076, T090, T091, T092, T093, T095, T098, T099 | [followups/F-014.0b-production-wire-up.md](followups/F-014.0b-production-wire-up.md) | Wire-up в production HomeScreen / FlowScreen для US1 admin self-edit |
+| T120, T121, T125, T126, T127 | [followups/F-014.0b-production-wire-up.md](followups/F-014.0b-production-wire-up.md) | Wire-up в EditorComponent (spec 009) для US2 remote-edit + admin conflict UI |
+| T130, T131, T135, T136 | [followups/F-014.0b-production-wire-up.md](followups/F-014.0b-production-wire-up.md) | Wire-up через RootConfig.LocalEdit для US3 senior 7-tap + silent conflict |
+| T140 | [followups/F-014.0b-production-wire-up.md](followups/F-014.0b-production-wire-up.md) | Use-mode return verify требует full production wire-up |
+| T150, T151, T152 | [followups/F-014.0b-production-wire-up.md](followups/F-014.0b-production-wire-up.md) | US4 multi-target nav требует US2 wire-up done |
+| T160, T161, T162, T163 | [followups/F-014.0b-production-wire-up.md](followups/F-014.0b-production-wire-up.md) | TalkBack integration tests требуют real TalkBack-enabled device + wire-up |
+| T185 | будет сделано в F-014.0 closure (низкий риск) | RTL smoke на эмуляторе |
+| T200 partial | done в F-014.0 (composable-level smoke); production smoke deferred | Single-emulator smoke в Smoke Activity ✅; full US1/US2/US3 wire-up smoke → F-014.0b |
+| T201 partial | done в F-014.0 (composable-level Xiaomi smoke); production smoke deferred | Xiaomi smoke composable-level ✅; production HOME role MIUI long-press conflict verify → F-014.0b |
+
+**Отложенные scope для будущих phases**:
+
+| Phase | Что отложено | File |
+|---|---|---|
+| F-014.1 | Server backup в Firestore + multi-config UI + cross-device sync | [followups/F-014.1-server-backup.md](followups/F-014.1-server-backup.md) |
+| F-014.2 | E2E encryption Config Document перед push на Firestore | [followups/F-014.2-encryption.md](followups/F-014.2-encryption.md) |
+
+### Что закрыто в F-014.0 (текущий PR)
+
+- ✅ Phase 0 (T001-T005): scaffolding
+- ✅ Phase 1 (T010-T038): domain types + selector + ops + validator + tests
+- ✅ Phase 2 (T040-T044): wire format + roundtrip + fixtures
+- ✅ Phase 3a (T050-T051): Fake adapter + contract tests
+- ✅ Phase 3b (T055-T060): DataStore real adapter + Robolectric + DI
+- ✅ Phase 4-6 (partial): EditModeComponent state holder + 16 unit tests
+- ✅ Phase 8 (T170-T177): Konsist + APK size gate (83KB / 300KB budget)
+- ✅ Phase 9 (T180-T193): strings + plurals + 2 doc updates
+- ✅ Phase 10 partial (T200/T201 composable-level): visual smoke на Pixel + Xiaomi
+- ✅ T077 explicit defer to TODO-UX-025 (документировано в spec.md "Что НЕ строит этот спек")
+
+**Composables написаны и работают** (`Spec014SmokeDebugActivity` визуально verifies все 9 composables на 2 устройствах). Они **не подключены** к production HomeScreen — это и есть F-014.0b scope.
+
+---
+
 ## Phase 0 — Foundation & DI scaffolding
 
 **Goal**: подготовить инфраструктуру без новой бизнес-логики.
