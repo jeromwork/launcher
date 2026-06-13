@@ -598,7 +598,7 @@ REFERENCE DOCS:
 - Anti-abuse слабее (нет stable identity для rate-limit per-uid).
 - Subscription billing невозможен (нужен stable identity).
 
-Мы строим **AuthProvider port** + **Google Sign-In adapter для admin** (named auth с email-bound identity) + **Anonymous adapter для Managed** (pair-based, extends existing 007 pattern). Это **hybrid модель**: admin — registered Google user, Managed — anonymous + paired (бабушка не логинится).
+Мы строим **AuthProvider port** + **Google Sign-In adapter для всех устройств**. Каждое устройство (и admin, и Managed) логинится под своим Google-аккаунтом и имеет свой стабильный UID. Это полностью вырезает анонимность из системы и решает проблему Disaster Recovery при потере телефона (бабушка просто логинится на новом устройстве). Связь между ними устанавливается через механизм делегирования (delegations).
 
 Email-bound identity admin'а используется для:
 - Subscription billing (D-11 family monthly).
@@ -613,7 +613,7 @@ S-2 (Admin App с first-run + remote pairing) и S-6 (Account deletion) и S-7 (
 ### Источники и резолюции
 
 - [`use-cases/05-pairing-identity-trust.md` §Identity](use-cases/05-pairing-identity-trust.md) D-Pair-1.
-- **Closes D-Pair-1** (hybrid auth — admin named, Managed anonymous) — **в MVP**.
+- **Closes D-Pair-1** (полный отказ от анонимности — все устройства named) — **в MVP** (решение от 2026-05-30).
 - Декабрь 2026-05-28 evening: Google OAuth для admin зафиксирован.
 - Extends `project-backlog.md` AUTH-001.
 
@@ -624,12 +624,11 @@ S-2 (Admin App с first-run + remote pairing) и S-6 (Account deletion) и S-7 (
   - Firebase OAuth integration (Google Sign-In).
   - Email-bound identity binding.
   - Token refresh / session management.
-- `AnonymousAuthAdapter`:
-  - Existing pair-based pattern из спеки 007 — обёрнут в port.
+- **Отказ от AnonymousAuthAdapter**: все устройства используют `GoogleSignInAuthAdapter`.
 - `FakeAuthAdapter` для тестов.
 - Identity model:
   - `User { id, identity_keys, email?, display_name?, subscription_state }`
-  - Email — Required для admin, Null для Managed.
+  - Email — Required для всех пользователей.
 - Session management (token storage, refresh logic, expiry handling).
 
 ### Scope: что НЕ входит
@@ -648,10 +647,10 @@ S-2 (Admin App с first-run + remote pairing) и S-6 (Account deletion) и S-7 (
 ### Local Test Path (D-2 mandatory)
 
 - **FakeAuthAdapter test**: mock OAuth flow → verify identity binding (email, display name).
-- **AnonymousAuthAdapter test**: pair-based identity → verify pair-only (no email).
+- **Delegation binding test**: Managed Google account успешно делегирует права Admin Google account.
 - **Token refresh test**: expired token → automatic refresh.
 - **Session persistence test**: app restart → session restored (или login required).
-- **Hybrid model test**: admin emulator с Google Sign-In + Managed emulator с anonymous + pair → group membership работает.
+- **Named auth integration test**: admin emulator с Google Sign-In + Managed emulator с Google Sign-In → делегирование (pair) работает.
 
 ### Effort
 
@@ -663,17 +662,17 @@ S-2 (Admin App с first-run + remote pairing) и S-6 (Account deletion) и S-7 (
 Напиши спецификацию для F-4: AuthProvider + Google Sign-In.
 
 КОНТЕКСТ:
-В MVP admin — registered Google user (Google Sign-In + email-bound identity). Managed — anonymous + paired (бабушка не логинится). Это hybrid auth model.
+В MVP все пользователи (admin и Managed) — registered Google users (Google Sign-In + email-bound identity). Анонимных устройств нет.
 
 Решение зафиксировано в use-cases/05-pairing-identity-trust.md §Identity (D-Pair-1).
 
 ЦЕЛЬ:
-Создать AuthProvider port + Google Sign-In adapter (для admin) + Anonymous adapter (для Managed) + Fake adapter (tests).
+Создать AuthProvider port + Google Sign-In adapter (для всех) + Fake adapter (tests).
 
 SCOPE ВКЛЮЧАЕТ:
 - AuthProvider port в core/domain/.
 - GoogleSignInAuthAdapter: Firebase OAuth + email-bound + token refresh.
-- AnonymousAuthAdapter: existing 007 pair-based, обёрнут в port.
+- Отказ от AnonymousAuthAdapter, переход на delegation pattern.
 - FakeAuthAdapter (rule 6 mock-first).
 - User identity model: { id, identity_keys, email?, display_name?, subscription_state }.
 - Session management (storage, refresh, expiry).
@@ -708,8 +707,7 @@ REFERENCE DOCS:
 
 ### Notes / gotchas
 
-- **Hybrid — это критично**. Admin = named Google. Managed = anonymous + paired. Если кто-то предложит «давайте Managed тоже Google» — refuse, это нарушит UX для бабушки (бабушка не помнит Google пароль).
-- **Email — REQUIRED для admin, NULL для Managed**. Domain model должна это enforce'ить (sealed types или required field в Admin User type).
+- **Отказ от анонимности (решение 2026-05-30)**. И Admin, и Managed используют Google Sign-In. Первичный вход на устройстве Managed выполняет Admin, что решает проблему с забытыми паролями и обеспечивает disaster recovery.
 - **Subscription state — пока stub field**. Реальное billing — отдельная спека post-MVP. Но field уже добавляется в User для compatibility.
 
 ---
@@ -748,7 +746,7 @@ F-5 закрывает эту дыру: `ConfigCipher` port в domain (CLAUDE.md
 - Pair-derived encryption key (X25519 ECDH между admin pub и Managed pub → symmetric key для config).
 - `SealedConfig` wire-format: `{schemaVersion, encrypted_payload, nonce, recipients[]}` — backward-compat с plain ConfigDocument schemaVersion 1 (legacy read path).
 - Wire-format schemaVersion bump: ConfigDocument v1 (plain) → SealedConfig v2 (encrypted). Cross-version roundtrip + backward-compat tests.
-- Multi-admin case: каждый admin pair имеет свой ключ → server хранит N зашифрованных копий config'а (по одной на pair) ИЛИ один config + wrapped key envelope (как FR-025 в архивированной спеке 013). Decision — отдельная подсекция спеки.
+- Multi-admin case: строго фиксируется **Wrapped Key Envelope** паттерн. Сервер хранит ровно одну зашифрованную копию конфига (зашифрованную CEK). Сам CEK шифруется KEK-ключами каждого админа и Managed устройства.
 - Client-side merge/diff/search: переписать `ConfigEditor.pushPending` optimistic concurrency на document-hash level, не field-by-field. `ConfigDiff` (sealed type) переезжает полностью на клиент.
 - Migration: existing pair'ов с plain config → re-encrypt. **Одноразовый server-triggered job** (как FR-019 в архивированной спеке 013).
 
@@ -795,7 +793,7 @@ SCOPE ВКЛЮЧАЕТ:
 - ConfigCipher port + AeadConfigCipherImpl adapter.
 - SealedConfig wire-format с schemaVersion (v2 vs v1 plain legacy).
 - Pair-derived encryption key (X25519 ECDH).
-- Multi-admin case: N encrypted copies или wrapped key envelope.
+- Multi-admin case: Wrapped Key Envelope (1 копия конфига, N зашифрованных ключей).
 - Client-side ConfigDiff / merge / search.
 - Server-triggered migration job для existing pair configs.
 - Backward-compat read для plain v1 ConfigDocument.
@@ -814,7 +812,7 @@ REFERENCE DOCS:
 
 ### Notes / gotchas
 
-- **Многоадминный кейс** — открытый design point. Два варианта: (a) server хранит N зашифрованных копий config'а, по одной на admin-pair; (b) wrapped key envelope (один encrypted config + N wrapped keys, как in FR-025 архивированной спеки 013). Решение принимается в clarify-phase.
+- **Многоадминный кейс** — закрытый design point. Фиксируется паттерн **Wrapped Key Envelope** (один зашифрованный конфиг CEK + N зашифрованных ключей KEK). Никаких N копий конфига, чтобы избежать проблем с синхронизацией.
 - **Server arbitration исчезает на field-level**. `ConfigEditor.pushPending` optimistic concurrency остаётся, но на уровне document hash. Это означает, что merge при conflict делается полностью на клиенте — admin'у показывается merge UI с full diff (это уже есть в спеке 008 §MergeScreen).
 - **Migration of existing data**: production не запущен → существующие test data можем просто стереть. Migration job не критичен, но желателен для smooth transition.
 - **Performance**: AEAD encryption на 10 KB config = микросекунды, не bottleneck.
@@ -833,7 +831,7 @@ REFERENCE DOCS:
 
 Это **главный visible product** для Managed-устройства — то, что бабушка видит каждый день. Спека реализует **Simple Launcher preset** через wizard module (из F-3) + capability registry (из F-2).
 
-Бабушка устанавливает приложение → запускается **wizard**: язык (system locale) → text size → theme (warm-contrast light/dark) → grid preset selection (2×3 / 3×4 / 4×5) → permissions (ROLE_HOME, POST_NOTIFICATIONS) → optional pairing с admin'ом → tutorial hints. После wizard'а — **никогда не пустой экран**, всегда есть config (либо выбранный template, либо paired-from-admin).
+Бабушка устанавливает приложение → запускается **wizard**: язык (system locale) → **Google Sign-In** (обычно выполняет помогающий родственник) → text size → theme (warm-contrast light/dark) → grid preset selection (2×3 / 3×4 / 4×5) → permissions (ROLE_HOME, POST_NOTIFICATIONS) → optional pairing с admin'ом → tutorial hints. После wizard'а — **никогда не пустой экран**, всегда есть config (либо выбранный template, либо paired-from-admin).
 
 Wizard включает **2-3 starter ConfigTemplate** (bundled JSON через `BundledConfigSource`): «6 tiles classic», «9 tiles + calendar», «12 tiles dense». Каждый template — pure data per CLAUDE.md rule 9, обезличенный, shareability-ready.
 
@@ -858,6 +856,7 @@ Wizard включает **2-3 starter ConfigTemplate** (bundled JSON через 
 - `SimpleLauncherWizardManifest` — declaration шагов для Simple Launcher preset.
 - **5 mandatory steps** в wizard (всё остальное — в Settings + autohints):
   1. Welcome + language (system locale auto-detected, кнопка «изменить» доступна).
+  1.5 Google Sign-In (mandatory identity binding).
   2. ROLE_HOME permission (deep-link `Settings.ACTION_HOME_SETTINGS`).
   3. POST_NOTIFICATIONS permission (Android 13+).
   4. Theme selection (warm-light / warm-dark, default warm-light).
@@ -922,6 +921,7 @@ SCOPE ВКЛЮЧАЕТ:
 - SimpleLauncherWizardManifest:
   - Welcome screen
   - Language detection (system locale)
+  - Google Sign-In
   - Text size selection
   - Theme selection (warm-light / warm-dark)
   - Grid preset selection (2×3 / 3×4 / 4×5)
