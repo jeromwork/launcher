@@ -7,9 +7,10 @@
 ## Документы
 
 1. **[01-deferred-sign-in.md](01-deferred-sign-in.md)** — отменяет mandatory Google Sign-In при первом запуске. Sign-In появляется в момент первого cloud action.
-2. **[02-config-ownership-per-device.md](02-config-ownership-per-device.md)** — отменяет модель `ownerUid = admin Google UID` для бабушкиного конфига. Конфиг принадлежит локальному Google-аккаунту устройства.
-3. **[03-billing-cloud-only.md](03-billing-cloud-only.md)** — фиксирует: local-режим бесплатен бессрочно. Subscription нужна только для cloud-features.
+2. **[02-config-ownership-per-device.md](02-config-ownership-per-device.md)** — отменяет модель `ownerUid = admin Google UID` для бабушкиного конфига. Конфиг принадлежит локальному Google-аккаунту устройства. Local mode = 1 `default`; cloud mode = до 5 named configs.
+3. **[03-billing-cloud-only.md](03-billing-cloud-only.md)** — фиксирует: local-режим бесплатен бессрочно. Subscription нужна только для cloud-features. Tamper-resistance: 4 уровня усиления (L0..L3) для two-way door.
 4. **[04-pairing-channel-abstraction.md](04-pairing-channel-abstraction.md)** — фиксирует: QR-pairing (физическое присутствие) — primary path. Любые remote-invite каналы — через `PairingChannel` adapter, additive add'ы.
+5. **[05-preset-wire-format-versioning.md](05-preset-wire-format-versioning.md)** — Phase 2 preset = `schemaVersion: 1` (минимальный); Phase 3 P-1 bumps to `v2` (полная preset architecture); backward-compat обязательная, тесты с первого коммита.
 
 ## Что эти решения **отменяют** из 2026-05-30-f4-identity
 
