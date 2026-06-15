@@ -413,3 +413,58 @@ Vision вводит новые архитектурные конструкции
 | 2026-05-28 | **NEW: CLAUDE.md rule 10 — Notification minimization (push hygiene).** Каждый push notification должен соответствовать **трём критериям** одновременно: actionable + time-sensitive + user-relevant. Иначе → in-app indicator или in-app notification center. Refuse pattern #13 в CLAUDE.md. **Новый skill `checklist-notification-minimization`** активируется через procedure-assess-spec-complexity при обнаружении push events в спеке. | Если строгая push hygiene приведёт к тому, что critical events не доходят до admin'а — потеря safety net. | Каждый push в продукте подлежит review по этому rule. Если выяснится, что какой-то event critical и должен push'иться — добавляется в спеку с явным severity rationale. Не нарушает rule. |
 | 2026-05-28 | **Account deletion flow — MVP scope.** Settings → Account → «Удалить мой аккаунт» с explicit consequences list + re-auth. **Grace period 30 дней** soft delete (login still works, can cancel). После grace — hard delete batch job. Admin handover: при initiation singleton admin требуется designate successor co-admin OR group dissolution. Envelope wrapper cleanup (наш wrappers удалены, blob остаётся для других). Audit log с deletion hash (compliance proof). Email confirmation initiation + final. **AccountDeletion port** в core/domain с adapter implementation. **Mandatory для Google Play Policy + GDPR Art. 17 + 152-ФЗ**. | Если 30 дней grace окажется too long для какого-то рынка (RU например) или too short — adjustment. | Grace period configurable per region (post-MVP). Hard delete batch — manual cron в MVP, automated через Blaze Cloud Functions post-MVP. |
 | _(заполняется при дальнейшем обсуждении)_ | | | |
+
+---
+
+## 1ter. Vision additions (2026-06-15)
+
+Серия архитектурных принципов, зафиксированных при детальном разборе Phase 2. Полные decision documents — в [`docs/product/decisions/2026-06-15-deferred-cloud/`](../decisions/2026-06-15-deferred-cloud/).
+
+### Каждое устройство самодостаточно
+
+App ставится → wizard'ом настраивается → **работает локально** без Google Sign-In, без интернета, бессрочно.
+
+Cloud features (pair, sync, push, remote management) — **дополнительный слой**, появляющийся только когда нужен. Sign-In запрашивается **в момент первого cloud action**, с понятным объяснением «что вы получите за Sign-In».
+
+Это **не «бесплатная демо-версия»**. Local-mode launcher — самостоятельная ценность: упрощённая раскладка, контакты, темы, размер шрифта. Семья с одним пожилым без admin-родственника получает полезное приложение, не пользуясь никакой инфраструктурой.
+
+### Конфиг принадлежит устройству, на котором живёт
+
+Никакого «admin владеет бабушкиным конфигом». Конфиг бабушкиного телефона принадлежит **Google-аккаунту, в который вошли на её устройстве** (либо она сама, либо компетентный взрослый при первой настройке).
+
+Pairing = **права** admin'а править её конфиг, **не передача собственности**. Revoke pair = admin теряет права; её конфиг остаётся в её namespace, без изменений. Удаление admin'ского аккаунта = удаление его namespace, **не** трогает чужие конфиги.
+
+### Billing — только за cloud-инфраструктуру
+
+Local-mode launcher — бесплатно бессрочно. Cloud-mode (pair, sync, push, remote) — после Sign-In = месяц trial → subscription.
+
+Subscription expired = автоматический downgrade в local-mode (конфиг сохраняется, cloud features паузятся, можно возобновить).
+
+Никакого forced engagement, ads, feature gating локальных функций.
+
+### Setup persona = компетентный взрослый
+
+Первая настройка телефона **всегда** делается человеком, способным пройти wizard и Sign-In (если cloud features нужны). Это может быть:
+- сам пожилой пользователь (если у него достаточно опыта),
+- родственник, который физически берёт его телефон в руки,
+- родственник, который удалённо подключается **после** того, как кто-то компетентный сделал базовую настройку.
+
+**Не предполагаем** «бабушка одна устанавливает телефон». Если человек настраивает телефон — значит он имеет на это компетенцию. Сокращения wizard'а ради «бабушка устанет» — отменены. Wizard может быть и 5, и 9 шагов; важна функциональность, а не количество.
+
+### Pairing primary — QR через камеру
+
+Два телефона физически рядом, один наводит камеру на QR-код на экране другого. Это уже реализовано в [спека 007](../../specs/007-pairing-and-firebase-channel/spec.md).
+
+Любые remote-каналы (signed invite link через share intent, NFC, Bluetooth) — **additive add'ы** через [`PairingChannel` abstraction](../decisions/2026-06-15-deferred-cloud/04-pairing-channel-abstraction.md), появляются по мере необходимости (например, для caregiver remote invite в S-7). **QR не отвергнут**.
+
+### Versioned config — без преждевременной generic абстракции
+
+History rollback, multi-admin conflict resolution, local→cloud promotion merge — три use case для **одного** компонента `VersionedConfigViewer` в S-8.
+
+Generic `Versioned<T>` НЕ делаем сейчас. `core/versioned-config/` — узкий модуль конкретно для `ConfigDocument`. Когда появится 2-й, 3-й потребитель — обобщаем по `Rule of Three`.
+
+### Subscription защита от взлома
+
+Cloud features всегда валидируются на сервере (server-validated entitlement JWT). Local mode не имеет cloud-features → нечего взламывать локально.
+
+Новый skill [`checklist-tamper-resistance`](../../.claude/skills/checklist-tamper-resistance/SKILL.md) на любой cloud-feature спеке проверяет: используется ли server-validated entitlement, нет ли client-side license flag.
