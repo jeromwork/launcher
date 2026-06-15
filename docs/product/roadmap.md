@@ -127,7 +127,7 @@ Phase 2: MVP Core Vertical Slices (REORDERED 2026-06-15 v3, sequential, 9 спе
    S-6   Account Deletion                (CLOUD — GDPR / Play Store gate)
         │
         ▼
-Phase 3: MVP Preset Depth (sequential, 7 P-спек) — ТОЖЕ MVP
+Phase 3: MVP Preset Depth (sequential, 9 P-спек) — ТОЖЕ MVP
    P-1   Preset Schema v2 + Wizard Engine        (schemaVersion bump 1→2 backward-compat)
    P-2   Android Deep Integration Steps          (drawer block / swipe block / hide Settings)
    P-3   Preset Authoring + Sharing              (admin создаёт / экспорт / импорт)
@@ -135,6 +135,8 @@ Phase 3: MVP Preset Depth (sequential, 7 P-спек) — ТОЖЕ MVP
    P-5   Config Copy Between Own Devices         (multi-device same owner)
    P-6   Account Recovery Flow + 2FA escrow      (потерял телефон → новое устройство)
    P-7   Optional Step Reminder System           (persistent reminder без надоедания)
+   P-8   Provider Recipe Catalogue               (server-side recipes: deep-link templates с параметрами)  ← NEW
+   P-9   Device Inventory Sync                   (зашифрованный список установленных apps senior'а для admin'а)  ← NEW
         │
         ▼ ✅ PRODUCTION RELEASE — конец полного MVP (Phase 2 + Phase 3)
         │
@@ -151,7 +153,7 @@ Phase 5: Long-term Parking Lot (L-x, направления на годы)
    L-1 Clinic B2B · L-2 Marketplace · L-3 AI adapters · L-4 Self-hosted Sentry · ...
 ```
 
-**Critical path для production release**: F-3 → F-CRYPTO → F-4 → F-5 → S-1 → S-3 → S-5 → S-8 → S-9 → S-4 → S-2 → S-10 → S-6 → P-1 → P-2 → P-3 → P-4 → P-5 → P-6 → P-7 (sequential).
+**Critical path для production release**: F-3 → F-CRYPTO → F-4 → F-5 → S-1 → S-3 → S-5 → S-8 → S-9 → S-4 → S-2 → S-10 → S-6 → P-1 → P-2 → P-3 → P-4 → P-5 → P-6 → P-7 → P-8 → P-9 (sequential).
 
 **Critical path для local-only public beta**: F-3 → S-1 → S-3. Можно выпустить **local-only public beta** значительно раньше production release.
 
@@ -163,7 +165,7 @@ Phase 5: Long-term Parking Lot (L-x, направления на годы)
 
 **Phase split 2026-06-15 v3** — **MVP теперь = Phase 2 + Phase 3** (раньше = только Phase 2):
 - **Phase 2 "MVP Core Vertical Slices"** — 9 спек, видимый функциональный минимум для demoable cut.
-- **Phase 3 "MVP Preset Depth"** — 7 P-спек, **тоже MVP**, расширяет до полноты обещаний vision (preset architecture, adaptive UX, recovery). Раньше тут была Phase 3 "Post-MVP v2" — она переехала в Phase 4.
+- **Phase 3 "MVP Preset Depth"** — 9 P-спек, **тоже MVP**, расширяет до полноты обещаний vision (preset architecture, adaptive UX, recovery, generic app launch с параметрами). Раньше тут была Phase 3 "Post-MVP v2" — она переехала в Phase 4.
 - **Phase 4 "Product Extensions"** — V-спеки (iOS / TV / messenger / album / wearable / caregiver / audit) + F-2 (Capability Registry, ждёт consumer'а).
 - **Phase 5 "Long-term Parking"** — L-x идеи.
 
@@ -959,6 +961,19 @@ REFERENCE DOCS:
 > - **Каждый юзер делает Sign-In своим собственным Google-аккаунтом** — на телефоне, где приложение скачано из Play Store, **тот же аккаунт**, что Play Store login. Нет «дочь Sign-In'ит бабушкин телефон через свой аккаунт» — бабушкин телефон Sign-In'ится под бабушкиным Google, который уже залогинен в её Play Store. Если бабушке физически помогает дочь — она делает Sign-In под **бабушкиным** аккаунтом (например, на новом телефоне). Это применение принципа «наименьшее количество шагов» и [decision 02](decisions/2026-06-15-deferred-cloud/02-config-ownership-per-device.md).
 > - **Setup persona** = компетентный взрослый, не cognitively-limited senior. Первая настройка телефона делается человеком, способным пройти wizard и Sign-In.
 > - **Каждое устройство самодостаточно**. Конфиг принадлежит локальному Google-аккаунту устройства. Pairing = grant на чтение/запись чужого конфига, **не** передача собственности.
+
+> ## 📦 MVP-ограничение: запуск сторонних apps в Phase 2 (зафиксировано 2026-06-15)
+>
+> Phase 2 поддерживает запуск сторонних apps по **упрощённой модели**:
+>
+> - **Источник списка apps** — только `PackageManager` на устройстве admin'а в момент редактирования. То, что у admin'а **не установлено**, в редакторе **не предлагается**.
+> - **Параметры запуска** — **не используются**. Тапы плиток запускают app через `Intent(ACTION_MAIN).setPackage(packageName)` — open-only, без deep-link payload. Исключение — спец-провайдеры из spec 005 (`phone`, `sms`, `browser`, `whatsapp`, `telegram`, `viber`, `youtube`), которые работают в S-3 для контактов.
+> - **Fallback при отсутствии app на устройстве senior'а** — два: (a) запуск app, если установлен; (b) `market://details?id=<package>` (Play Store), если не установлен. Никакого web-fallback в Phase 2.
+> - **Иконки** — `PackageManager.getApplicationIcon(packageName)` локально на senior-устройстве. Если app не установлен → дефолтная «not installed» иконка из ресурсов лаунчера (или кастомная, если admin приложил).
+> - **Inventory senior'а** (что у бабушки установлено) — admin **не видит**. Настраивает «вслепую» из своего списка. Если у бабушки app нет — fallback на Play Store при тапе.
+> - **Серверный каталог recipes** — **нет**. Никаких deep-link templates на сервере, никаких региональных провайдеров, никакой telemetry о тапах.
+>
+> Generic app launch с параметрами + inventory sync senior'а — **отложены в Phase 3** как [P-8](#p-8-provider-recipe-catalogue) и [P-9](#p-9-device-inventory-sync) (см. [decision 06](decisions/2026-06-15-deferred-cloud/06-app-launch-mvp-simplification.md)).
 
 > ## 🛡️ Cross-cutting checklists на каждой S-спеке (REORDER 2026-06-15)
 >
@@ -2749,6 +2764,120 @@ P-6 добавляет **pair-key recovery** через **2FA escrow** в Firest
 **Scope НЕ ВКЛЮЧАЕТ**: push reminders (отрицание [CLAUDE.md rule 10](../../CLAUDE.md) — это не actionable + не time-sensitive).
 **Dependencies**: P-1 (optionalSteps в schema), P-2 (есть optional Android steps).
 **Effort**: Small (~1 week).
+
+## P-8: Provider Recipe Catalogue
+
+> **NEW 2026-06-15**. Источник: [decision 06](decisions/2026-06-15-deferred-cloud/06-app-launch-mvp-simplification.md). Снимает MVP-ограничение Phase 2: «запуск apps только без параметров».
+
+Серверный публичный каталог **launch recipes** — структурированных описаний «как открыть конкретный app с параметрами через deep-link». Расширяет ограниченный набор провайдеров из spec 005 (8 встроенных: phone, sms, browser, whatsapp, telegram, viber, youtube, app) до **сотен / тысяч** recipes для региональных apps (Uber / Bolt / 99 / Ola / Kakao T / Yandex Taxi / etc.).
+
+### Что строим
+
+- **Recipe wire format** (`schemaVersion: 1` с первого commit'а):
+  ```
+  recipe {
+    schemaVersion: 1
+    recipeId: "uber"
+    packageName: "com.ubercabs"
+    parameterTypes: [{name, type, maxLen}, ...]
+    deepLinkTemplate: "uber://?action=setPickup&pickup[address]={pickup_address}"
+    webFallback: "https://m.uber.com/?pickup={pickup_address}"
+    playStoreUrl: "market://details?id=com.ubercabs"
+    availableRegions: ["US", "BR", "IN", ...]
+    lastUpdatedAt: ISO timestamp
+  }
+  ```
+- **Серверный endpoint** для pull каталога (`GET /recipes?region=<region>&since=<ts>`).
+  - Pull **всего региона целиком** (privacy: сервер не знает, какой recipe юзер тапнул).
+  - ETag / `since` для incremental updates.
+  - На MVP — Cloudflare Worker + KV / R2 (per [rule 8](../../CLAUDE.md) server-roadmap).
+- **Локальный кэш recipes** на устройствах admin + senior.
+  - TTL — раз в сутки + при запуске admin-режима.
+  - В config бабушки лежит **только** `{recipeId, parameters}`, **не копия** recipe — иначе recipe протухнет при изменении Uber'ом схемы.
+- **Resolver в момент тапа**: `config.tile.recipeId` → достать recipe из кэша → подставить parameters в `deepLinkTemplate` → запустить Intent. При failure: webFallback → playStoreUrl (fallback chain spec 005).
+- **Admin UI**: в редакторе плиток показать пересечение `recipe-каталог × admin-installed apps`. Опция «показать все recipes» (expert mode).
+- **Curator workflow** — отдельная **серверная** sub-спека (CMS / парсинг / CI fitness function «recipe deep-link реально открывается на эмуляторе»).
+
+### Privacy boundary
+
+| Что | Кто знает |
+|---|---|
+| Регион устройства | Сервер (через query param) |
+| Что бабушка тапнула | **Никто** (config зашифрован, нет telemetry) |
+| Какие apps интересны юзеру | Никто (pull всего региона, не по одному recipe) |
+
+Если позже добавится server-side фильтрация по конкретному recipe — это **дополнительный** privacy compromise, явное решение через decision-документ.
+
+### Scope: что НЕ входит
+
+- ❌ User-generated recipes (admin создаёт свой recipe для приватного app) — это L-фаза marketplace-like.
+- ❌ Inventory sync senior'а — это P-9.
+- ❌ Telemetry о тапах — никогда.
+- ❌ Marketplace / community / ratings — L-2.
+
+### Dependencies
+
+- Phase 2 завершена (S-3 уже использует встроенные провайдеры из spec 005).
+- P-1 (preset `schemaVersion: 2` — место хранения `recipeId` в tile).
+
+### Effort
+
+Medium (~2-3 weeks клиент + отдельная серверная спека на curator).
+
+## P-9: Device Inventory Sync
+
+> **NEW 2026-06-15**. Источник: [decision 06](decisions/2026-06-15-deferred-cloud/06-app-launch-mvp-simplification.md). Парный к P-8.
+
+Senior-устройство периодически собирает список **установленных apps** локально через `PackageManager`, шифрует тем же ключом, что и config (envelope encryption из F-5), и пушит на сервер. Admin при редактировании читает этот список и **видит, что у бабушки реально установлено**.
+
+### Что строим
+
+- **Inventory wire format** (`schemaVersion: 1` с первого commit'а):
+  ```
+  inventory {
+    schemaVersion: 1
+    deviceId: "..."
+    lastUpdatedAt: ISO timestamp
+    apps: [{packageName: "com.ubercabs", label: "Uber", versionCode: 123}, ...]
+  }
+  ```
+  Soft limit ~500 apps. Без иконок (admin рендерит через свой `PackageManager` или дефолт).
+- **Сбор на senior-устройстве**:
+  - Broadcast receiver на `PACKAGE_ADDED` / `PACKAGE_REMOVED` → triggers rebuild.
+  - Sanity refresh раз в сутки (на случай если receiver проспал из-за low-memory kill).
+  - `PackageManager.getInstalledApplications(MATCH_ALL)` локально → фильтр пользовательских apps.
+- **Шифрование и push**:
+  - Тем же envelope encryption ключом, что и config (F-5). Сервер видит blob, не структуру.
+  - Push через тот же канал sync, что и config (spec 008), в обратную сторону (senior → cloud → admin).
+- **Admin UI в редакторе плиток**:
+  - Пересечение `recipe-каталог × inventory senior'а` — «вот что у бабушки есть, для которого есть recipe».
+  - Warning при сохранении: «inventory обновилась, app X у senior больше нет — плитка будет вести в Play Store. Продолжить?».
+  - Показать «inventory last updated: 3 hours ago» (не real-time).
+
+### Privacy boundary
+
+| Что | Кто знает |
+|---|---|
+| Список packageNames у бабушки | Admin (расшифровывает локально) |
+| Тот же список — сервер | Не знает (зашифровано) |
+| Те же данные — analytics / crash reports | **Никогда** не отправляются в открытом виде |
+
+### Scope: что НЕ входит
+
+- ❌ Apps, которые `PackageManager` не показывает из-за Android 11+ package visibility — admin видит warning «inventory may be incomplete». Не пытаемся обойти через `QUERY_ALL_PACKAGES` если Play Store запретит.
+- ❌ Real-time push «бабушка только что установила X» — не нужно, fallback покрывает.
+- ❌ Inventory с других устройств одного admin'а — admin видит **свой** `PackageManager` напрямую.
+- ❌ Cross-platform inventory (TV / wearable) — Phase 4.
+
+### Dependencies
+
+- F-4 (identity), F-5 (envelope encryption) — Phase 1.
+- S-8 (config sync механизм — переиспользуем для inventory).
+- P-8 (recipe-каталог) — без него inventory бесполезна для редактора, можно строить параллельно.
+
+### Effort
+
+Small (~1-1.5 weeks).
 
 ---
 
