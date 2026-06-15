@@ -101,33 +101,46 @@ Launcher — только interface surface. **Ядро** продукта: за
 Phase 0: Vision ✅ DONE
         │
         ▼
-Phase 1: Foundation (REORDERED 2026-06-15, ~9-13 weeks sequential)
+Phase 1: Foundation (REORDERED 2026-06-15 v2, ~5-7 weeks sequential)
    F-1 Family Group Foundation        ❌ DEPRECATED 2026-05-28
                                       (moved to ecosystem-vision.md)
-   Шаг 1: F-4  AuthProvider + Google Sign-In       — identity foundation FIRST
-   Шаг 2: F-CRYPTO  core/crypto/ KMP module        — lib-family-crypto, выделяем
-                                                     СРАЗУ при первом использовании
-   Шаг 3: F-5  ConfigDocument E2E Encryption       🔴 PRODUCTION BLOCKER
-                                                     (uses core/crypto/)
-   Шаг 4: F-3  Wizard Module + Localization        — localization обязательна с дня 1
-   (F-2 Capability Registry перенесён в конец Phase 2 — см. ниже)
+   Шаг 1: F-3  Wizard Module + Localization    — wizard работает ЛОКАЛЬНО,
+                                                  без identity, без cloud.
+                                                  Localization обязательна с дня 1
+   Шаг 2: F-CRYPTO  core/crypto/ KMP module    — lib-family-crypto
+                                                  (готовим для cloud features)
+
+   (F-4, F-5, F-2 — moved out of Phase 1 sequential path
+    per decision 2026-06-15-deferred-cloud/)
+
+   F-4  AuthProvider + Google Sign-In  — теперь cloud-feature setup,
+                                          активируется на первом cloud action,
+                                          а не на первом запуске app
+   F-5  ConfigDocument E2E Encryption   🔴 PRODUCTION BLOCKER для cloud release
+                                          (только cloud namespace,
+                                           local config не шифруется)
+   F-2  Capability Registry             — отложен за Phase 2 entirely
+                                          (до Phase 3+, когда появится consumer)
         │
         ▼
-Phase 2: MVP Vertical Slices (~16-20 weeks parallelized)
-   S-1 Simple Launcher Wizard          (needs F-3)
-   S-2 Admin App + Remote Pairing      (needs F-3, F-4)
-   S-3 Contact Tiles + Calling         (needs S-1, S-2)
-   S-4 SOS Capability                  (needs S-1, S-2)
-   S-5 Contact Photos                  (needs S-3)
-   S-6 Account Deletion                (needs F-4)
-   S-7 Caregiver Invite                (needs F-4)
-   S-8 Layout Editor + History         (needs S-2; was "Family Group
-                                       Editor" — renamed since no group)
-   Шаг финальный Phase 2:
-   F-2 Capability Registry Foundation  — собирает все TODO(capability-registry)
-                                         из S-1..S-8, без реальных AI/MCP adapter'ов
+Phase 2: MVP Vertical Slices (REORDERED 2026-06-15 v2, sequential)
+   S-1 Simple Launcher Wizard          (local-only, расширяет F-3)
+   S-3 Contact Tiles + Calling          (local-only, ACTION_DIAL)
+   S-5 Contact Photos                   (CLOUD feature — нужен F-4 + F-5)
+   S-8 VersionedConfigViewer +          (CLOUD feature — universal diff/version
+       Layout Editor                     viewer, used by history rollback,
+                                         multi-admin conflict, AND
+                                         local→cloud promotion)
+   S-4 SOS Capability                   (CLOUD feature — push admin'у)
+   S-2 Admin App + QR Pairing           (CLOUD feature — QR primary,
+                                         per decision 2026-06-15-deferred-cloud/04;
+                                         remote invite link — additive в S-7)
+   S-6 Account Deletion                 (CLOUD feature — GDPR / Play Store
+                                         requirement перед public release)
+   S-7 Caregiver Remote Invite          (LATE — за месяц до public release)
+   (F-2 НЕ в финале Phase 2 — отложен до Phase 3+)
         │
-        ▼ (PRODUCTION RELEASE — F-5 must be complete)
+        ▼ (PRODUCTION RELEASE — F-5 + S-6 must be complete)
         │
         ▼
 Phase 3: Post-MVP v2 (5 specs)
@@ -138,14 +151,18 @@ Phase 4: Long-term (open)
    L-x: Clinic B2B · Marketplace · AI providers · etc.
 ```
 
-**Critical path для production release**: F-4 → F-CRYPTO → F-5 → F-3 → S-1/S-2 → S-3 (sequential). F-2 (Capability Registry) — последний шаг Phase 2, не блокирует release demo.
+**Critical path для cloud release**: F-3 → F-CRYPTO → F-4 → F-5 → S-1 → S-3 → S-5 → S-8 → S-4 → S-2 → S-6 → S-7 (sequential).
 
-**MVP total estimate**: ~6-8 months parallelized.
+**Critical path для local-only release**: F-3 → S-1 → S-3 (sequential). Можно выпустить **local-only public beta** значительно раньше cloud release.
+
+**MVP total estimate**: ~6-8 months sequential (по принципу «не параллелим — один шаг за другим»).
 
 **Vision shift 2026-05-28**: Family Group primitive removed from launcher (was F-1). Multi-admin scenarios handled by N independent pair-edits merged via spec 008. Shared content (album, messenger) moved to separate ecosystem apps. Group primitive design preserved in [ecosystem-vision.md](future/ecosystem-vision.md) for future messenger/album specs. See research docs in `docs/research/2026-05-28-*.md`.
 
-**Phase 1 reorder 2026-06-15** (по решению владельца):
-- F-4 (AuthProvider) — теперь первый шаг: identity — фундамент для всего (pair, keys, subscription, recovery).
+**Architecture shift 2026-06-15** (deferred-cloud, per [`decisions/2026-06-15-deferred-cloud/`](decisions/2026-06-15-deferred-cloud/)): каждое устройство самодостаточно. Google Sign-In — условие cloud action, не первого запуска. Local mode — бесплатен бессрочно. Cloud mode (pair, sync, push, remote) — после Sign-In, после trial = subscription. Конфиг принадлежит локальному Google-аккаунту устройства. QR-pairing — primary; signed invite link — additive S-7 only. F-4 переезжает из «первого шага Phase 1» в «cloud-feature setup, активируется по требованию». F-2 откладывается за Phase 2 (до Phase 3+).
+
+**Phase 1 reorder 2026-06-15 v1** (предыдущая итерация, отменена v2):
+- ~~F-4 (AuthProvider) — первый шаг~~ → теперь F-3 первый, F-4 — cloud feature
 - F-5 разделён на два шага: сначала F-CRYPTO (выделение `core/crypto/` модуля при первом использовании криптографии, не задним числом), затем F-5 (ConfigDocument E2E, использует core/crypto/).
 - F-3 (Wizard + Localization) — после крипты; локализация обязательна с первого дня — все спеки гоняют новый `checklist-localization-ui` skill, проверяющий UI на разных длинах строк / RTL.
 - F-2 (Capability Registry) — отложен в самый конец Phase 2. До тех пор в каждой S-спеке проставляются `// TODO(capability-registry): ...` через новый `checklist-capability-registry-readiness` skill (запрещает упоминание конкретных MCP/AI providers в domain). Это применение CLAUDE.md rule 4 (Minimum Viable Architecture): абстракцию не вводим заранее, но готовим точки сшивки.
@@ -331,7 +348,15 @@ REFERENCE DOCS:
 
 ---
 
-## Шаг 1 — F-4: AuthProvider + Google Sign-In — 🔴 ELEVATED PRIORITY
+## ~~Шаг 1~~ — F-4: AuthProvider + Google Sign-In (теперь cloud-feature setup)
+
+> **Order shift 2026-06-15 v2**: F-4 **больше не первый шаг Phase 1**. Phase 1 шаг 1 теперь — F-3 (wizard работает локально). F-4 активируется **в момент первого cloud action** в Phase 2 (S-5 / S-8 / S-4 / S-2), а не на первом запуске app.
+>
+> Per [decision 2026-06-15-deferred-cloud/01](../decisions/2026-06-15-deferred-cloud/01-deferred-sign-in.md): Google Sign-In — условие cloud-mode, не первого запуска. Local-mode работает без Sign-In, бесплатно бессрочно.
+>
+> Сама спека F-4 (Sign-In Adapter, identity model, token refresh, session management) остаётся как описана — меняется **только момент её активации** в продукте.
+
+> **Order shift v1 (отменён)**: F-4 = первый шаг Phase 1.
 
 > **Priority shift (2026-05-29)**: F-4 поднят как **dependency для F-014.1** (Server backup of named configs). Без stable Google identity невозможно cross-device sync admin'ского self-config. См. specs/014-tile-editing-admin-senior-profiles/spec.md §Phase Dependencies.
 >
@@ -714,7 +739,13 @@ REFERENCE DOCS:
 
 ---
 
-## Шаг 4 — F-3: Wizard Module + Localization
+## Шаг 1 — F-3: Wizard Module + Localization (reordered to FIRST 2026-06-15 v2)
+
+> **Order shift 2026-06-15 v2**: F-3 теперь **первый** шаг Phase 1. Wizard работает **локально**, без Google Sign-In, без cloud. Это базис всего: launcher запускается, wizard ведёт через язык / тему / размер шрифта / выбор preset'а / ROLE_HOME permission — всё это local-mode.
+>
+> Cloud feature setup (F-4 AuthProvider) теперь активируется **в момент первого cloud action** в Phase 2 (S-5 onwards), а не в F-3.
+>
+> Localization обязательна с дня 1: gate'ит каждую S-спеку через [`checklist-localization-ui`](../../.claude/skills/checklist-localization-ui/SKILL.md) + переводы 10 языков должны делаться **сразу же**, а не «потом» (per явное решение владельца 2026-06-15).
 
 > **Order shift (2026-06-15)**: F-3 = **шаг 4 Phase 1**, после F-4 → F-CRYPTO → F-5.
 >
@@ -874,9 +905,38 @@ REFERENCE DOCS:
 
 ---
 
-# 🎨 Часть V — Phase 2: MVP Vertical Slices (S-1 .. S-8 + финальный F-2)
+# 🎨 Часть V — Phase 2: MVP Vertical Slices
 
 > **Цель Phase 2**: каждая S-спека ships demoable end-to-end feature. После каждой S-спеки можно показать **что-то новое** пользователю.
+
+> ## 🔁 Порядок выполнения Phase 2 (REORDER 2026-06-15 v2)
+>
+> S-секции ниже расположены **по историческому номеру**, но **выполняются в новом порядке** — sequential, не параллельно:
+>
+> | Порядок | Спека | Режим | Что |
+> |---------|-------|-------|-----|
+> | **1** | S-1 | LOCAL | Simple Launcher Wizard (расширяет F-3) |
+> | **2** | S-3 | LOCAL | Contact Tiles + Calling (ACTION_DIAL, без cloud) |
+> | **3** | S-5 | CLOUD | Contact Photos (нужны F-4 + F-5) |
+> | **4** | **S-8** | CLOUD | **VersionedConfigViewer + Layout Editor** (универсальный diff/version viewer — used by history rollback, multi-admin conflict resolution, AND local→cloud promotion merge) |
+> | **5** | S-4 | CLOUD | SOS Capability (push admin'у) |
+> | **6** | S-2 | CLOUD | Admin App + **QR Pairing** (QR primary per [decision 04](decisions/2026-06-15-deferred-cloud/04-pairing-channel-abstraction.md)) |
+> | **7** | S-6 | CLOUD | Account Deletion (GDPR / Play Store gate) |
+> | **8** | S-7 | CLOUD | Caregiver Remote Invite + Role Presets (late — за месяц до public release) |
+> | ~~9~~ | ~~F-2~~ | — | **Отложен за Phase 2 до Phase 3+** (Capability Registry — пока без consumer) |
+>
+> **Что изменилось vs v1 (предыдущий reorder)**:
+> - S-8 поднят с конца на 4-ю позицию — после плиток и фото, потому что **VersionedConfigViewer** — универсальный компонент, нужен для всех cloud-feature спек ниже.
+> - S-4 (SOS) опущен ниже — это cloud feature, не блокирует demo плиток.
+> - S-2 (Admin App + Pairing) опущен — pairing нужен после того, как есть что синхронизировать.
+> - S-6, S-7 опущены к концу.
+> - **F-2 убран** из финального шага — отложен до Phase 3+ entirely (до появления реального AI/MCP consumer'а).
+>
+> **Architecture context** ([decisions/2026-06-15-deferred-cloud/](decisions/2026-06-15-deferred-cloud/)):
+> - **LOCAL** S-спеки (S-1, S-3) работают **без Google Sign-In**. Только локальный конфиг.
+> - **CLOUD** S-спеки (S-5, S-8, S-4, S-2, S-6, S-7) **требуют Sign-In в момент первого cloud action** (deferred sign-in pattern). Sign-In появляется в S-5 или S-8 (что юзер активирует раньше), не в S-1.
+> - **Setup persona** = компетентный взрослый, не cognitively-limited senior. Первая настройка телефона делается человеком, способным пройти wizard и Sign-In.
+> - **Каждое устройство самодостаточно**. Конфиг принадлежит локальному Google-аккаунту устройства. Pairing = grant на чтение/запись чужого конфига, **не** передача собственности.
 
 > ## 🛡️ Cross-cutting checklists на каждой S-спеке (REORDER 2026-06-15)
 >
@@ -890,6 +950,10 @@ REFERENCE DOCS:
 ---
 
 ## S-1: Simple Launcher First-Run + Setup Wizard
+
+> **Order 2026-06-15 v2**: Phase 2 — **шаг 1**. **LOCAL mode** — без Google Sign-In, без cloud, без identity. Wizard ведёт через язык / тему / размер шрифта / выбор preset'а / ROLE_HOME permission. Никакого Sign-In step. Cloud features включаются позже (S-5 onwards).
+>
+> **Setup persona**: компетентный взрослый, не cognitively-limited senior (per [vision update 2026-06-15](use-cases/01-vision-and-positioning.md)). Wizard может быть и 5, и 9 шагов — UX-сокращения «бабушка устанет» **отменены**.
 
 ### Что строим (mentor explanation)
 
@@ -1042,7 +1106,15 @@ REFERENCE DOCS:
 
 ---
 
-## S-2: Admin App Preset + Remote Pairing
+## S-2: Admin App + QR Pairing (was: Admin App Preset + Remote Pairing)
+
+> **Order 2026-06-15 v2**: Phase 2 — **шаг 6** (опущен с шага 2). **CLOUD feature**.
+>
+> **Primary pairing = QR через камеру** (per [decision 2026-06-15-deferred-cloud/04](decisions/2026-06-15-deferred-cloud/04-pairing-channel-abstraction.md) и [спека 007](../specs/007-pairing-and-firebase-channel/spec.md) User Story 1 P1). Реализация уже в коде.
+>
+> **Signed invite link через share intent — НЕ primary**. Это additive add'on, появляется в S-7 (Caregiver) через `PairingChannel` abstraction. **Ранее в roadmap были ошибочные утверждения**, что signed invite link — primary, а QR «отвергнут потому что требует физического присутствия» — это **неверно**, исправлено в этом banner'е.
+>
+> **Унифицированный APK**: и admin'ское устройство, и устройство пожилого — **один и тот же APK** (per memory [`project_unified_app_model`](../../C:/Users/user/.claude/projects/c--work-launcher/memory/project_unified_app_model.md)). Различие — в **runtime preset**, выбираемом в wizard'е. Wizard'ы (`SimpleLauncherWizardManifest`, `AdminWizardManifest` — **это не классы в коде**, это **динамические манифесты внутри preset config'а**) собираются по выбранному preset'у через `ConfigSource` adapter.
 
 ### Что строим (mentor explanation)
 
@@ -1190,6 +1262,8 @@ REFERENCE DOCS:
 
 ## S-3: Contact Tiles + Handoff Calling
 
+> **Order 2026-06-15 v2**: Phase 2 — **шаг 2**. **LOCAL mode**. Звонки через `ACTION_DIAL` intent (не требует `CALL_PHONE` permission). Контакты вводятся локально, без cloud sync.
+
 ### Что строим (mentor explanation)
 
 Admin добавляет контакт (имя, телефон, опционально фото) в admin app → контакт **синхронизируется** через Family Group (envelope encrypted) → Managed получает → contact tile появляется на home screen → tap → confirmation screen → handoff в установленный мессенджер (WhatsApp / Telegram / Viber) или системный звонок.
@@ -1328,6 +1402,12 @@ REFERENCE DOCS:
 ---
 
 ## S-4: SOS Capability + Wizard Step
+
+> **Order 2026-06-15 v2**: Phase 2 — **шаг 5**. **CLOUD feature** — отправка SOS требует push'а на сервер.
+>
+> **SMS fallback** (предложение владельца 2026-06-15): primary path = FCM push + escalation phone call (`ACTION_CALL`). SMS как **третий fallback** — отложено в [`server-roadmap.md`](../dev/server-roadmap.md) (требует carrier SMS gateway, $$ per message, post-MVP).
+>
+> Hardware power-button SOS — explicitly OUT в MVP (vision recap).
 
 ### Что строим (mentor explanation)
 
@@ -1475,6 +1555,8 @@ REFERENCE DOCS:
 ---
 
 ## S-5: Contact Photos (Family Album Foundation)
+
+> **Order 2026-06-15 v2**: Phase 2 — **шаг 3**. **CLOUD feature** — фото хранятся на Backblaze B2, требует F-4 (Sign-In) + F-5 (encryption). Это **первая cloud feature** в Phase 2; здесь юзеру предлагается Sign-In с понятным объяснением «чтобы admin мог загрузить фото контактов с другого устройства, нужен Google-аккаунт».
 
 ### Что строим (mentor explanation)
 
@@ -1641,6 +1723,14 @@ REFERENCE DOCS:
 
 ## S-6: Account Deletion Flow
 
+> **Order 2026-06-15 v2**: Phase 2 — **шаг 7**. **CLOUD feature**. Применяется только к cloud namespace юзера.
+>
+> **Семантика per [decision 2026-06-15-deferred-cloud/02](decisions/2026-06-15-deferred-cloud/02-config-ownership-per-device.md)**:
+> - Удаляется namespace `/users/{adminUid}/...` (его конфиги, его `access-grants`, его pair'ы).
+> - **Конфиги других пользователей не трогаются** — каждый конфиг принадлежит локальному Google-аккаунту своего устройства, не admin'у.
+> - `access-grants/{adminUid}` записи у других юзеров — удаляются (cascade): admin теряет доступ к чужим конфигам.
+> - Local mode копия (если юзер также работал локально на устройстве, не входя в cloud) — **не трогается**, она вне namespace.
+
 ### Что строим (mentor explanation)
 
 User в Settings → Account → «Удалить мой аккаунт» → explicit consequences list + re-auth → confirmation. **30-day grace period** soft delete (login ещё работает, можно cancel). После grace — **hard delete batch job**: user identity record, membership records, public keys, audit log с deletion hash для compliance proof.
@@ -1792,6 +1882,12 @@ REFERENCE DOCS:
 
 ## S-7: Caregiver Remote Invite + Role Presets
 
+> **Order 2026-06-15 v2**: Phase 2 — **шаг 8 (последний)**. **CLOUD feature**. Late — за месяц до public release.
+>
+> **Здесь появляется `LinkInvitePairingChannel`** — второй adapter `PairingChannel` port'а (первый — `QrPairingChannel` из S-2). Caregiver не находится физически рядом, admin генерирует signed invite link, шлёт через share intent.
+>
+> Audit log (Tier 1 metadata: кто, когда, что) — был запланирован в deprecated F-1. Реализуется здесь как **отдельная micro-spec**, потому что S-7 и S-8 оба требуют audit log.
+
 ### Что строим (mentor explanation)
 
 Admin invites caregiver (профессиональную сиделку / медсестру / врача) **удалённо через signed link**: выбирает role preset (Medical Worker / Hired Caregiver / Volunteer / Clinic Stay) → app генерирует signed invite link → admin шлёт через share intent (любой channel) → caregiver открывает в нашей app → видит preview → accept → server adds caregiver в group с preset permissions + TTL.
@@ -1942,7 +2038,21 @@ REFERENCE DOCS:
 
 ---
 
-## S-8: Family Group Editor + History Rollback
+## S-8: VersionedConfigViewer + Layout Editor (was: Family Group Editor + History Rollback)
+
+> **Order 2026-06-15 v2**: Phase 2 — **шаг 4** (поднят с финала). **CLOUD feature**. Универсальный компонент, используется тремя use case'ами.
+>
+> **Переименование**: спека больше не «Layout Editor + History Rollback», а **VersionedConfigViewer + Layout Editor**. `VersionedConfigViewer` — универсальный компонент с тремя контекстами использования:
+>
+> 1. **History rollback**: «вернуться к предыдущей версии» (кнопки ← → между версиями, подсветка изменений).
+> 2. **Multi-admin conflict resolution**: «другой admin изменил, моя или его версия?» — тот же viewer, два состояния показывает.
+> 3. **Local→cloud promotion merge** (per [decision 2026-06-15-deferred-cloud/01](decisions/2026-06-15-deferred-cloud/01-deferred-sign-in.md)): юзер локально настроил → Sign-In'нулся → в облаке уже есть конфиг → viewer показывает оба, юзер выбирает.
+>
+> **CRDT / OT отвергнуты** (как в F-5) — это automatic field-level merge, сложно. **Visual diff с двумя кнопками — оставлен**: это другая, простая вещь, реалистична в MVP.
+>
+> Внутреннее устройство: `core/versioned-config/` модуль, типизированный под `ConfigDocument`. Generic `Versioned<T>` НЕ делаем — `Rule of Three` (см. [`decisions/2026-06-15-deferred-cloud/`](decisions/2026-06-15-deferred-cloud/) обсуждение): один потребитель сейчас, абстракция вводится при 3-м.
+>
+> Inline TODO у `core/versioned-config/` site: `// TODO(rule-of-three): если появится 2-й потребитель history — копировать модуль; на 3-м — обобщать в Versioned<T>`.
 
 ### Что строим (mentor explanation)
 
@@ -2103,9 +2213,15 @@ REFERENCE DOCS:
 
 ---
 
-## Финальный шаг Phase 2 — F-2: Capability Registry Foundation
+## ~~Финальный шаг Phase 2~~ — F-2: Capability Registry Foundation (ОТЛОЖЕН за Phase 2)
 
-> **Order shift (2026-06-15)**: F-2 — **последний** шаг Phase 2, после S-1..S-8.
+> **Order shift (2026-06-15 v2)**: F-2 **больше не в Phase 2**. Отложен до Phase 3+ — до появления реального consumer'а (AI/MCP/voice integration).
+>
+> До F-2 точки сшивки продолжают работать через [`checklist-capability-registry-readiness`](../../.claude/skills/checklist-capability-registry-readiness/SKILL.md) skill (требует `// TODO(capability-registry)` для каждого нового action) и индекс [`docs/dev/capability-registry-pending.md`](../dev/capability-registry-pending.md).
+>
+> **Зачем перенесли**: Capability Registry без consumer'а — преждевременная абстракция ([CLAUDE.md rule 4](../../CLAUDE.md)). Реальные actions из S-1..S-8 накапливаются в pending index. Когда появится конкретный AI/voice integration target (Google Assistant, MCP server, Gemini Nano), F-2 будет первым шагом этой работы.
+>
+> **Order shift v1 (отменён)**: F-2 — **последний** шаг Phase 2, после S-1..S-8.
 >
 > До тех пор в каждой S-спеке проставляются `// TODO(capability-registry): объявить capability declaration для <action_name>` через `checklist-capability-registry-readiness` skill, и индекс actions пополняется в [`docs/dev/capability-registry-pending.md`](../dev/capability-registry-pending.md). F-2 собирает все TODO → объявляет capabilities + `ExposureAdapter` interface + FakeAdapter. Реальных MCP/AI adapter'ов всё ещё нет (отдельные implementation spec'и позже, при необходимости).
 >
