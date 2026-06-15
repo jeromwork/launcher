@@ -13,18 +13,31 @@
 
 ### Local mode (без Sign-In)
 
-Конфиг существует только локально, никаких ownership-полей. Никаких прав у других устройств.
+**Ровно один `default` config**, локально в DataStore. Никаких named configs в local mode, никаких ownership-полей, никаких прав у других устройств.
+
+Решение зафиксировано 2026-06-15 владельцем: «Именованные конфиги нет смысла давать возможность пользователю делать в local mode. Это не нужно, в принципе.»
+
+**Аргумент**: named configs имеют смысл только когда юзер управляет **несколькими устройствами** через своё облако (телефон / планшет / TV / запасной телефон). На одном устройстве — переключаться нечем, поэтому `default` достаточно.
+
+При promotion local → cloud локальный `default` становится `default` в cloud namespace. Если в облаке уже есть configs — `VersionedConfigViewer` показывает merge (per [decision 01](01-deferred-sign-in.md)).
 
 ### Cloud mode (после Sign-In)
 
+**До 5 named configs** в namespace юзера. Один из них всегда `default`. Имена остальных — на усмотрение юзера (`grannies-phone`, `kitchen-tv`, `office-tablet`, `test-config`).
+
 ```
 Server namespace per Google account:
-  /users/{googleUid}/devices/{deviceId}/config/current
-                                       /history/...
+  /users/{googleUid}/named-configs/
+    default/{schema, layout, schemaVersion, activeDeviceIds, ...}
+    grannies-phone/{...}
+    kitchen-tv/{...}
+    ...
   /users/{googleUid}/access-grants/{otherGoogleUid}  ← кто может править мой конфиг
 ```
 
 `ownerUid` каждого конфига = Google UID того, кто Sign-In'нулся на этом устройстве.
+
+**Связь named config ↔ устройство**: каждый named config имеет поле `activeDeviceIds: List<DeviceId>` — какие физические устройства его сейчас используют. Можно один config на N устройствах (например, оба домашних TV одинаковые), либо разные configs на разных устройствах.
 
 ### Pairing — модель прав
 

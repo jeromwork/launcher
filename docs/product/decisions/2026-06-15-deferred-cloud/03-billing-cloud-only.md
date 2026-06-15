@@ -33,6 +33,26 @@
 
 Cloud features всегда проверяются на сервере (server-validated entitlement). Localcomputed entitlement — атакоустойчивая дыра, **не используем**.
 
+### Уровни усиления (two-way door)
+
+Чтобы не создать one-way door, фиксируем **три уровня** защиты с условиями перехода:
+
+| Уровень | Что | Когда применяется |
+|---------|-----|-------------------|
+| **L0 — Server-only** | Только server-validated entitlement JWT, никакой client-side проверки. Local APK взломать можно, но это не даёт cloud features (Worker не верит local flag'ам). | **MVP по умолчанию.** Достаточно, потому что local mode бесплатен — взламывать нечего. |
+| **L1 — +R8 obfuscation** | R8 release-config + ProGuard rules, скрывает обфускацией билинг-related код. | Активируется если решим вводить **клиент-side feature gating** для каких-то фич (например, premium-only локальный шаблон). |
+| **L2 — +Play Integrity API** | Каждый cloud-action верифицирует через Play Integrity, что app не модифицирован. Failed integrity → entitlement denied. | Активируется если статистика покажет abuse через modified APKs (после первых месяцев в проде). |
+| **L3 — +Code attestation** | Критические pathways периодически отправляют hash на сервер, server сверяет с known-good. | Активируется при появлении coordinated abuse / leaked premium accounts. |
+
+**Inline TODO** в каждой cloud-feature спеке:
+```
+// TODO(tamper-defense): currently at L0 (server-only). If client-side
+// license check is ever introduced, escalate to L1+L2 (R8 + Play Integrity).
+// Per decision 2026-06-15-deferred-cloud/03 §"Уровни усиления".
+```
+
+**Это two-way door**: можно усилить (`L0 → L1 → L2 → L3`) без переписывания архитектуры. Каждый шаг — additive change. Соответствует [CLAUDE.md rule 3](../../../../CLAUDE.md).
+
 Конкретные механизмы (детали — в [`checklist-tamper-resistance`](../../../../.claude/skills/checklist-tamper-resistance/SKILL.md) skill, создаваемом в этом PR):
 
 | Механизм | Цена | MVP / Post-MVP |

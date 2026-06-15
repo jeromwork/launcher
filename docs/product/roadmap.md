@@ -101,71 +101,88 @@ Launcher — только interface surface. **Ядро** продукта: за
 Phase 0: Vision ✅ DONE
         │
         ▼
-Phase 1: Foundation (REORDERED 2026-06-15 v2, ~5-7 weeks sequential)
+Phase 1: Foundation (~5-7 weeks sequential)
    F-1 Family Group Foundation        ❌ DEPRECATED 2026-05-28
                                       (moved to ecosystem-vision.md)
-   Шаг 1: F-3  Wizard Module + Localization    — wizard работает ЛОКАЛЬНО,
-                                                  без identity, без cloud.
-                                                  Localization обязательна с дня 1
+   Шаг 1: F-3  Wizard Module + Localization    — wizard работает ЛОКАЛЬНО
    Шаг 2: F-CRYPTO  core/crypto/ KMP module    — lib-family-crypto
-                                                  (готовим для cloud features)
 
-   (F-4, F-5, F-2 — moved out of Phase 1 sequential path
-    per decision 2026-06-15-deferred-cloud/)
+   (F-4, F-5 — cloud-feature setup, активируются в Phase 2
+    F-2 — отложен в Phase 4+ entirely)
 
-   F-4  AuthProvider + Google Sign-In  — теперь cloud-feature setup,
-                                          активируется на первом cloud action,
-                                          а не на первом запуске app
+   F-4  AuthProvider + Google Sign-In  — активируется на первом cloud action
    F-5  ConfigDocument E2E Encryption   🔴 PRODUCTION BLOCKER для cloud release
-                                          (только cloud namespace,
-                                           local config не шифруется)
-   F-2  Capability Registry             — отложен за Phase 2 entirely
-                                          (до Phase 3+, когда появится consumer)
+   F-2  Capability Registry             — отложен в Phase 4+
         │
         ▼
-Phase 2: MVP Vertical Slices (REORDERED 2026-06-15 v2, sequential)
-   S-1 Simple Launcher Wizard          (local-only, расширяет F-3)
-   S-3 Contact Tiles + Calling          (local-only, ACTION_DIAL)
-   S-5 Contact Photos                   (CLOUD feature — нужен F-4 + F-5)
-   S-8 VersionedConfigViewer +          (CLOUD feature — universal diff/version
-       Layout Editor                     viewer, used by history rollback,
-                                         multi-admin conflict, AND
-                                         local→cloud promotion)
-   S-4 SOS Capability                   (CLOUD feature — push admin'у)
-   S-2 Admin App + QR Pairing           (CLOUD feature — QR primary,
-                                         per decision 2026-06-15-deferred-cloud/04;
-                                         remote invite link — additive в S-7)
-   S-6 Account Deletion                 (CLOUD feature — GDPR / Play Store
-                                         requirement перед public release)
-   S-7 Caregiver Remote Invite          (LATE — за месяц до public release)
-   (F-2 НЕ в финале Phase 2 — отложен до Phase 3+)
-        │
-        ▼ (PRODUCTION RELEASE — F-5 + S-6 must be complete)
+Phase 2: MVP Core Vertical Slices (REORDERED 2026-06-15 v3, sequential, 9 спек)
+   S-1   Simple Launcher Wizard         (LOCAL — 1 default config only)
+   S-3   Contact Tiles + Calling         (LOCAL — ACTION_DIAL)
+   S-5   Contact Photos                  (CLOUD — первый Sign-In; F-4 + F-5)
+   S-8   VersionedConfigViewer + Editor  (CLOUD — named configs в cloud namespace)
+   S-9   Phone Health Monitoring         (CLOUD — battery / online / activity)  ← NEW
+   S-4   SOS Capability                  (CLOUD — push admin'у)
+   S-2   Admin App + QR Pairing          (CLOUD — QR primary; LinkInvite — Phase 4)
+   S-10  Subscription Server Timer       (CLOUD — server-only entitlement) ← NEW
+   S-6   Account Deletion                (CLOUD — GDPR / Play Store gate)
         │
         ▼
-Phase 3: Post-MVP v2 (5 specs)
-   V-1 iOS Admin · V-2 Messenger app · V-3 Full Album · V-4 Android TV · V-5 Wearables
+Phase 3: MVP Preset Depth (sequential, 7 P-спек) — ТОЖЕ MVP
+   P-1   Preset Schema v2 + Wizard Engine        (schemaVersion bump 1→2 backward-compat)
+   P-2   Android Deep Integration Steps          (drawer block / swipe block / hide Settings)
+   P-3   Preset Authoring + Sharing              (admin создаёт / экспорт / импорт)
+   P-4   Adaptive UX Presets                     (tremor-mild / tremor-severe / vision / perception)
+   P-5   Config Copy Between Own Devices         (multi-device same owner)
+   P-6   Account Recovery Flow + 2FA escrow      (потерял телефон → новое устройство)
+   P-7   Optional Step Reminder System           (persistent reminder без надоедания)
+        │
+        ▼ ✅ PRODUCTION RELEASE — конец полного MVP (Phase 2 + Phase 3)
         │
         ▼
-Phase 4: Long-term (open)
-   L-x: Clinic B2B · Marketplace · AI providers · etc.
+Phase 4: Product Extensions (post-MVP, 7 V-спек)
+   V-1   iOS Admin Preset                        · V-2 Elderly-Friendly Messenger
+   V-3   Full Shared Family Album                · V-4 Android TV Preset
+   V-5   Wearable Health Monitoring              · V-6 Caregiver Remote Invite + LinkInvite
+   V-7   Audit Log Infrastructure
+   F-2   Capability Registry Foundation          (когда найдётся первый AI/MCP consumer)
+        │
+        ▼
+Phase 5: Long-term Parking Lot (L-x, направления на годы)
+   L-1 Clinic B2B · L-2 Marketplace · L-3 AI adapters · L-4 Self-hosted Sentry · ...
 ```
 
-**Critical path для cloud release**: F-3 → F-CRYPTO → F-4 → F-5 → S-1 → S-3 → S-5 → S-8 → S-4 → S-2 → S-6 → S-7 (sequential).
+**Critical path для production release**: F-3 → F-CRYPTO → F-4 → F-5 → S-1 → S-3 → S-5 → S-8 → S-9 → S-4 → S-2 → S-10 → S-6 → P-1 → P-2 → P-3 → P-4 → P-5 → P-6 → P-7 (sequential).
 
-**Critical path для local-only release**: F-3 → S-1 → S-3 (sequential). Можно выпустить **local-only public beta** значительно раньше cloud release.
+**Critical path для local-only public beta**: F-3 → S-1 → S-3. Можно выпустить **local-only public beta** значительно раньше production release.
 
-**MVP total estimate**: ~6-8 months sequential (по принципу «не параллелим — один шаг за другим»).
+**MVP total estimate**: Phase 1 + 2 + 3 ≈ **8-10 месяцев** sequential.
 
 **Vision shift 2026-05-28**: Family Group primitive removed from launcher (was F-1). Multi-admin scenarios handled by N independent pair-edits merged via spec 008. Shared content (album, messenger) moved to separate ecosystem apps. Group primitive design preserved in [ecosystem-vision.md](future/ecosystem-vision.md) for future messenger/album specs. See research docs in `docs/research/2026-05-28-*.md`.
 
-**Architecture shift 2026-06-15** (deferred-cloud, per [`decisions/2026-06-15-deferred-cloud/`](decisions/2026-06-15-deferred-cloud/)): каждое устройство самодостаточно. Google Sign-In — условие cloud action, не первого запуска. Local mode — бесплатен бессрочно. Cloud mode (pair, sync, push, remote) — после Sign-In, после trial = subscription. Конфиг принадлежит локальному Google-аккаунту устройства. QR-pairing — primary; signed invite link — additive S-7 only. F-4 переезжает из «первого шага Phase 1» в «cloud-feature setup, активируется по требованию». F-2 откладывается за Phase 2 (до Phase 3+).
+**Architecture shift 2026-06-15** (deferred-cloud, per [`decisions/2026-06-15-deferred-cloud/`](decisions/2026-06-15-deferred-cloud/)): каждое устройство самодостаточно. Google Sign-In — условие cloud action, не первого запуска. Local mode — бесплатен бессрочно. Cloud mode (pair, sync, push, remote) — после Sign-In, после trial = subscription. Конфиг принадлежит локальному Google-аккаунту устройства. **Каждый юзер делает Sign-In своим собственным Google-аккаунтом на своём собственном телефоне** — не «дочь Sign-In'ит бабушкин телефон через свой аккаунт», а «бабушка / помогающий взрослый Sign-In'ит бабушкин телефон под бабушкиным Google-аккаунтом (тем же, что в её Play Store)». QR-pairing — primary; signed invite link — additive **только в Phase 4** через `LinkInvitePairingChannel`.
 
-**Phase 1 reorder 2026-06-15 v1** (предыдущая итерация, отменена v2):
-- ~~F-4 (AuthProvider) — первый шаг~~ → теперь F-3 первый, F-4 — cloud feature
-- F-5 разделён на два шага: сначала F-CRYPTO (выделение `core/crypto/` модуля при первом использовании криптографии, не задним числом), затем F-5 (ConfigDocument E2E, использует core/crypto/).
-- F-3 (Wizard + Localization) — после крипты; локализация обязательна с первого дня — все спеки гоняют новый `checklist-localization-ui` skill, проверяющий UI на разных длинах строк / RTL.
-- F-2 (Capability Registry) — отложен в самый конец Phase 2. До тех пор в каждой S-спеке проставляются `// TODO(capability-registry): ...` через новый `checklist-capability-registry-readiness` skill (запрещает упоминание конкретных MCP/AI providers в domain). Это применение CLAUDE.md rule 4 (Minimum Viable Architecture): абстракцию не вводим заранее, но готовим точки сшивки.
+**Phase split 2026-06-15 v3** — **MVP теперь = Phase 2 + Phase 3** (раньше = только Phase 2):
+- **Phase 2 "MVP Core Vertical Slices"** — 9 спек, видимый функциональный минимум для demoable cut.
+- **Phase 3 "MVP Preset Depth"** — 7 P-спек, **тоже MVP**, расширяет до полноты обещаний vision (preset architecture, adaptive UX, recovery). Раньше тут была Phase 3 "Post-MVP v2" — она переехала в Phase 4.
+- **Phase 4 "Product Extensions"** — V-спеки (iOS / TV / messenger / album / wearable / caregiver / audit) + F-2 (Capability Registry, ждёт consumer'а).
+- **Phase 5 "Long-term Parking"** — L-x идеи.
+
+**Phase 2 reorder v3** (2026-06-15):
+- Добавлены **S-9 Phone Health Monitoring** (обязательно для vision «снижение тревоги семьи») и **S-10 Subscription Server Timer** (server-side entitlement, защита от взлома без R8).
+- **S-7 Caregiver Remote Invite** — убран из Phase 2 → переехал в **Phase 4 как V-6**. Caregiver flow требует LinkInvite + audit log + role-based access — слишком много для MVP.
+- Co-admin onboarding в Phase 2 — через **тот же QR**, не через invite link. Если внук тоже хочет управлять бабушкиным телефоном — он физически делает QR-pair со своего телефона.
+- **Local mode = 1 default config** (не named) — упрощение. Named configs появляются **только** в cloud mode (per [decision 02](decisions/2026-06-15-deferred-cloud/02-config-ownership-per-device.md)).
+
+> ⚠️ **Divergence note (опция A 2026-06-15)**: спека [`014-tile-editing-admin-senior-profiles`](../specs/014-tile-editing-admin-senior-profiles/spec.md) FR-003 в текущем виде описывает «до 5 named configs локально». Это **противоречит** решению v3 (local = 1 default only). Спека 014 остаётся как есть в работающем коде F-014.0, но **будет переписана в P-3** (Preset Authoring + Sharing) в Phase 3. До тех пор любой код, опирающийся на named configs в local mode, должен **рассматриваться как legacy**.
+
+**Phase 1 reorder v2** (2026-06-15, ещё актуально):
+- F-3 (Wizard + Localization) первый — работает локально без identity.
+- F-CRYPTO второй — `core/crypto/` KMP-модуль.
+- F-4, F-5 — moved out of sequential, активируются при cloud features.
+- F-2 — moved out of Phase 2, теперь Phase 4+.
+
+**Phase 1 reorder v1** (отменён, для истории):
+- ~~F-4 (AuthProvider) — первый шаг~~ → отменено в v2, F-3 стал первым.
 
 ---
 
@@ -905,36 +922,41 @@ REFERENCE DOCS:
 
 ---
 
-# 🎨 Часть V — Phase 2: MVP Vertical Slices
+# 🎨 Часть V — Phase 2: MVP Core Vertical Slices
 
 > **Цель Phase 2**: каждая S-спека ships demoable end-to-end feature. После каждой S-спеки можно показать **что-то новое** пользователю.
+>
+> ⚠️ **Phase 2 + Phase 3 = полный MVP**. Phase 2 даёт демонстрируемый core. Phase 3 (MVP Preset Depth) добавляет полноту обещаний vision (preset architecture, adaptive UX, recovery). Production release — после Phase 3.
 
-> ## 🔁 Порядок выполнения Phase 2 (REORDER 2026-06-15 v2)
+> ## 🔁 Порядок выполнения Phase 2 (REORDER 2026-06-15 v3, 9 спек)
 >
 > S-секции ниже расположены **по историческому номеру**, но **выполняются в новом порядке** — sequential, не параллельно:
 >
 > | Порядок | Спека | Режим | Что |
 > |---------|-------|-------|-----|
-> | **1** | S-1 | LOCAL | Simple Launcher Wizard (расширяет F-3) |
+> | **1** | S-1 | LOCAL | Simple Launcher Wizard (расширяет F-3). **1 default config**, не named. |
 > | **2** | S-3 | LOCAL | Contact Tiles + Calling (ACTION_DIAL, без cloud) |
-> | **3** | S-5 | CLOUD | Contact Photos (нужны F-4 + F-5) |
-> | **4** | **S-8** | CLOUD | **VersionedConfigViewer + Layout Editor** (универсальный diff/version viewer — used by history rollback, multi-admin conflict resolution, AND local→cloud promotion merge) |
-> | **5** | S-4 | CLOUD | SOS Capability (push admin'у) |
-> | **6** | S-2 | CLOUD | Admin App + **QR Pairing** (QR primary per [decision 04](decisions/2026-06-15-deferred-cloud/04-pairing-channel-abstraction.md)) |
-> | **7** | S-6 | CLOUD | Account Deletion (GDPR / Play Store gate) |
-> | **8** | S-7 | CLOUD | Caregiver Remote Invite + Role Presets (late — за месяц до public release) |
-> | ~~9~~ | ~~F-2~~ | — | **Отложен за Phase 2 до Phase 3+** (Capability Registry — пока без consumer) |
+> | **3** | S-5 | CLOUD | Contact Photos (нужны F-4 + F-5; первый Sign-In trigger) |
+> | **4** | **S-8** | CLOUD | **VersionedConfigViewer + Editor** (универсальный diff/version viewer — used by history rollback, multi-admin conflict, AND local→cloud promotion merge). **Named configs появляются здесь** в cloud namespace. |
+> | **5** | **S-9** | CLOUD | **Phone Health Monitoring** (battery / online / activity / app crashes / abnormal inactivity) — vision §«снижение тревоги семьи» ← **NEW в v3** |
+> | **6** | S-4 | CLOUD | SOS Capability (push admin'у) |
+> | **7** | S-2 | CLOUD | Admin App + **QR Pairing** (QR primary per [decision 04](decisions/2026-06-15-deferred-cloud/04-pairing-channel-abstraction.md)). Co-admin = **тоже QR**, не LinkInvite. |
+> | **8** | **S-10** | CLOUD | **Subscription Server Timer** — server-side trial timer + entitlement endpoint, без UI billing. Защита от взлома без R8 — server-only validation. ← **NEW в v3** |
+> | **9** | S-6 | CLOUD | Account Deletion (GDPR / Play Store gate). Recovery flow откладывается в **P-6 (Phase 3)**. |
+> | ~~10~~ | ~~S-7~~ | — | **Caregiver Remote Invite — перемещён в Phase 4 как V-6**. Требует LinkInvite + audit log + role-based access — слишком много для MVP. |
+> | ~~11~~ | ~~F-2~~ | — | **Отложен в Phase 4+** (Capability Registry — пока без consumer) |
 >
-> **Что изменилось vs v1 (предыдущий reorder)**:
-> - S-8 поднят с конца на 4-ю позицию — после плиток и фото, потому что **VersionedConfigViewer** — универсальный компонент, нужен для всех cloud-feature спек ниже.
-> - S-4 (SOS) опущен ниже — это cloud feature, не блокирует demo плиток.
-> - S-2 (Admin App + Pairing) опущен — pairing нужен после того, как есть что синхронизировать.
-> - S-6, S-7 опущены к концу.
-> - **F-2 убран** из финального шага — отложен до Phase 3+ entirely (до появления реального AI/MCP consumer'а).
+> **Что изменилось vs v2 (предыдущий reorder)**:
+> - **Добавлен S-9** Phone Health Monitoring — обязательный по vision «снижение тревоги семьи».
+> - **Добавлен S-10** Subscription Server Timer — закрывает защиту от взлома без R8 (server-side validation = достаточно в L0 per [decision 03](decisions/2026-06-15-deferred-cloud/03-billing-cloud-only.md)).
+> - **S-7 Caregiver убран** → перемещён в Phase 4 как V-6.
+> - **F-2 откложен в Phase 4+**, не в финале Phase 2.
+> - **Local mode упрощён до 1 default config** (не named) per [decision 02](decisions/2026-06-15-deferred-cloud/02-config-ownership-per-device.md).
 >
 > **Architecture context** ([decisions/2026-06-15-deferred-cloud/](decisions/2026-06-15-deferred-cloud/)):
-> - **LOCAL** S-спеки (S-1, S-3) работают **без Google Sign-In**. Только локальный конфиг.
-> - **CLOUD** S-спеки (S-5, S-8, S-4, S-2, S-6, S-7) **требуют Sign-In в момент первого cloud action** (deferred sign-in pattern). Sign-In появляется в S-5 или S-8 (что юзер активирует раньше), не в S-1.
+> - **LOCAL** S-спеки (S-1, S-3) работают **без Google Sign-In**. Только локальный конфиг (1 default).
+> - **CLOUD** S-спеки (S-5, S-8, S-9, S-4, S-2, S-10, S-6) **требуют Sign-In в момент первого cloud action** (deferred sign-in pattern). Sign-In появляется в S-5 или S-8 — что юзер активирует раньше, не в S-1.
+> - **Каждый юзер делает Sign-In своим собственным Google-аккаунтом** — на телефоне, где приложение скачано из Play Store, **тот же аккаунт**, что Play Store login. Нет «дочь Sign-In'ит бабушкин телефон через свой аккаунт» — бабушкин телефон Sign-In'ится под бабушкиным Google, который уже залогинен в её Play Store. Если бабушке физически помогает дочь — она делает Sign-In под **бабушкиным** аккаунтом (например, на новом телефоне). Это применение принципа «наименьшее количество шагов» и [decision 02](decisions/2026-06-15-deferred-cloud/02-config-ownership-per-device.md).
 > - **Setup persona** = компетентный взрослый, не cognitively-limited senior. Первая настройка телефона делается человеком, способным пройти wizard и Sign-In.
 > - **Каждое устройство самодостаточно**. Конфиг принадлежит локальному Google-аккаунту устройства. Pairing = grant на чтение/запись чужого конфига, **не** передача собственности.
 
@@ -1880,9 +1902,20 @@ REFERENCE DOCS:
 
 ---
 
-## S-7: Caregiver Remote Invite + Role Presets
+## ~~S-7: Caregiver Remote Invite + Role Presets~~ (MOVED to Phase 4 as V-6)
 
-> **Order 2026-06-15 v2**: Phase 2 — **шаг 8 (последний)**. **CLOUD feature**. Late — за месяц до public release.
+> **🔁 2026-06-15 v3**: S-7 **полностью убран из MVP** и перемещён в Phase 4 как **V-6 Caregiver Remote Invite + LinkInvitePairingChannel**.
+>
+> Аргумент: caregiver flow требует одновременно:
+> - `LinkInvitePairingChannel` adapter (второй после `QrPairingChannel`),
+> - Audit log infrastructure (которая теперь = V-7 в Phase 4),
+> - Role-based access на сервере + envelope filtering на клиенте.
+>
+> Это **слишком много** для MVP. Caregiver — non-family path, появляется реже, без него MVP функционален. В MVP всё pairing идёт через QR (включая co-admin: если внук тоже хочет управлять бабушкиным телефоном, он физически делает QR-pair с своего телефона).
+>
+> Текст спеки ниже **сохранён в roadmap для исторической ссылки** — содержание переедет в V-6 описание в Phase 4 при следующем restructure.
+
+> **Order 2026-06-15 v2 (отменено)**: Phase 2 — шаг 8 (последний). CLOUD feature. Late — за месяц до public release.
 >
 > **Здесь появляется `LinkInvitePairingChannel`** — второй adapter `PairingChannel` port'а (первый — `QrPairingChannel` из S-2). Caregiver не находится физически рядом, admin генерирует signed invite link, шлёт через share intent.
 >
@@ -2213,9 +2246,256 @@ REFERENCE DOCS:
 
 ---
 
-## ~~Финальный шаг Phase 2~~ — F-2: Capability Registry Foundation (ОТЛОЖЕН за Phase 2)
+## S-9: Phone Health Monitoring 🆕 (added 2026-06-15 v3)
 
-> **Order shift (2026-06-15 v2)**: F-2 **больше не в Phase 2**. Отложен до Phase 3+ — до появления реального consumer'а (AI/MCP/voice integration).
+> **Order 2026-06-15 v3**: Phase 2 — **шаг 5**. **CLOUD feature**. **Обязательная для MVP** — закрывает центральное обещание vision §«снижение тревоги семьи».
+
+### Что строим (mentor explanation)
+
+Это **active reassurance** — admin (на своём телефоне) видит периодический health snapshot бабушкиного телефона: уровень батареи, заряжается ли, online status (есть ли интернет), last activity (когда бабушка последний раз касалась экрана), последние app crashes (косвенно — что-то идёт не так).
+
+Не нужно ждать SOS, чтобы знать, что всё в порядке. Открыл admin app — видишь зелёную «всё ок» / жёлтый «нет связи 6 часов» / красный «SOS».
+
+### Зачем именно сейчас
+
+Vision §«Phone Health Monitoring» явно перечисляет: battery level, charging status, connectivity, internet availability, device offline state, app crashes, abnormal inactivity, SOS events, emergency triggers. **Без этого продукт не выполняет обещание «снижение тревоги»** — admin вынужден звонить бабушке «ты как там, жива?» вместо тихого наблюдения.
+
+S-9 — **обязательно в MVP**, не post-MVP. Зафиксировано владельцем 2026-06-15.
+
+### Источники и резолюции
+
+- [`use-cases/01-vision-and-positioning.md` §Phone Health Monitoring](use-cases/01-vision-and-positioning.md).
+- Vision §«снижение тревоги родственников».
+- [CLAUDE.md rule 10](../../CLAUDE.md) (notification minimization) — push **только** при significant events (offline > N hours, low battery + no charger, critical permission revoked). Остальное — in-app indicator.
+
+### Scope: что входит
+
+- **HealthSnapshot** wire-format с `schemaVersion: 1`:
+  ```kotlin
+  data class HealthSnapshot(
+      val schemaVersion: Int,
+      val deviceId: DeviceId,
+      val capturedAt: Instant,
+      val batteryPct: Int,
+      val isCharging: Boolean,
+      val isOnline: Boolean,
+      val lastUserActivity: Instant,
+      val installedAppVersion: String,
+      val recentCrashes: Int,   // counter за последние 24h, через Android Vitals
+      val permissionsHealth: PermissionsHealthMap
+  )
+  ```
+- Периодическая отправка snapshot'а на сервер: каждые **15 минут** (foreground) / **1 час** (background через WorkManager).
+- Admin app: device list → tap → детальный экран с health metrics + history graph.
+- Push admin'у **только** при significant events:
+  - Battery < 15% AND not charging для 30+ минут.
+  - Offline > 4 часа.
+  - Critical permission revoked (ROLE_HOME, POST_NOTIFICATIONS).
+  - Abnormal inactivity (no user activity 12+ часов днём).
+- In-app indicator при остальных событиях.
+
+### Scope: что НЕ входит
+
+- ❌ Geolocation tracking (отдельно, может быть в V-5 wearable).
+- ❌ Health vitals (heart rate, etc.) — V-5.
+- ❌ Audio surveillance.
+- ❌ Screen content snooping.
+
+### Dependencies
+
+- F-4 (AuthProvider — нужен Sign-In для cloud sync).
+- F-5 (E2E encryption — health snapshot тоже PII).
+- S-8 (VersionedConfigViewer — не нужен прямо, но shared infra).
+
+### Local Test Path (D-2 mandatory)
+
+- **FakeHealthCollector** генерирует synthetic snapshots для тестов.
+- **Periodic upload test**: snapshot отправляется каждые 15 минут foreground.
+- **Threshold trigger test**: battery → 14% → push; battery → 16% → no push.
+- **Offline detection**: WorkManager retry с exponential backoff.
+- **Permission revoke detection**: revoke ROLE_HOME → next snapshot fires push.
+
+### Effort
+
+**Medium** (~2 weeks).
+
+### Copy-paste prompt для `/speckit.specify`
+
+```
+Напиши спецификацию для S-9: Phone Health Monitoring.
+
+КОНТЕКСТ:
+Vision §Phone Health Monitoring требует, чтобы admin (на своём телефоне) мог
+видеть периодический health snapshot бабушкиного устройства: battery, online
+status, last activity, recent crashes, permissions health. Без этого продукт
+не выполняет обещание «снижение тревоги семьи».
+
+ЦЕЛЬ:
+Создать HealthCollector + HealthRepository + HealthSnapshot wire-format с
+периодической отправкой на сервер и push при significant events (battery low,
+offline > N hours, permission revoked, abnormal inactivity).
+
+SCOPE ВКЛЮЧАЕТ:
+- HealthCollector port + Android implementation (BatteryManager, ConnectivityManager,
+  UsageStatsManager для last activity, Android Vitals для crash count).
+- HealthSnapshot wire-format с schemaVersion (per rule 5).
+- Periodic upload (15min foreground / 1h background WorkManager).
+- Threshold-based push notifications (per CLAUDE.md rule 10 notification minimization).
+- Admin app: device list health column + detailed health screen.
+
+SCOPE НЕ ВКЛЮЧАЕТ:
+- Geolocation (V-5 wearable).
+- Health vitals (V-5).
+- Audio / screen surveillance.
+
+CONSTITUTION GATES:
+- Rule 1, 2, 5, 10 (notification minimization).
+
+EFFORT: Medium (~2 weeks).
+
+REFERENCE DOCS:
+- use-cases/01-vision-and-positioning.md §Phone Health Monitoring
+- CLAUDE.md rules 1, 2, 5, 10
+```
+
+### Notes / gotchas
+
+- **Push hygiene strict**. Каждый push должен пройти [CLAUDE.md rule 10](../../CLAUDE.md) тест: actionable + time-sensitive + user-relevant. «Battery 50%» — нет. «Battery 14% no charger 30 минут» — да.
+- **Не surveillance**. Health monitoring ≠ tracking. Мы знаем, что устройство онлайн и батарея не села. Мы **не знаем**, что бабушка ела, кому звонила, где гуляла.
+- **OEM-specific snags**. Xiaomi MIUI / Huawei EMUI агрессивно убивают background WorkManager. Нужны autostart hints в wizard (как для FCM push в S-4).
+
+---
+
+## S-10: Subscription Server Timer 🆕 (added 2026-06-15 v3)
+
+> **Order 2026-06-15 v3**: Phase 2 — **шаг 8**. **CLOUD feature** — server-side только, **без UI billing**. Implements [`decision 03`](decisions/2026-06-15-deferred-cloud/03-billing-cloud-only.md) и [`decision 03 §Уровни усиления L0`](decisions/2026-06-15-deferred-cloud/03-billing-cloud-only.md).
+
+### Что строим (mentor explanation)
+
+Сервер-side таймер trial-периода и entitlement endpoint в Cloudflare Worker.
+
+При первом Sign-In Worker создаёт запись `{userId, trialStartedAt: <now>, subscriptionState: "trial"}`. При каждом cloud-action (pair, sync, push, photo upload) клиент дёргает endpoint `/api/entitlement` → Worker проверяет:
+- `(now - trialStartedAt) < trial_duration` → выдаёт entitlement JWT, action разрешён.
+- `now > trial + grace_period` AND no active subscription → отказывает.
+
+Клиент **не знает** trial duration / start date — это server-side. Защита от взлома **на уровне L0** (server-only): можно патчить APK сколько угодно, без entitlement JWT cloud features не работают.
+
+**UI billing** (форма оплаты, выбор тарифа, Google Play Billing integration) — **не в S-10**, отдельная V-спека post-MVP. В MVP **trial бесплатный достаточно длинный** (предлагаю 6 месяцев), чтобы первые юзеры успели попользоваться без оплаты.
+
+### Зачем именно сейчас
+
+- Закрывает [CLAUDE.md rule 8](../../CLAUDE.md) — server-roadmap entry для subscription state.
+- Защищает cloud features от взлома **без введения R8 obfuscation** в MVP (R8 = L1 уровень, активируется позже если понадобится).
+- Готовит инфру для будущего billing: endpoints `/api/entitlement` + `/api/subscription/start|cancel` готовы; billing UI добавляется как additive change.
+
+### Источники и резолюции
+
+- [`decisions/2026-06-15-deferred-cloud/03-billing-cloud-only.md`](decisions/2026-06-15-deferred-cloud/03-billing-cloud-only.md) §Уровни усиления L0.
+- [`docs/dev/server-roadmap.md`](../dev/server-roadmap.md).
+
+### Scope: что входит
+
+- Firestore document: `/users/{uid}/subscription/state`:
+  ```
+  {
+    schemaVersion: 1,
+    trialStartedAt: <timestamp>,
+    trialDurationDays: 180,    // 6 months default, configurable per-rollout
+    subscriptionState: "trial" | "active" | "expired" | "cancelled",
+    expiresAt: <timestamp>?,
+    lastValidatedAt: <timestamp>
+  }
+  ```
+- Worker endpoint `POST /api/entitlement` — выдаёт short-lived JWT (≤1 час), верифицирует subscription state.
+- Worker endpoint `GET /api/subscription/state` — для admin UI «когда истекает trial».
+- Worker endpoints `POST /api/subscription/start|cancel` — **stub'ы** на MVP (возвращают `not_implemented`), будут заполнены отдельной V-спекой когда введём billing UI.
+- Client: `EntitlementCache` — caches JWT с `expiresAt`, рефрешит при истечении или 5 минут до.
+- Client: `SubscriptionStatePresenter` — показывает в Settings «осталось N дней trial» / «подписка активна» / «истекла, перейти в local mode».
+- Graceful offline: при недоступности Worker'а cached JWT honored для **7 дней grace period**, потом cloud-features pause.
+
+### Scope: что НЕ входит
+
+- ❌ UI billing form (выбор тарифа / оплата).
+- ❌ Google Play Billing integration.
+- ❌ Stripe / другие провайдеры.
+- ❌ Refunds / promo codes.
+- ❌ Family / multi-device pricing tiers.
+
+Всё перечисленное — отдельная V-спека Phase 4 (например, V-Billing).
+
+### Dependencies
+
+- F-4 (AuthProvider — нужен Google UID для namespace).
+- Cloudflare Worker уже задеплоен (из спеки 007).
+
+### Local Test Path (D-2 mandatory)
+
+- **EntitlementCache test**: cache valid → don't fetch. Cache expired → fetch.
+- **Trial expiry simulation**: set `trialStartedAt = now - 200 days`, trial_duration = 180 → expect `expired`.
+- **Grace period offline**: simulate Worker unavailable → cached JWT honored 7 days → after that cloud features deny.
+- **Worker integration test через Miniflare**: end-to-end trial lifecycle.
+- **Tamper test**: client modifies local `subscriptionState` flag → Worker returns server-side state, client cannot override.
+
+### Effort
+
+**Small** (~1 week). Server-only, никаких UI экранов кроме одного Settings panel.
+
+### Copy-paste prompt для `/speckit.specify`
+
+```
+Напиши спецификацию для S-10: Subscription Server Timer.
+
+КОНТЕКСТ:
+Per decision 2026-06-15-deferred-cloud/03 — billing cloud-only, защита от
+взлома на L0 (server-validated entitlement, никакого client-side flag).
+В MVP — только server timer + entitlement endpoint, **без UI billing**.
+UI billing (Google Play, оплата, тарифы) — отдельная V-спека Phase 4.
+
+ЦЕЛЬ:
+Worker endpoint /api/entitlement выпускает short-lived JWT для активных
+trial/subscription. Client кеширует JWT, обновляет при истечении.
+Settings показывает «осталось N дней trial». Graceful offline через 7-day
+grace period с cached JWT.
+
+SCOPE ВКЛЮЧАЕТ:
+- Firestore /users/{uid}/subscription/state document.
+- Worker endpoints: /api/entitlement (выдача JWT), /api/subscription/state (read-only).
+- EntitlementCache (client-side, JWT-store с auto-refresh).
+- SubscriptionStatePresenter (Settings UI, read-only display).
+- Trial duration: 180 days default.
+- Grace period offline: 7 days.
+
+SCOPE НЕ ВКЛЮЧАЕТ:
+- UI billing form / payment.
+- Google Play Billing / Stripe.
+- Refunds, promo codes, family pricing.
+
+CONSTITUTION GATES:
+- Rule 1, 2, 8 (server-roadmap).
+- decision 2026-06-15-deferred-cloud/03 §Уровни усиления L0.
+
+EFFORT: Small (~1 week).
+
+REFERENCE DOCS:
+- docs/product/decisions/2026-06-15-deferred-cloud/03-billing-cloud-only.md
+- docs/dev/server-roadmap.md
+- CLAUDE.md rules 1, 2, 8
+```
+
+### Notes / gotchas
+
+- **No client-side license flag**. Если в PR появится `localUserState.isPremium = true` — refuse, направить через `EntitlementCache` + Worker.
+- **JWT must be short-lived**. ≤1 час. Никаких «year-long valid tokens».
+- **Grace period не обходится**. Если client offline 8 дней → cloud features pause, не silent allow.
+- **Trial duration configurable per rollout**. 180 дней — default, но можно менять без code changes (Firestore document).
+
+---
+
+## ~~Финальный шаг Phase 2~~ — F-2: Capability Registry Foundation (ОТЛОЖЕН в Phase 4+)
+
+> **Order shift (2026-06-15 v3)**: F-2 **больше не в Phase 2 и не в Phase 3 (MVP)**. Перемещён в **Phase 4 "Product Extensions"** — активируется когда появится реальный AI/MCP/voice consumer, не раньше.
+>
+> **v2 (отменено)**: F-2 — последний шаг Phase 2, после S-1..S-8.
 >
 > До F-2 точки сшивки продолжают работать через [`checklist-capability-registry-readiness`](../../.claude/skills/checklist-capability-registry-readiness/SKILL.md) skill (требует `// TODO(capability-registry)` для каждого нового action) и индекс [`docs/dev/capability-registry-pending.md`](../dev/capability-registry-pending.md).
 >
@@ -2361,77 +2641,215 @@ REFERENCE DOCS:
 
 ---
 
-# 🚀 Часть VI — Phase 3: Post-MVP v2 (V-1 .. V-5)
+# 🚀 Часть VI — Phase 3: MVP Preset Depth (P-1 .. P-7) — **ТОЖЕ MVP**
 
-> После MVP stable (target ~6-8 months from F-1 start). Каждая V-spec — большая отдельная вертикаль.
+> **Phase 3 — это вторая половина MVP**. Phase 2 даёт демонстрируемый core, Phase 3 — полноту обещаний vision (preset architecture, adaptive UX, recovery). Production release — после Phase 3.
+>
+> **Сжато**: то, что Phase 2 строит на упрощённом preset'е (`schemaVersion: 1`), Phase 3 расширяет до полноценной preset architecture (`schemaVersion: 2`) — без поломки Phase 2 кода (per [decision 05](decisions/2026-06-15-deferred-cloud/05-preset-wire-format-versioning.md)).
+>
+> **Sequential** — как и Phase 2, не параллелим. По одному шагу за другим.
+
+## P-1: Preset Schema v2 + Wizard Engine
+
+Bump preset wire format с `schemaVersion: 1` → `2`. Backward-compat: Phase 3 reader умеет читать `v1` (lift to `v2` shape), Phase 2 reader на `v2` получает только `platformAgnostic` секцию через server-side downgrade.
+
+Wizard engine эволюционирует: preset теперь декларирует **mandatory steps** + **optional steps**. Wizard runtime читает manifest из текущего preset'а, проходит mandatory steps, ставит **persistent reminder** для optional (см. P-7).
+
+**Scope ВКЛЮЧАЕТ**: `ConfigDocumentV2` wire format + lift `v1→v2` + `WizardManifest` schema + roundtrip tests + cross-version tests.
+**Scope НЕ ВКЛЮЧАЕТ**: конкретные Android intents (P-2), adaptive presets (P-4), authoring UI (P-3).
+**Dependencies**: Phase 2 завершена.
+**Effort**: Medium (~2 weeks).
+
+## P-2: Android Deep Integration Steps
+
+Реализация **reusable Android-specific wizard steps**, нужных для полноценного «безопасного пространства пожилого» (vision §Simple Launcher):
+- **BlockNotificationDrawerStep** — отключить notification drawer (через `Settings.Global` или Accessibility Service).
+- **DisableHorizontalSwipeStep** — заблокировать swipe между screens (через accessibility overlay).
+- **HideSettingsBehind7TapStep** — настроить, чтобы Settings были доступны только через 7-tap из main flow.
+- **DisableLockscreenWidgetsStep**, **RestrictAppListVisibilityStep**, etc.
+
+Каждый step — `WizardStep` implementation, который вызывает Android system intent или Accessibility Service.
+
+**Scope ВКЛЮЧАЕТ**: набор reusable Android Deep Integration steps + permissions wizard + Settings deep-links + state reconciliation после OS update.
+**Scope НЕ ВКЛЮЧАЕТ**: iOS / TV / Wear варианты — это V-1 / V-4 / V-5 в Phase 4.
+**Dependencies**: P-1 (schemaVersion 2 готов).
+**Effort**: Large (~3 weeks).
+
+## P-3: Preset Authoring + Sharing
+
+UI для admin'а: создание / экспорт / импорт preset'ов.
+- Создать новый preset на основе существующего (поверх P-5 copy mechanism).
+- Сохранить под именем (5 named configs limit per cloud namespace).
+- Экспорт preset'а как `.json` файл / share через Android share intent.
+- Импорт `.json` файла или принять share intent от другого юзера.
+- **ConfigSource adapter list**: `BundledConfigSource` (из F-3) + `ImportFromFileConfigSource` + `ShareIntentConfigSource`.
+
+**Marketplace** (curated catalog) — **не в P-3**, отдельная Phase 5 L-2.
+
+**Scope ВКЛЮЧАЕТ**: authoring UI + export / import flows + ConfigSource adapters (file / share intent) + переписать спеку 014 на `v2` schema (закрывает divergence note из Phase 2 intro).
+**Scope НЕ ВКЛЮЧАЕТ**: marketplace, curation, ratings.
+**Dependencies**: P-1, P-2.
+**Effort**: Large (~2-3 weeks).
+
+## P-4: Adaptive UX Presets
+
+Готовые preset'ы для разных групп users с ограниченными возможностями. Каждый — JSON config с `adaptiveProfile` полем:
+
+| Preset | adaptiveProfile | Что делает |
+|--------|-----------------|------------|
+| Стандартный | `default` | Обычный senior-safe (то, что есть в Phase 2 baseline) |
+| Тремор лёгкий | `tremor-mild` | Tap targets ≥72dp, debounce 500ms |
+| Тремор сильный | `tremor-severe` | Long-press 1 сек для активации, все swipes отключены |
+| Нарушение восприятия | `perception-impaired` | Dwell-to-activate, минимум элементов на экране |
+| Слабовидящий | `vision-impaired` | Экстра контраст, голосовое озвучивание плиток |
+
+Каждый — **отдельный bundled preset**. Admin выбирает в P-3 authoring UI.
+
+**Scope ВКЛЮЧАЕТ**: 5 bundled adaptive presets + runtime `AdaptiveTouchBehavior` (debounce / long-press / dwell) + accessibility audit.
+**Scope НЕ ВКЛЮЧАЕТ**: machine learning для автоопределения тремора (post-MVP).
+**Dependencies**: P-1, P-2.
+**Effort**: Medium (~2 weeks).
+
+## P-5: Config Copy Between Own Devices
+
+Admin имеет несколько устройств в своём namespace (телефон / планшет / TV в зале / TV в кухне). Operation **copy + modify + apply**:
+1. Выбрать source config (например, `tv-living-room`).
+2. Clone → новый `configId`, имя `tv-living-room (copy)`.
+3. Юзер правит (например, убирает 2 контакта).
+4. Переименовывает в `tv-kitchen`.
+5. Apply to device — push в namespace, активируется на `kitchen-tv` device.
+
+**Cross-platform copy** (телефон → TV) — копируется только `platformAgnostic` секция, `platformSpecific.android` НЕ копируется в `platformSpecific.androidTv`. Юзер допроходит TV-specific wizard для нового config'а.
+
+**Scope ВКЛЮЧАЕТ**: clone operation + UI + cross-platform handling + tests.
+**Scope НЕ ВКЛЮЧАЕТ**: marketplace sharing (это P-3 export или Phase 5 L-2).
+**Dependencies**: P-1.
+**Effort**: Small (~1 week).
+
+## P-6: Account Recovery Flow + 2FA escrow
+
+Сейчас (Phase 2 baseline): юзер потерял телефон → Google Sign-In на новом устройстве → namespace восстанавливается → pair с другими устройствами нужно **rescan QR**.
+
+P-6 добавляет **pair-key recovery** через **2FA escrow** в Firestore: при pairing короткий код отсылается на старое связанное устройство, юзер вводит на новом → pair восстанавливается без физической встречи.
+
+**Scope ВКЛЮЧАЕТ**: 2FA escrow document в Firestore + recovery wizard в new device flow + tests + clearly-stated UX flow в спеке S-6.
+**Scope НЕ ВКЛЮЧАЕТ**: social recovery («друг помогает восстановить», deprecated D-25 OWD-4).
+**Dependencies**: F-4, S-6.
+**Effort**: Medium (~2 weeks).
+
+## P-7: Optional Step Reminder System
+
+В preset (`schemaVersion: 2`) есть `optionalSteps`. Эти шаги юзер может пропустить, но они **должны напоминать о себе**:
+- В Settings — badge на «Setup» entry: «У вас 5 не настроенных шагов».
+- В Settings → Setup — список с прогрессом.
+- При тапе на каждый — соответствующий wizard step запускается.
+- **Frequency cap** — badge всегда виден (он не push), но **не надоедает** — не блокирует основной flow.
+
+**Scope ВКЛЮЧАЕТ**: `OptionalStepTracker` + badge UI + список + accessibility audit.
+**Scope НЕ ВКЛЮЧАЕТ**: push reminders (отрицание [CLAUDE.md rule 10](../../CLAUDE.md) — это не actionable + не time-sensitive).
+**Dependencies**: P-1 (optionalSteps в schema), P-2 (есть optional Android steps).
+**Effort**: Small (~1 week).
+
+---
+
+> ✅ **PRODUCTION RELEASE** — конец полного MVP (Phase 2 + Phase 3).
+
+---
+
+# 🌅 Часть VII — Phase 4: Product Extensions (V-1 .. V-7 + F-2)
+
+> Post-MVP. Каждая V-спека — большая отдельная вертикаль, расширяющая продукт в новый сегмент.
+>
+> **Не fixed sequence** — порядок выбирается после MVP по сигналам рынка (какой сегмент даёт самый сильный pull).
 
 ## V-1: iOS Admin Preset
 
 iOS-specific implementations поверх KMP foundation. Compose Multiplatform iosMain. iOS-specific OAuth (Apple Sign-In вдобавок к Google), deep links, share intents. App Store submission flow.
 
-**Closes**: D-14 (iOS admin in post-MVP v2).
+**Закрывает**: D-14 (iOS admin в post-MVP).
 **Effort**: Very large (~3-4 months).
 
 ## V-2: Elderly-Friendly Messenger (Jitsi-based separate app)
 
-Отдельное приложение (или shared module), на Jitsi Meet. SSO с launcher через F-4 AuthProvider (one Google login для обоих apps).
+Отдельное приложение, на Jitsi Meet. SSO с launcher через F-4 AuthProvider (один Google login для обоих apps). Universal Preset Architecture применяется и к messenger тоже:
+- Elderly preset — extremely simplified UX, large buttons.
+- Adult preset — full features.
 
-**Scope expansion (2026-05-28 evening)**: применить **Universal Preset Architecture** (D-22) **к messenger тоже**. Default presets:
-- **Elderly preset** — extremely simplified UX, large buttons, easy answer flow, family-oriented.
-- **Adult preset** — full features, normal messenger UX, для обычных взрослых членов семьи.
-- **(Future) Caregiver preset** — focused на care communication.
+Group call invites. Reuse `core/crypto/` для encrypted media.
 
-Это значит messenger **не только для пожилых** — он становится **семейным messenger'ом**, где каждый член семьи выбирает свой preset. Это усиливает strategy «семья переезжает в наш messenger» (per user 2026-05-28).
-
-Group call invites через Family Group. Reuse F-1 envelope encryption для encrypted media.
-
-**Closes**: D-23 implementation (MVP — handoff; post-MVP — separate Jitsi app + SSO + presets).
+**Закрывает**: D-23 implementation (MVP — handoff; post-MVP — own messenger).
 **Effort**: Very large (~4-6 months).
 
 ## V-3: Full Shared Family Album
 
-Videos + audio + memories. Chunked upload для больших файлов. Album UI (timeline, search, share, captions, anniversaries). Multi-content envelope encryption.
+Расширение S-5 (которая делает photos для контактов) в полноценный семейный альбом: видео + аудио + memories. Chunked upload. Album UI (timeline, search, captions, anniversaries).
 
-**Closes**: D-26 full implementation.
+**Закрывает**: D-26 full implementation.
 **Effort**: Large (~3 months).
 
 ## V-4: Android TV Preset
 
-TV-specific UI (Leanback или custom Compose for TV). Voice navigation (через Android TV system). Big tiles. Family call quick-join. Ambient family presence mode.
+TV-specific UI (Leanback или custom Compose for TV). Voice navigation через Android TV system. Big tiles. Family call quick-join. Ambient family presence mode. Pairing через `RemoteCodePairingChannel` (TV показывает 6-значный код, юзер вводит на телефоне).
 
-**Closes**: D-24 (TV in post-MVP).
+**Закрывает**: D-24 (TV в post-MVP).
 **Effort**: Large (~2-3 months).
 
-## V-5: Health Device Monitoring Start
+## V-5: Wearable Health Monitoring
 
-Wearable detection (BLE pairing с smart watches). Basic health data integration (heart rate, steps, fall detection). Alert escalation flow. Privacy boundaries (caregiver tier access).
+BLE pairing с smart watches через `BluetoothPairingChannel`. Heart rate, steps, fall detection. Alert escalation. Privacy boundaries.
 
 **Implements**: FUTURE-SPEC-001 start.
 **Effort**: Large (~3 months).
 
+## V-6: Caregiver Remote Invite + LinkInvitePairingChannel 🆕 (moved from Phase 2)
+
+> **Moved from S-7 in Phase 2** (2026-06-15 v3). Caregiver flow требует слишком много для MVP: `LinkInvitePairingChannel` (второй adapter `PairingChannel`), audit log infrastructure (V-7), role-based access на сервере + envelope filtering на клиенте.
+
+Caregiver = сиделка / соц.работник, к которой admin может **дать ограниченный доступ** через signed invite link (share intent). Caregiver видит SOS, может позвонить, но **не видит** family album. TTL membership.
+
+**Закрывает**: D-15 (caregiver/clinic integration foundation).
+**Effort**: Large (~3-4 months — с учётом всей инфры).
+
+## V-7: Audit Log Infrastructure 🆕
+
+> **Полезная фича для прозрачности** — кто из родственников / caregiver'ов что делал в семейном пространстве. Снижает тревогу «кто-то меняет настройки, я не знаю кто». В MVP **сознательно отложено** — упрощённый «Recent Activity» можно получить поверх version history из S-8 как inline TODO в той спеке.
+
+Полноценный audit log с Tier 1 (public metadata: actor, timestamp, action_type) + Tier 2 (private payload encrypted to actor only). Используется и в V-6 (caregiver actions), и в admin app для прозрачности.
+
+**Effort**: Medium (~2 weeks). Зависит от V-6 (нужны caregiver actions для логирования).
+
+## F-2: Capability Registry Foundation (moved from Phase 2 → Phase 4)
+
+> **Moved from Phase 2 в Phase 4** (2026-06-15 v3). Capability Registry без consumer'а — преждевременная абстракция. Активируется, когда появится первый AI/MCP/voice integration target (Google Assistant App Actions, MCP server, Gemini Nano).
+
+Существующий [`checklist-capability-registry-readiness`](../../.claude/skills/checklist-capability-registry-readiness/SKILL.md) skill + индекс [`docs/dev/capability-registry-pending.md`](../dev/capability-registry-pending.md) накапливают actions через Phase 2 + Phase 3 + начало Phase 4. F-2 собирает всё → `CapabilityRegistry` port + `ExposureAdapter` interface + FakeAdapter.
+
+**Effort**: Medium (~2 weeks).
+
 ---
 
-# 🌅 Часть VII — Phase 4: Long-term (L-x)
+# 🛤️ Часть VII.5 — Phase 5: Long-term Parking Lot (L-x)
 
-Не fixed roadmap, направления для consideration:
+> Не fixed roadmap, направления для consideration. Идеи на годы вперёд. Каждая активируется, если появится сильный сигнал из рынка / pull от пользователей.
 
-- **L-1**: Clinic / partner B2B integration (per D-15 architectural readiness, S-7 caregiver foundation).
+- **L-1**: Clinic / partner B2B integration (per D-15 architectural readiness, V-6 caregiver foundation).
 - **L-2**: Marketplace для config templates (per CLAUDE.md rule 9 — shareable templates curated).
-- **L-3**: AI provider implementations:
+- **L-3**: AI provider implementations (после F-2):
   - L-3a: App Actions adapter (Layer 2).
   - L-3b: MCP server adapter (Layer 3) — Cloudflare Worker extends.
   - L-3c: Gemini Nano integration (Layer 1) — image description, smart suggestions.
 - **L-4**: Self-hosted Sentry migration (per server-roadmap).
 - **L-5**: Backup / disaster recovery (D-Be-4).
-- **L-6**: Social recovery (re-open D-25 OWD-4 — only if "потерял так потерял" окажется bad PR).
-- **L-7**: Multi-device per user (FUTURE-SPEC-009).
+- **L-6**: Social recovery (re-open D-25 OWD-4 — only if «потерял так потерял» окажется bad PR).
+- **L-7**: Multi-device per user beyond F-4 (FUTURE-SPEC-009).
 - **L-8**: Key rotation / forward secrecy (FUTURE-SPEC-010).
-- **L-9**: Family group encryption migration к Signal-style (если outgrow envelope).
+- **L-9**: Family group encryption migration к Signal-style (если outgrow envelope encryption).
 - **L-10**: Wearable monitoring full (FUTURE-SPEC-001 expanded).
 - **L-11**: Security sensors integration (FUTURE-SPEC-002).
 - **L-12**: Closed messengers (LINE / WeChat / KakaoTalk — FUTURE-SPEC-003).
 - **L-13**: Shared admin contact book (FUTURE-SPEC-004).
 - **L-14**: Family Activity Challenges (PARK-001 если решим build).
+- **L-15**: Tamper-resistance escalation L1+L2+L3 (per [decision 03 §Уровни усиления](decisions/2026-06-15-deferred-cloud/03-billing-cloud-only.md)) — активируется если статистика покажет abuse через modified APKs.
 
 ---
 
