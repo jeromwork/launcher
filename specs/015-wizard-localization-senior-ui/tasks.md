@@ -6,41 +6,44 @@
 **Format**: `[ID] [P?] [Phase] Description (FR/SC/§Plan refs)`
 
 - **[P]**: Parallel-safe (different files, no dependencies).
-- **Phase**: 0 spike, 1 foundation, 2 wire formats, 3 wizard, 4 localization, 5 ui-senior, 6 integration.
+- **Phase**: 0 verification, 1 foundation, 2 wire formats, 3 wizard, 4 localization, 5 ui-senior, 6 integration.
 
-Total: **124 tasks** across 7 phases. Estimated **3-4 недели** + 2 дня spike (per spec Effort estimate).
+Total: **121 tasks** across 7 phases. Estimated **~3 недели** (per spec Effort estimate, reduced 1 week post pre-flight findings — see notes).
 
----
-
-## Phase 0 — Library Spike (BLOCKER, 2 days)
-
-**Goal**: Validate moko-resources + Konsist choices через A/B before implementation. Per C-30 + research.md.
-
-- [ ] **T001** Execute Day 1 spike — moko-resources vs Compose Multiplatform Resources. Create `spike-strings/` minimal KMP project per [research.md §Day 1](research.md). Score both variants on mandatory + weighted criteria. (Plan §10, research.md)
-- [ ] **T002** Execute Day 2 spike — Konsist vs ArchUnit-kotlin. Reuse `spike-strings/`, add fake modules per [research.md §Day 2](research.md). Score. (Plan §10, research.md)
-- [ ] **T003** Document spike results: write `research-day1-strings.md` + `research-day2-lint.md`. Update [spec.md C-8 + C-15](spec.md#clarifications) с final library choices. Update [plan.md §2 + §8](plan.md). (research.md)
-
-**Checkpoint**: Library choices fixed. If oба candidates fail в любой категории — pause + fresh clarify session.
+> **⚠ REVISED 2026-06-17 post pre-flight**: Phase 0 reduced from 2-day spike to 30-min verification (per C-38). Phase 1 reduced from 3-4 days to 1-2 days (packages instead of modules, libs already in project). All file paths in Phase 2-6 follow [plan.md §4 REVISED](plan.md#4-project-structure): `core/src/commonMain/kotlin/com/launcher/{api,ui,adapters}/{wizard,localization,senior}/` pattern. Where Phase 2-6 task descriptions reference old «`core/wizard/src/commonMain/...`» paths — interpret as new package layout in single `:core` module. Effort reduction: skip 2 spike days + 2 module-creation days = -4 days.
 
 ---
 
-## Phase 1 — Foundation (Module skeletons, DI, CI gates, 3-4 days)
+## Phase 0 — Pre-implementation verification (REVISED 2026-06-17, ~30 min)
 
-**Goal**: Three empty modules build green; CI fitness functions active. Closes US-5 (lint guard).
+**Goal**: Smoke-verify, что вся существующая инфраструктура работает для F-3 use case. Library spike отменён per C-38.
 
-- [ ] **T004** [P] Create `core/wizard/` KMP module: `build.gradle.kts` с `kotlin { jvm(); androidTarget() }`, `commonMain + androidMain + commonTest` source sets. (Plan §4, FR-001)
-- [ ] **T005** [P] Create `core/localization/` KMP module аналогично. (FR-026)
-- [ ] **T006** [P] Create `core/ui-senior/` Android library module (`com.android.library`, не KMP per C-7). (FR-033)
-- [ ] **T007** Update root `settings.gradle.kts`: include `:core:wizard`, `:core:localization`, `:core:ui-senior`. (Plan §4)
-- [ ] **T008** Add moko-resources Gradle plugin to `core/localization/build.gradle.kts` (per T003 choice). (FR-026)
-- [ ] **T009** Add Konsist test dependency to all three core modules (per T003 choice). (FR-038)
-- [ ] **T010** Write Konsist arch test `CoreToAppImportGuardTest` в `core/wizard/src/commonTest`: fails если any file in `core/wizard/` импортирует `com.eastclinic.app.*`. (FR-038, US-5)
-- [ ] **T011** Write Konsist directional rule: `core/wizard/` → `core/localization/` OK; `core/wizard/` → `core/ui-senior/` forbidden; `core/ui-senior/` → other core forbidden. (FR-038a)
-- [ ] **T012** Add Gradle task `checkLauncherAgnosticImports` aggregating Konsist tests from all three modules; wire в `./gradlew check`. (FR-041)
-- [ ] **T013** Add Konsist failure-message customization: include path + class + rationale + suggested fix. (FR-039)
-- [ ] **T014** Verify CI baseline: `./gradlew check` passes green с empty modules + arch tests active. Smoke test «forbidden import пишет понятную ошибку и fails build» — verifies SC-004.
+- [ ] **T001** [P] Create empty packages `com.launcher.api.wizard` + `com.launcher.api.localization` + `com.launcher.ui.senior` + `com.launcher.ui.wizard` в `core/src/commonMain/kotlin/com/launcher/`. Add `package-info.kt` (или empty class) в каждой чтобы пакет существовал. Verify `./gradlew :core:build` passes. (Plan §10, FR-001, C-7)
+- [ ] **T002** [P] Smoke-verify Konsist: write `core/src/androidUnitTest/kotlin/com/launcher/arch/SmokeArchitectureTest.kt` — minimal Konsist test (e.g. «classes в api.wizard MUST NOT depend on app»). Run `./gradlew :core:testRealBackendUnitTest`. Verify Konsist executes + test passes (empty package = no violations). (Plan §10, C-15, C-38)
+- [ ] **T003** [P] Smoke-verify Compose Resources: add `wizard.test_string` в `core/src/commonMain/composeResources/values/strings.xml` + `values-ru/strings.xml`. Write commonTest verifying resolution. (Plan §10, C-8)
 
-**Checkpoint**: 3 modules exist, build green, Konsist fitness function blocks `core/* → app/*` imports. Foundation ready.
+**Checkpoint**: All 3 verifications pass → start Phase 1. If anything fails → fresh clarify on что не работает.
+
+---
+
+## Phase 1 — Foundation (Package scaffolds + Konsist rules, 1-2 days) *(REVISED 2026-06-17)*
+
+**Goal**: Konsist architecture tests active and passing for empty packages. Closes US-5 (lint guard).
+
+- [ ] **T004** Add Roborazzi dependency в `core:androidUnitTest` (per C-37): `libs.versions.toml` + `core/build.gradle.kts:androidUnitTest dependencies`. (Plan §8)
+- [ ] **T005** Add `kotlinx-datetime` dependency в `core:commonMain` (если ещё не подключено — verify first). (Plan §8)
+- [ ] **T006** Write Konsist test `WizardArchitectureTest` в `core/src/androidUnitTest/kotlin/com/launcher/arch/`: implements FR-038 rules:
+  - Classes в `com.launcher.api.wizard.*` MUST NOT depend на `com.launcher.app.*` или `com.launcher.ui.*`.
+  - Classes в `com.launcher.api.localization.*` MUST NOT depend на `com.launcher.ui.*` или `com.launcher.app.*`.
+  - Classes в `com.launcher.ui.senior.*` MUST NOT depend на `com.launcher.api.*` (self-contained).
+  - Classes в `com.launcher.ui.wizard.*` MAY depend на `api.wizard.*`, `api.localization.*`, `ui.senior.*` only.
+  - (FR-038, FR-038a, US-5)
+- [ ] **T007** Konsist failure-message customization (FR-039): include path + class + rationale + suggested fix в test assertion message.
+- [ ] **T008** Verify Konsist runs as part of `./gradlew :core:check`. Если требуется — explicit Gradle task wiring `checkLauncherAgnosticImports`. (FR-041)
+- [ ] **T009** Add deliberate violation в смотри test fixture (`SmokeViolationFixture.kt` в `androidUnitTest`) → verify build fails с понятным message → remove fixture → verify build passes. (SC-004)
+- [ ] **T010** Update [spec.md](spec.md) status: Draft → InProgress + add note про T001-T009 completed verification.
+
+**Checkpoint**: 4 пакета existing, Konsist active enforcing FR-038/038a, build green. Foundation ready.
 
 ---
 

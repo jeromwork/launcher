@@ -1,8 +1,15 @@
 # Data Model: F-3
 
-**Date**: 2026-06-16 | **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md)
+**Date**: 2026-06-16 (REVISED 2026-06-17 post pre-flight) | **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md)
 
 Все типы expressed как domain data — без vendor SDK / platform types в signatures (CLAUDE.md rule 1). Wire format types (для JSON) описаны в [contracts/wire-formats.md](contracts/wire-formats.md); этот файл — runtime types и связи между ними.
+
+> **REVISED 2026-06-17**: все типы живут в пакетах внутри **существующего `:core` модуля**:
+> - Domain ports + data → `core/src/commonMain/kotlin/com/launcher/api/wizard/`
+> - Localization → `core/src/commonMain/kotlin/com/launcher/api/localization/`
+> - UI primitives → `core/src/commonMain/kotlin/com/launcher/ui/senior/` (Compose Multiplatform)
+> - UI host + steps → `core/src/commonMain/kotlin/com/launcher/ui/wizard/`
+> - Android adapters → `core/src/androidMain/kotlin/com/launcher/adapters/wizard/`
 
 ---
 

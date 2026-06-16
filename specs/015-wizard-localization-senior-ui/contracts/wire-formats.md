@@ -1,8 +1,10 @@
 # Wire Formats: F-3
 
-**Date**: 2026-06-16 | **Spec**: [../spec.md](../spec.md) | **Plan**: [../plan.md](../plan.md)
+**Date**: 2026-06-16 (REVISED 2026-06-17 post pre-flight) | **Spec**: [../spec.md](../spec.md) | **Plan**: [../plan.md](../plan.md)
 
-Все **8** wire formats F-3: 5 bundled JSON schemas + 3 persistent stores.
+Все **8** wire formats F-3: 5 bundled JSON schemas + 3 persistent stores + 1 dev-time JSON.
+
+> **REVISED 2026-06-17**: bundled JSON files лежат в `core/src/commonMain/composeResources/files/wizard/...` (per Compose Multiplatform Resources, **not** moko-resources `MR/files/`). Loaded через `BundledConfigSource` в `core/src/androidMain/kotlin/com/launcher/adapters/wizard/` (Android-specific reader; iosMain equivalent добавится при iOS launcher consumer).
 
 **Versioning policy**: per CLAUDE.md rule 5 + glossary §4.3:
 - Forward-compat: unknown additive fields silently ignored.

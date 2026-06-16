@@ -1,7 +1,9 @@
 # Analyze Report: F-3 Wizard Module + Localization + Senior UI Kit
 
-**Date**: 2026-06-16 | **Orchestrator**: `/speckit.analyze`
-**Artifacts audited**: spec.md (827), plan.md (450+CC), research.md (250), data-model.md (320), contracts/wire-formats.md (320), quickstart.md (180), tasks.md (124 tasks), 22 checklists.
+**Date**: 2026-06-16 (REVISED 2026-06-17 post pre-flight + full rewrite) | **Orchestrator**: `/speckit.analyze`
+**Artifacts audited (current)**: spec.md, plan.md, research.md, data-model.md, contracts/wire-formats.md, quickstart.md, tasks.md, analyze-report.md, 22 checklists.
+
+> **REVISED 2026-06-17**: после первого `/speckit.analyze` обнаружены противоречия с реальной архитектурой проекта (per `core/build.gradle.kts`, ADR-005, libs.versions.toml). spec.md + plan.md + tasks.md + research.md + quickstart.md + data-model.md + contracts/wire-formats.md **переписаны** под реальный стек: пакеты в `:core` (не новые модули), Compose Multiplatform UI (не Android-only), Koin DI + Decompose nav (per ADR-005), Compose Resources (не moko), Konsist уже в проекте. Spike отменён (C-38).
 
 ---
 
@@ -179,14 +181,15 @@ PRE-IMPL BLOCKER       : ⚠ Library spike T001-T003 (acknowledged, scheduled)
 VERDICT: READY-WITH-CAVEATS
 
 Open items (acknowledged, не блокирующие):
-  1. Library spike T001-T003 — 2-day pre-implementation. Documented в Phase 0 tasks.md.
+  1. ~~Library spike T001-T003 — 2-day pre-implementation. Documented в Phase 0 tasks.md.~~ **CANCELLED 2026-06-17** per C-38; replaced by 30-min verification (new T001-T003 in tasks.md).
   2. Forward-compat / hard-fail tests cover mechanism via 1 schema, not all 5 — accepted per FR-018 design.
+  3. **NEW post-2026-06-17 rewrite**: spec/plan/tasks now consistent с existing project architecture. No further drift expected unless project conventions change.
 
-After spike completion:
-  → If both libraries validate: VERDICT auto-upgrades к READY. Start Phase 1.
-  → If either library fails: fresh `/speckit.clarify` session for that library choice.
+After Phase 0 verification (T001-T003 ~30 min):
+  → If passes: start Phase 1 immediately.
+  → If fails: fresh `/speckit.clarify` session for что не работает.
 
-No drift detected since clarify phase. Spec/plan/tasks/contracts mutually consistent.
+Drift status (post rewrite 2026-06-17): NO drift detected. Spec/plan/tasks/contracts mutually consistent + aligned с existing project conventions (ADR-005, spec 005/007/008 patterns).
 ```
 
 ---

@@ -1,35 +1,60 @@
 # Implementation Plan: F-3 Wizard Module + Localization + Senior UI Kit
 
-**Branch**: `015-wizard-localization-senior-ui` | **Date**: 2026-06-16 | **Spec**: [spec.md](spec.md)
-**Input**: 77 FR / 20 SC / 23 OUT / 19 A из spec.md после `/speckit.specify` + `/speckit.clarify` (32 C-resolutions) + 22 checklists (`checklists/_overview.md`, 18 violations fixed inline).
+**Branch**: `015-wizard-localization-senior-ui` | **Date**: 2026-06-16 (REVISED 2026-06-17 post pre-flight) | **Spec**: [spec.md](spec.md)
+**Input**: 77 FR / 20 SC / 23 OUT / 19 A из spec.md после `/speckit.specify` + `/speckit.clarify` (38 C-resolutions including pre-flight reality check 2026-06-17) + 22 checklists.
+
+> **⚠ REVISED 2026-06-17 post pre-flight**: половина plan.md (модульная структура, library choices) переписана после обнаружения, что F-3 должна работать **внутри существующего `:core` KMP-модуля** (per ADR-005 + spec 007 flavors). Подробности — Clarifications C-7, C-8, C-15, C-33..C-38 в spec.md.
 
 ---
 
 ## 1. Summary
 
-F-3 — **первый шаг Phase 1**, foundation для всей Phase 1+ работы. Поставляет **три KMP-модуля** (`core/wizard/`, `core/localization/`, `core/ui-senior/`), на которых строятся Simple Launcher S-1, Admin App S-2, и будущие ecosystem apps (messenger V-2, album V-3 в Phase 4).
+F-3 — **первый шаг Phase 1**, foundation для всей Phase 1+ работы. Добавляет **пакеты в существующий `:core` KMP-модуль** (`com.launcher.api.wizard`, `com.launcher.api.localization`, `com.launcher.ui.senior`, `com.launcher.ui.wizard`), на которых строятся Simple Launcher S-1, Admin App S-2, и будущие ecosystem apps в Phase 4.
 
-**Технический подход**: KMP `commonMain + androidMain` для бизнес-логики (wizard engine, localization, ports), Android-only Compose для UI primitives, 5 JSON wire formats (`wizard.manifest`, `screen.layout`, `tile.set`, `system-settings.pool`, `ui-customization.pool`) с общим 6-полевым header'ом, moko-resources для строк (11 языков, EN base), Konsist для fitness function `core/* → app/*` import guard. Wizard работает **локально** — без identity, без cloud (per A-10 + decision 2026-06-15-deferred-cloud). Pre-plan deliverable: **2-дневный spike** A/B тестирование moko-resources vs Compose Resources + Konsist vs ArchUnit (см. [research.md](research.md)).
+**Технический подход** (per ADR-005 + existing project stack):
+- **Compose Multiplatform** (`commonMain`) для всего — wizard engine + UI primitives + step Composables. iOS support автоматически (3 iOS targets уже в `core/build.gradle.kts`).
+- **Decompose** для wizard step navigation (per ADR-005 Amendment 2026-05-07a — уже в проекте).
+- **Koin** для DI (per ADR-005 Amendment — уже в проекте).
+- **Compose Multiplatform Resources** для строк (`compose.components.resources` — уже подключено).
+- **DataStore Preferences** для simple persistence (уже в `core:androidMain`).
+- **Konsist** для fitness function `ui.* → api.wizard.*` directional guard (уже в `libs.versions.toml`, в `core:androidUnitTest`).
+- **5 JSON wire formats** (`wizard.manifest`, `screen.layout`, `tile.set`, `system-settings.pool`, `ui-customization.pool`) с общим 6-полевым header'ом.
+- Wizard работает **локально** — без identity, без cloud (per A-10 + decision 2026-06-15-deferred-cloud).
+- Compatible с обоими flavors (`realBackend` + `mockBackend`) per spec 007.
+
+**Pre-implementation gate** (sharply reduced): library spike отменён (per C-38) — все choices зафиксированы существующим проектом. T001 = 30-минутная verification что весь стек работает в пустом scaffold.
 
 ---
 
-## 2. Technical Context
+## 2. Technical Context *(REVISED 2026-06-17 post pre-flight)*
 
-**Language/Version**: Kotlin 2.0+ (KMP), Compose 1.6+ (Android target)
-**Primary Dependencies**: 
-- `dev.icerock.moko:resources` (1.6+) — string tables (subject to spike confirmation)
-- `com.lemonappdev:konsist` (0.13+) — architecture lint (subject to spike confirmation)
-- `androidx.datastore:datastore-preferences` (1.1+) — persistent storage
-- `org.jetbrains.kotlinx:kotlinx-datetime` (0.5+) — Clock port
-- `org.jetbrains.kotlinx:kotlinx-serialization-json` (1.6+) — JSON wire formats
+**Language/Version**: Kotlin **2.0.21** (per `libs.versions.toml`), Compose Multiplatform **1.7.3**, AGP 8.7.3, JVM 17.
 
-**Storage**: DataStore (app-private) для WizardCheckpoint, DismissedHints, UserPreferences. Bundled JSON в APK assets через moko-resources.
-**Testing**: JUnit 5 (commonTest + androidTest), Roborazzi (Compose screenshot tests), Android Macrobenchmark (cold-start budget).
-**Target Platform**: Android API 26+ (per project minSdk). iOS / TV — отдельные спеки когда consumer materializes (per C-7 + OUT-019).
-**Project Type**: Mobile (Android-primary, KMP-ready бизнес-логика).
-**Performance Goals**: WizardEngine first-run cold-start ≤ 300ms на Pixel 5 API 34 (SC-001a), HomeActivity не регрессирует (SC-011).
-**Constraints**: Local-only (нет network в F-3); APK delta ≤ +1.5 MB (SC-010); build time delta +1-2 min acceptable (A-19).
-**Scale/Scope**: 3 модуля, 77 FRs, 5 wire formats, 11 локалей, ~10 wizard step types.
+**Primary Dependencies** (все уже в `core/build.gradle.kts` — F-3 не добавляет новых):
+- `org.jetbrains.compose.components:components-resources` — Compose Multiplatform Resources (string tables, plurals, locales, RTL)
+- `io.insert-koin:koin-core` + `koin-android` — DI per ADR-005
+- `com.arkivanov.decompose:decompose` + `decompose-extensions-compose` — navigation per ADR-005
+- `org.jetbrains.kotlinx:kotlinx-serialization-json` — JSON wire formats (already present)
+- `androidx.datastore:datastore-preferences` (1.1+) — persistent stores (already present)
+- `com.lemonappdev:konsist` — architecture lint, JVM-only via `androidUnitTest` (already in `libs.versions.toml`)
+- `kotlinx-datetime` — для Clock (нужно проверить наличие; вероятно уже в проекте)
+
+**Storage**: **DataStore Preferences** для `WizardCheckpoint`, `DismissedHints`, `UserPreferences` (simple key-value с schemaVersion). Future migration в SQLDelight если структура усложнится (consistent с spec 008 `LocalConfigStore` pattern).
+
+**Testing**:
+- `commonTest` — JUnit (`kotlin-test`) для domain unit tests (WizardEngine, ports, parsers).
+- `androidUnitTest` — Konsist (arch tests) + Robolectric (Compose UI tests via `androidx.compose.ui.test.junit4` — уже подключено) + **Roborazzi** (screenshot tests для SC-006/006a/007 — new dep, per C-37).
+- Optional Android Macrobenchmark для SC-001a cold-start budget (new dep).
+
+**Target Platform**: Android **minSdk 26 / targetSdk 35** (per `libs.versions.toml`) + iOS (iosX64, iosArm64, iosSimulatorArm64 — уже включены в core).
+
+**Project Type**: KMP+CMP cross-platform launcher domain.
+
+**Performance Goals**: `WizardEngine` first-run cold-start ≤ 300ms на Pixel 5 API 34 (SC-001a), HomeActivity не регрессирует (SC-011), APK delta ≤ +1.5 MB (SC-010).
+
+**Constraints**: Local-only (нет network в F-3); compatible с обоими flavors `realBackend`+`mockBackend` per spec 007; respects existing two-backend pattern.
+
+**Scale/Scope**: 4 new packages в `:core`, 77 FRs, 5 wire formats, 11 локалей, 3 step types (consolidated).
 
 ---
 
@@ -56,151 +81,119 @@ specs/015-wizard-localization-senior-ui/
 └── tasks.md                 # NOT in plan.md scope — generated by /speckit.tasks
 ```
 
-### Source Code (repository root)
+### Source Code (внутри существующего `:core` модуля) *(REVISED 2026-06-17)*
 
 ```text
-core/
-├── wizard/                          [NEW KMP module — commonMain + androidMain]
-│   ├── src/commonMain/kotlin/
-│   │   ├── domain/
-│   │   │   ├── WizardEngine.kt              # port: run, diffPending, currentState
-│   │   │   ├── WizardStep.kt                # interface: stepType, render, canSkip, canGoBack
-│   │   │   ├── WizardOutcome.kt             # sealed: Completed, Cancelled, Failed
-│   │   │   ├── ConfigSource.kt              # port + ConfigSourceResult sealed
-│   │   │   ├── SystemSettingPort.kt         # port + SettingStatus + ApplyResult sealed
-│   │   │   ├── UserPreferencesStore.kt      # port + UserPreferences + AttestationRecord
-│   │   │   ├── WizardCheckpointStore.kt     # port + WizardCheckpoint
-│   │   │   ├── DismissedHintsStore.kt       # port
-│   │   │   ├── DiagnosticEmitter.kt         # port
-│   │   │   ├── Clock.kt                     # port (wraps kotlinx.datetime.Clock)
-│   │   │   ├── AnimationPreferenceProvider.kt  # port (reduce-motion)
-│   │   │   └── PermissionRequestPort.kt     # port (standard runtime permissions)
-│   │   ├── steps/
-│   │   │   ├── UIChoiceStep.kt              # consolidates LanguageStep/ThemeStep/etc.
-│   │   │   ├── SystemSettingStep.kt         # generic step over system-settings.pool
-│   │   │   └── TutorialHintStep.kt          # in-app hint overlay step
-│   │   ├── manager/
-│   │   │   ├── TutorialHintManager.kt       # runtime hint coordination
-│   │   │   └── WizardEngineImpl.kt          # state machine implementation
-│   │   └── data/
-│   │       ├── WizardManifest.kt            # 6-field header + body
-│   │       ├── ScreenLayout.kt
-│   │       ├── TileSet.kt
-│   │       ├── SystemSettingsPool.kt
-│   │       └── UICustomizationPool.kt
-│   ├── src/commonMain/resources/MR/
-│   │   ├── files/system-settings/
-│   │   │   └── android-pool.json            # FR-053a — 6 minimum entries
-│   │   ├── files/ui-customization/
-│   │   │   └── ui-pool.json                 # 6 entries: language/theme/fontScale/grid/screenLayout/tileSet
-│   │   └── files/wizard-manifests/          # test fixtures
-│   ├── src/commonTest/kotlin/
-│   │   ├── fakes/
-│   │   │   ├── FakeConfigSource.kt
-│   │   │   ├── InMemoryCheckpointStore.kt
-│   │   │   ├── InMemoryDismissedHintsStore.kt
-│   │   │   ├── InMemoryUserPreferencesStore.kt
-│   │   │   ├── FakeSystemSettingAdapter.kt
-│   │   │   ├── FakeLocaleProvider.kt
-│   │   │   ├── FakeClock.kt
-│   │   │   └── RecordingDiagnosticEmitter.kt
-│   │   ├── engine/
-│   │   │   ├── WizardEngineTest.kt          # state machine, traversal
-│   │   │   ├── WizardEngineDiffPendingTest.kt  # SC-002a delta wizard
-│   │   │   ├── WizardEngineAutoOrderTest.kt    # SC-002b
-│   │   │   └── WizardEngineResumeTest.kt    # process death resume
-│   │   ├── schema/
-│   │   │   ├── WizardManifestRoundtripTest.kt
-│   │   │   ├── ScreenLayoutRoundtripTest.kt
-│   │   │   ├── TileSetRoundtripTest.kt
-│   │   │   ├── SystemSettingsPoolRoundtripTest.kt
-│   │   │   ├── UICustomizationPoolRoundtripTest.kt
-│   │   │   ├── ForwardCompatTest.kt         # SC-008 — unknown additive fields
-│   │   │   └── HardFailTest.kt              # SC-009 — schemaVersion > known
-│   │   └── arch/
-│   │       └── CoreToAppImportGuardTest.kt  # Konsist FR-038 + FR-038a
-│   ├── src/androidMain/kotlin/
-│   │   ├── adapters/
-│   │   │   ├── PersistentCheckpointStore.kt        # DataStore impl
-│   │   │   ├── PersistentDismissedHintsStore.kt    # DataStore impl
-│   │   │   ├── PersistentUserPreferencesStore.kt   # DataStore impl
-│   │   │   ├── AndroidSystemSettingAdapter.kt      # FR-055
-│   │   │   ├── AndroidLocaleProvider.kt            # Resources.configuration.locales
-│   │   │   ├── AndroidAnimationPreferenceProvider.kt  # Settings.Global
-│   │   │   └── AndroidPermissionRequestPort.kt
-│   │   └── di/
-│   │       └── WizardModule.kt              # DI wiring (Hilt/koin TBD in tasks.md)
-│   └── README.md                            # EXTRACT CANDIDATE marker (FR-042)
+core/src/commonMain/kotlin/com/launcher/
+├── api/wizard/                              [NEW package]
+│   ├── WizardEngine.kt                      # port: run, diffPending, currentState
+│   ├── WizardStep.kt                        # interface
+│   ├── WizardOutcome.kt                     # sealed
+│   ├── WizardState.kt                       # sealed
+│   ├── PendingStep.kt + Criticality.kt
+│   ├── ConfigSource.kt + ConfigSourceResult.kt + ConfigKind.kt
+│   ├── SystemSettingPort.kt + SettingStatus.kt + ApplyResult.kt + SettingMechanism.kt
+│   ├── UserPreferencesStore.kt + UserPreferences.kt + ThemeChoice.kt + AttestationRecord.kt
+│   ├── WizardCheckpointStore.kt + WizardCheckpoint.kt
+│   ├── DismissedHintsStore.kt
+│   ├── DiagnosticEmitter.kt + DiagnosticEvent.kt
+│   ├── Clock.kt                             # wraps kotlinx-datetime
+│   ├── AnimationPreferenceProvider.kt
+│   ├── PermissionRequestPort.kt + PermissionResult.kt
+│   └── data/                                [sub-package]
+│       ├── WizardManifest.kt + StepEntry.kt
+│       ├── ScreenLayout.kt + ToolbarSpec.kt + TabSpec.kt
+│       ├── TileSet.kt + TileSpec.kt + GridPosition.kt
+│       ├── SystemSettingsPool.kt + SystemSettingEntry.kt + DetectionStrategy.kt
+│       └── UICustomizationPool.kt + UIOptionEntry.kt + Choice.kt + ChoicesFromRef.kt
 │
-├── localization/                    [NEW KMP module — commonMain + androidMain]
-│   ├── src/commonMain/kotlin/
-│   │   ├── domain/
-│   │   │   ├── StringResolver.kt            # port: resolve(key, args), currentLocaleTag
-│   │   │   ├── LocaleProvider.kt            # port
-│   │   │   └── RtlHelper.kt                 # fun layoutDirectionFor(localeTag): LayoutDirection
-│   │   └── data/
-│   │       └── (moko-generated MR class)
-│   ├── src/commonMain/resources/MR/
-│   │   ├── base/strings.xml                 # EN source of truth
-│   │   ├── ru/strings.xml
-│   │   ├── es/strings.xml
-│   │   ├── zh/strings.xml
-│   │   ├── ar/strings.xml
-│   │   ├── hi/strings.xml
-│   │   ├── pt/strings.xml
-│   │   ├── de/strings.xml
-│   │   ├── fr/strings.xml
-│   │   ├── ja/strings.xml
-│   │   └── kk-rLatn/strings.xml             # kk-Latn
-│   ├── strings-context/
-│   │   └── CONTEXT.json                     # FR-031b — per-key context
-│   ├── GLOSSARY.md                          # canonical terminology
-│   ├── scripts/
-│   │   └── translate-strings.sh             # FR-031a — Claude API translator
-│   ├── src/commonTest/kotlin/
-│   │   ├── StringResolverTest.kt            # fallback chain
-│   │   ├── RtlHelperTest.kt
-│   │   └── CheckTranslationsTest.kt         # FR-031 fitness function
-│   ├── src/androidMain/kotlin/
-│   │   └── AndroidStringResolverAdapter.kt  # moko-resources binding
-│   └── README.md
+├── api/localization/                        [NEW package]
+│   ├── StringResolver.kt                    # port: resolve, currentLocaleTag (BCP-47)
+│   ├── LocaleProvider.kt
+│   └── RtlHelper.kt
 │
-├── ui-senior/                       [NEW Android library (NOT KMP, per C-7)]
-│   ├── src/main/kotlin/
-│   │   ├── primitives/
-│   │   │   ├── SeniorButton.kt              # ≥56dp, wrapContent, ≥18sp
-│   │   │   ├── SeniorIconButton.kt
-│   │   │   ├── SeniorTextField.kt
-│   │   │   ├── SeniorBodyText.kt            # ≥18sp
-│   │   │   └── SeniorTitleText.kt           # ≥24sp
-│   │   ├── theme/
-│   │   │   └── SeniorWarmTheme.kt           # Light + Dark, ≥7:1 contrast
-│   │   ├── util/
-│   │   │   ├── FontScaleAware.kt            # rememberFontScaleAware()
-│   │   │   └── SeniorContentDescription.kt
-│   │   ├── progress/
-│   │   │   ├── WizardProgressIndicator.kt   # FR-008c visual «Шаг N из M»
-│   │   │   └── LiveRegionAnnouncement.kt    # FR-008b TalkBack
-│   │   └── overlay/
-│   │       └── TutorialHintOverlay.kt
-│   ├── src/androidTest/                     # Compose screenshot tests
-│   │   ├── PrimitivesScreenshotTest.kt      # SC-006 max fontScale
-│   │   ├── LengthExpansionTest.kt           # SC-006a EN/DE/AR
-│   │   └── RtlScreenshotTest.kt             # SC-007 ar-SA
-│   └── README.md
+├── ui/senior/                               [NEW package — Compose Multiplatform]
+│   ├── primitives/
+│   │   ├── SeniorButton.kt                  # ≥56dp, ≥18sp, wrapContent, autoMirrored
+│   │   ├── SeniorIconButton.kt
+│   │   ├── SeniorTextField.kt
+│   │   ├── SeniorBodyText.kt + SeniorTitleText.kt
+│   ├── theme/
+│   │   └── SeniorWarmTheme.kt               # Material 3 wrapper, ≥7:1 contrast
+│   ├── util/
+│   │   ├── FontScaleAware.kt + SeniorContentDescription.kt
+│   ├── progress/
+│   │   ├── WizardProgressIndicator.kt       # FR-008c visual «Шаг N из M»
+│   │   └── LiveRegionAnnouncement.kt        # FR-008b TalkBack
+│   └── overlay/
+│       └── TutorialHintOverlay.kt
+│
+└── ui/wizard/                               [NEW package — Decompose host]
+    ├── WizardComponent.kt                   # Decompose ComponentContext + Stack<Configuration>
+    ├── WizardHostScreen.kt                  # Composable host (renders current step)
+    ├── steps/
+    │   ├── UIChoiceStep.kt                  # consolidates LanguageStep/ThemeStep/etc.
+    │   ├── SystemSettingStep.kt
+    │   └── TutorialHintStep.kt
+    └── managers/
+        ├── WizardEngineImpl.kt
+        └── TutorialHintManager.kt
 
-app/
-├── build.gradle.kts                          [DEPS: core/wizard, core/localization, core/ui-senior]
-└── src/main/kotlin/com/eastclinic/launcher/
-    ├── WizardActivity.kt                    # Host для wizard Compose flow
-    ├── PlayStoreFallbackActivity.kt         # FR-016 hard-fail fallback (Q-6 (b))
-    ├── di/
-    │   └── AppWizardModule.kt               # production DI: BundledConfigSource, Persistent* stores
-    └── adapters/
-        └── BundledConfigSource.kt           # FR-020 (lives в :app per Q-1)
+core/src/commonMain/composeResources/         [Compose Multiplatform Resources]
+├── files/wizard/                            # bundled JSON
+│   ├── system-settings/android-pool.json    # FR-053a — 6 entries
+│   ├── ui-customization/ui-pool.json        # FR-014a — 6 entries
+│   ├── wizard-manifests/                    # test fixtures
+│   ├── screen-layouts/
+│   └── tile-sets/
+├── values/strings.xml                       # base = EN (per C-6)
+├── values-ru/strings.xml                    # explicit per FR-031a
+├── values-es|zh|ar|hi|pt|de|fr|ja|kk-rLatn/strings.xml
+└── values/plurals.xml                       # FR-031e plurals
+
+core/strings-context/CONTEXT.json            # FR-031b per-key context (dev-time)
+core/GLOSSARY.md                             # FR-031c canonical terminology
+core/scripts/translate-strings.sh            # FR-031a translation skill helper
+
+core/src/commonTest/kotlin/com/launcher/
+├── fakes/                                   # FakeConfigSource, InMemoryCheckpointStore, etc.
+├── api/wizard/                              # WizardEngineTest, DiffPendingTest, AutoOrderTest, ResumeTest
+├── data/                                    # Roundtrip + ForwardCompat + HardFail per schema
+└── api/localization/                        # StringResolverFallbackTest, RtlHelperTest
+
+core/src/androidMain/kotlin/com/launcher/
+├── adapters/wizard/                         [NEW package — Android-specific]
+│   ├── PersistentCheckpointStore.kt         # DataStore Preferences
+│   ├── PersistentDismissedHintsStore.kt     # DataStore Preferences
+│   ├── PersistentUserPreferencesStore.kt    # DataStore Preferences
+│   ├── BundledConfigSource.kt               # Compose Resources reader
+│   ├── AndroidSystemSettingAdapter.kt       # FR-055 — mechanism dispatcher
+│   ├── AndroidLocaleProvider.kt             # Resources.configuration.locales → BCP-47
+│   ├── AndroidAnimationPreferenceProvider.kt  # Settings.Global.ANIMATOR_DURATION_SCALE
+│   ├── AndroidPermissionRequestPort.kt      # ActivityResultLauncher wrapper
+│   └── SystemClock.kt                       # actual для expect declaration в commonMain
+│
+└── di/wizard/                               [NEW package]
+    └── WizardKoinModule.kt                  # Koin module wiring all bindings
+
+core/src/iosMain/kotlin/com/launcher/
+└── adapters/wizard/                         [NEW package — iOS-specific impl]
+    ├── IosCheckpointStore.kt                # NSUserDefaults wrapper
+    ├── IosLocaleProvider.kt                 # NSLocale → BCP-47
+    └── (other iosMain impls — partial, may stub)
+
+core/src/androidUnitTest/kotlin/com/launcher/arch/
+└── WizardArchitectureTest.kt                # Konsist — FR-038, FR-038a
+
+app/src/main/kotlin/com/launcher/app/
+├── MainActivity.kt                          # extended to route wizard vs home
+├── di/
+│   └── AppKoinModule.kt                     # extends WizardKoinModule
+├── PlayStoreFallbackActivity.kt             # FR-016 hard-fail fallback (Q-6 (b))
+└── (no new wizard-specific code — host lives in :core)
 ```
 
-**Structure Decision**: KMP `commonMain + androidMain` для `core/wizard/` + `core/localization/`; Android-only library для `core/ui-senior/`. **No `iosMain`** в F-3 (per C-7). DI wiring (Hilt vs koin vs manual) — решается в `tasks.md` (implementation detail).
+**Structure Decision** *(REVISED 2026-06-17)*: F-3 — это **package additions** в существующий `:core` KMP-модуль, **не новые модули**. Consistent с existing convention (`api/setup` от spec 010, `api/action` от spec 005, `adapters/*` от spec 008+011). CMP UI в `commonMain` — iOS support автоматически. Koin для DI, Decompose для navigation — уже выбраны per ADR-005.
 
 ---
 
@@ -248,15 +241,18 @@ HomeActivity launches
 | `DiagnosticEmitter` | (none in F-3 — provided in S-1+) | `RecordingDiagnosticEmitter` |
 | `PermissionRequestPort` | `AndroidPermissionRequestPort` (ActivityResultLauncher) | `FakePermissionRequestPort` |
 
-### Module dependency graph (FR-038 Konsist enforced)
+### Package dependency graph (FR-038 + FR-038a Konsist enforced, REVISED 2026-06-17)
 
 ```
-app/         → core/wizard, core/localization, core/ui-senior   ✓
-core/wizard/ → core/localization (через StringResolver)          ✓
-core/wizard/ → core/ui-senior                                    ✗ FORBIDDEN
-core/ui-senior/ → core/wizard, core/localization                 ✗ FORBIDDEN
-core/* → app/*                                                   ✗ FORBIDDEN (Konsist FR-038)
+app/*                          → com.launcher.api.wizard.*, .ui.senior.*, .ui.wizard.*       ✓
+com.launcher.api.wizard.*      → com.launcher.api.localization.*                              ✓
+com.launcher.api.wizard.*      → com.launcher.ui.* (senior OR wizard)                         ✗ FORBIDDEN
+com.launcher.ui.senior.*       → com.launcher.api.* (wizard OR localization)                  ✗ FORBIDDEN
+com.launcher.ui.wizard.*       → com.launcher.api.wizard.*, .api.localization.*, .ui.senior.* ✓ (host slot)
+com.launcher.* (any)           → com.launcher.app.* (or higher layers)                        ✗ FORBIDDEN
 ```
+
+Konsist test class — `core/src/androidUnitTest/kotlin/com/launcher/arch/WizardArchitectureTest.kt`. JVM-only per existing pattern (spec 005 §8).
 
 ---
 
@@ -274,32 +270,35 @@ core/* → app/*                                                   ✗ FORBIDDEN
 
 ## 8. Dependency Impact
 
-### Новые runtime dependencies
+### Existing dependencies F-3 reuses (НЕ добавляются заново) *(REVISED 2026-06-17)*
 
-| Dependency | Version | Reason | Justified per Article XIII |
-|---|---|---|---|
-| `dev.icerock.moko:resources` | 1.6+ | Multiplatform string tables, iOS-ready, plural support (FR-031e) | ✓ Spike confirmation pending — fallback Compose Resources |
-| `com.lemonappdev:konsist` | 0.13+ | Architecture lint (FR-038, FR-038a) — fitness function | ✓ Spike confirmation pending — fallback ArchUnit-kotlin |
-| `androidx.datastore:datastore-preferences` | 1.1+ | Persistent stores (3 stores: checkpoint, hints, prefs) | ✓ Standard AndroidX |
-| `org.jetbrains.kotlinx:kotlinx-datetime` | 0.5+ | Multiplatform Clock + Instant (для AttestationRecord) | ✓ Standard kotlinx |
-| `org.jetbrains.kotlinx:kotlinx-serialization-json` | 1.6+ | JSON wire format parsing | ✓ Standard kotlinx |
-
-### Новые test dependencies
-
-| Dependency | Version | Reason |
+| Dependency | Status | Use в F-3 |
 |---|---|---|
-| Roborazzi или Paparazzi | latest | Compose screenshot tests (SC-006, SC-006a, SC-007) |
-| Android Macrobenchmark | latest | Cold-start budget verification (SC-001a) |
+| `compose.components.resources` | ✅ Уже в `core:commonMain` | String resolution + bundled JSON loading (per C-8 + C-38) |
+| `io.insert-koin:koin-core` + `koin-android` | ✅ Уже в core | DI module wiring (per C-33) |
+| `com.arkivanov.decompose:decompose` + `-extensions-compose` | ✅ Уже в core | Wizard step navigation (per C-34) |
+| `kotlinx-serialization-json` | ✅ Уже в core | JSON wire format parsing |
+| `androidx.datastore:datastore-preferences` | ✅ Уже в `core:androidMain` | Persistent stores (per C-35) |
+| `compose.material3` | ✅ Уже в `core:commonMain` | Foundation для SeniorWarmTheme (per FR-035) |
+| `com.lemonappdev:konsist` | ✅ Уже в `libs.versions.toml` + `core:androidUnitTest` | Architecture lint (per C-15 + C-38) |
+
+### Новые dependencies F-3 добавляет
+
+| Dependency | Version | Reason | Justified |
+|---|---|---|---|
+| `org.jetbrains.kotlinx:kotlinx-datetime` | latest stable | `Clock` port + `AttestationRecord.attestedAt: Instant` | ✓ Standard kotlinx, KMP-friendly |
+| `io.github.takahirom.roborazzi:roborazzi` | latest stable | Compose screenshot tests (SC-006, SC-006a, SC-007) per C-37 | ✓ Test-only, JVM/Robolectric-backed |
+
+**Verify before T001**: проверить, что `kotlinx-datetime` ещё не подключён в проекте (если уже — отбросить из списка).
 
 ### APK size impact
 
-Estimate: ~500-800 KB (moko-resources runtime ~200 KB + DataStore ~150 KB + kotlinx-datetime ~50 KB + bundled JSONs ~50 KB + Compose primitives ~100-200 KB).
+Estimate: ~200-400 KB (только bundled JSONs ~50 KB + new Composables ~150-300 KB; library deps все уже в APK).
 **Budget**: SC-010 ≤ +1.5 MB — **comfortable margin**.
 
 ### Build time impact
 
-Estimate: +1-2 min на clean build (KMP toolchain setup + moko KSP processing + Konsist test deps).
-**Documented in A-19** as accepted trade-off.
+Estimate: **+15-30 seconds** на clean build (только новые .kt files; KMP toolchain уже set up; Compose уже compiled). Significantly lower than initial estimate в A-19 (+1-2 min was wrong assumption — не нужно setup'ить moko-resources + Konsist отдельно).
 
 ---
 
@@ -341,18 +340,17 @@ Estimate: +1-2 min на clean build (KMP toolchain setup + moko KSP processing +
 
 ---
 
-## 10. Pre-plan deliverable: Library spike (A/B testing)
+## 10. Pre-implementation verification (REVISED 2026-06-17)
 
-Per C-30 (Q-5 confirmed): **2-дневный proof-of-concept** перед началом implementation.
+**Library spike CANCELLED** per C-38 — все choices фиксированы существующим проектом (Compose Resources, Konsist, Koin, Decompose). См. [research.md](research.md) для исторического контекста.
 
-См. [research.md](research.md) — полная A/B методология. Сводно:
+**Replaced by single verification task T001** (~30 min):
+1. Add empty package `com.launcher.api.wizard` в `core/src/commonMain`.
+2. Add minimal Konsist test в `core/src/androidUnitTest/kotlin/com/launcher/arch/SmokeArchitectureTest.kt` — verify Konsist runs `./gradlew :core:testRealBackendUnitTest` (или equivalent).
+3. Add one string в `core/src/commonMain/composeResources/values/strings.xml` + `values-ru/strings.xml`, verify resolution works.
+4. Add Koin module placeholder, verify wiring.
 
-| Day | Variant A | Variant B | Decision criterion |
-|---|---|---|---|
-| 1 | moko-resources spike | Compose Multiplatform Resources spike | Setup overhead, iOS readiness, plural support, build time |
-| 2 | Konsist spike | ArchUnit-kotlin spike | Rule syntax simplicity, error message clarity, JUnit integration |
-
-Outcome: один winner per A/B → фиксируем в build.gradle.kts. Если оба candidate failures — пересматриваем C-8/C-15 в отдельной clarify сессии перед `/speckit.tasks`.
+If verification passes → start Phase 1 immediately. If any component fails — pause + fresh clarify.
 
 ---
 
@@ -402,6 +400,8 @@ Per Article XII §7 — все relevant context-документы reviewed и �
 | [`docs/product/glossary.md`](../../docs/product/glossary.md) | **Mandatory read** — terminology contract (app-family / layout-grid / 4-5 JSON schemas + 6-field header) |
 | [`docs/product/decisions/2026-06-15-deferred-cloud/`](../../docs/product/decisions/2026-06-15-deferred-cloud/) | F-3 wizard local-only (A-10) |
 | [`docs/dev/adrs/ADR-004-localization-and-global-readiness.md`](../../docs/dev/adrs/) | Localization базовые принципы; F-3 overrides base language EN (per C-6 + A-15b) |
+| [`docs/adr/ADR-005-ui-stack-compose-multiplatform.md`](../../docs/adr/ADR-005-ui-stack-compose-multiplatform.md) | **CRITICAL** — фиксирует CMP + Material 3 как обязательный UI стек + Amendment 2026-05-07a (Koin DI + Decompose navigation). F-3 строго следует. |
+| [Спека 011 (encrypted media)](../011-contacts-and-e2e-encrypted-media/spec.md) | Lazysodium crypto + CBOR в `core:androidMain` — F-3 ortogonal но awareness |
 | [`docs/product/roadmap.md`](../../docs/product/roadmap.md) §Шаг 1 F-3 | Order shift 2026-06-15 v2 — F-3 first |
 | [Спека 005](../005-action-architecture-v2/spec.md) | actionType — opaque string reference (capability registry future) |
 | [Спека 007](../007-pairing-and-firebase-channel/spec.md) | PairingStep НЕ в F-3 (S-2 territory) |

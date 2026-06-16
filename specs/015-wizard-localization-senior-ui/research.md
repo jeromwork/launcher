@@ -1,215 +1,74 @@
-# Research: F-3 Library Choices Spike (A/B Methodology)
+# Research: F-3 Library Choices
 
-**Date**: 2026-06-16 | **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md)
-**Status**: Pending execution (2-day spike) before `/speckit.tasks`
-
----
-
-## Why a spike
-
-Per Clarifications C-30 (Q-5 confirmed (b) 2026-06-16), F-3 baking in **moko-resources** + **Konsist** без proof-of-concept = risk of 1-week rework during implementation если incompatible.
-
-**Spike** = 2 дня controlled comparison, head-to-head, на minimal KMP-проекте. **A/B testing** = pick one **WIN** per rivalry, decision logged here.
+**Date**: 2026-06-16 (REVISED 2026-06-17 post pre-flight) | **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md)
+**Status**: **CLOSED** — all library choices fixed by existing project, no spike needed.
 
 ---
 
-## Day 1 — String tables library
+## TL;DR
 
-### Variant A: moko-resources
+Original plan (2026-06-16) called for **2-day A/B spike** comparing:
+- moko-resources vs Compose Multiplatform Resources (string tables)
+- Konsist vs ArchUnit-kotlin (architecture lint)
 
-- **Repository**: [icerockdev/moko-resources](https://github.com/icerockdev/moko-resources)
-- **Version target**: 1.6+ (latest stable as of 2026-06)
-- **License**: Apache 2.0
-- **Maturity**: 5+ years, production-tested by 100+ projects
-- **iOS support**: native Swift accessors generated
-- **Plural support**: ICU-based via `<plural>` xml resources
+**Pre-flight check 2026-06-17** обнаружил, что **все эти решения уже зафиксированы** существующим проектом per [ADR-005](../../docs/adr/ADR-005-ui-stack-compose-multiplatform.md) Amendment 2026-05-07a + `core/build.gradle.kts` + `libs.versions.toml`:
 
-### Variant B: Compose Multiplatform Resources
-
-- **Source**: built into JetBrains Compose Multiplatform 1.6+
-- **License**: Apache 2.0
-- **Maturity**: Stable since CMP 1.6 (early 2024), but adoption ramping
-- **iOS support**: native, integrated с CMP iOS target
-- **Plural support**: ICU MessageFormat via `compose.components.resources.plural`
-
-### Decision criteria (А vs B head-to-head)
-
-Each variant must satisfy **all 4 mandatory** criteria + score on **4 weighted** criteria:
-
-**Mandatory (must pass)**:
-1. **Build successfully** в minimal KMP проекте (commonMain + androidMain). FAIL → eliminate.
-2. **Resolve 11 locales** (en/ru/es/zh/ar/hi/pt/de/fr/ja/kk-Latn). Missing locale support → eliminate.
-3. **Plural support** для русского (one/few/many/other) и арабского (zero/one/two/few/many/other). No plural API → eliminate.
-4. **Typed accessor generation** в Kotlin (либо `MR.strings.foo`, либо `Res.string.foo`). Untyped только String keys → eliminate (loses compile-time safety).
-
-**Weighted (score 1-5)**:
-
-| Criterion | Weight | Notes |
+| Question | Existing project choice | Spike needed? |
 |---|---|---|
-| Setup overhead (lines of config) | 2× | Меньше — лучше |
-| Build time impact (cold + incremental) | 2× | Меньше — лучше |
-| iOS readiness (без custom setup) | 1× | Применимо когда iOS launcher появится (per C-7) |
-| Error message clarity при missing key / typo | 1× | Лучше DX = меньше debug time |
+| String tables | **Compose Multiplatform Resources** (`compose.components.resources` уже в `core:commonMain`) | ❌ NO |
+| Architecture lint | **Konsist** (`libs.versions.toml` + `core:androidUnitTest`, declared в spec 005 §8) | ❌ NO |
+| DI framework | **Koin** (per ADR-005 Amendment, уже в core) | ❌ NO |
+| Navigation | **Decompose** (per ADR-005 Amendment, уже в core) | ❌ NO |
+| Persistence (structured) | **SQLDelight** (per spec 008 `LocalConfigStore`) | ❌ NO |
+| Persistence (key-value) | **DataStore Preferences** (уже в `core:androidMain`) | ❌ NO |
+| Screenshot tests | **Roborazzi** (decision 2026-06-17, new dep needed) | minor — verify integration |
 
-### Spike protocol Day 1
-
-**Setup (30 min)**: Create blank KMP project `spike-strings/` с `commonMain + androidMain` source sets. Add both variants as separate branches (`spike-moko`, `spike-compose-res`).
-
-**Task А (90 min)** — moko-resources branch:
-1. Add moko-resources Gradle plugin + dependency.
-2. Create `src/commonMain/resources/MR/base/strings.xml` с 3 ключами: `hello`, `next_step`, `step_n_of_m` (plural).
-3. Add 2 переводов: `MR/ru/strings.xml`, `MR/ar/strings.xml`.
-4. Verify generated `MR.strings.hello` typed accessor compiles.
-5. Verify plural resolves correctly: `MR.plurals.step_n_of_m(3, 5)` returns правильную форму для RU + AR.
-6. Measure: setup overhead (config lines), build time (`./gradlew :spike-strings:clean :spike-strings:assemble`).
-
-**Task B (90 min)** — Compose Resources branch:
-Repeat same 6 steps using Compose Multiplatform Resources API (`Res.string.hello`, `Res.plurals.step_n_of_m`).
-
-**Comparison (30 min)**:
-- Run mandatory criteria check on both.
-- Score weighted criteria.
-- Compute total: `score_total = sum(criterion_score × weight)`.
-- Pick winner: highest total + zero eliminations.
-
-**Tie-breaker** (если scores within 5%): **moko-resources** wins (more production-tested, larger community).
-
-### Documentation output
-
-Write `research-day1-strings.md` с:
-- Final scores table.
-- Mandatory criteria checks (pass/fail per variant).
-- Decision: **A** or **B** + reason.
-- Update [`spec.md` C-8](spec.md#clarifications) с final library choice.
-- Update [`plan.md` Technical Context](plan.md#2-technical-context) + Dependency Impact таблицу.
+**Result**: spike eliminated, replaced by single 30-minute verification task T001 (per plan.md §10 REVISED).
 
 ---
 
-## Day 2 — Architecture lint tool
+## Historical context — why spike was originally planned
 
-### Variant A: Konsist
+При написании F-3 spec'и (2026-06-16) я (Claude) не делал pre-flight check существующего кода — это была ошибка. План предполагал, что F-3 — greenfield foundation, нужно выбрать stack:
 
-- **Repository**: [LemonAppDev/konsist](https://github.com/LemonAppDev/konsist)
-- **Version target**: 0.13+ (latest stable 2026-06)
-- **License**: Apache 2.0
-- **Style**: Kotlin DSL, rules expressed as JUnit-style tests
-- **Maturity**: 3+ years, growing community
+- Compose Resources считался «не таким зрелым» как moko-resources на iOS.
+- Konsist vs ArchUnit-kotlin — выбор по «знакомости».
+- DI и navigation отложены в plan.md как «implementation detail».
 
-### Variant B: ArchUnit-kotlin
+После запуска `/speckit.analyze` 2026-06-17 user попросил pre-flight check. Grep `core/build.gradle.kts` + `libs.versions.toml` + `docs/adr/` показал, что:
+1. Compose Multiplatform — обязательный стек (ADR-005), iOS targets уже включены.
+2. Все библиотеки выбраны Amendment 2026-05-07a (Koin + Decompose).
+3. SQLDelight + DataStore patterns установлены спеками 006, 008.
+4. Konsist declared spec 005 §8 fitness functions.
 
-- **Repository**: [TNG/ArchUnit](https://github.com/TNG/ArchUnit) (Java; Kotlin via interop)
-- **License**: Apache 2.0
-- **Style**: Java-style fluent API
-- **Maturity**: 8+ years, very stable, enterprise-grade
-
-### Decision criteria
-
-**Mandatory (must pass)**:
-1. **Rule executes as part of `./gradlew check`** (FR-038 + FR-041). Manual script-only → eliminate.
-2. **Detects forbidden import**: тестовый файл с `import com.eastclinic.app.foo` в `core/wizard/` → test fails.
-3. **Detects allowed import**: тестовый файл с `import com.eastclinic.localization.foo` в `core/wizard/` → test passes (per FR-038a directional graph).
-4. **Failure message содержит 4 элемента FR-039** (file path + imported class + rationale + suggested fix). Missing any → eliminate (poor DX).
-
-**Weighted (score 1-5)**:
-
-| Criterion | Weight | Notes |
-|---|---|---|
-| Rule syntax simplicity (LOC per rule) | 2× | DRY rules = easier maintenance |
-| IDE support (autocompletion, refactoring) | 2× | Kotlin-native tools = better DX |
-| Error message default clarity | 2× | Если default clear — не нужно custom messages |
-| Multi-module support (`core/wizard/`, `core/localization/`, `core/ui-senior/` все три проверяются одним rule set) | 1× | Меньше boilerplate per module |
-
-### Spike protocol Day 2
-
-**Setup (30 min)**: Reuse `spike-strings/` project, добавить 3 fake modules: `:spike-core-wizard`, `:spike-core-ui-senior`, `:spike-app`. В `:spike-core-wizard` создать файл, который импортирует из `:spike-app` (нарушение).
-
-**Task А (90 min)** — Konsist branch:
-1. Add Konsist test dependency.
-2. Write rule в `:spike-core-wizard/src/test/kotlin/ImportGuardTest.kt`:
-   ```kotlin
-   class ImportGuardTest {
-     @Test fun `core wizard MUST NOT import from app`() {
-       Konsist.scopeFromModule("spike-core-wizard")
-         .imports
-         .assertFalse { it.name.startsWith("com.eastclinic.spike-app") }
-     }
-   }
-   ```
-3. Run `./gradlew :spike-core-wizard:test` → expect FAIL.
-4. Remove forbidden import → expect PASS.
-5. Verify failure message contains 4 elements (FR-039).
-
-**Task B (90 min)** — ArchUnit-kotlin branch:
-Repeat same 5 steps using ArchUnit fluent API:
-```kotlin
-@Test fun coreWizardDoesNotDependOnApp() {
-  noClasses().that().resideInAPackage("..core.wizard..")
-    .should().dependOnClassesThat().resideInAPackage("..app..")
-    .check(allClasses)
-}
-```
-
-**Comparison (30 min)**:
-- Mandatory checks.
-- Weighted scoring.
-- Pick winner.
-
-**Tie-breaker**: **Konsist** wins (Kotlin-native, expected better long-term DX).
-
-### Documentation output
-
-Write `research-day2-lint.md` с:
-- Final scores.
-- Decision + reason.
-- Update C-15 + plan.md Technical Context.
+Spike отменён, plan.md + tasks.md + spec.md переписаны под реальный стек.
 
 ---
 
-## What if BOTH variants in a category fail mandatory criteria?
+## What replaces the spike: 30-min verification (T001-T003)
 
-**Day 1 fallback** (both string libs eliminate):
-- Pause spike. Document failure mode.
-- Open **fresh clarify session** with user: investigate **Lyricist** (Compose-only) or **custom Gradle resource generator**.
-- Decision postponed; F-3 spec gets `[NEEDS CLARIFICATION]` marker reopened.
+См. [tasks.md Phase 0](tasks.md). Three smoke-verification tasks:
 
-**Day 2 fallback** (both lint tools eliminate):
-- Same protocol — fresh clarify session.
-- Fallback to **custom Gradle task** (manual Kotlin source scanner) as last resort.
+1. **T001** — Create empty packages in `core/src/commonMain/kotlin/com/launcher/{api,ui}/{wizard,localization,senior}/`. Verify `./gradlew :core:build` passes.
+2. **T002** — Smoke-test Konsist in `core/src/androidUnitTest/kotlin/com/launcher/arch/SmokeArchitectureTest.kt`. Verify `./gradlew :core:testRealBackendUnitTest` runs Konsist successfully.
+3. **T003** — Smoke-test Compose Resources: add `wizard.test_string` to `composeResources/values/strings.xml` + `values-ru/strings.xml`, write commonTest verifying resolution.
 
-This blocks `/speckit.tasks` — implementation cannot proceed without library choices.
-
----
-
-## Output deliverables после 2-day spike
-
-| File | Content |
-|---|---|
-| `research-day1-strings.md` | Day 1 results table + decision |
-| `research-day2-lint.md` | Day 2 results table + decision |
-| `research.md` (this file) | Updated с executive summary at top: «Decisions: strings = X, lint = Y» |
-| [`spec.md` C-8 + C-15](spec.md#clarifications) | Updated с final library choices (или `[NEEDS CLARIFICATION]` if failure) |
-| [`plan.md` §2 Technical Context + §8 Dependency Impact](plan.md) | Updated с final libraries |
-| `spike-strings/` repository | Disposable demo project (delete after research.md written; or keep as reference) |
+If any fails — pause + fresh clarify session on what's missing.
 
 ---
 
 ## Краткое содержание простым русским языком
 
-Этот документ — **методология предварительной проверки библиотек** перед началом реализации.
+Этот документ — **исторический контекст** про library spike, который мы **отменили**.
 
-**Проблема**: в спеке мы выбрали две сторонние библиотеки (moko-resources для переводов, Konsist для проверки архитектурных правил) **по знакомости**, без реальной проверки. Если они не подойдут — потеряем неделю на переписывание.
+**Что случилось**: я (Claude) в начале написал план так, будто проект пустой — нужно с нуля выбрать библиотеки для переводов, для проверки архитектуры и т.д. Я предложил 2-дневный эксперимент (spike), чтобы выбрать лучшие.
 
-**Решение**: 2 дня предварительной проверки. По дню на каждую библиотеку. Сравниваем **два варианта** (A vs B), как в маркетинговом A/B тесте, по чётким критериям:
+**Что выяснилось при проверке кода**: проект **не пустой**. Все эти библиотеки **уже выбраны** в проекте раньше другими спеками. Конкретно:
+- Для переводов — **Compose Multiplatform Resources** (от Google).
+- Для проверки архитектуры — **Konsist** (уже подключён).
+- Для DI и навигации — **Koin** и **Decompose** (per [ADR-005](../../docs/adr/ADR-005-ui-stack-compose-multiplatform.md)).
+- Для хранилищ — **DataStore Preferences** (простые) + **SQLDelight** (сложные).
 
-- **День 1**: moko-resources vs Compose Multiplatform Resources — для переводов.
-- **День 2**: Konsist vs ArchUnit-kotlin — для архитектурных правил.
+**Результат**: 2-дневный spike **не нужен**. Заменён 30-минутной проверкой (T001-T003), что эта существующая инфраструктура реально работает для F-3 use case.
 
-**Критерии**:
-- **Обязательные** (нет = не подходит): билдится, поддерживает 11 локалей, поддерживает множественные формы (1 шаг / 2 шага / 5 шагов), генерирует типизированный код.
-- **Взвешенные** (оценка 1-5): сколько строк настройки, скорость билда, готовность к iOS, понятность ошибок.
-
-**Результат**: после 2 дней — **один выбранный вариант** в каждой паре, записывается в план и спеку. После этого можно безопасно начинать `/speckit.tasks`.
-
-**Если оба варианта не подходят**: пауза, новая сессия с пользователем — выбираем другие альтернативы (Lyricist для строк, custom Gradle task для lint).
-
-**Что это даёт**: 2 дня сейчас экономят до недели потом.
+**Урок**: всегда делать pre-flight check перед написанием плана. План должен следовать существующим решениям проекта, не выдумывать новые.

@@ -1,8 +1,10 @@
 # Quickstart: F-3 Developer Setup
 
-**Date**: 2026-06-16 | **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md)
+**Date**: 2026-06-16 (REVISED 2026-06-17 post pre-flight) | **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md)
 
-Что новому разработчику нужно сделать, чтобы начать работу с F-3 модулями. Цель — < 1 страница, < 1 час setup.
+Что новому разработчику нужно сделать, чтобы начать работу с F-3. Цель — < 1 страница, < 1 час setup.
+
+> **REVISED 2026-06-17**: F-3 — **не новые модули**, а пакеты в существующем `:core` модуле. Стек (Compose Multiplatform, Koin, Decompose, Compose Resources, Konsist) **уже выбран** per ADR-005. Setup быстрее, чем initially планировалось.
 
 ---
 
@@ -23,23 +25,27 @@ cd launcher
 git checkout 015-wizard-localization-senior-ui
 ```
 
-## 3. Build & run tests
+## 3. Build & run tests *(REVISED 2026-06-17)*
 
 ```bash
-# JVM unit tests (no эмулятор) — should be < 2 min cold
-./gradlew :core:wizard:check
-./gradlew :core:localization:check
-./gradlew :core:ui-senior:check
+# Smoke build — verify everything compiles после pull
+./gradlew :core:assemble
 
-# Fitness function — Konsist arch tests
-./gradlew checkLauncherAgnosticImports
+# JVM unit tests (no эмулятор) — covers domain logic, Konsist arch tests
+./gradlew :core:testRealBackendUnitTest        # включая Konsist WizardArchitectureTest
+./gradlew :core:testMockBackendUnitTest
 
-# Translation completeness check
-./gradlew :core:localization:checkTranslations
+# Instrumented tests (требует эмулятор — start через android-emulator skill)
+./gradlew :app:connectedRealBackendDebugAndroidTest --tests "*WizardE2ETest"
 
-# Instrumented tests (требует эмулятор pixel_5_api_34 — start через android-emulator skill)
-./gradlew :app:connectedDebugAndroidTest --tests *WizardE2ETest
+# Screenshot tests (Roborazzi, JVM-backed Robolectric)
+./gradlew :core:verifyRoborazziRealBackendDebug
+
+# Translation completeness — embedded в Konsist (custom rule check для resources)
+# или ручной script (T079 — translate-strings.sh)
 ```
+
+**Note**: `:core` имеет два product flavors — `realBackend` + `mockBackend` per spec 007. F-3 wizard работает identically в обоих.
 
 **Expected**: all green. If red — see Troubleshooting section ниже.
 
@@ -125,16 +131,27 @@ If fail: error message includes file path + imported class + suggested fix. Just
 
 ---
 
-## 6. Module layout reference
+## 6. Package layout reference *(REVISED 2026-06-17)*
+
+F-3 живёт в **существующем `:core` модуле** (НЕ создаём новые модули):
 
 ```
-core/wizard/        — KMP, commonMain + androidMain. WizardEngine, ports, JSON schemas.
-core/localization/  — KMP, commonMain + androidMain. StringResolver, moko bindings.
-core/ui-senior/     — Android-only Compose library. SeniorButton, SeniorWarmTheme, etc.
-app/                — Android app composing the modules.
+core/src/commonMain/kotlin/com/launcher/
+├── api/wizard/            — domain ports (WizardEngine, ConfigSource, SystemSettingPort, ...)
+├── api/localization/      — StringResolver, LocaleProvider, RtlHelper
+├── ui/senior/             — Compose Multiplatform UI primitives (SeniorButton, theme, ...)
+└── ui/wizard/             — Decompose host + step Composables
+
+core/src/androidMain/kotlin/com/launcher/
+├── adapters/wizard/       — Android adapters (Persistent*Store, AndroidSystemSettingAdapter, ...)
+└── di/wizard/             — Koin module
+
+core/src/commonMain/composeResources/
+├── files/wizard/          — bundled JSONs (android-pool, ui-pool, etc.)
+└── values{-ru,-es,...}/   — 11 локалей string resources
 ```
 
-Detailed file tree: see [plan.md §4](plan.md#4-project-structure).
+Detailed file tree: see [plan.md §4 REVISED](plan.md#4-project-structure).
 
 ---
 
