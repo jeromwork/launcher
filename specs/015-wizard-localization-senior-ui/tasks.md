@@ -53,7 +53,7 @@ Total: **121 tasks** across 7 phases. Estimated **~3 недели** (per spec Ef
 
 ### Domain data types (commonMain)
 
-- [ ] **T015** [P] [US-6] Define `WizardManifest` data class + `StepEntry` + sealed `StepType` в `core/wizard/.../data/WizardManifest.kt`. (FR-012, contracts/wire-formats.md §Schema 1)
+- [ ] **T015** [P] [US-6] Define `WizardManifest` data class + `StepEntry` + sealed `StepType` в `core/src/commonMain/kotlin/com/launcher/api/wizard/data/WizardManifest.kt`. (FR-012, contracts/wire-formats.md §Schema 1)
 - [ ] **T016** [P] [US-6] Define `ScreenLayout` data class + `ToolbarSpec` + `TabSpec`. (FR-013)
 - [ ] **T017** [P] [US-6] Define `TileSet` + `TileSpec` + `GridPosition`. (FR-014)
 - [ ] **T018** [P] [US-6] Define `SystemSettingsPool` + `SystemSettingEntry` + sealed `SettingMechanism` + enum `DetectionStrategy`. (FR-052, FR-053)
@@ -137,16 +137,16 @@ Total: **121 tasks** across 7 phases. Estimated **~3 недели** (per spec Ef
 
 **Goal**: 11-locale support, CI fitness function, translation pipeline ready. Closes US-3.
 
-- [ ] **T068** [P] Implement `StringResolver` port impl в commonMain (delegates к moko `MR.strings`); fallback chain: requested → EN → key literal. (FR-027, FR-029, US-3)
+- [ ] **T068** [P] Implement `StringResolver` port impl в `core/src/commonMain/kotlin/com/launcher/api/localization/` (delegates к Compose Resources `Res.string.*`); fallback chain: requested → EN → key literal. (FR-027, FR-029, US-3)
 - [ ] **T069** [P] Implement `RtlHelper.layoutDirectionFor(localeTag: String): LayoutDirection` (RTL для AR/HI). (FR-032)
-- [ ] **T070** [P] Create base `core/localization/src/commonMain/resources/MR/base/strings.xml` с initial set keys (wizard nav, system settings labels, UI options). (FR-030)
-- [ ] **T071** [P] Create 10 locale stubs (`MR/ru/`, `MR/es/`, `MR/zh/`, `MR/ar/`, `MR/hi/`, `MR/pt/`, `MR/de/`, `MR/fr/`, `MR/ja/`, `MR/kk-rLatn/`) с RU + EN заполнены manually, остальные автогенерируются через translation skill (T080). (C-6, C-9, A-15a, A-15b)
+- [ ] **T070** [P] Create base `core/src/commonMain/composeResources/values/strings.xml` с initial set keys (wizard nav, system settings labels, UI options). EN = source of truth (per C-6 + A-15b). (FR-030)
+- [ ] **T071** [P] Create 10 locale stubs (`composeResources/values-ru/strings.xml`, `values-es/`, `values-zh/`, `values-ar/`, `values-hi/`, `values-pt/`, `values-de/`, `values-fr/`, `values-ja/`, `values-kk-rLatn/`) с RU + EN заполнены manually, остальные автогенерируются через translation skill (T080). (C-6, C-9, A-15a, A-15b)
 - [ ] **T072** Implement plural support для count-dependent strings (FR-031e); add `wizard_step_n_of_m` plural в base + RU + 9 generated. (FR-031e)
 - [ ] **T073** Write `CheckTranslationsTest` (Konsist or custom): fails если key missing в any of 10 non-base locales. (FR-031, SC-003)
 - [ ] **T074** Write `CheckContextEntriesTest`: fails если new key в `base/strings.xml` не имеет entry в `CONTEXT.json`. (FR-031b)
 - [ ] **T075** [US-3] `StringResolverFallbackTest`: ja-JP locale, key absent в ja → resolves from EN; absent в EN → returns key literal. (FR-029, SC-005a related)
-- [ ] **T076** Create `core/localization/strings-context/CONTEXT.json` с schemaVersion=1 + initial entries для bundled keys. (FR-031b)
-- [ ] **T077** Create `core/localization/GLOSSARY.md` с canonical терминами (Tile, Wizard, Admin, Managed, Senior, ...) + tone guidelines per language. (FR-031c)
+- [ ] **T076** Create `core/strings-context/CONTEXT.json` с schemaVersion=1 + initial entries для bundled keys. (FR-031b)
+- [ ] **T077** Create `core/GLOSSARY.md` с canonical терминами (Tile, Wizard, Admin, Managed, Senior, ...) + tone guidelines per language. (FR-031c)
 - [ ] **T078** Create skill `.claude/skills/procedure-translate-spec-strings/SKILL.md`: workflow «in end of speckit-tasks» → diff base strings → read CONTEXT → Claude API → write `<lang>/strings.xml` → git stage. (FR-031a, C-10)
 - [ ] **T079** Translation skill: implement Claude API call wrapper (`scripts/translate-strings.sh` или Kotlin script). Reads `ANTHROPIC_API_KEY`. (FR-031a)
 - [ ] **T080** Run translation skill on initial set (T070-T072): generate переводы для 9 не-base языков (ES/ZH/AR/HI/PT/DE/FR/JA/KK). Verify FR-031 fitness function passes. (SC-003a)
@@ -158,7 +158,7 @@ Total: **121 tasks** across 7 phases. Estimated **~3 недели** (per spec Ef
 
 ## Phase 5 — Senior UI primitives (3-4 days)
 
-**Goal**: `core/ui-senior/` Compose primitives + theme + accessibility. Closes US-4.
+**Goal**: `com.launcher.ui.senior` Compose Multiplatform primitives + theme + accessibility (в commonMain per ADR-005). Closes US-4.
 
 - [ ] **T082** [P] [US-4] Implement `SeniorButton` Composable: ≥56dp height, ≥18sp text, `wrapContentWidth + wrapContentHeight`, autoMirrored icons, 16dp spacing. (FR-034)
 - [ ] **T083** [P] [US-4] Implement `SeniorIconButton`. (FR-034)
@@ -170,7 +170,7 @@ Total: **121 tasks** across 7 phases. Estimated **~3 недели** (per spec Ef
 - [ ] **T089** [P] Implement `SeniorContentDescription` helper (enforces non-empty cd or explicit clearAndSetSemantics). (FR-036, ACC-3)
 - [ ] **T090** [Accessibility] Implement `LiveRegionAnnouncement` Composable для FR-008b state announcements. (FR-008b, ACC-1)
 - [ ] **T091** [Accessibility] Implement `WizardProgressIndicator` Composable: «Шаг N из M» + dots, ≥18sp. (FR-008c, EF-1)
-- [ ] **T092** [Accessibility] Implement `core/ui-senior/util/AnimationDuration.kt` wrapper respecting `AnimationPreferenceProvider` (0 = no animation). (FR-036a, ACC-2)
+- [ ] **T092** [Accessibility] Implement `core/src/commonMain/kotlin/com/launcher/ui/senior/util/AnimationDuration.kt` wrapper respecting `AnimationPreferenceProvider` (0 = no animation). (FR-036a, ACC-2)
 - [ ] **T093** [Accessibility] Implement `TutorialHintOverlay` Composable: anchor-positioned overlay + «Понял» button. (FR-023)
 - [ ] **T094** Write Compose preview screenshot tests via Roborazzi/Paparazzi: каждый primitive на fontScale=1.0 + 2.0. (SC-006)
 - [ ] **T095** Write length-expansion screenshot tests: каждый primitive в EN + DE + AR. Verify no clipped text, no overlap. (SC-006a, LU-1)
@@ -193,12 +193,12 @@ Total: **121 tasks** across 7 phases. Estimated **~3 недели** (per spec Ef
 - [ ] **T101** Implement `AndroidLocaleProvider` (reads `Resources.configuration.locales[0]`, converts to BCP-47 String). (FR-028, A-16)
 - [ ] **T102** Implement `AndroidAnimationPreferenceProvider` (reads `Settings.Global.ANIMATOR_DURATION_SCALE`). (FR-036a)
 - [ ] **T103** Implement `AndroidPermissionRequestPort` (ActivityResultLauncher wrapper). (Plan §5)
-- [ ] **T104** Implement `BundledConfigSource` в :app: reads JSON files from moko-resources `MR.files.*`; returns `ConfigSourceResult`. Inline TODO про future FileConfigSource/NetworkConfigSource/MarketplaceConfigSource. (FR-020, FR-021)
+- [ ] **T104** Implement `BundledConfigSource` в `core/src/androidMain/kotlin/com/launcher/adapters/wizard/`: reads JSON files from Compose Resources `Res.readBytes("files/wizard/...")`; returns `ConfigSourceResult`. Inline TODO про future FileConfigSource/NetworkConfigSource/MarketplaceConfigSource. (FR-020, FR-021)
 
 ### Bundled JSON resources
 
-- [ ] **T105** Create `core/wizard/src/commonMain/resources/MR/files/system-settings/android-pool.json` с 6 entries per FR-053a (ROLE_HOME, POST_NOTIFICATIONS, CALL_PHONE, accessibility service, battery, hide status bar). Inline TODO про MIUI/EMUI future entries. (FR-053a, FR-053b)
-- [ ] **T106** Create `core/wizard/src/commonMain/resources/MR/files/ui-customization/ui-pool.json` с 6 entries per FR-014a (language, theme, fontScale, grid, screenLayout, tileSet). (FR-014a)
+- [ ] **T105** Create `core/src/commonMain/composeResources/files/wizard/system-settings/android-pool.json` с 6 entries per FR-053a (ROLE_HOME, POST_NOTIFICATIONS, CALL_PHONE, accessibility service, battery, hide status bar). Inline TODO про MIUI/EMUI future entries. (FR-053a, FR-053b)
+- [ ] **T106** Create `core/src/commonMain/composeResources/files/wizard/ui-customization/ui-pool.json` с 6 entries per FR-014a (language, theme, fontScale, grid, screenLayout, tileSet). (FR-014a)
 
 ### App wiring
 
@@ -209,9 +209,9 @@ Total: **121 tasks** across 7 phases. Estimated **~3 недели** (per spec Ef
 
 ### READMEs (extraction discipline)
 
-- [ ] **T111** [P] Create `core/wizard/README.md` с EXTRACT CANDIDATE marker per FR-042. Включить server-roadmap TODO про NetworkConfigSource (FR-046).
-- [ ] **T112** [P] Create `core/localization/README.md` с EXTRACT CANDIDATE marker + Translation pipeline setup section (ANTHROPIC_API_KEY env var per quickstart.md §4). (FR-042, FR-031a)
-- [ ] **T113** [P] Create `core/ui-senior/README.md` с EXTRACT CANDIDATE marker + iOS UI primitives future TODO. (FR-042, A-12)
+- [ ] **T111** [P] Create `core/src/commonMain/kotlin/com/launcher/api/wizard/README.md` с EXTRACT CANDIDATE marker per FR-042. Включить server-roadmap TODO про NetworkConfigSource (FR-046).
+- [ ] **T112** [P] Create `core/src/commonMain/kotlin/com/launcher/api/localization/README.md` с EXTRACT CANDIDATE marker + Translation pipeline setup section (ANTHROPIC_API_KEY env var per quickstart.md §4). (FR-042, FR-031a)
+- [ ] **T113** [P] Create `core/src/commonMain/kotlin/com/launcher/ui/senior/README.md` с EXTRACT CANDIDATE marker — note: iOS UI primitives автоматически через CMP per ADR-005. (FR-042)
 
 ### Cross-spec doc updates
 
@@ -315,7 +315,7 @@ Per CLAUDE.md rules + spec gates:
 
 ## Translation skill trigger (per memory `feedback_speckit_scenarios_proactive.md` + C-10)
 
-**В конце этого `/speckit.tasks` orchestrator run**: invoke skill `procedure-translate-spec-strings`. Skill diff'нет `core/localization/src/commonMain/resources/MR/base/strings.xml` за период работы над F-3, найдёт новые ключи, и сгенерирует переводы.
+**В конце этого `/speckit.tasks` orchestrator run**: invoke skill `procedure-translate-spec-strings`. Skill diff'нет `core/src/commonMain/composeResources/values/strings.xml` (EN base) за период работы над F-3, найдёт новые ключи, и сгенерирует переводы в `values-{ru,es,zh,ar,hi,pt,de,fr,ja,kk-rLatn}/strings.xml`.
 
 В случае F-3 spec'и: skill **не находит** новых strings (мы их добавим во время implementation, не в spec phase). Skill завершается no-op'ом или с сообщением «no new keys to translate».
 

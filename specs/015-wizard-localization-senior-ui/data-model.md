@@ -15,7 +15,7 @@
 
 ## 1. Wizard execution model
 
-### `WizardEngine` (port в `core/wizard/`, commonMain)
+### `WizardEngine` (port в `core/src/commonMain/kotlin/com/launcher/api/wizard/`)
 
 ```kotlin
 interface WizardEngine {
@@ -192,7 +192,7 @@ data class ConfigSummary(
 )
 ```
 
-Real impl: `BundledConfigSource` (in `:app`, reads moko-resources `MR.files.*`).
+Real impl: `BundledConfigSource` (in `:app`, reads Compose Resources `MR.files.*`).
 Fake impl: `FakeConfigSource` (in commonTest, constructed from in-memory Map).
 
 ### Concrete document types (in-memory representations)
@@ -350,7 +350,7 @@ interface StringResolver {
 }
 ```
 
-Real impl: `AndroidStringResolverAdapter` (binds moko-resources MR class).
+Real impl: `AndroidStringResolverAdapter` (binds Compose Resources MR class).
 Fake: constructed with `FakeLocaleProvider` + inline `Map<key, String>` per test.
 
 ### `LocaleProvider` (port)
@@ -461,7 +461,7 @@ sealed class PermissionResult { data object Granted; data object Denied; data ob
 
 ---
 
-## 9. Senior UI primitives (data shape — UI types в `core/ui-senior/`)
+## 9. Senior UI primitives (data shape — UI types в `com.launcher.ui.senior`)
 
 Не строго data model, но fixated public API surface:
 
@@ -499,7 +499,7 @@ WizardEngine
 
 StringResolver (через app DI)
   └─ uses → LocaleProvider
-        └─ uses → moko-resources MR.strings (real adapter)
+        └─ uses → Compose Resources MR.strings (real adapter)
 ```
 
 ---

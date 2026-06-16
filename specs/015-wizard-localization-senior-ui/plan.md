@@ -74,7 +74,7 @@ specs/015-wizard-localization-senior-ui/
 ├── plan.md                  # THIS FILE
 ├── research.md              # Spike A/B methodology + library comparison
 ├── data-model.md            # Key types (WizardEngine, ConfigSource, etc.)
-├── quickstart.md            # Dev setup (KMP, moko, Konsist, translation skill)
+├── quickstart.md            # Dev setup (KMP, Compose Resources, Konsist, translation skill)
 ├── contracts/
 │   └── wire-formats.md      # 5 JSON schemas consolidated
 ├── checklists/              # ✓ 22 files from speckit-clarify (18 violations fixed)

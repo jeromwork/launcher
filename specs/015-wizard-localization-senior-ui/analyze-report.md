@@ -190,6 +190,53 @@ After Phase 0 verification (T001-T003 ~30 min):
   → If fails: fresh `/speckit.clarify` session for что не работает.
 
 Drift status (post rewrite 2026-06-17): NO drift detected. Spec/plan/tasks/contracts mutually consistent + aligned с existing project conventions (ADR-005, spec 005/007/008 patterns).
+
+---
+
+## Re-analyze pass 2026-06-17 (post full rewrite)
+
+После rewrite запущен второй `/speckit.analyze` pass. Findings:
+
+### Constitution Check (re-run)
+
+8/8 PASS — **rewrite только улучшил alignment** с constitution:
+- Gate 1 Architecture: **strengthened** — пакеты в existing `:core` вместо новых модулей (более чёткий ownership boundary per Article V §3 existing convention).
+- Gate 3 Configuration: unchanged — все wire formats всё ещё имеют schemaVersion.
+- Gate 8 Simplicity: **strengthened** — устранена three new modules complexity, теперь package-only additions per existing pattern.
+- Все остальные gates PASS как раньше.
+
+### Cross-artifact trace (re-run)
+
+✅ Still 77/77 FRs covered (task IDs стабильные, только content/paths обновлены).
+✅ Task ordering valid.
+✅ Required-context links: **+1 link** added (ADR-005 per FR-001 + Plan §2 + Plan §13).
+
+### Specific scans (re-run)
+
+✅ No new dangling references (старые «`core/wizard/`» refs cleaned up в data-model.md + plan.md tree).
+✅ All wire-format schemaVersions intact (none touched в rewrite).
+✅ Source-set placement now **consistent с реальной project structure** (vs old plan's invented module layout).
+✅ Required-context: ADR-005 now linked в plan.md §13 + spec.md FR-001/A-12 + research.md.
+✅ Vague language sweep: no new survivors.
+
+### Open items (updated)
+
+1. ~~Library spike T001-T003 — 2-day pre-implementation~~ **CANCELLED per C-38**; replaced by 30-min verification (new T001-T003).
+2. Forward-compat / hard-fail tests cover mechanism via 1 schema, not all 5 — accepted per FR-018 design.
+3. **NEW**: Some Phase 2-6 tasks in tasks.md may have residual «`core/wizard/`» style path references in their inline descriptions despite umbrella note at top. T015, T068, T070-T071, T076-T077, T092, T104-T106, T111-T113 — **explicitly updated** during re-analyze. Other Phase 2-6 tasks reference абстрактные «WizardEngine», «ConfigSource» etc. без конкретных paths — they inherit plan.md §4 by convention.
+
+### Final verdict (post re-analyze)
+
+```
+VERDICT: READY-WITH-CAVEATS (unchanged)
+
+Open items (acknowledged, не блокирующие):
+  1. Phase 0 verification T001-T003 (30 min) — first thing in implementation.
+  2. Per-schema forward-compat tests (1 schema covered, mechanism validated) — accepted.
+
+Drift detection result: NO new drift after rewrite. Artifacts mutually consistent.
+```
+
 ```
 
 ---
