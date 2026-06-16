@@ -760,7 +760,17 @@ REFERENCE DOCS:
 
 ## Шаг 1 — F-3: Wizard Module + Localization (reordered to FIRST 2026-06-15 v2)
 
-> **Order shift 2026-06-15 v2**: F-3 теперь **первый** шаг Phase 1. Wizard работает **локально**, без Google Sign-In, без cloud. Это базис всего: launcher запускается, wizard ведёт через язык / тему / размер шрифта / выбор preset'а / ROLE_HOME permission — всё это local-mode.
+> **Terminology refresh 2026-06-16**: терминология F-3 уточнена в [`docs/product/glossary.md`](glossary.md). Ключевые изменения, актуальные ко всему тексту ниже:
+> - «preset» в смысле Simple Launcher / Admin App → **app-family**.
+> - «preset» в смысле 2×3 / 3×4 / 4×5 grid → **layout-grid** (параметр шага в wizard'е).
+> - «ConfigTemplate» (упоминается ниже в Scope и оригинальном prompt'е) разносится на **две независимые bundled JSON-схемы**: `tile.set` (обезличенные стартовые плитки) и `screen.layout` (каркас экрана: grid + toolbar + табы).
+> - Третья bundled-схема — `wizard.manifest` (порядок шагов для app-family).
+> - Общий 6-полевой header, forward-compat readers, hard-fail на breaking schemaVersion, локализация через ключи к strings.xml.
+> - Отвергнуты: Server-Driven UI, общий envelope с `kind`-discriminator, server-hosted JSON в MVP, отдельные схемы `theme` / `hint.set` / `permission.set` в F-3.
+>
+> Актуальный prompt для `/speckit.specify` — взять из commit'а, который ввёл glossary (или из [glossary.md §9](glossary.md#9-что-осталось-решить-в-f-3-спеке) для открытых вопросов). Старый prompt ниже сохранён для истории.
+
+> **Order shift 2026-06-15 v2**: F-3 теперь **первый** шаг Phase 1. Wizard работает **локально**, без Google Sign-In, без cloud. Это базис всего: launcher запускается, wizard ведёт через язык / тему / размер шрифта / выбор стартового layout'а / ROLE_HOME permission — всё это local-mode.
 >
 > Cloud feature setup (F-4 AuthProvider) теперь активируется **в момент первого cloud action** в Phase 2 (S-5 onwards), а не в F-3.
 >
