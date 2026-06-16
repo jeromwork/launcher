@@ -190,6 +190,60 @@ ConfigSource (port в core/wizard/, domain)
 
 ---
 
+## 7a. Reusability discipline — extraction candidates
+
+**Контекст** (discussion 2026-06-16): экосистема в будущем добавит ещё два приложения — Elderly-Friendly Messenger (V-2, Phase 4) и Full Family Album (V-3, Phase 4). Оба будут иметь **похожие** надстройки: first-run wizard, senior-friendly UI Kit (большие тапы, контраст), локализация на 10 языков.
+
+**Решение:** в отдельный репозиторий **не выносим сейчас** (rule of three — extract after 2-3 реальных consumer'ов, не до). Но **проектируем** три модуля как **launcher-agnostic** с дня 1, чтобы будущий extract стоил один день, а не месяц.
+
+### Три extraction candidate модуля
+
+| Модуль | KMP target | Что внутри | Что НЕ должно быть внутри |
+|---|---|---|---|
+| **`core/wizard/`** | common | `WizardEngine`, `WizardStep` interface, generic steps (`PermissionStep`, `TextSizeStep`, `ThemeStep`, `GridSelectionStep`, `TutorialHintStep`), три JSON-схемы (`wizard.manifest`, `screen.layout`, `tile.set`), `ConfigSource` port | Launcher-specific шаги (ROLE_HOME, HomeScreen renderer), tile action handlers, launcher app navigation |
+| **`core/localization/`** | common | Locale detection, string-table abstraction, fallback policy, CI fitness function для missing translations | Launcher-specific строки, app-specific resource bundles |
+| **`core/ui-senior/`** | Compose Multiplatform | Senior-friendly примитивы: большие кнопки (≥56dp tap target), warm-contrast тема, font scaling utilities, accessibility wrappers | Launcher-specific Composables (HomeScreen, TileGrid), messenger-specific (ChatBubble), album-specific (PhotoGrid) |
+
+### Launcher-specific остаётся в `app/`
+
+| Где | Что |
+|---|---|
+| `app/` | Bundled JSON-файлы (`wizard.manifest` для Simple Launcher, конкретные `screen.layout` и `tile.set`), HomeScreen renderer, tile actions, ROLE_HOME shepherd, capability registry consumers |
+
+### Fitness function (rule 7 — automatic check вместо manual review)
+
+Lint rule в Gradle build: модули `core/*` **не могут** импортировать `app/*`. Любой такой импорт = build failure. Это и есть структурная гарантия, что extract возможен.
+
+### Triggers для будущего extract
+
+Extract в отдельный репозиторий **рассматривать** при появлении:
+
+1. **Второго реального consumer'а** (messenger или album начал писать `core/wizard/` импорты). Не «спланирован», а уже импортирует.
+2. **Третьего consumer'а** — это уже **обязательный** trigger (rule of three).
+3. **Diverging release cadence** — launcher хочет release раз в две недели, messenger раз в полгода. Один monorepo тормозит обоих.
+
+### Inline TODO в `core/wizard/`, `core/localization/`, `core/ui-senior/`
+
+В корне каждого модуля (`README.md` или `package-info.kt`):
+
+```
+// EXTRACT CANDIDATE: this module is designed launcher-agnostic.
+// Trigger for extract to shared library: second REAL consumer
+// (ecosystem app actually importing this module, not "planned").
+// Rule of three (Fowler): extract on second use, library on third.
+// Until then: keep API surface narrow and launcher-agnostic.
+//
+// Sister extract candidates: core/wizard/, core/localization/, core/ui-senior/.
+```
+
+### Что отвергнуто
+
+- ❌ Отдельный репозиторий сейчас — premature, ломает coordination между app'ами без compensating benefit.
+- ❌ Maven/JitPack distribution до extract — добавляет CI overhead без consumer'а.
+- ❌ Отдельный `docs/dev/extraction-candidates.md` — inline TODO достаточно, документ риск устареть.
+
+---
+
 ## 8. Терминологические соответствия (legacy ↔ new)
 
 При чтении старых документов / спек переводи термины так:
@@ -230,4 +284,4 @@ Glossary фиксирует **термины и формат**, но не реа
 
 ## Резюме одной фразой для будущих агентов
 
-> **Три bundled JSON-схемы** (`wizard.manifest`, `screen.layout`, `tile.set`), общий 6-полевой header, forward-compat readers, локализация через ключи, один `ConfigSource` port с одной `BundledConfigSource` реализацией в MVP, server-side источники — additive adapters позже без смены формата. **Слово «preset» не используется.**
+> **Три bundled JSON-схемы** (`wizard.manifest`, `screen.layout`, `tile.set`), общий 6-полевой header, forward-compat readers, локализация через ключи, один `ConfigSource` port с одной `BundledConfigSource` реализацией в MVP, server-side источники — additive adapters позже без смены формата. **Три KMP-модуля** (`core/wizard/`, `core/localization/`, `core/ui-senior/`) проектируются launcher-agnostic как extraction candidates для будущей messenger / album экосистемы; lint rule запрещает `core/*` → `app/*` imports. **Слово «preset» не используется.**
