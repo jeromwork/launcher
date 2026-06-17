@@ -7,6 +7,8 @@ plugins {
     // Spec 008 — SQLDelight для local persistence (LocalConfigStore).
     // Schema lives в commonMain/sqldelight/, queries generated в commonMain.
     alias(libs.plugins.sqldelight)
+    // Spec 015 — Roborazzi screenshot tests for Senior UI primitives (T094-T096).
+    alias(libs.plugins.roborazzi)
 }
 
 kotlin {
@@ -102,6 +104,11 @@ kotlin {
             // SQLDelight JVM driver — in-memory SQLite для unit tests of
             // SqlDelightLocalConfigStore (spec 008 T052).
             implementation(libs.sqldelight.sqlite.driver)
+            // Spec 015 (T094-T096) — Roborazzi screenshot tests.
+            // Snapshots saved under core/src/androidUnitTest/snapshots/.
+            implementation(libs.roborazzi)
+            implementation(libs.roborazzi.compose)
+            implementation(libs.roborazzi.junit.rule)
         }
     }
 }

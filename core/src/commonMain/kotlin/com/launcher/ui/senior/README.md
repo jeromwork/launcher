@@ -35,6 +35,25 @@ Enforced by `Spec015IsolationTest.ui_senior_does_not_depend_on_api_wizard()`:
 - `ui.senior.*` MAY depend on `AnimationPreferenceProvider` — that's a
   generic cross-cutting port.
 
+## Snapshot tests (Roborazzi)
+
+Per spec 015 T094-T096, the senior primitives have Roborazzi screenshot
+tests in
+[`core/src/androidUnitTest/kotlin/com/launcher/ui/senior/SeniorPrimitivesScreenshotTest.kt`](../../../../../androidUnitTest/kotlin/com/launcher/ui/senior/SeniorPrimitivesScreenshotTest.kt).
+
+Run:
+
+```bash
+# First run / after intentional UI changes — records new baselines.
+./gradlew :core:recordRoborazziMockBackendDebug
+
+# CI gate — fails on any pixel diff against the baselines.
+./gradlew :core:verifyRoborazziMockBackendDebug
+```
+
+Snapshots live under `core/src/androidUnitTest/snapshots/` and are committed
+to git. Roborazzi runs in JVM via Robolectric — no emulator required.
+
 ## iOS support
 
 Compose Multiplatform renders these primitives on iOS automatically (per
