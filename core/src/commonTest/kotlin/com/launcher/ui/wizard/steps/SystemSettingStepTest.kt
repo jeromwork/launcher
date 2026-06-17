@@ -61,7 +61,7 @@ class SystemSettingStepTest {
             applyOutcomes = mapOf("setting.x" to ApplyResult.Denied),
         )
         val async = async { step.execute(StepParams("setting.x", emptyMap(), 0, 1)) }
-        while (host.pending == null) { /* spin until host receives params */ }
+        while (host.pending == null) { kotlinx.coroutines.yield() }
         host.resolve(StepResult.AnswerCaptured(JsonPrimitive("user-tap")))
         val result = async.await()
 
@@ -83,7 +83,7 @@ class SystemSettingStepTest {
             applyOutcomes = mapOf("setting.x" to ApplyResult.PermanentlyDenied),
         )
         val async = async { step.execute(StepParams("setting.x", emptyMap(), 0, 1)) }
-        while (host.pending == null) { /* spin */ }
+        while (host.pending == null) { kotlinx.coroutines.yield() }
         host.resolve(StepResult.AnswerCaptured(JsonPrimitive("user-tap")))
         val result = async.await()
 
@@ -105,7 +105,7 @@ class SystemSettingStepTest {
             applyOutcomes = mapOf("setting.x" to ApplyResult.UnsupportedMechanism),
         )
         val async = async { step.execute(StepParams("setting.x", emptyMap(), 0, 1)) }
-        while (host.pending == null) { /* spin */ }
+        while (host.pending == null) { kotlinx.coroutines.yield() }
         host.resolve(StepResult.AnswerCaptured(JsonPrimitive("user-tap")))
         val captured = assertIs<StepResult.AnswerCaptured>(async.await())
         assertEquals(JsonPrimitive("UnsupportedMechanism"), captured.answer)
@@ -119,7 +119,7 @@ class SystemSettingStepTest {
             applyOutcomes = mapOf("setting.x" to ApplyResult.Failed("io")),
         )
         val async = async { step.execute(StepParams("setting.x", emptyMap(), 0, 1)) }
-        while (host.pending == null) { /* spin */ }
+        while (host.pending == null) { kotlinx.coroutines.yield() }
         host.resolve(StepResult.AnswerCaptured(JsonPrimitive("user-tap")))
         val captured = assertIs<StepResult.AnswerCaptured>(async.await())
         assertEquals(JsonPrimitive("Failed: io"), captured.answer)

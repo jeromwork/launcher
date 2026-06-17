@@ -46,7 +46,7 @@ class AndroidStringResolverTest {
         // `ui_tileSet_question` keeps camelCase in the XML; adapter must NOT
         // split it into `ui_tile_set_question`.
         val v = resolver.resolve("ui.tileSet.question")
-        assertEquals("Choose a starter tile set", v)
+        assertEquals("Choose starter tile set", v)
     }
 
     @Test

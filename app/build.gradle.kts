@@ -139,4 +139,8 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    // Spec 015 T119 — WizardEngineIntegrationTest constructs JsonPrimitive
+    // payloads for the wizard step host. kotlinx-serialization-json is
+    // implementation in :core (not api) so test classpath needs it explicit.
+    testImplementation(libs.kotlinx.serialization.json)
 }

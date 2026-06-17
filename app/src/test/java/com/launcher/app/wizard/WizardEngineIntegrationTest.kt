@@ -41,12 +41,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonPrimitive
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertTrue
 
 /**
  * Spec 015 T119 — wizard end-to-end integration test (Robolectric).
@@ -57,7 +56,7 @@ import kotlin.test.assertTrue
  *
  * Asserts:
  *   - Engine processes 12 entries (6 UI + 6 system settings) from
- *     bundled assets/wizard/{ui-customization,system-settings}/*.json.
+ *     bundled assets/wizard/ ui-customization + system-settings JSON.
  *   - WizardOutcome.Completed returned.
  *   - userPreferencesStore.isWizardCompleted("simple-launcher") == true.
  *   - WizardCompleted diagnostic event fired.
@@ -128,10 +127,12 @@ class WizardEngineIntegrationTest {
 
         try {
             val outcome = engine.run(manifest)
-            assertIs<WizardOutcome.Completed>(outcome)
+            assertTrue("expected Completed but got $outcome", outcome is WizardOutcome.Completed)
+            val completed = outcome as WizardOutcome.Completed
             assertTrue(prefs.isWizardCompleted("simple-launcher"))
-            assertEquals(12, outcome.initialConfig.answers.size)
+            assertEquals(12, completed.initialConfig.answers.size)
             assertTrue(
+                "expected WizardCompleted event",
                 emitter.snapshot().any { it is DiagnosticEvent.WizardCompleted },
             )
         } finally {
