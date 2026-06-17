@@ -20,3 +20,25 @@
 
 Минусы:
 - дисциплина ресурсной архитектуры нужна с самого начала.
+
+## Amendment 2026-06-17 (spec 015 / F-3)
+
+Per spec 015 clarification **C-6 + A-15b**, the F-3 module (`com.launcher.api.wizard` +
+`com.launcher.api.localization`) **overrides the project-default RU-first
+base language with EN**. Rationale: F-3 ships 11 locales and uses the
+Anthropic Claude API to AI-translate from a single canonical source into
+AR/HI/ZH/JA/KK where Russian is not a reasonable bridge language.
+
+Scope of override:
+- `core/src/commonMain/composeResources/values/strings_wizard.xml` — EN base.
+- `core/src/androidMain/res/values/strings_wizard.xml` — EN mirror (Android runtime).
+- `core/strings-context/CONTEXT.json` — EN values + per-key context.
+- `core/GLOSSARY.md` — canonical terms in EN + RU + 9 other locales.
+
+The RU stub (`values-ru/`) is **manually maintained alongside EN** — RU
+remains the project's primary audience locale, but it is not the AI
+translation source.
+
+Other modules (spec 005 actions, spec 010 setup) keep their RU-first
+defaults until they're separately migrated.
+

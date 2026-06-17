@@ -2,7 +2,7 @@
 
 **Feature Branch**: `015-wizard-localization-senior-ui`
 **Created**: 2026-06-16
-**Status**: Draft (pre-clarify)
+**Status**: InProgress (implementation landed 2026-06-17; pending emulator smoke + AI translation refresh)
 **Roadmap ID**: F-3 (Phase 1, шаг 1 после order-shift 2026-06-15 v2)
 **Input**: [`docs/product/roadmap.md` §Шаг 1 F-3](../../docs/product/roadmap.md#L761) + [`docs/product/glossary.md`](../../docs/product/glossary.md) (terminology + JSON header + reusability discipline §7a) + decision [`2026-06-15-deferred-cloud/`](../../docs/product/decisions/2026-06-15-deferred-cloud/) (local-first) + [ADR-004 localization](../../docs/dev/adrs/) + CLAUDE.md rules 1, 2, 4, 5, 6, 7, 9.
 
