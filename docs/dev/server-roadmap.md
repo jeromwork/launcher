@@ -335,3 +335,93 @@
 **Trigger**: when the translation skill is used by more than one developer or when AR/HI/ZH/JA/KK quality issues land in beta feedback.
 
 **Source**: [.claude/skills/procedure-translate-spec-strings/SKILL.md](../../.claude/skills/procedure-translate-spec-strings/SKILL.md).
+
+## SRV-CRYPTO-003: Paid security audit milestone (F-CRYPTO, billing gate)
+
+**Контекст**: F-CRYPTO выпускается с **measurable validation set** (RFC KAT + Google Wycheproof + property tests + industrial reference baseline Signal/WhatsApp/age/Threema). Это **достаточно** для public beta launcher'а без billing. Однако для запуска **paid tier** (subscription, payments, premium features) индустриальный baseline требует **independent paid audit**.
+
+**MVP workaround (текущее F-CRYPTO release)**: validation set описанный выше + Signal/WhatsApp как reference stack. Cost = $0.
+
+**Own-server destination / billing-gate destination**:
+- **Targeted security review** через [7ASecurity](https://7asecurity.com) (~$5-10k) или [Radically Open Security](https://www.radicallyopensecurity.com) (~€8-12k) на крипто-код (`core/crypto/` + ConfigCipher + media blob encryption).
+- Scope: review libsodium binding usage, key storage wrap pattern, key derivation flows, nonce policy, replay protection.
+- Output: report с findings + remediation, публикуется на нашем сайте (transparency).
+
+**Trigger**: за 4-6 недель до планируемого запуска **paid tier** / subscription (S-10 Subscription Server Timer). Не блокирует beta release, S-1..S-8 (free, non-billing).
+
+**Inline TODO в F-CRYPTO spec**: `// TODO(SRV-CRYPTO-003): paid security audit required before billing launch — see docs/dev/server-roadmap.md`.
+
+**Источник**: F-CRYPTO mentor session 2026-06-17 — solo-dev без сети криптографов; friend crypto review снят; платный аудит перенесён на billing gate.
+
+## SRV-CRYPTO-004: Multi-device recovery via social recovery (spec 017, per ADR-008)
+
+**Контекст**: F-CRYPTO предоставляет `KeyEscrow` port (interface-only, real-impl = stub). Real-implementation — спека 017 (multi-device-recovery) per [ADR-008](../adr/ADR-008-social-recovery-architecture.md). **Не passphrase-only escrow** (это было бы слабо: атакующий с access к Firestore + слабый PIN бабушки = взлом). Решение: **social recovery** — multi-factor через **(passphrase бабушки) + (2FA confirmation от trusted peer) + (email auth)**.
+
+**MVP workaround (F-CRYPTO)**: `KeyEscrow.export()` / `restore()` ports есть, но real-impl = stub; F-CRYPTO лишь предоставляет примитивы (`KeyDerivation` HKDF, `AeadCipher` XChaCha20, `AsymmetricCrypto.sealCEK`/`unsealCEK`), на которых будет построен flow. Если пользователь теряет телефон **сейчас** (до спеки 017) — потеря ключей; documented limitation для beta.
+
+**Own-server destination / отдельная спека (017)**:
+- Setup phase: бабушка задаёт PIN; генерируется `peer_nonce` (32 байта); `recovery_key = HKDF(passphrase, peer_nonce, "launcher-recovery-aead-v1")`; `encrypted_backup = AEAD(recovery_key, priv_keys_bundle)`; `encrypted_backup → сервер`, `peer_nonce → encrypted_for_peer (через sealCEK)`, `PIN → в голове бабушки`.
+- Recovery phase: новое устройство → email auth → server initiates 2FA push к trusted peer → peer тапает «подтвердить» → peer's device пере-sealCEK'ает `peer_nonce` для freshly-generated Pub нового устройства → новое устройство просит PIN → derives recovery_key → decrypts backup → priv keys восстановлены.
+- **3-фактор**: знание PIN + знание email/password + физическое подтверждение от peer-device.
+- Атомарное активирование новых ключей + invalidation старых.
+
+**Open design questions для спеки 017** (важно для архитектуры сейчас):
+- **Где хранить `encrypted_backup`** — Firestore document `/backups/{externalId}` (size limit 1 MiB, достаточно для ключей) или Firebase Storage `/backups/{externalId}/v1` (для будущей extension под larger payload). **Главное ограничение от владельца 2026-06-17**: «структура должна **легко переезжать** на собственный сервер». Это означает: что бы мы ни выбрали, abstrahировать через `RecoveryBackupStorage` port в `core/recovery/api/` — тогда переезд = новый adapter, не переписывание. **См. SRV-CRYPTO-007**.
+- TTL для `peer_nonce` — статический или 90-дневная rotation.
+- Multi-peer (Shamir N-of-M) — MVP 1-of-N, future feature.
+
+**Trigger**: после F-5 + S-3 (re-pairing flow) + F-4 (AuthProvider для email auth) + F-CRYPTO (все примитивы).
+
+**Источник**: ADR-008 social recovery architecture (2026-05-23), reconfirmed F-CRYPTO mentor session 2026-06-17 (владелец напомнил про multi-factor recovery).
+
+## SRV-CRYPTO-006: Server-side rate-limiting на recovery attempts (post-spec 017)
+
+**Контекст**: Спека 017 (multi-device-recovery) допускает попытки восстановления. Без rate-limit'а атакующий с компрометированными email+password может brute-force'ить PIN бабушки 4-6 цифр (10^4 - 10^6 попыток).
+
+**MVP workaround (спека 017 baseline)**: client-side rate-limit (delay между попытками) + Firestore Security Rules на максимум N попыток в hour per externalId. Acceptable для MVP но **обходимо**: атакующий может удалить app data, обнулить client-side counter, продолжить.
+
+**Own-server destination**:
+- Atomic counter в Cloudflare KV или Firestore transaction: block after N failed attempts в час per externalId.
+- Push notification бабушке (через trusted peer): «Кто-то пытался восстановить ваш аккаунт».
+- Audit log: attempted recovery from {platform, IP-hash, timestamp}.
+
+**Trigger**: первый incident-report «недопустимая попытка взлома recovery» в beta.
+
+**Источник**: ADR-008 §Future enhancements + F-CRYPTO mentor session 2026-06-17.
+
+## SRV-CRYPTO-007: Storage для encrypted_backup — substitution-ready (spec 017)
+
+**Контекст**: Спека 017 будет хранить `encrypted_backup` на сервере. На момент дизайна — кандидаты Firestore document vs Firebase Storage. **Constraint от владельца 2026-06-17**: «выберите так, чтобы потом легко переехали на собственный сервер». Это **substitution-readiness** (checklist-backend-substitution rule).
+
+**MVP workaround**: в спеке 017 выбираем один из двух (Firestore document — проще для MVP, 1 MiB limit достаточно для priv keys bundle). **Но**: abstrahируем через `RecoveryBackupStorage` port в `core/recovery/api/`:
+
+```kotlin
+interface RecoveryBackupStorage {
+  suspend fun upload(externalId: ExternalId, schemaVersion: Int, blob: ByteArray): Result<Unit>
+  suspend fun download(externalId: ExternalId): Result<EncryptedBackup>
+  suspend fun delete(externalId: ExternalId): Result<Unit>
+}
+```
+
+MVP adapter — `FirestoreRecoveryBackupStorage`. Domain (HKDF derivation, AEAD encrypt/decrypt, sealCEK/unsealCEK) **не знает** про Firestore.
+
+**Own-server destination**: `HttpRecoveryBackupStorage` adapter поверх REST API собственного backend'а. Wire format `encrypted_backup` (JSON или CBOR с `schemaVersion`) остаётся прежним — миграция blob'ов через background reconciler как в SRV-CRYPTO-001.
+
+**Trigger**: переход на собственный backend (после spec ~35 per backlog).
+
+**Источник**: F-CRYPTO mentor session 2026-06-17 — владелец явно потребовал «легко переезжать на свой сервер».
+
+## SRV-CRYPTO-005: Server-side re-encryption for key rotation (post-F-5)
+
+**Контекст**: F-CRYPTO предоставляет `KeyRotation` port (interface-only). При реальной ротации **identity key** admin'а — все исторические зашифрованные config'и (`/config/history/`) и media blob'ы нужно перешифровать новым ключом, чтобы старый retired key можно было удалить.
+
+**MVP workaround (F-CRYPTO)**: `KeyRotation.rotateIdentityKey()` port есть, но real-impl = stub. Если ротация **нужна сейчас** — retired keys остаются в `keyHistory()` для decryption старых ciphertext'ов; новые writes — новым ключом. Acceptable но накапливает retired keys.
+
+**Own-server destination**:
+- Server-side batch job re-encrypts `/config/history/*` под новый recipient key.
+- Atomic rotation: новые keys активны + старые ciphertext'ы перешифрованы + retired keys deleted.
+- Reference counting: server отслеживает, какие ciphertext'ы ссылаются на какие retired keys.
+
+**Trigger**: первая реальная ротация identity key (например, suspected compromise сценарий) или regulator requirement (GDPR right-to-erasure требует cryptographic erasure).
+
+**Источник**: F-CRYPTO mentor session 2026-06-17 — scenario D (suspected compromise) обсуждён.
