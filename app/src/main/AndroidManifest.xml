@@ -243,6 +243,26 @@
             android:label="@string/setup_gms_hard_block_title" />
 
         <!--
+          Spec 015 (F-3) FR-007: first-run wizard entry. Routed to from
+          FirstLaunchActivity when `wizardCompleted(appFamilyId)` is false.
+          Not exported — never reachable from outside the app.
+        -->
+        <activity
+            android:name=".wizard.WizardActivity"
+            android:exported="false"
+            android:label="@string/wizard_loading" />
+
+        <!--
+          Spec 015 (F-3) FR-016: hard-fail fallback shown when a bundled
+          config has schemaVersion > known, per Q-6 (b). Launched explicitly
+          by WizardActivity.
+        -->
+        <activity
+            android:name=".wizard.PlayStoreFallbackActivity"
+            android:exported="false"
+            android:label="@string/play_store_fallback_title" />
+
+        <!--
           Spec 008 FR-022 T3: disable default WorkManager auto-init so our
           custom Configuration.Provider (LauncherApplication) is used. This
           gives ConfigRefreshWorker its Koin-injected dependencies
