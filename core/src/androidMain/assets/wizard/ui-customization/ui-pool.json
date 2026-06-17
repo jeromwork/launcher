@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "id": "ui-customization.ui-pool",
+  "name": "ui_customization_pool.name",
+  "description": "ui_customization_pool.desc",
+  "deviceClass": ["*"],
+  "body": {
+    "platform": "*",
+    "options": [
+      {
+        "id": "language",
+        "kind": "simple-choice",
+        "questionKey": "ui_language_question",
+        "descriptionKey": null,
+        "criticality": "Required",
+        "defaultValue": "en",
+        "choices": [
+          { "value": "en", "labelKey": "ui_language_en" },
+          { "value": "ru", "labelKey": "ui_language_ru" },
+          { "value": "es", "labelKey": "ui_language_es" },
+          { "value": "zh", "labelKey": "ui_language_zh" },
+          { "value": "ar", "labelKey": "ui_language_ar" },
+          { "value": "hi", "labelKey": "ui_language_hi" },
+          { "value": "pt", "labelKey": "ui_language_pt" },
+          { "value": "de", "labelKey": "ui_language_de" },
+          { "value": "fr", "labelKey": "ui_language_fr" },
+          { "value": "ja", "labelKey": "ui_language_ja" },
+          { "value": "kk-Latn", "labelKey": "ui_language_kk_Latn" }
+        ],
+        "choicesFrom": null
+      },
+      {
+        "id": "theme",
+        "kind": "simple-choice",
+        "questionKey": "ui_theme_question",
+        "descriptionKey": null,
+        "criticality": "Optional",
+        "defaultValue": "auto",
+        "choices": [
+          { "value": "light", "labelKey": "ui_theme_light" },
+          { "value": "dark", "labelKey": "ui_theme_dark" },
+          { "value": "auto", "labelKey": "ui_theme_auto" }
+        ],
+        "choicesFrom": null
+      },
+      {
+        "id": "fontScale",
+        "kind": "simple-choice",
+        "questionKey": "ui_fontScale_question",
+        "descriptionKey": null,
+        "criticality": "Optional",
+        "defaultValue": "1.0",
+        "choices": [
+          { "value": "1.0", "labelKey": "ui_fontScale_1_0" },
+          { "value": "1.3", "labelKey": "ui_fontScale_1_3" },
+          { "value": "1.6", "labelKey": "ui_fontScale_1_6" }
+        ],
+        "choicesFrom": null
+      },
+      {
+        "id": "grid",
+        "kind": "simple-choice",
+        "questionKey": "ui_grid_question",
+        "descriptionKey": null,
+        "criticality": "Optional",
+        "defaultValue": "3x4",
+        "choices": [
+          { "value": "2x3", "labelKey": "ui_grid_2x3" },
+          { "value": "3x4", "labelKey": "ui_grid_3x4" },
+          { "value": "4x5", "labelKey": "ui_grid_4x5" }
+        ],
+        "choicesFrom": null
+      },
+      {
+        "id": "screenLayout",
+        "kind": "pick-from-bundled",
+        "questionKey": "ui_screenLayout_question",
+        "descriptionKey": null,
+        "criticality": "Optional",
+        "defaultValue": "screen-layout.3x4-classic",
+        "choices": null,
+        "choicesFrom": { "kind": "screen.layout", "filter": null }
+      },
+      {
+        "id": "tileSet",
+        "kind": "pick-from-bundled",
+        "questionKey": "ui_tileSet_question",
+        "descriptionKey": null,
+        "criticality": "Required",
+        "defaultValue": "tile-set.classic-6",
+        "choices": null,
+        "choicesFrom": { "kind": "tile.set", "filter": null }
+      }
+    ]
+  }
+}

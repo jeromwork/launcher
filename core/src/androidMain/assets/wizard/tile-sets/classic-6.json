@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "tile-set.classic-6",
+  "name": "tile_set_classic_6_name",
+  "description": "tile_set_classic_6_desc",
+  "deviceClass": ["*"],
+  "body": {
+    "tiles": [
+      { "position": {"row": 0, "col": 0}, "actionType": "phone.call",     "labelKey": "tile_phone_label",     "iconKey": "icon_phone" },
+      { "position": {"row": 0, "col": 1}, "actionType": "messages.open",  "labelKey": "tile_messages_label",  "iconKey": "icon_messages" },
+      { "position": {"row": 1, "col": 0}, "actionType": "camera.open",    "labelKey": "tile_camera_label",    "iconKey": "icon_camera" },
+      { "position": {"row": 1, "col": 1}, "actionType": "gallery.open",   "labelKey": "tile_gallery_label",   "iconKey": "icon_gallery" },
+      { "position": {"row": 2, "col": 0}, "actionType": "contacts.open",  "labelKey": "tile_contacts_label",  "iconKey": "icon_contacts" },
+      { "position": {"row": 2, "col": 1}, "actionType": "settings.open",  "labelKey": "tile_settings_label",  "iconKey": "icon_settings" }
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Spec 015 (F-3) — wizard strings (ES). STUB — to be filled by
+  procedure-translate-spec-strings skill on next run (FR-031a, T080).
+  Missing keys fall back to EN per FR-029 fallback chain.
+-->
+<resources>
+    <string name="wizard_next">Siguiente</string>
+    <string name="wizard_skip">Omitir</string>
+    <string name="wizard_back">Atrás</string>
+</resources>

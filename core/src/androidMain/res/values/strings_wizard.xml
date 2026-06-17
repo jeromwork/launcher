@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Spec 015 (F-3) — base wizard strings.
+
+  Base language: EN per spec 015 clarification C-6 + A-15b (overrides ADR-004
+  RU-first default for this module). Rationale: F-3 ships 11 locales total;
+  EN is the canonical source for AI-driven translation (procedure-translate-
+  spec-strings skill) targeting AR/HI/ZH/JA/KK where Russian is not a
+  reasonable source.
+
+  Per-key context lives in core/strings-context/CONTEXT.json (FR-031b).
+  Glossary of canonical terms lives in core/GLOSSARY.md (FR-031c).
+-->
+<resources>
+
+    <!-- Wizard navigation / generic -->
+    <string name="wizard_loading">Loading…</string>
+    <string name="wizard_next">Next</string>
+    <string name="wizard_skip">Skip</string>
+    <string name="wizard_back">Back</string>
+    <string name="wizard_continue">Continue</string>
+    <string name="wizard_save_progress_question">Save progress?</string>
+    <string name="wizard_save_progress_yes">Yes</string>
+    <string name="wizard_save_progress_no">No</string>
+    <string name="wizard_back_at_first_step_toast">To exit, close the app.</string>
+    <string name="wizard_understood">Got it</string>
+
+    <!-- UI option questions (refId-derived keys) -->
+    <string name="ui_language_question">Choose your language</string>
+    <string name="ui_theme_question">Choose a theme</string>
+    <string name="ui_fontScale_question">Choose text size</string>
+    <string name="ui_grid_question">Choose tile grid size</string>
+    <string name="ui_screenLayout_question">Choose screen layout</string>
+    <string name="ui_tileSet_question">Choose starter tile set</string>
+
+    <!-- Language labels -->
+    <string name="ui_language_en">English</string>
+    <string name="ui_language_ru">Русский</string>
+    <string name="ui_language_es">Español</string>
+    <string name="ui_language_zh">中文</string>
+    <string name="ui_language_ar">العربية</string>
+    <string name="ui_language_hi">हिन्दी</string>
+    <string name="ui_language_pt">Português</string>
+    <string name="ui_language_de">Deutsch</string>
+    <string name="ui_language_fr">Français</string>
+    <string name="ui_language_ja">日本語</string>
+    <string name="ui_language_kk_Latn">Qazaqsha</string>
+
+    <!-- Theme labels -->
+    <string name="ui_theme_light">Light</string>
+    <string name="ui_theme_dark">Dark</string>
+    <string name="ui_theme_auto">Auto</string>
+
+    <!-- Font scale labels -->
+    <string name="ui_fontScale_1_0">Normal</string>
+    <string name="ui_fontScale_1_3">Large</string>
+    <string name="ui_fontScale_1_6">Very large</string>
+
+    <!-- Grid labels -->
+    <string name="ui_grid_2x3">2 × 3</string>
+    <string name="ui_grid_3x4">3 × 4</string>
+    <string name="ui_grid_4x5">4 × 5</string>
+
+    <!-- System setting labels -->
+    <string name="system_setting_role_home_label">Set as default launcher</string>
+    <string name="system_setting_role_home_desc">Lets this app show whenever you press Home.</string>
+    <string name="system_setting_post_notifications_label">Allow notifications</string>
+    <string name="system_setting_post_notifications_desc">So you can see messages and calls.</string>
+    <string name="system_setting_call_phone_label">Allow calls</string>
+    <string name="system_setting_call_phone_desc">Lets you tap a contact tile to call.</string>
+    <string name="system_setting_accessibility_label">Turn on accessibility service</string>
+    <string name="system_setting_accessibility_desc">Used to navigate the home screen reliably.</string>
+    <string name="system_setting_battery_label">Don\'t optimise this app\'s battery</string>
+    <string name="system_setting_battery_desc">Keeps notifications working when the screen is off.</string>
+    <string name="system_setting_hide_status_bar_label">Hide status bar</string>
+    <string name="system_setting_hide_status_bar_desc">Removes the top bar for a cleaner home screen.</string>
+
+    <!-- Tutorial hints -->
+    <string name="hint_first_tile">Tap a tile to use it. You can change tiles later from the menu.</string>
+    <string name="hint_long_press">Hold a tile to edit or move it.</string>
+
+    <!-- Hard-fail / fallback -->
+    <string name="play_store_fallback_title">Please update the app</string>
+    <string name="play_store_fallback_body">This config was made for a newer version. Update from the Play Store and try again.</string>
+    <string name="play_store_fallback_open_store">Open Play Store</string>
+
+</resources>

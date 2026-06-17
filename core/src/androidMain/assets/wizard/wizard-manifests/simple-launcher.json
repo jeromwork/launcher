@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "wizard-manifest.simple-launcher",
+  "name": "wizard_manifest_simple_launcher_name",
+  "description": "wizard_manifest_simple_launcher_desc",
+  "deviceClass": ["android-phone"],
+  "body": {
+    "appFamilyId": "simple-launcher",
+    "autoOrder": true,
+    "steps": null
+  }
+}
