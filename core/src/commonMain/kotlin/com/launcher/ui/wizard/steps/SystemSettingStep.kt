@@ -66,17 +66,22 @@ class SystemSettingStep(
                         }
                     }
                     ApplyResult.Denied -> {
+                        // User actively chose "no" — record the answer and advance.
+                        // Engine MUST NOT fail just because the user declined a
+                        // Required permission; wizard still finishes and the
+                        // denial surfaces later as a Settings badge (S-1+).
                         diagnostics.emit(DiagnosticEvent.WizardStepDenied(params.refId, isPermanent = false))
-                        StepResult.Skipped
+                        StepResult.AnswerCaptured(JsonPrimitive("Denied"))
                     }
                     ApplyResult.PermanentlyDenied -> {
                         diagnostics.emit(DiagnosticEvent.WizardStepDenied(params.refId, isPermanent = true))
-                        StepResult.Skipped
+                        StepResult.AnswerCaptured(JsonPrimitive("PermanentlyDenied"))
                     }
-                    ApplyResult.UnsupportedMechanism -> StepResult.Skipped
+                    ApplyResult.UnsupportedMechanism ->
+                        StepResult.AnswerCaptured(JsonPrimitive("UnsupportedMechanism"))
                     is ApplyResult.Failed -> {
                         diagnostics.emit(DiagnosticEvent.FallbackWarning("system-setting", applyResult.reason))
-                        StepResult.Skipped
+                        StepResult.AnswerCaptured(JsonPrimitive("Failed: ${applyResult.reason}"))
                     }
                 }
             }

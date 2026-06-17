@@ -21,13 +21,15 @@ import java.util.Locale
 class AndroidStringResolver(private val context: Context) : StringResolver {
 
     override fun resolve(key: String, args: Map<String, Any>): String {
-        val resId = context.resources.getIdentifier(key, "string", context.packageName)
+        val resName = key.toAndroidResName()
+        val resId = context.resources.getIdentifier(resName, "string", context.packageName)
         val template = if (resId != 0) context.getString(resId) else key
         return interpolate(template, args)
     }
 
     override fun resolvePlural(key: String, count: Int, args: Map<String, Any>): String {
-        val pluralId = context.resources.getIdentifier(key, "plurals", context.packageName)
+        val resName = key.toAndroidResName()
+        val pluralId = context.resources.getIdentifier(resName, "plurals", context.packageName)
         val template = if (pluralId != 0) {
             context.resources.getQuantityString(pluralId, count)
         } else {
@@ -35,6 +37,20 @@ class AndroidStringResolver(private val context: Context) : StringResolver {
         }
         return interpolate(template, args + ("count" to count))
     }
+
+    /**
+     * Android resource names allow only [A-Za-z0-9_]. Callers (in commonMain)
+     * use dotted keys like "wizard.next" for readability. Convert dots and
+     * hyphens to underscores. CamelCase is preserved — Android resource
+     * names are case-sensitive but ARE legal as identifiers.
+     *
+     * Examples:
+     *   "wizard.next"            -> "wizard_next"
+     *   "ui.tileSet.question"    -> "ui_tileSet_question"
+     *   "android.role.home"      -> "android_role_home"
+     */
+    private fun String.toAndroidResName(): String =
+        this.replace('.', '_').replace('-', '_')
 
     override fun currentLocaleTag(): String {
         val config = context.resources.configuration

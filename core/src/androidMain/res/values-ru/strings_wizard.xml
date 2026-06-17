@@ -15,6 +15,30 @@
     <string name="wizard_save_progress_no">Нет</string>
     <string name="wizard_back_at_first_step_toast">Чтобы выйти, закройте приложение.</string>
     <string name="wizard_understood">Понял</string>
+    <string name="wizard_step_n_of_m">Шаг {current} из {total}</string>
+
+    <string name="ui_language_description">Выберите язык интерфейса.</string>
+    <string name="ui_theme_description">Светлая, тёмная или как в системе.</string>
+    <string name="ui_fontScale_description">Крупнее — легче читать.</string>
+    <string name="ui_grid_description">Сколько плиток помещается на экране.</string>
+    <string name="ui_screenLayout_description">Выберите удобную раскладку экрана.</string>
+    <string name="ui_tileSet_description">Стартовый набор плиток. Можно поменять позже.</string>
+
+    <string name="system_setting_android_role_home_label">Сделать главным экраном</string>
+    <string name="system_setting_android_role_home_desc">Позволяет приложению открываться при нажатии «Домой».</string>
+    <string name="system_setting_android_permission_POST_NOTIFICATIONS_label">Разрешить уведомления</string>
+    <string name="system_setting_android_permission_POST_NOTIFICATIONS_desc">Чтобы видеть сообщения и звонки.</string>
+    <string name="system_setting_android_permission_CALL_PHONE_label">Разрешить звонки</string>
+    <string name="system_setting_android_permission_CALL_PHONE_desc">Чтобы можно было позвонить из плитки.</string>
+    <string name="system_setting_android_accessibility_our_service_label">Включить службу доступности</string>
+    <string name="system_setting_android_accessibility_our_service_desc">Помогает правильно перемещаться по экрану.</string>
+    <string name="system_setting_android_battery_ignore_optimizations_label">Не оптимизировать батарею</string>
+    <string name="system_setting_android_battery_ignore_optimizations_desc">Чтобы уведомления работали при выключенном экране.</string>
+    <string name="system_setting_android_hide_status_bar_label">Скрыть верхнюю строку</string>
+    <string name="system_setting_android_hide_status_bar_desc">Убирает верхнюю системную строку.</string>
+
+    <string name="hint_first_tile_hint">Первая плитка</string>
+    <string name="hint_first_tile_hint_body">Нажмите на плитку, чтобы использовать её. Плитки можно изменить позже из меню.</string>
 
     <string name="ui_language_question">Выберите язык</string>
     <string name="ui_theme_question">Выберите тему</string>

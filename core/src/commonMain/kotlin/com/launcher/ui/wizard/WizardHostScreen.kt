@@ -86,9 +86,8 @@ fun WizardHostScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Top,
                 ) {
-                    val stepLabel = stringResolver.resolvePlural(
+                    val stepLabel = stringResolver.resolve(
                         key = "wizard.step_n_of_m",
-                        count = current.totalSteps,
                         args = mapOf(
                             "current" to (current.currentStepIndex + 1),
                             "total" to current.totalSteps,
@@ -111,19 +110,13 @@ fun WizardHostScreen(
 
                     val pending = active.pending
                     if (pending != null) {
-                        SeniorTitleText(
-                            stringResolver.resolve(
-                                key = "step.title.${pending.params.refId}",
-                                args = emptyMap(),
-                            ),
+                        val (titleKey, bodyKey) = stepKeysFor(
+                            stepType = current.currentStep.stepType,
+                            refId = pending.params.refId,
                         )
+                        SeniorTitleText(stringResolver.resolve(titleKey))
                         Spacer(Modifier.height(12.dp))
-                        SeniorBodyText(
-                            stringResolver.resolve(
-                                key = "step.body.${pending.params.refId}",
-                                args = emptyMap(),
-                            ),
-                        )
+                        SeniorBodyText(stringResolver.resolve(bodyKey))
                         Spacer(Modifier.height(24.dp))
 
                         // Two buttons: primary "Далее" captures a no-op answer
@@ -161,4 +154,29 @@ private fun activeHost(
     com.launcher.api.wizard.StepType.SystemSetting -> systemSettingHost
     com.launcher.api.wizard.StepType.TutorialHint -> tutorialHintHost
     is com.launcher.api.wizard.StepType.Custom -> uiChoiceHost
+}
+
+/**
+ * Maps (stepType, refId) → (title key, body key) following the conventions
+ * baked into the bundled XML strings:
+ *  - UIChoice "language" → ui.language.question / (empty)
+ *  - SystemSetting "android.role.home" → system_setting.android.role.home.label / .desc
+ *  - TutorialHint "first-tile-hint" → hint.first-tile-hint / (empty)
+ *
+ * AndroidStringResolver normalises dots to underscores at lookup time so
+ * these keys hit `ui_language_question`, `system_setting_android_role_home_label`,
+ * etc. in res/values{-LOCALE}/strings_wizard.xml.
+ */
+private fun stepKeysFor(
+    stepType: com.launcher.api.wizard.StepType,
+    refId: String,
+): Pair<String, String> = when (stepType) {
+    com.launcher.api.wizard.StepType.UIChoice ->
+        "ui.$refId.question" to "ui.$refId.description"
+    com.launcher.api.wizard.StepType.SystemSetting ->
+        "system_setting.$refId.label" to "system_setting.$refId.desc"
+    com.launcher.api.wizard.StepType.TutorialHint ->
+        "hint.$refId" to "hint.$refId.body"
+    is com.launcher.api.wizard.StepType.Custom ->
+        "step.title.$refId" to "step.body.$refId"
 }

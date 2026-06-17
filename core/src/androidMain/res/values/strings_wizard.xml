@@ -24,6 +24,34 @@
     <string name="wizard_save_progress_no">No</string>
     <string name="wizard_back_at_first_step_toast">To exit, close the app.</string>
     <string name="wizard_understood">Got it</string>
+    <!-- Plain interpolation — {current}/{total}. ICU plurals can be added later. -->
+    <string name="wizard_step_n_of_m">Step {current} of {total}</string>
+
+    <!-- UI option questions (refId-derived keys) — title key = ui_<refId>_question -->
+    <string name="ui_language_description">Select your interface language.</string>
+    <string name="ui_theme_description">Light, dark, or follow the system.</string>
+    <string name="ui_fontScale_description">Bigger text is easier to read.</string>
+    <string name="ui_grid_description">How many tiles fit on the home screen.</string>
+    <string name="ui_screenLayout_description">Pick the screen layout you prefer.</string>
+    <string name="ui_tileSet_description">Choose a starter set of tiles. You can change them later.</string>
+
+    <!-- System setting label / desc — keys = system_setting_<refId-with-dots>_label / _desc -->
+    <string name="system_setting_android_role_home_label">Set as default launcher</string>
+    <string name="system_setting_android_role_home_desc">Lets this app show whenever you press Home.</string>
+    <string name="system_setting_android_permission_POST_NOTIFICATIONS_label">Allow notifications</string>
+    <string name="system_setting_android_permission_POST_NOTIFICATIONS_desc">So you can see messages and calls.</string>
+    <string name="system_setting_android_permission_CALL_PHONE_label">Allow calls</string>
+    <string name="system_setting_android_permission_CALL_PHONE_desc">Lets you tap a contact tile to call.</string>
+    <string name="system_setting_android_accessibility_our_service_label">Turn on accessibility service</string>
+    <string name="system_setting_android_accessibility_our_service_desc">Used to navigate the home screen reliably.</string>
+    <string name="system_setting_android_battery_ignore_optimizations_label">Don\'t optimise this app\'s battery</string>
+    <string name="system_setting_android_battery_ignore_optimizations_desc">Keeps notifications working when the screen is off.</string>
+    <string name="system_setting_android_hide_status_bar_label">Hide status bar</string>
+    <string name="system_setting_android_hide_status_bar_desc">Removes the top bar for a cleaner home screen.</string>
+
+    <!-- Tutorial hint keys — title = hint_<refId>, body = hint_<refId>_body -->
+    <string name="hint_first_tile_hint">First tile</string>
+    <string name="hint_first_tile_hint_body">Tap a tile to use it. You can change tiles later from the menu.</string>
 
     <!-- UI option questions (refId-derived keys) -->
     <string name="ui_language_question">Choose your language</string>
