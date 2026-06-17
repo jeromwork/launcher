@@ -244,3 +244,40 @@ Before starting Phase 0 (T601 — verify ionspin actuality):
 **Вердикт**: **READY** — можно начинать писать код, никаких блокеров. Старт с задачи T601 (проверить, жива ли библиотека libsodium).
 
 Один **ручной шаг** остался — открыть PR на GitHub через UI (`gh auth login` нужен, я этого делать не могу).
+
+---
+
+## Post-implementation status (2026-06-17)
+
+Implementation `j_f_crypto_core_module_17_06_26` branch завершена per блочный план:
+
+**Blocks delivered**:
+- **Block A** (Phases 0-4 + Phase 9 partial): module scaffolding, 11 value types,
+  7 ports, 4 fakes, 5 property-test suites, KeyBlob frozen fixtures + roundtrip.
+- **Block B** (Phase 5): LibsodiumRandomSource / AeadCipher (XChaCha20-Poly1305) /
+  AsymmetricCrypto (X25519 + Ed25519 + sealed-box) / KeyDerivation (HKDF-SHA256
+  hand-rolled over expect/actual HmacSha256). RFC KAT'ы: 7748 + 8032 + 8439 +
+  XChaCha20 IETF draft + 5869.
+- **Block C** (Phase 6 + Phase 8 + Phase B): Android Keystore wrap pattern
+  (StrongBox with TEE fallback), DI module + assertNoFakeCryptoInRelease, R8
+  -assumenosideeffects family.crypto.fake.**, Konsist fitness test, backup XML
+  exclude `keys/`, instrumentation tests passing on emulator.
+- **Block D** (Phase A + Phase D + Phase E + Phase G partial): crypto-review.md
+  published, glossary §11 + roadmap status updated, CI workflow
+  `f-crypto-tests.yml`, scenarios checkboxes traced (3/4/6 partial/7/9/11).
+
+**Test results**:
+- `:core:crypto:jvmTest` — 39/39 green (24 commonTest + 15 jvmTest including KAT'ы).
+- `:core:crypto:connectedDebugAndroidTest` — 5/5 green on эмулятор API 35.
+- `:core:crypto:verifyCryptoIsolation` — green.
+- `:app:test*UnitTest --tests "*fitness.*"` — green (Konsist scan).
+
+**Deferred к follow-up**:
+- Wycheproof subset pin SHA (T658) — policy зафиксирована в crypto-review.md,
+  курация subset'а отложена.
+- iOS adapters — stub-screamer'ы держат контракт; реализация при V-1.
+- Cross-platform vector parity generator (T690) — RFC KAT'ы покрывают same
+  property, выделенный generator-скрипт отложен.
+- TEE attestation hard-fail (T6B4) — на эмуляторе software-backed, becomes hard
+  fail at billing gate per crypto-review.md "Known risks".
+- Library extract (Сценарий 7 эксперимент) — TODO(extract-when-2nd-consumer).
