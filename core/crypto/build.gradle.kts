@@ -58,6 +58,14 @@ kotlin {
                 implementation(libs.kotest.runner.junit5)
             }
         }
+        // Spec 016 Phase B — Android Keystore instrumentation tests run on a device/emulator.
+        val androidInstrumentedTest by getting {
+            dependencies {
+                implementation("androidx.test:runner:1.6.2")
+                implementation("androidx.test.ext:junit:1.2.1")
+                implementation(libs.kotlinx.coroutines.test)
+            }
+        }
     }
 }
 
@@ -66,6 +74,7 @@ android {
     compileSdk = libs.versions.compileSdk.get().toInt()
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

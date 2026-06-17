@@ -5,7 +5,9 @@ import androidx.work.Configuration
 import com.launcher.adapters.lifecycle.ConfigRefreshWorker
 import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
 import com.launcher.app.di.appAndroidModule
+import com.launcher.app.di.assertNoFakeCryptoInRelease
 import com.launcher.app.di.cryptoModule
+import com.launcher.app.di.f016CryptoModule
 import com.launcher.app.di.pairingModule
 import com.launcher.app.di.spec006Module
 import com.launcher.app.di.spec014Module
@@ -59,11 +61,19 @@ class LauncherApplication : Application(), Configuration.Provider {
                 backendModule, // flavor-resolved (Firebase or Fakes)
                 pairingModule, // spec 007 PairingService + PairingViewModel
                 cryptoModule,  // spec 011 crypto adapters + PairingCryptoCoordinator
+                f016CryptoModule, // spec 016 (F-CRYPTO) ports → Libsodium adapters
                 setupModule,   // spec 010 GmsAvailabilityPort + List<SetupCheck>
                 spec014Module, // spec 014 tile-editing — empty в Phase 0, bindings landed в T060
                 spec015Module, // spec 015 (F-3) wizard + localization + senior UI
             )
         }
+        // Spec 016 (F-CRYPTO) FR-018 / SC-011 — fail-fast if any Fake* crypto adapter
+        // is wired in a non-debug build. Defense-in-depth alongside the Detekt rule
+        // (compile-time) and R8 strip (-assumenosideeffects family.crypto.fake.**).
+        if (!BuildConfig.DEBUG) {
+            assertNoFakeCryptoInRelease { type -> org.koin.java.KoinJavaComponent.get(type) }
+        }
+
         core.start()
 
         // Spec 008 FR-022 T3: schedule periodic config-refresh WorkManager job.
