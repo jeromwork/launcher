@@ -18,6 +18,16 @@ plugins {
 }
 
 kotlin {
+    // expect/actual classes (used for SecureKeyStore) are still marked Beta in Kotlin 2.0.
+    // Per spec 016 Clarifications Q1 we intentionally use this shape — suppress warning.
+    targets.configureEach {
+        compilations.configureEach {
+            kotlinOptions {
+                freeCompilerArgs += "-Xexpect-actual-classes"
+            }
+        }
+    }
+
     androidTarget {
         compilations.all {
             kotlinOptions {
