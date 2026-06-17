@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spec 015 — wizard strings (AR). STUB. Missing keys fall back to EN per FR-029. RTL per FR-032. -->
+<resources>
+    <string name="wizard_next">التالي</string>
+    <string name="wizard_skip">تخطي</string>
+    <string name="wizard_back">السابق</string>
+</resources>

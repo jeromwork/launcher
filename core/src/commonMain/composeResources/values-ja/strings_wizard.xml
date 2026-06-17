@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spec 015 — wizard strings (JA). STUB. Missing keys fall back to EN per FR-029. -->
+<resources>
+    <string name="wizard_next">次へ</string>
+    <string name="wizard_skip">スキップ</string>
+    <string name="wizard_back">戻る</string>
+</resources>
