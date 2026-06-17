@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "_note": "Per-key context for procedure-translate-spec-strings skill (FR-031b). Each entry: value (EN base), context (1-2 sentences explaining placement, tone, audience).",
+  "entries": {
+    "wizard_loading": {
+      "value": "Loading…",
+      "context": "Shown in the wizard host while the engine resolves the next step. Brief. Avoid technical wording."
+    },
+    "wizard_next": {
+      "value": "Next",
+      "context": "Primary advance button at the bottom of every wizard step. Senior-safe (≥18sp, ≥56dp). Keep ≤ 10 chars to avoid layout issues in DE/RU."
+    },
+    "wizard_skip": {
+      "value": "Skip",
+      "context": "Secondary button shown on Optional steps. Senior-safe primitive. Should feel non-judgemental — user isn't 'giving up'."
+    },
+    "wizard_back": {
+      "value": "Back",
+      "context": "Secondary navigation. System Back button, also a UI button on multi-screen steps."
+    },
+    "wizard_back_at_first_step_toast": {
+      "value": "To exit, close the app.",
+      "context": "Toast shown when user presses System Back on step 0 of the wizard. Per Q-1 (b). Tone: gentle, instructive."
+    },
+    "wizard_understood": {
+      "value": "Got it",
+      "context": "Dismiss button on a tutorial hint overlay. Per FR-023 (TutorialHintOverlay). Friendly, confident."
+    },
+    "ui_language_question": {
+      "value": "Choose your language",
+      "context": "UIChoiceStep question text for the 'language' option in ui-customization.pool. First wizard step in many manifests."
+    },
+    "system_setting_role_home_label": {
+      "value": "Set as default launcher",
+      "context": "Title of the wizard step asking the user to grant ROLE_HOME. Per FR-053a. Senior persona: this is the single most consequential permission ask in the wizard."
+    },
+    "system_setting_role_home_desc": {
+      "value": "Lets this app show whenever you press Home.",
+      "context": "Plain-language explanation paired with the label. Avoid 'launcher' jargon — describe behaviour, not capability."
+    },
+    "play_store_fallback_title": {
+      "value": "Please update the app",
+      "context": "Shown when a bundled config has schemaVersion > known (FR-016 hard-fail). User cannot proceed; this screen replaces the wizard. Per Q-6 (b)."
+    }
+  }
+}

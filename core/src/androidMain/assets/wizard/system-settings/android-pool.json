@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "id": "system-settings.android-pool",
+  "name": "system_settings_android_pool.name",
+  "description": "system_settings_android_pool.desc",
+  "deviceClass": ["android-phone"],
+  "body": {
+    "platform": "android",
+    "settings": [
+      {
+        "id": "android.role.home",
+        "mechanism": "DeepLink",
+        "criticality": "Required",
+        "canSkip": true,
+        "deepLink": "RoleManager.createRequestRoleIntent(ROLE_HOME)",
+        "androidMinApi": 29,
+        "dependsOn": [],
+        "detectionStrategy": "Programmatic",
+        "labelKey": "system_setting_role_home_label",
+        "descriptionKey": "system_setting_role_home_desc"
+      },
+      {
+        "id": "android.permission.POST_NOTIFICATIONS",
+        "mechanism": "StandardPermission",
+        "criticality": "Required",
+        "canSkip": false,
+        "deepLink": null,
+        "androidMinApi": 33,
+        "dependsOn": [],
+        "detectionStrategy": "Programmatic",
+        "labelKey": "system_setting_post_notifications_label",
+        "descriptionKey": "system_setting_post_notifications_desc"
+      },
+      {
+        "id": "android.permission.CALL_PHONE",
+        "mechanism": "StandardPermission",
+        "criticality": "Optional",
+        "canSkip": true,
+        "deepLink": null,
+        "androidMinApi": null,
+        "dependsOn": [],
+        "detectionStrategy": "Programmatic",
+        "labelKey": "system_setting_call_phone_label",
+        "descriptionKey": "system_setting_call_phone_desc"
+      },
+      {
+        "id": "android.accessibility.our-service",
+        "mechanism": "AccessibilityService",
+        "criticality": "Optional",
+        "canSkip": true,
+        "deepLink": "Settings.ACTION_ACCESSIBILITY_SETTINGS",
+        "androidMinApi": null,
+        "dependsOn": [],
+        "detectionStrategy": "Programmatic",
+        "labelKey": "system_setting_accessibility_label",
+        "descriptionKey": "system_setting_accessibility_desc"
+      },
+      {
+        "id": "android.battery.ignore_optimizations",
+        "mechanism": "SpecialPermission",
+        "criticality": "Optional",
+        "canSkip": true,
+        "deepLink": "Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "androidMinApi": 23,
+        "dependsOn": [],
+        "detectionStrategy": "Programmatic",
+        "labelKey": "system_setting_battery_label",
+        "descriptionKey": "system_setting_battery_desc"
+      },
+      {
+        "id": "android.hide_status_bar",
+        "mechanism": "AccessibilityService",
+        "criticality": "Optional",
+        "canSkip": true,
+        "deepLink": null,
+        "androidMinApi": null,
+        "dependsOn": [],
+        "detectionStrategy": "Indeterminate",
+        "labelKey": "system_setting_hide_status_bar_label",
+        "descriptionKey": "system_setting_hide_status_bar_desc"
+      }
+    ]
+  }
+}

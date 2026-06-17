@@ -104,7 +104,7 @@ Phase 0: Vision ✅ DONE
 Phase 1: Foundation (~5-7 weeks sequential)
    F-1 Family Group Foundation        ❌ DEPRECATED 2026-05-28
                                       (moved to ecosystem-vision.md)
-   Шаг 1: F-3  Wizard Module + Localization    — wizard работает ЛОКАЛЬНО
+   Шаг 1: F-3  Wizard Module + Localization    — wizard работает ЛОКАЛЬНО (🚧 InProgress 2026-06-17)
    Шаг 2: F-CRYPTO  core/crypto/ KMP module    — lib-family-crypto
 
    (F-4, F-5 — cloud-feature setup, активируются в Phase 2

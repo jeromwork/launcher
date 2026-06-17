@@ -284,3 +284,54 @@
 **Trigger**: F-4 ships (Google Sign-In) → unblocks F-014.1 server backup phase. F-5 (E2E encryption) работает с этими documents автоматически без изменений в wire format.
 
 **Source**: [spec 014 plan.md §11.4](../../specs/014-tile-editing-admin-senior-profiles/plan.md), [research.md §2](../../specs/014-tile-editing-admin-senior-profiles/research.md), [data-model.md §10](../../specs/014-tile-editing-admin-senior-profiles/data-model.md).
+
+
+## SRV-CONFIG-001: NetworkConfigSource for wizard manifests (F-3 + later phases)
+
+**Контекст**: F-3 (spec 015) ships `BundledConfigSource` only — wizard manifests, tile sets, screen layouts, system-settings pools, and UI-customization pools come from the APK assets. Users can't pull a fresh `tile-set` ("neighbours" variant for a specific care family) without app update.
+
+**MVP workaround**: bundled assets cover the launch baseline. Marketplace import is OUT for F-3 (per OUT scope в spec.md).
+
+**Own-server destination**:
+- `NetworkConfigSource: ConfigSource` adapter fetches signed configs from our server via `https://api.launcher.app/v1/configs/{kind}/{id}`.
+- Signature scheme: Ed25519 signed manifest envelope; client verifies against pinned public key.
+- Cost-of-swap: ≤1 module (new adapter in `:core/androidMain/adapters/wizard/`), wire-format contract identical, `BundledConfigSource` stays as offline fallback.
+
+**Inline TODO в F-3**:
+```kotlin
+// TODO(server-roadmap, SRV-CONFIG-001): NetworkConfigSource fetches signed
+// configs from own server. See FR-046. Bundled stays as offline fallback.
+```
+
+**Trigger**: when the first care-family marketplace ships, or when push of an updated tile-set without app update is required.
+
+**Source**: [spec 015 plan.md §8](../../specs/015-wizard-localization-senior-ui/plan.md), [FR-046 в spec.md](../../specs/015-wizard-localization-senior-ui/spec.md).
+
+
+## SRV-PREFS-001: UserPreferences cloud sync (F-3 → spec 008)
+
+**Контекст**: F-3 (spec 015) `UserPreferences` (theme, fontScale, languageOverride, attestedSettings, wizardCompletedAppFamilies) persisted locally в DataStore. Если у пользователя несколько устройств (managed phone + tablet) — настройки не синхронизируются.
+
+**Own-server destination**:
+- F-4 + spec 008 add `ConfigDocument.userPreferences` slot — F-3 store migrates into it.
+- `UserPreferencesStore` port stays unchanged; impl swaps from `PersistentUserPreferencesStore` (DataStore) to `ConfigDocumentUserPreferencesStore` (reads/writes ConfigDocument via spec 008 ConfigEditor).
+- Cost-of-swap: ≤1 file rewrite + migration tool that copies DataStore → ConfigDocument once.
+
+**Inline TODO в F-3**: см. `core/src/commonMain/kotlin/com/launcher/api/wizard/UserPreferences.kt`.
+
+**Trigger**: F-4 ships (Google Sign-In) + spec 008 ConfigEditor supports `userPreferences` field.
+
+**Source**: [spec 015 FR-051](../../specs/015-wizard-localization-senior-ui/spec.md).
+
+
+## SRV-TRANSLATE-001: Server-side translation cache (F-3 long-term)
+
+**Контекст**: F-3 translation pipeline (`procedure-translate-spec-strings` skill) calls Anthropic Claude API directly from a developer's workstation. Costs are billed to the developer's API key; quality cannot be reviewed before commit; multiple developers re-translate the same key independently.
+
+**Own-server destination**:
+- `/api/translate` proxy endpoint with: (a) server-cached translations keyed by `(source, target_locale, key, context_hash)`; (b) human review queue for AR/HI/ZH/JA/KK; (c) shared API key (one bill, not per-developer).
+- Skill calls our server, falls back to direct Anthropic API if server is down.
+
+**Trigger**: when the translation skill is used by more than one developer or when AR/HI/ZH/JA/KK quality issues land in beta feedback.
+
+**Source**: [.claude/skills/procedure-translate-spec-strings/SKILL.md](../../.claude/skills/procedure-translate-spec-strings/SKILL.md).

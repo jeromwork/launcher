@@ -14,7 +14,11 @@
 
 | Action intent name | Source spec | Description (1 line) | Auth scope | Idempotent | Confirmation? | Voice-triggerable? |
 |--------------------|-------------|----------------------|------------|------------|---------------|---------------------|
-| _(empty — заполняется по мере появления S-спек)_ | | | | | | |
+| `wizard.start` | 015 (F-3) | Re-runs the first-run wizard for the active app-family. | device-local | true | true | false |
+| `wizard.skipToStep` | 015 (F-3) | Jumps the running wizard to a specific step refId. | device-local | true | false | false |
+| `localization.resolve` | 015 (F-3) | Look up a string by key in current locale. | device-local | true | false | false |
+| `tileSet.list` | 015 (F-3) | List bundled tile sets the wizard exposes. | device-local | true | false | false |
+| `systemSettings.applyOrPrompt` | 015 (F-3) | Apply / prompt for an Android system setting (ROLE_HOME, POST_NOTIFICATIONS, etc.). | device-local | false | true (for permission asks) | false |
 
 ---
 

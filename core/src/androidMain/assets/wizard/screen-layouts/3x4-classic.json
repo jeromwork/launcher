@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "screen-layout.3x4-classic",
+  "name": "screen_layout_3x4_classic_name",
+  "description": "screen_layout_3x4_classic_desc",
+  "deviceClass": ["*"],
+  "body": {
+    "gridRows": 4,
+    "gridCols": 3,
+    "bottomToolbar": {
+      "actions": ["back", "settings"]
+    },
+    "topTabs": null
+  }
+}

@@ -53,6 +53,10 @@ composeUiTest = "1.7.5"
 # Konsist — fitness-function tests (per spec 005 §8: domain-isolation, whatsapp-residue, legacy-bridge expiry)
 konsist = "0.17.3"
 
+# Roborazzi — Robolectric-backed Compose screenshot tests (spec 015 T094-T096).
+# Test-only. Snapshots live in `src/androidUnitTest/snapshots/`. CI gate: snapshot diff fails the build.
+roborazzi = "1.32.2"
+
 # Firebase (spec 007 realBackend flavor only). BoM keeps all Firebase libs version-aligned.
 firebaseBom = "33.7.0"
 googleServicesPlugin = "4.4.2"
@@ -145,6 +149,11 @@ androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-
 # Konsist — fitness functions
 konsist = { group = "com.lemonappdev", name = "konsist", version.ref = "konsist" }
 
+# Roborazzi — Compose screenshot tests on Robolectric (spec 015 T094-T096).
+roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", version.ref = "roborazzi" }
+roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
+roborazzi-junit-rule = { group = "io.github.takahirom.roborazzi", name = "roborazzi-junit-rule", version.ref = "roborazzi" }
+
 # Firebase — realBackend flavor only (spec 007 FR-011, FR-015, FR-016).
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
@@ -192,3 +201,4 @@ compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServicesPlugin" }
+roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }

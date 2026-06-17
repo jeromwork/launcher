@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spec 015 — wizard strings (PT). STUB. Missing keys fall back to EN per FR-029. -->
+<resources>
+    <string name="wizard_next">Próximo</string>
+    <string name="wizard_skip">Pular</string>
+    <string name="wizard_back">Voltar</string>
+</resources>

@@ -9,6 +9,7 @@ import com.launcher.app.di.cryptoModule
 import com.launcher.app.di.pairingModule
 import com.launcher.app.di.spec006Module
 import com.launcher.app.di.spec014Module
+import com.launcher.app.di.spec015Module
 import com.launcher.core.LauncherCore
 import com.launcher.di.backendModule
 import com.launcher.di.setupModule
@@ -60,6 +61,7 @@ class LauncherApplication : Application(), Configuration.Provider {
                 cryptoModule,  // spec 011 crypto adapters + PairingCryptoCoordinator
                 setupModule,   // spec 010 GmsAvailabilityPort + List<SetupCheck>
                 spec014Module, // spec 014 tile-editing — empty в Phase 0, bindings landed в T060
+                spec015Module, // spec 015 (F-3) wizard + localization + senior UI
             )
         }
         core.start()

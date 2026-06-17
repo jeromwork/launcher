@@ -937,7 +937,9 @@ Code in main is complete; these only need *running* against a build.
 - **Status**: 🟢 OPEN
 - **Origin**: spec 009 pre-specify discovery 2026-05-15 (пункт 3 — preset как форвард-совместимая концепция).
 
-### TODO-FUTURE-SPEC-006: onboarding-and-tutorials (внутреннее обучение admin + Managed) 🟢
+### TODO-FUTURE-SPEC-006: onboarding-and-tutorials (внутреннее обучение admin + Managed) ✅ ЧАСТИЧНО ЗАКРЫТО спеком 015 (F-3)
+
+- **Status update 2026-06-17**: Managed (бабушка) first-launch wizard + tutorial-hint subsystem (FR-023..FR-025 spec 015) **закрывают** один из четырёх направлений этого TODO — Managed onboarding с extensible TutorialHintManager. Остальные три (admin onboarding, in-app contextual help для admin'a, видеоинструкции / Lottie-ассеты, help-screen) остаются открытыми и здесь.
 
 - **What**: Отдельный спек, покрывающий обучающий слой продукта целиком — несколько направлений:
   - **Admin onboarding**: как pair'иться (расширение QR-flow спека 7 с пошаговыми подсказками), что такое admin-mode и как туда зайти на бабушкином устройстве (7-tap gesture, см. спек 10 FR-021), walkthrough редактора раскладки (плитки, drag-and-drop из спека 9), типичные действия (поменять контакт, добавить плитку «Аптека»).
@@ -1184,3 +1186,33 @@ Code in main is complete; these only need *running* against a build.
 **Промоция в активный спек**: если item становится частью текущего спека — копировать в `specs/<id>/tasks.md`, оставить здесь с note «In progress in spec NNN — task TXXX». После завершения спека → переместить в Closed.
 
 **Re-review**: при каждом `/speckit.analyze` — проверять item'ы со статусом `🔴` и `🟡`, актуальны ли.
+
+
+### TODO-PREFS-001: UserPreferences ContentProvider для care family ecosystem 🟢
+
+- **What**: F-3 (spec 015) ships `UserPreferences` (theme, fontScale, languageOverride) persisted локально. Care family ecosystem (messenger app, photos app, voice-call app) тоже должны respect-ить эти настройки — сейчас каждое приложение хранит свои дубликаты.
+- **Why**: Per FR-051 + memory `project_managed_naming_convention.md` — ecosystem apps share Managed identity. Senior-friendly UX требует, чтобы шрифт/тема/язык были консистентны через все приложения.
+- **How**: Когда вторая ecosystem app shipps — добавить Android `ContentProvider` (`com.launcher.preferences.provider`) на `UserPreferencesStore`. Authority namespaced на app-family. Read permission shared между apps signed одним keystore. Write — только launcher. Other apps subscribe via `ContentObserver` для live theme changes.
+- **When**: Когда вторая ecosystem app (messenger) materializes. Не блокирует F-3 ship.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 015 FR-051 + C-31 (UserPreferencesStore as future cross-app surface).
+
+
+### TODO-WIZARD-001: Translation skill — Claude API HTTP wiring 🟢
+
+- **What**: `core/scripts/translate-strings.main.kts` сегодня печатает list keys-to-translate но **не** делает HTTP POST к https://api.anthropic.com/v1/messages. Need to wire the actual call с anthropic-version header, prompt assembly из CONTEXT.json + GLOSSARY.md, response parsing, XML write-back.
+- **Why**: Skill SKILL.md describes the workflow, но без working HTTP call manual translation остаётся the only way.
+- **How**: kotlin-stdlib `HttpURLConnection` (zero deps). System prompt instructing strict XML escaping. Body: list of `(key, EN value, per-key context)` per locale.
+- **When**: До first speckit-tasks run after F-3 implementation, когда новые strings потребуют translation.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 015 FR-031a + .claude/skills/procedure-translate-spec-strings/SKILL.md.
+
+
+### TODO-WIZARD-002: AI-translation quality review для AR/HI/ZH/JA/KK 🟢
+
+- **What**: F-3 ships Claude-generated stubs для 9 не-base локалей. Human review pending per OUT-005a.
+- **Why**: AI translation качество для AR/HI/ZH/JA/KK может быть variable; senior persona expects natural phrasing in native script.
+- **How**: native-speaker contractor review pass; capture corrections в CONTEXT.json как pinned overrides.
+- **When**: Phase 4 (per spec.md Effort estimate). Не блокирует F-3 ship.
+- **Status**: 🟢 OPEN
+- **Origin**: spec 015 OUT-005a.

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spec 015 — wizard strings (KK-Latn). STUB. Missing keys fall back to EN per FR-029. -->
+<resources>
+    <string name="wizard_next">Keler</string>
+    <string name="wizard_skip">Ótkizip jiberý</string>
+    <string name="wizard_back">Artqa</string>
+</resources>

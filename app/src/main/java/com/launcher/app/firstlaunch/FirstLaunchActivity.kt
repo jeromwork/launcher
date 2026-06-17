@@ -55,6 +55,7 @@ class FirstLaunchActivity : ComponentActivity() {
 
     private val presetRepository: PresetRepository by inject()
     private val gmsAvailability: GmsAvailabilityPort by inject()
+    private val userPreferencesStore: com.launcher.api.wizard.UserPreferencesStore by inject()
 
     private var pickedPreset: FlowPreset? = null
 
@@ -256,8 +257,20 @@ class FirstLaunchActivity : ComponentActivity() {
     }
 
     private fun proceedToHome() {
-        startActivity(Intent(this, HomeActivity::class.java))
-        finish()
+        // Spec 015 (F-3) FR-005 — if the user-facing wizard has not run yet for
+        // the active app-family, route to WizardActivity instead of HomeActivity.
+        // Spec 010 setup wizard handles GMS + role-home + notifications; F-3
+        // wizard handles language / theme / tile-set / system-settings detail.
+        lifecycleScope.launch {
+            val appFamilyId = "simple-launcher"
+            val next = if (!userPreferencesStore.isWizardCompleted(appFamilyId)) {
+                Intent(this@FirstLaunchActivity, com.launcher.app.wizard.WizardActivity::class.java)
+            } else {
+                Intent(this@FirstLaunchActivity, HomeActivity::class.java)
+            }
+            startActivity(next)
+            finish()
+        }
     }
 
     companion object {
