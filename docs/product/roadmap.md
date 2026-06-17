@@ -105,7 +105,7 @@ Phase 1: Foundation (~5-7 weeks sequential)
    F-1 Family Group Foundation        ❌ DEPRECATED 2026-05-28
                                       (moved to ecosystem-vision.md)
    Шаг 1: F-3  Wizard Module + Localization    — wizard работает ЛОКАЛЬНО (✅ Done 2026-06-17, merged PR #19)
-   Шаг 2: F-CRYPTO  core/crypto/ KMP module    — lib-family-crypto (🚧 InProgress 2026-06-17 — spec phase)
+   Шаг 2: F-CRYPTO  core/crypto/ KMP module    — lib-family-crypto (🚧 InProgress 2026-06-17 — implementation: ports + Libsodium adapters + Android Keystore wrap + RFC KAT + instrumentation green on emulator; docs/dev/crypto-review.md published; awaits paid audit before billing per SRV-CRYPTO-003)
 
    (F-4, F-5 — cloud-feature setup, активируются в Phase 2
     F-2 — отложен в Phase 4+ entirely)
