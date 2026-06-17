@@ -8,13 +8,13 @@ import family.crypto.api.KeyDerivation
  */
 class FakeKeyDerivation : KeyDerivation {
 
-    override suspend fun derive(ikm: ByteArray, salt: ByteArray, info: String, length: Int): ByteArray {
+    override suspend fun derive(ikm: ByteArray, salt: ByteArray, info: ByteArray, length: Int): ByteArray {
         require(length > 0) { "length must be > 0" }
         val out = ByteArray(length)
         var hash = FNV_OFFSET
         for (b in salt) hash = mix(hash, b.toLong())
         for (b in ikm) hash = mix(hash, b.toLong())
-        for (b in info.encodeToByteArray()) hash = mix(hash, b.toLong())
+        for (b in info) hash = mix(hash, b.toLong())
         for (i in 0 until length) {
             hash = mix(hash, i.toLong())
             out[i] = (hash and 0xff).toByte()

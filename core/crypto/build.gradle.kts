@@ -45,8 +45,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.serialization.json)
-            // libsodium-bindings будет включён в Phase 5 (T650+).
-            // implementation(libs.libsodium.bindings)
+            implementation(libs.libsodium.bindings)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
