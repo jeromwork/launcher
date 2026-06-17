@@ -24,7 +24,9 @@ class KeyBlob(
     val createdAt: Instant,
     val retiredAt: Instant? = null,
     val replacedBy: String? = null,
+    @Serializable(with = ByteArrayBase64Serializer::class)
     val wrappedKey: ByteArray,
+    @Serializable(with = ByteArrayBase64Serializer::class)
     val iv: ByteArray,
     val wrapKeyAlias: String
 ) {
