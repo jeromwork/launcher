@@ -46,6 +46,20 @@ F-CRYPTO нужна реализация: XChaCha20-Poly1305 (AEAD), X25519 (ECD
 
 **Если research показывает library dead**: переходим на Option B (BouncyCastle Android + cinterop iOS). Это **+1-2 weeks effort** к estimated 2-3 weeks. Записать в `tasks.md` если применяется.
 
+### Status (T601, T602 verification — 2026-06-17)
+
+Проверка выполнена через `https://github.com/ionspin/kotlin-multiplatform-libsodium`:
+
+- **Last release**: `0.9.5` от 2025-11-23 (< 12 месяцев — ✓).
+- **iOS targets**: `iosX64`, `iosArm64`, `iosSimulatorArm64` явно объявлены — ✓.
+- **XChaCha20-Poly1305**: подтверждён через `SecretStream.xChaCha20Poly1305*` — ✓.
+- **`crypto_box_seal` / `crypto_box_seal_open`**: не подтверждено явно в публичной документации (документация помечена как outdated, full bindings list существует). **Будет верифицировано в Phase 5 (T651)** при имплементации `LibsodiumAsymmetricCrypto.sealForRecipient`. Если функция отсутствует — fallback на manual `crypto_box_seal` через X25519 + XChaCha20 + ephemeral key (см. libsodium spec). Это локальная задача внутри одного файла, не blocker для Phase 1-4.
+- **HKDF-SHA256**: не подтверждён явно. Fallback: ручная реализация HKDF поверх HMAC-SHA256 из libsodium primitives (стандартный паттерн, RFC 5869 §2.2-§2.3 простой).
+
+**Pinned coordinates**: `com.ionspin.kotlin:multiplatform-crypto-libsodium-bindings:0.9.5`.
+
+**Decision**: продолжаем с Option A. Не активируем fallback Option B.
+
 ### Exit ramp
 
 Если ionspin умрёт после merge'а F-CRYPTO:
