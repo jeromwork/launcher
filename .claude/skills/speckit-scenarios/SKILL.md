@@ -30,19 +30,24 @@ Output language — Russian (`feedback_language_russian.md`); code, commands, id
 
 ### Step 1 — Identify scenario categories
 
-Read spec.md. Identify:
-- **Happy paths**: 1-2 primary user journeys (success). Usually from US-1 + US-2.
-- **Failure / edge cases**: 3-5 things that can go wrong:
+Read spec.md and let the **content of the spec** drive the scenario count — not a target number. A two-FR spec needs 2-3 scenarios; a 70+ FR foundation spec may need 12-15. Stop when every US, every critical SC, and every edge case from the Edge Cases section is covered by either a top-level scenario or a trouble case inside one.
+
+Identify candidate categories from the spec — include only those the spec actually has FRs/SCs/edge cases for:
+
+- **Happy paths**: primary user journeys (success). Usually one per User Story. If two US share the same flow shape, fold them into one scenario instead of duplicating.
+- **Failure / edge cases**: only those the spec explicitly addresses (look in Edge Cases section + FR error paths). Common candidates — include only when the spec covers them:
   - Process kill / Activity recreation
-  - Network / external service unavailable (if applicable)
+  - Network / external service unavailable
   - Permission denied
   - Bundled data corrupt / unknown version
   - User abandons mid-flow
   - Locale change / dynamic config change
-- **Evolution paths**: 1-2 scenarios for "what happens when X changes":
+- **Evolution paths**: only when the spec carries wire-format / migration / extensibility FRs:
   - App update with new step / new field
   - Adjacent app added (ecosystem reuse)
   - Forward/backward compat reads
+
+**Anti-padding rule**: do NOT invent a failure scenario the spec doesn't have an FR for, just to hit a count. Better five tight scenarios than nine with two filler.
 
 ### Step 2 — Draft scenarios in plain Russian
 
@@ -125,7 +130,8 @@ SPECKIT-SCENARIOS for specs/<id>/spec.md:
 
 - **Plain language only.** No `WizardCheckpointStore.load()`, no `Intent.startActivity()`. Translate every code-like reference to "what app does" prose.
 - **Brevity.** 5-10 sentences per scenario. Owner reads these to orient — long scenarios defeat the purpose.
-- **Trouble cases preferred over new scenarios.** If a variation can fit inside existing scenario as "trouble case N.b" — do that. Keep total count manageable.
+- **Scenario count is derived, not prescribed.** Count is whatever the spec needs: every US covered, every critical SC measurable from a step, every edge case from the Edge Cases section addressed. Could be 3 for a small spec, 12 for a foundation spec. Do not pad to hit a number; do not trim if coverage is real.
+- **Trouble cases preferred over new scenarios.** If a variation can fit inside existing scenario as "trouble case N.b" — do that. A trouble case is cheaper to read and keeps related behaviour co-located.
 - **Senior-friendly framing.** If app has senior persona (бабушка), scenarios should mention them naturally; setup-time scenarios mention admin where setup is done by admin.
 - **Required/Optional markers.** For any wizard / multi-step flow, use ★ / ☆ markers so owner sees the criticality structure.
 
