@@ -24,7 +24,7 @@ JSON, serialized via `kotlinx.serialization.json`.
 {
   "schemaVersion": 1,
   "stableId": "550e8400-e29b-41d4-a716-446655440000",
-  "expiresAt": 1739456789000,
+  "expiresAtEpochMillis": 1739456789000,
   "refreshToken": "1//04xxxxxxxxxxxxxxxxxx",
   "extra": {
     "firebase_jwt": "eyJhbGciOiJSUzI1NiIs..."
@@ -38,7 +38,7 @@ JSON, serialized via `kotlinx.serialization.json`.
 |-------|------|----------|-------------|
 | `schemaVersion` | Int | No | Always 1 в v1. Bump при breaking change. **Read first** during deserialization. |
 | `stableId` | String | No | UUID v4 (36 chars). = `AuthIdentity.stableId`. |
-| `expiresAt` | Long? | Yes | Epoch milliseconds. Null = unknown/never (для adapter'ов без token concept). For Google: Firebase JWT expiry timestamp. |
+| `expiresAtEpochMillis` | Long? | Yes | Epoch milliseconds. Null = unknown/never (для adapter'ов без token concept). For Google: Firebase JWT expiry timestamp. Имя поля отражает unit per type-honesty convention (избежать spec 008 неоднозначности `expiresAt: Long`). |
 | `refreshToken` | String? | Yes | Opaque refresh token. Used by adapter для refresh flow. **Never exposed** к consumer'ам. |
 | `extra` | Map<String, String> | No | Adapter-specific blob. For Google: `extra["firebase_jwt"]` = current Firebase JWT. Domain не интерпретирует. |
 
@@ -55,7 +55,7 @@ JSON, serialized via `kotlinx.serialization.json`.
 |-----------|--------------|
 | `schemaVersion` read first | Standard `kotlinx.serialization.json` pattern. |
 | `stableId` UUID v4 format | Property test: round-trip `UUID.randomUUID().toString()` через JSON. |
-| `expiresAt` epoch milliseconds, not seconds | Test: hardcode known epoch (e.g., 2026-01-01 = 1735689600000). |
+| `expiresAtEpochMillis` epoch milliseconds, not seconds | Test: hardcode known epoch (e.g., 2026-01-01 = 1735689600000). |
 | `extra` keys всегда lowercase + snake_case | Convention для consistency между adapter implementations. |
 | Corrupted blob → `current()` returns null | `EncryptedLocalSessionStorePropertyTest.kt`: random byte flip → no crash. |
 
@@ -65,7 +65,7 @@ JSON, serialized via `kotlinx.serialization.json`.
 
 - **Roundtrip test** (`SessionRecordRoundtripTest.kt`):
   ```kotlin
-  val original = SessionRecord(schemaVersion = 1, stableId = "550e8400-e29b-41d4-a716-446655440000", expiresAt = ..., refreshToken = ..., extra = mapOf("firebase_jwt" to "..."))
+  val original = SessionRecord(schemaVersion = 1, stableId = "550e8400-e29b-41d4-a716-446655440000", expiresAtEpochMillis = ..., refreshToken = ..., extra = mapOf("firebase_jwt" to "..."))
   val json = Json.encodeToString(original)
   val decoded = Json.decodeFromString<SessionRecord>(json)
   assertEquals(original, decoded)

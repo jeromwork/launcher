@@ -225,10 +225,16 @@ internal data class SessionRecord(
     val stableId: String,
 
     /**
-     * Token expiry timestamp. Null означает «unknown / never» (для adapter'ов без token concept).
-     * For Google: Firebase JWT expiry (~1 hour after issue).
+     * Token expiry timestamp в epoch-millis. Null означает «unknown / never»
+     * (для adapter'ов без token concept). For Google: Firebase JWT expiry
+     * (~1 hour after issue).
+     *
+     * NB (implementation choice, 2026-06-18): хранится как `Long`, не `Instant`,
+     * чтобы избежать добавления `kotlinx-datetime` к `:core` (остальной `:core`
+     * тоже использует `Long` epoch-millis — см. `DocSnapshot`,
+     * `SqlDelightLocalConfigStore`). Имя поля `expiresAtEpochMillis` отражает unit.
      */
-    val expiresAt: Instant?,
+    val expiresAtEpochMillis: Long?,
 
     /**
      * Opaque refresh token. Adapter-internal use only.
@@ -330,7 +336,7 @@ internal class GoogleSignInAuthAdapter(
         // Cold-start session restore (asynchronous, не блокирует Application.onCreate per FR-035)
         adapterScope.launch {
             val restored = sessionStore.current() ?: return@launch
-            if (restored.expiresAt != null && restored.expiresAt < Instant.now()) {
+            if (restored.expiresAtEpochMillis != null && restored.expiresAtEpochMillis < System.currentTimeMillis()) {
                 refreshToken(restored)  // attempt refresh; emit identity или null
             } else {
                 _currentUser.value = AuthIdentity(restored.stableId, /* email, name из extra? нет — повторно из Firebase или cache */ ...)
@@ -519,7 +525,7 @@ EncryptedLocalSessionStore             |
         |                              |
         | stores                       |
         v                              |
-SessionRecord { schemaVersion, stableId, expiresAt?, refreshToken?, extra }
+SessionRecord { schemaVersion, stableId, expiresAtEpochMillis?, refreshToken?, extra }
         |
         | wire format
         v

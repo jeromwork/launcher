@@ -193,11 +193,17 @@ private suspend fun lookupOrCreateIdentityLink(sub: String): String { ... }
 - Project minSdk = 24 (per F-CRYPTO spec). Safe margin.
 - Credential Manager + Google provider требуют Google Play Services version ≥ 16.0.0 (very old, present на всех modern devices). `AuthAdapterSelector` (FR-018) detects через `GoogleApiAvailability.isGooglePlayServicesAvailable()`.
 
-**Decision**: minSdk = 24 confirmed. Lock library version в `version-catalog.toml` (`libs.versions.toml`):
+**Decision**: minSdk = 26 (project actual) confirmed. Lock library version в `version-catalog.toml` (`libs.versions.toml`):
 ```toml
-androidx-credentials = "1.3.0"  # confirmed at research time; bump per release notes
-google-id = "1.1.1"
+androidx-credentials = "1.6.0"  # latest stable, released 2026-04-08; minSdk floor 23, our 26 — safe
+google-id = "1.2.0"             # latest stable (com.google.android.libraries.identity.googleid:googleid)
 ```
+
+**Status** (T701 verification, 2026-06-18):
+- `androidx.credentials:credentials:1.6.0` released 2026-04-08 (минSdk 23, OK с нашим 26).
+- `androidx.credentials:credentials-play-services-auth:1.6.0` — same version, available на Google Maven.
+- `com.google.android.libraries.identity.googleid:googleid:1.2.0` confirmed via Google Maven metadata.
+- Firebase BoM 33.7.0 уже в проекте (через spec 007); `firebase-auth-ktx` + `firebase-firestore-ktx` поверх неё.
 
 **Exit ramp**: if AndroidX bumps minSdk floor → reevaluate. Currently no such trajectory visible.
 
