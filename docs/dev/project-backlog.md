@@ -1075,7 +1075,7 @@ Code in main is complete; these only need *running* against a build.
   - `sealed interface Credentials { EmailPassword; PhoneOtp; TelegramToken; ... }`
   - `UserIdentity(externalId, displayId, providerKind)` — externalId используется как корень всех wire-formats (recovery backup, pairing identity proof)
   - Firebase Email/Password — бесплатно на Spark plan (не требует Blaze)
-- **When**: Отдельный спек **TBD** — prerequisite для spec 015 (multi-device-recovery). Точный номер определится при следующей renumerации (между текущим 014 family-group и 015 recovery, либо как 017 с recovery shifted ниже).
+- **When**: Отдельный спек **TBD** — prerequisite для spec 017 (multi-device-recovery, нумерация подтверждена 2026-06-17 после того как 015 = Wizard Localization закрыт и 016 = F-CRYPTO в работе).
 - **Status**: 🟡 OPEN
 - **Origin**: spec 011 mentor session 2026-05-23.
 - **Exit ramp**: переход на свой backend через новый `OwnBackendAuthProvider` adapter; existing wire-formats используют `externalId`, не email напрямую — миграция users через delegation-flow или silent re-auth. Refs `server-roadmap.md` SRV-CRYPTO-001.
@@ -1087,7 +1087,7 @@ Code in main is complete; these only need *running* against a build.
   - Recovery phase: новое устройство → email+password login → server initiates 2FA push к trusted peer → peer тапает «подтвердить» → peer device пере-шифровывает `peer_nonce` для freshly-generated Pub нового устройства → новое устройство просит passphrase → derives `recovery_key` → decrypts `encrypted_backup` → получает старые priv keys → доступ к старым blob'ам восстановлен.
 - **Why**: Без recovery потеря телефона = безвозвратная потеря всех зашифрованных blob'ов (включая медкарты). Pure E2E + named auth + peer-based 2FA даёт восстановление **без** server-side key escrow и **без** compromise privacy (peer не видит plaintext данных, только участвует как 2FA factor).
 - **How**: см. [ADR-008](../adr/ADR-008-social-recovery-architecture.md). MVP — 1-of-N peer authorization (любой trusted peer достаточен). Future — N-of-M через Shamir Secret Sharing (2-of-3 для устойчивости к single-peer loss).
-- **When**: Спек **015** (multi-device-recovery per C-9 renumerации 2026-05-22). Зависит от TODO-AUTH-001 (named identity prerequisite).
+- **When**: Спек **017** (multi-device-recovery, нумерация подтверждена 2026-06-17). Зависит от TODO-AUTH-001 (named identity prerequisite) **и** F-CRYPTO 016 (`KeyDerivation`, `AeadCipher`, `AsymmetricCrypto.sealCEK`/`unsealCEK`).
 - **Status**: 🟡 OPEN — supersedes high-level TODO-FUTURE-SPEC-009 с конкретным crypto design.
 - **Origin**: spec 011 mentor session 2026-05-23.
 

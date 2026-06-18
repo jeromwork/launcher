@@ -282,6 +282,17 @@ Glossary фиксирует **термины и формат**, но не реа
 
 ---
 
+## 11. F-CRYPTO — KeyBlob, ports, namespaces (spec 016)
+
+`:core:crypto` (KMP-модуль `family.crypto.*`) — крипто-фундамент: 7 ports (`AeadCipher`, `AsymmetricCrypto`, `KeyDerivation`, `RandomSource`, `SecureKeyStore` через expect/actual, плюс stubbed `KeyRotation` / `KeyEscrow`).
+
+- **KeyBlob** — wire-format файла обёрнутого ключа на диске (`<filesDir>/keys/<keyId>.blob`). JSON со `schemaVersion=1`, AES-256-GCM-wrapped private key bytes + IV + wrapKeyAlias. Полный контракт: [`contracts/key-blob-v1.md`](../../specs/016-f-crypto-core-module/contracts/key-blob-v1.md). Backward-compat fixtures **заморожены** на F-CRYPTO 1.0.0 release.
+- **KeyNamespace** — 5 разрешённых префиксов идентификаторов: `config-`, `media-`, `messenger-`, `recovery-`, `__internal-`. `KeyId` — `@JvmInline value class` с compile-time валидацией.
+- **Wrap pattern** — Android Keystore не хранит Curve25519 нативно; X25519/Ed25519 priv bytes оборачиваются AES-256-GCM ключом в TEE (StrongBox where available). Industrial paradigm (Signal Android, Bitwarden).
+- **Validation set** — RFC KAT (7748, 8032, 8439 + XChaCha IETF draft, 5869) + property tests + Android Keystore instrumentation. См. [`docs/dev/crypto-review.md`](../dev/crypto-review.md).
+
+---
+
 ## Резюме одной фразой для будущих агентов
 
 > **Три bundled JSON-схемы** (`wizard.manifest`, `screen.layout`, `tile.set`), общий 6-полевой header, forward-compat readers, локализация через ключи, один `ConfigSource` port с одной `BundledConfigSource` реализацией в MVP, server-side источники — additive adapters позже без смены формата. **Три KMP-модуля** (`core/wizard/`, `core/localization/`, `core/ui-senior/`) проектируются launcher-agnostic как extraction candidates для будущей messenger / album экосистемы; lint rule запрещает `core/*` → `app/*` imports. **Слово «preset» не используется.**

@@ -64,6 +64,19 @@ android {
         buildConfig = true
     }
 
+    // Spec 016 (F-CRYPTO) — release strips Fake* crypto adapters via R8.
+    // Defense-in-depth alongside the Detekt rule (compile-time) and
+    // assertNoFakeCryptoInRelease (runtime).
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
@@ -89,6 +102,8 @@ android {
 
 dependencies {
     implementation(project(":core"))
+    // Spec 016 (F-CRYPTO) — KMP crypto foundation module.
+    implementation(project(":core:crypto"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -139,6 +154,8 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    // Spec 016 (F-CRYPTO) — Konsist fitness function: catches Fake crypto imports in :app/src/main.
+    testImplementation(libs.konsist)
     // Spec 015 T119 — WizardEngineIntegrationTest constructs JsonPrimitive
     // payloads for the wizard step host. kotlinx-serialization-json is
     // implementation in :core (not api) so test classpath needs it explicit.

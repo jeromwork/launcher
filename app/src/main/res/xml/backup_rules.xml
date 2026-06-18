@@ -19,5 +19,7 @@
 <full-backup-content>
     <exclude domain="file" path="datastore/com.launcher.capability.snapshot_v1.preferences_pb" />
     <exclude domain="file" path="datastore/com.launcher.health.snapshot_v1.preferences_pb" />
+    <!-- Spec 016 (F-CRYPTO) — wrapped private keys excluded from legacy auto-backup. -->
+    <exclude domain="file" path="keys/" />
     <!-- Settings DataStore не excluded → backup'ится по умолчанию вместе со всем app data. -->
 </full-backup-content>

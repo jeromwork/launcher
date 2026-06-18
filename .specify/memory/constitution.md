@@ -1,6 +1,9 @@
 <!--
 Sync Impact Report — Universal App / GitHub Spec Kit
-- Version: 1.4.0 → 1.5.0
+- Version: 1.5.0 → 1.6.0
+- Principles: Added Article XIX (Organic Question Budgets in Clarification Passes) — overrides any prior numeric question caps in `speckit-clarify`, `mentor`, and analogous skills. Question count is organic, typical range 3–7, no hard cap. Padding to target or trimming below organic count are both bugs.
+- Skill alignment: `.claude/skills/speckit-clarify/SKILL.md` Step 3 + `.claude/skills/mentor/SKILL.md` step 5 updated to reference Article XIX and remove «5 questions» hard limit.
+- Previous: 1.4.0 → 1.5.0
 - Principles: Article II redefined project identity from "launcher product" to universal Android app
   with launcher capabilities as one supported use case; Articles III, V, VII, IX, and
   Project-Specific Architectural Direction aligned to app-owned / launcher-mode wording
@@ -448,6 +451,20 @@ A plan that does not pass these gates is incomplete.
 
 ---
 
+## Article XIX. Organic Question Budgets in Clarification Passes
+
+1. Any clarification or deliberation pass — `speckit-clarify`, `mentor` skill, ad-hoc discussion mode, future analogous skills — MUST ask **as many questions as the artifact's grey zones genuinely require**, no more and no fewer. The count is **organic**, derived from the content, not a numeric target.
+2. **No hard cap.** Skills MAY suggest a **typical range** (currently 3–7) for orientation, but MUST NOT enforce a ceiling that silently trims real grey zones, nor a floor that forces invented ones.
+3. **When the organic count exceeds 8**, the skill MUST surface this to the user explicitly: *"У меня N серьёзных вопросов с большим blast radius. Хочешь все сразу или разбить на два прохода?"* — and let the user decide. Splitting is the user's call, not the skill's.
+4. **Padding to a target** (inventing a 5th question because the skill said «ask 5») is a **bug** equivalent to making up requirements. Such padded questions waste user attention and signal the skill doesn't trust its own filter.
+5. **Trimming below organic count** (cutting question 6 because the skill said «top-5») is a **bug** equivalent to silently dropping requirements. The cut grey zone leaks past clarify and shows up later as a planning surprise or rework.
+6. Skills MUST select questions by **highest blast radius if wrong** (questions that would invalidate the next artifact — `plan.md`, an architectural choice, a one-way door). If multiple grey zones tie at high blast radius, ask all of them.
+7. This article overrides any pre-existing numeric limits in individual skill files. Skill maintainers MUST align skill prompts with this article when next touched.
+
+**Rationale**: Numeric limits felt safe («maximum 5») but produced two failure modes — padded questions when the spec was simple, and silently dropped questions when the spec was complex. Both failed the user. The owner's intent for clarification passes is to **catch what was implicit before architecture is baked in**, which is an organic property of the spec content, not a constant. Naming this as an article (rather than a per-skill rule) keeps future clarification skills automatically aligned without per-skill edits.
+
+---
+
 ## Delivery Rules for Spec Kit Artifacts
 
 The following rules are binding for future Spec Kit usage in this project:
@@ -583,6 +600,12 @@ These sources informed the constitution and are recommended reference material w
 ---
 
 ## Amendment History
+
+### 1.6 — 2026-06-17
+
+- Added **Article XIX. Organic Question Budgets in Clarification Passes** — overrides any prior numeric question caps in `speckit-clarify`, `mentor`, and analogous skills. Question count is organic, derived from spec's actual grey zones; typical range 3–7 but no hard cap. Padding to a target and trimming below organic count are both bugs.
+- Aligned `.claude/skills/speckit-clarify/SKILL.md` Step 3 — removed «Hard limit: 5 questions» — and `.claude/skills/mentor/SKILL.md` step 5 — removed «5 уточняющих вопросов» — to reference Article XIX.
+- Rationale: numeric limits produced two failure modes — padded questions on simple specs and silently dropped questions on complex specs. Owner explicitly surfaced this during F-CRYPTO clarification 2026-06-17.
 
 ### 1.5 — 2026-04-25
 

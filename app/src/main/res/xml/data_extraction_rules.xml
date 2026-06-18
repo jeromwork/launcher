@@ -22,10 +22,21 @@
           (GDPR transfer-to-processor mitigation).
         -->
         <exclude domain="database" path="contacts_cache.db" />
+        <!--
+          Spec 016 (F-CRYPTO) — wrapped private keys MUST NOT travel to
+          Google Drive backup. Even though they are wrapped by a TEE key
+          that itself cannot be backed up (Android Keystore aliases are
+          device-local), shipping the wrappedKey bytes to the cloud is
+          unnecessary risk surface. Restoring on a new device must go
+          through ADR-008 social recovery, not backup restore.
+        -->
+        <exclude domain="file" path="keys/" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="file" path="datastore/com.launcher.capability.snapshot_v1.preferences_pb" />
         <exclude domain="file" path="datastore/com.launcher.health.snapshot_v1.preferences_pb" />
         <exclude domain="database" path="contacts_cache.db" />
+        <!-- Spec 016 (F-CRYPTO) — see cloud-backup comment above. -->
+        <exclude domain="file" path="keys/" />
     </device-transfer>
 </data-extraction-rules>

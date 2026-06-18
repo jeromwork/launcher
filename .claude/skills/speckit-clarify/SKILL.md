@@ -47,7 +47,14 @@ Read spec.md. Look for:
 
 ### Step 3 — Ask ≤ 5 questions
 
-Hard limit: 5 questions per pass. Pick the ones with the **highest blast radius** if wrong (ones that would invalidate plan.md).
+**Question budget is organic, not numeric.** Per constitution Article XIX (Organic Question Budgets), do NOT pad to a target count and do NOT trim below what the spec actually needs:
+
+- Typical range: **3–7** questions per pass.
+- < 3 — fine if spec is genuinely simple; don't invent grey zones to hit a floor.
+- > 8 — propose splitting into two passes with the user: «У меня N серьёзных вопросов с большим blast radius. Хочешь все сразу или разбить на два прохода?» Let user decide.
+- Pick ones with the **highest blast radius** if wrong (ones that would invalidate plan.md). If five grey zones tie at high blast radius and a sixth is medium — ask five. If all seven are high blast — ask seven, not «top-5».
+
+**Padding to a target = bug.** Trimming below organic count leaks architectural risk past clarify. Both fail the user.
 
 Format each question as:
 - **Q:** the question

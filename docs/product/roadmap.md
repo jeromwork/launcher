@@ -104,8 +104,8 @@ Phase 0: Vision ✅ DONE
 Phase 1: Foundation (~5-7 weeks sequential)
    F-1 Family Group Foundation        ❌ DEPRECATED 2026-05-28
                                       (moved to ecosystem-vision.md)
-   Шаг 1: F-3  Wizard Module + Localization    — wizard работает ЛОКАЛЬНО (🚧 InProgress 2026-06-17)
-   Шаг 2: F-CRYPTO  core/crypto/ KMP module    — lib-family-crypto
+   Шаг 1: F-3  Wizard Module + Localization    — wizard работает ЛОКАЛЬНО (✅ Done 2026-06-17, merged PR #19)
+   Шаг 2: F-CRYPTO  core/crypto/ KMP module    — lib-family-crypto (🚧 InProgress 2026-06-17 — implementation: ports + Libsodium adapters + Android Keystore wrap + RFC KAT + instrumentation green on emulator; docs/dev/crypto-review.md published; awaits paid audit before billing per SRV-CRYPTO-003)
 
    (F-4, F-5 — cloud-feature setup, активируются в Phase 2
     F-2 — отложен в Phase 4+ entirely)
@@ -532,36 +532,59 @@ CLAUDE.md rule 2: **wrap every external SDK so its types never appear in any sig
 - [CLAUDE.md rule 2](../../CLAUDE.md) — ACL для каждой external dependency.
 - [CLAUDE.md rule 6](../../CLAUDE.md) — mock-first development.
 - Property-based crypto tests = Security Mitigation 3 (см. Часть VIII).
-- Friend crypto review = Security Mitigation 2.
+- ~~Friend crypto review = Security Mitigation 2~~ — **ОТМЕНЕНО 2026-06-17**. Solo-dev без сети криптографов; заменено на **измеримый test-driven validation set** (см. ниже).
+
+### Validation strategy (replaces friend crypto review, 2026-06-17)
+
+Решение 2026-06-17: жёсткое требование «2 знакомых криптографа» снято как нереалистичное для bootstrapped solo-dev. **Заменено на четырёхуровневый measurable validation set**, который индустриально сильнее single peer review:
+
+1. **RFC Known Answer Tests (KAT) — обязательны:**
+   - RFC 7748 (X25519), RFC 8032 (Ed25519), RFC 8439 (ChaCha20-Poly1305), RFC 5869 (HKDF-SHA256). Векторы прямо из RFC, копируются в `commonTest`.
+2. **Google Project Wycheproof test vectors — обязательны.** Покрывают edge cases (low-order points, malleability, point-at-infinity). https://github.com/google/wycheproof.
+3. **Property-based tests** (Kotest properties): ECDH symmetry, encrypt→decrypt roundtrip, sign→tamper→fail, nonce policy enforcement.
+4. **Industrial reference baseline** (документ `docs/dev/crypto-review.md`): «мы используем тот же primitives stack, что Signal, WhatsApp (Signal Protocol), WireGuard, age, Threema, Bitwarden Send». Это — наш argument к любому регулятору/аудитору.
+
+**Платный аудит** (Cure53 / 7ASecurity / Radically Open Security ~$5-12k) — записан в `docs/dev/server-roadmap.md` как milestone **перед запуском billing/payments**, не для F-CRYPTO merge'а.
 
 ### Scope: что входит
 
 - KMP common module `core/crypto/` (gradle subproject, артефакт `lib-family-crypto`).
+- **KMP targets с day 1**: `androidMain`, `jvmMain` (тесты), `iosX64`/`iosArm64`/`iosSimulatorArm64` (декларированы в `build.gradle.kts`, CI iOS не активен до первой iOS-фичи). **Решение 2026-06-17**: владелец планирует мессенджер + фото-приложение + Android TV / Google TV / EOS, поэтому iOS-readiness закладываем сразу — overhead ~1 день setup vs полный rewrite потом.
+- **Library extraction policy** (CLAUDE.md rule 4): модуль живёт **внутри launcher-репо** как subproject до появления 2-го реального потребителя (мессенджер или фото-приложение). Inline TODO в `build.gradle.kts`: `// TODO(extract-when-2nd-consumer): git filter-repo в отдельный приватный репо`. **Лицензия** — приватная пока не вынесен; при вынесении — Apache 2.0 (Kerckhoffs's principle: opensource крипты даёт credibility, не уменьшает безопасность).
 - Доменные ports в `core/crypto/api/`:
   - `AeadCipher { encrypt, decrypt }` — XChaCha20-Poly1305 или AES-GCM.
   - `AsymmetricCrypto { generateKeyPair, deriveSharedSecret, sign, verify }` — X25519 + Ed25519.
   - `KeyDerivation { derive(salt, info, length) }` — HKDF-SHA256.
   - `RandomSource { nextBytes(n) }` — cryptographically-secure RNG.
-- Реальный adapter на libsodium (`LibsodiumAeadCipher`, etc.) — отдельный subpackage `core/crypto/libsodium/`.
-- FakeAdapter (`FakeAeadCipher`, etc.) — deterministic в тестах, **не безопасный для прода** (явно помечен).
+  - **`SecureKeyStore { store(keyId, blob), load(keyId) }` 🆕** — порт для wrap pattern (см. ниже).
+  - **`KeyRotation { currentKeyId(), keyHistory(), rotateIdentityKey(reason), revoke(keyId, reason) }` 🆕 (interface-only, real-impl = stub)** — швы для будущих ротационных спек.
+  - **`KeyEscrow { export(passphrase), restore(bundle, passphrase) }` 🆕 (interface-only, real-impl = stub)** — швы для 2FA admin migration спеки.
+- Реальный adapter на libsodium через `ionspin/kotlin-multiplatform-libsodium` (`LibsodiumAeadCipher`, etc.) — отдельный subpackage `core/crypto/libsodium/`. Research-фаза спеки **обязана проверить** последние релизы / open issues по iOS targets; fallback на BouncyCastle (Android) + собственный cinterop (iOS) если ionspin окажется dead.
+- **`SecureKeyStore` Android adapter — wrap pattern** 🆕: Curve25519 private keys сериализуются, шифруются AES-256-GCM ключом из Android Keystore (TEE), хранятся в app sandbox файле. Это паттерн **Signal / WhatsApp / Bitwarden** (TEE не поддерживает Curve25519 нативно, только wrap). iOS adapter — аналогично через iOS Keychain (`kSecAttrAccessibleAfterFirstUnlock`).
+- **Key storage wire format с `schemaVersion`, `algorithm`, `createdAt`, `retiredAt?`, `replacedBy?`** 🆕 — с первого коммита (CLAUDE.md rule 5). Retired keys retained для decryption старых ciphertext'ов до явного purge.
+- FakeAdapter (`FakeAeadCipher`, etc.) — deterministic в тестах, **не безопасный для прода** (`@VisibleForTesting`, исключён из release builds через build-config + Detekt-правило).
 - DI wiring (Koin / Hilt) — выбор adapter'а по build variant.
 - Property-based crypto tests (kotlin-test + Kotest properties):
   - sign → tamper → verify FAILS.
   - encrypt different content with same K → ciphertext differs (catches nonce reuse).
   - replay protection: same ciphertext twice → second rejected.
-- Friend crypto review checklist (отдельный документ `docs/dev/crypto-review.md`).
+  - ECDH symmetry: `DH(a, B) == DH(b, A)`.
+- **Cross-platform test vector reuse** 🆕: один JSON-файл векторов в `commonTest` исполняется на каждой платформе (`androidUnitTest`, `jvmTest`, будущий `iosTest`). Любое расхождение байтов между платформами = build failure. Это гарантирует, что admin на Android-телефоне зашифровал → senior на Android TV / iOS прочитал корректно.
+- `docs/dev/crypto-review.md` — checklist + industrial reference baseline (вместо friend review).
 
 ### Scope: что НЕ входит
 
 - ❌ Конкретные применения: `ConfigCipher` для F-5, envelope encryption для shared content, media blob encryption из 011 — это всё **потребители** модуля, описаны в своих спеках.
 - ❌ Sender Keys / MLS / messenger protocol — задел оставлен, реализация позже.
-- ❌ Hardware-backed key storage (Android Keystore TEE) — отдельная спека post-MVP. Пока ключи живут в DataStore с file-level encryption.
+- ❌ **Реальная key rotation logic** — порты есть, real-implementation = stub. Реальная ротация (rotate identity key, re-encrypt history, cloud escrow) — отдельная спека после F-5 / S-3 / S-6.
+- ❌ **Cloud key escrow** (backup ключей в Firebase для 2FA admin migration) — порт есть, real-impl = stub. Отдельная спека (см. memory `project_2fa_admin_migration`).
 - ❌ Post-quantum primitives — отдельный addendum при необходимости.
+- ❌ **Активный iOS CI** — targets декларированы, реальная сборка под iOS откладывается до первой iOS-фичи. Cross-platform тесты гоняются на JVM и AndroidUnitTest (jvmTest имитирует «другую платформу»).
 
 ### Dependencies
 
 Должно быть готово **до** F-CRYPTO:
-- F-4 (AuthProvider) — стабильный Google UID нужен как input для KeyDerivation (HKDF info field).
+- ~~F-4 (AuthProvider) — стабильный Google UID нужен как input для KeyDerivation (HKDF info field).~~ **СНЯТО 2026-06-17**: deferred-cloud architecture (memory `project_deferred_cloud_architecture`) делает F-4 отложенным до первого cloud action. F-CRYPTO стартует **без** F-4: `KeyDerivation` использует device-local random salt как HKDF info; когда F-4 активируется (в S-5+), Google UID подмешивается **дополнительно** через key rotation (новая identity = новый key derivation). Это совместимо с device-self-sufficiency principle.
 
 ### Local Test Path (D-2 mandatory)
 
@@ -571,10 +594,15 @@ CLAUDE.md rule 2: **wrap every external SDK so its types never appear in any sig
 - **Nonce reuse detection**: same key + same nonce + different plaintext → adapter raises error (или property test ловит).
 - **Replay protection**: ciphertext sent twice → second rejected by application-level counter.
 - **Fake vs real parity**: same input → same output structure (size, headers), хотя значения отличаются.
+- **🆕 RFC KAT**: каждый primitive проходит RFC test vectors.
+- **🆕 Wycheproof edge cases**: low-order points, point-at-infinity, malleability rejected.
+- **🆕 SecureKeyStore wrap/unwrap roundtrip**: положить blob через Keystore-wrap → прочитать → assert equal.
+- **🆕 Cross-platform vector reuse**: один и тот же KAT-JSON проходит на `androidUnitTest` И `jvmTest` (имитация будущего iOS) с идентичными байтами.
+- **🆕 Key storage wire-format backward-compat read**: положить blob `schemaVersion=1`, прочитать в коде, ожидающем `schemaVersion=2` (или будущую миграцию) — должен корректно отказаться/мигрировать.
 
 ### Effort
 
-**Medium** (~1-2 weeks).
+**Medium-Large** (~2-3 weeks) — увеличено с «Medium 1-2 нед» из-за расширенного scope (iOS-readiness + SecureKeyStore wrap pattern + cross-platform vectors + rotation/escrow stubs).
 
 ### Copy-paste prompt для `/speckit.specify`
 
@@ -582,34 +610,67 @@ CLAUDE.md rule 2: **wrap every external SDK so its types never appear in any sig
 Напиши спецификацию для F-CRYPTO: core/crypto/ KMP module foundation.
 
 КОНТЕКСТ:
-F-5 (ConfigDocument E2E) и спека 011 (media blob crypto) и будущий мессенджер все
-используют одни и те же криптографические примитивы. Чтобы избежать дублирования
-и retroactive ACL extraction, выделяем core/crypto/ KMP module СРАЗУ при первом
-использовании криптографии — это применение CLAUDE.md rule 2 + rule 6.
+F-5 (ConfigDocument E2E), спека 011 (media blob crypto), будущий мессенджер
+владельца, фото-приложение, EOS / Android TV / Google TV — ВСЕ используют одни и
+те же криптографические примитивы. Чтобы избежать дублирования и retroactive ACL
+extraction, выделяем core/crypto/ KMP module СРАЗУ при первом использовании
+криптографии — это применение CLAUDE.md rule 2 + rule 6.
+
+Владелец проекта — solo-dev без сети криптографов; friend crypto review снят
+как mandatory, заменён на measurable test-driven validation (RFC KAT + Wycheproof
++ property tests + industrial reference baseline). Платный аудит отложен до
+запуска billing.
 
 ЦЕЛЬ:
-Создать core/crypto/ (артефакт lib-family-crypto) с domain ports (AeadCipher,
-AsymmetricCrypto, KeyDerivation, RandomSource), libsodium adapter, FakeAdapter,
-property-based crypto tests. Модуль полностью отвязан от UI / business / Firebase.
+Создать core/crypto/ (артефакт lib-family-crypto) с domain ports, libsodium
+adapter, FakeAdapter, KAT/Wycheproof/property tests, SecureKeyStore wrap pattern,
+KeyRotation/KeyEscrow interface-only ports. iOS targets декларированы с day 1.
+Модуль полностью отвязан от UI / business / Firebase.
 
 SCOPE ВКЛЮЧАЕТ:
-- KMP common module core/crypto/.
-- Domain ports: AeadCipher, AsymmetricCrypto, KeyDerivation, RandomSource.
-- Libsodium real adapter (XChaCha20-Poly1305 + X25519 + Ed25519 + HKDF-SHA256).
-- FakeAdapter (deterministic, для тестов, явно non-production).
+- KMP common module core/crypto/, targets: androidMain + jvmMain + iosX64/iosArm64/iosSimulatorArm64.
+- Library extraction policy: внутри launcher-репо до 2-го потребителя; inline TODO на extraction.
+- Domain ports:
+  * AeadCipher, AsymmetricCrypto, KeyDerivation, RandomSource (criptographic primitives).
+  * SecureKeyStore (хранение wrapped Curve25519 keys).
+  * KeyRotation (interface-only, real-impl = stub).
+  * KeyEscrow (interface-only, real-impl = stub).
+- Libsodium real adapter через ionspin/kotlin-multiplatform-libsodium
+  (XChaCha20-Poly1305 + X25519 + Ed25519 + HKDF-SHA256).
+  Research-фаза обязана проверить актуальность ionspin lib на момент спеки;
+  fallback на BouncyCastle (Android) + cinterop (iOS) если ionspin dead.
+- SecureKeyStore Android adapter — wrap pattern: AES-256-GCM ключ в Keystore TEE
+  обёртывает Curve25519 private key, blob лежит в app sandbox файле.
+  iOS adapter — iOS Keychain (kSecAttrAccessibleAfterFirstUnlock).
+- FakeAdapter (deterministic, @VisibleForTesting, исключён из release).
+- Key storage wire format с schemaVersion, algorithm, createdAt, retiredAt?,
+  replacedBy? (CLAUDE.md rule 5).
 - DI wiring по build variant.
-- Property-based crypto tests (sign→tamper→fail, nonce reuse, replay).
-- Friend crypto review checklist (docs/dev/crypto-review.md).
+
+VALIDATION SET (replaces friend crypto review):
+- RFC KAT: RFC 7748 (X25519), RFC 8032 (Ed25519), RFC 8439 (ChaCha20-Poly1305),
+  RFC 5869 (HKDF-SHA256).
+- Google Project Wycheproof test vectors (edge cases, low-order points, etc.).
+- Property tests: sign→tamper→fail, nonce reuse, replay, ECDH symmetry.
+- Industrial reference baseline (docs/dev/crypto-review.md): «тот же stack,
+  что Signal, WhatsApp, WireGuard, age, Threema, Bitwarden Send».
+- Cross-platform vector reuse: один JSON вектор в commonTest исполняется на
+  androidUnitTest И jvmTest с идентичными байтами (имитация iOS-совместимости).
 
 SCOPE НЕ ВКЛЮЧАЕТ:
 - ConfigCipher (это F-5).
+- Реальная key rotation logic (порт есть, real-impl = stub; отдельная спека после F-5/S-3/S-6).
+- Cloud key escrow (порт есть, real-impl = stub; отдельная спека).
 - Envelope encryption для shared content (потребители — следующие спеки).
 - Sender Keys / MLS (задел, реализация позже).
-- Hardware Keystore (TEE) — post-MVP.
 - Post-quantum primitives — addendum.
+- Активный iOS CI build (targets декларированы, но iOS build гоняется
+  только при первой iOS-фиче).
 
 DEPENDENCIES:
-- F-4 готов (Google UID как HKDF info input).
+- НЕТ (F-4 deferred per deferred-cloud architecture). KeyDerivation использует
+  device-local random salt; когда F-4 активируется в S-5+, Google UID
+  подмешивается через rotation.
 
 LOCAL TEST PATH (mandatory per D-2):
 - AeadCipher roundtrip.
@@ -618,23 +679,44 @@ LOCAL TEST PATH (mandatory per D-2):
 - Nonce reuse detection.
 - Replay protection.
 - Fake vs real adapter parity.
+- RFC KAT для каждого primitive.
+- Wycheproof edge cases rejected.
+- SecureKeyStore wrap/unwrap roundtrip.
+- Cross-platform vector reuse (androidUnitTest + jvmTest идентичные байты).
+- Key storage wire-format backward-compat read.
 
 CONSTITUTION GATES:
-- Rule 1 (domain isolated), Rule 2 (ACL для libsodium), Rule 6 (mock-first).
+- Rule 1 (domain isolated), Rule 2 (ACL для libsodium и Keystore), Rule 4 (MVA —
+  rotation/escrow ports без real-impl), Rule 5 (wire-format с schemaVersion для
+  key storage), Rule 6 (mock-first), Rule 8 (server-roadmap entries для cloud
+  key escrow и server-side re-encryption).
 
-EFFORT: Medium (~1-2 weeks).
+ЯВНО ОБРАЩЕНИЕ К:
+- Scenario diagrams (плотно): wrap pattern, key rotation triggers (admin меняет
+  телефон / переустанавливает app / suspected compromise / senior меняет
+  телефон), cross-platform vector reuse, library extraction trigger.
+- Use /speckit.scenarios после /speckit.clarify ОБЯЗАТЕЛЬНО — владелец
+  верифицирует через диаграммы последовательности.
+
+EFFORT: Medium-Large (~2-3 weeks).
 
 REFERENCE DOCS:
-- CLAUDE.md rules 1, 2, 6
-- Security Mitigation 2 (friend crypto review) + 3 (property tests) в Части VIII
+- CLAUDE.md rules 1, 2, 4, 5, 6, 8
+- Security Mitigation 3 (property tests) в Части VIII
+- memory: project_deferred_cloud_architecture, project_2fa_admin_migration,
+  project_unified_app_model
+- roadmap §F-CRYPTO Validation strategy (replaces friend crypto review, 2026-06-17)
 ```
 
 ### Notes / gotchas
 
 - **Никакой бизнес-логики в `core/crypto/`**. Если кто-то хочет «давайте сюда добавим ConfigCipher» — refuse, ConfigCipher — потребитель, живёт в F-5 + использует ports отсюда.
-- **FakeAdapter явно non-production**. Помечен `@VisibleForTesting` и build-config'ом исключается из release builds.
-- **libsodium binding** — выбор между `libsodium-kmp` от ionspin, KMP wrapper'ом cashapp, или своим JNI binding. Решается research-фазой спеки.
-- **Friend crypto review** — после готовности модуля, до merge'а F-5: показать минимум 2 знакомым с прод-криптографией.
+- **FakeAdapter явно non-production**. Помечен `@VisibleForTesting` и build-config'ом исключается из release builds. Detekt-правило ловит попадание `Fake*Cipher` в `app/release/`.
+- **libsodium binding** — выбор между `libsodium-kmp` от ionspin (рекомендация), BouncyCastle fallback, или собственным cinterop. Решается research-фазой спеки. ionspin покрывает iOS targets «out of box» при условии что library жива.
+- ~~**Friend crypto review** — после готовности модуля, до merge'а F-5: показать минимум 2 знакомым с прод-криптографией.~~ **ОТМЕНЕНО 2026-06-17** — заменено на measurable validation set (RFC KAT + Wycheproof + property tests + industrial reference). Платный security audit перенесён в `docs/dev/server-roadmap.md` как milestone перед billing.
+- **Library extraction**: НЕ выносим в отдельный репо сейчас (CLAUDE.md rule 4 — MVA). Inline TODO `// TODO(extract-when-2nd-consumer)` в `core/crypto/build.gradle.kts`. Триггер выноса = появление мессенджера / фото-приложения как реального потребителя. При выносе — Apache 2.0 (Kerckhoffs's principle).
+- **SecureKeyStore wrap pattern** — индустриальный паттерн, не наш изобретение. Reference: Signal Android `IdentityKeyUtil`, Bitwarden mobile, Threema. Android Keystore не поддерживает Curve25519 нативно, поэтому wrap обязателен.
+- **Key storage schema migration**: с первого коммита держим `schemaVersion` + backward-compat read test. Когда формат поменяется (например, добавим `keyAttestation` поле) — миграция уже возможна.
 
 ---
 
