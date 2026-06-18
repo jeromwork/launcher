@@ -169,4 +169,12 @@ val backendModule: Module = module {
             revocationStore = get(),
         )
     }
+
+    // Spec 017 (F-4 AuthProvider) — mockBackend wires FakeAuthProvider.
+    // Сидит в commonMain (не commonTest), чтобы быть видимым из production
+    // APK mockBackend flavor'а. Реальный Google adapter подтягивается
+    // только в realBackend (см. backendModule в androidRealBackend).
+    single<com.launcher.api.auth.AuthProvider> {
+        com.launcher.fake.auth.FakeAuthProvider()
+    }
 }

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Spec 017 (F-4 AuthProvider) — UI strings для SignInTrigger composable.
+
+  RU baseline; auto-translation pipeline (procedure-translate-spec-strings)
+  заполнит 9 локалей (ES/ZH/AR/HI/PT/DE/FR/JA/KK-Latn) после первого
+  speckit-tasks merge'а.
+
+  Senior-friendly tone per Article VIII §7 — простой язык, объяснение
+  «зачем», избегание ИТ-жаргона.
+
+  TalkBack content descriptions (auth_a11y_*) — расширенные текст-альтернативы
+  для screen reader пользователей (FR-036, accessibility CHK).
+-->
+<resources>
+
+    <!-- Кнопка входа: лаконичный CTA. -->
+    <string name="auth_sign_in_button">Войти в аккаунт</string>
+    <!-- Под кнопкой — объясняет зачем входить (без давления). -->
+    <string name="auth_sign_in_explanation">Чтобы настройки сохранялись и были доступны на других устройствах</string>
+
+    <!-- После успешного входа: показывает email (поэтому %1$s placeholder). -->
+    <string name="auth_signed_in_status">Вошли как %1$s</string>
+    <!-- Кнопка выхода — простая, без вопросов «вы уверены?». -->
+    <string name="auth_sign_out_button">Выйти</string>
+
+    <!-- Loading states: показываются на progress indicator под кнопкой. -->
+    <string name="auth_loading_signing_in">Выполняется вход…</string>
+    <string name="auth_loading_signing_out">Выполняется выход…</string>
+
+    <!-- Error states: inline под кнопкой, после неудачной попытки. -->
+    <string name="auth_error_no_email">Используйте личный Google-аккаунт</string>
+    <string name="auth_error_network">Нет соединения. Попробуйте позже</string>
+    <string name="auth_error_provider_unavailable">Вход через Google недоступен на этом устройстве</string>
+    <string name="auth_error_unknown">Не удалось войти. Попробуйте позже</string>
+
+    <!-- TalkBack content descriptions (FR-036) — более подробные, чем визуальные label'ы. -->
+    <string name="auth_a11y_sign_in_button">Войти в Google аккаунт. Чтобы настройки сохранялись и были доступны на других устройствах</string>
+    <string name="auth_a11y_signed_in_status">Вошли как %1$s</string>
+    <string name="auth_a11y_sign_out_button">Выйти из учётной записи %1$s</string>
+
+</resources>

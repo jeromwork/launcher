@@ -150,13 +150,10 @@ dependencies {
     // The CameraX runtime brings it transitively, but Kotlin compiler needs the type.
     "realBackendImplementation"("com.google.guava:guava:33.4.0-android")
 
-    // Spec 017 (F-4 AuthProvider) — Credential Manager + Google Identity provider.
-    // Firebase Auth/Firestore приходят транзитивно через :core (spec 007).
-    // EncryptedSharedPreferences (для EncryptedLocalSessionStore) — транзитивно через :core (spec 011).
-    // realBackend only: mockBackend использует FakeAuthAdapter (per FR-019 DI seam).
-    "realBackendImplementation"(libs.androidx.credentials)
-    "realBackendImplementation"(libs.androidx.credentials.play.services.auth)
-    "realBackendImplementation"(libs.google.id)
+    // Spec 017 (F-4 AuthProvider) — Credential Manager + Google Identity provider
+    // подключены в :core/androidRealBackend (где живут GoogleSignInAuthAdapter
+    // и EncryptedLocalSessionStore). Транзитивно доступны в :app через api(),
+    // если когда-то понадобится прямой вызов из Activity.
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

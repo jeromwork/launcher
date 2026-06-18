@@ -31,6 +31,16 @@
           through ADR-008 social recovery, not backup restore.
         -->
         <exclude domain="file" path="keys/" />
+        <!--
+          Spec 017 (F-4 AuthProvider) — EncryptedLocalSessionStore хранит
+          Firebase JWT + Google refresh token в auth_session_v1.preferences.xml.
+          Бэкап refresh token'а в Google Drive — недопустимо: после restore
+          на новом устройстве токен потерял privileges (Google инвалидирует),
+          а копия облака может быть использована атакующим до инвалидации.
+          После restore — sign-in заново (FR-020, research.md §R10).
+        -->
+        <exclude domain="sharedpref" path="auth_session_v1.preferences.xml" />
+        <exclude domain="sharedpref" path="auth_session_v1.preferences.xml.bak" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="file" path="datastore/com.launcher.capability.snapshot_v1.preferences_pb" />
@@ -38,5 +48,8 @@
         <exclude domain="database" path="contacts_cache.db" />
         <!-- Spec 016 (F-CRYPTO) — see cloud-backup comment above. -->
         <exclude domain="file" path="keys/" />
+        <!-- Spec 017 (F-4) — same rationale as cloud-backup. -->
+        <exclude domain="sharedpref" path="auth_session_v1.preferences.xml" />
+        <exclude domain="sharedpref" path="auth_session_v1.preferences.xml.bak" />
     </device-transfer>
 </data-extraction-rules>

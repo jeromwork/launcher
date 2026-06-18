@@ -287,4 +287,53 @@ val backendModule: Module = module {
             auth = get(),
         )
     }
+
+    // ─── Spec 017 (F-4 AuthProvider) — Google Sign-In + SessionStore ──────
+    //
+    // SessionStore — EncryptedSharedPreferences с TEE master key. Internal
+    // visibility модификатор не пускает SessionRecord/SessionStore наружу
+    // (consumer'ы видят только AuthProvider порт). Detekt rule T797 это
+    // дополнительно enforces для cross-package leak'ов.
+
+    single<com.launcher.api.auth.internal.SessionStore> {
+        com.launcher.adapters.auth.EncryptedLocalSessionStore(
+            context = androidContext(),
+            json = kotlinx.serialization.json.Json {
+                ignoreUnknownKeys = true
+                encodeDefaults = true
+            },
+        )
+    }
+
+    // GoogleSignInAuthAdapter — real Google Sign-In implementation.
+    //
+    // TODO(server-roadmap SRV-AUTH-002): serverClientId сейчас — placeholder.
+    // Перед первым production-релизом подставить Web Application Client ID
+    // из Firebase Auth Settings → OAuth Consent Screen (T901 admin task).
+    // Передавать через BuildConfig поле либо через :app:BackendInit override.
+    single {
+        com.launcher.adapters.auth.GoogleSignInAuthAdapter(
+            context = androidContext(),
+            firebaseAuth = get(),
+            firestore = get(),
+            sessionStore = get(),
+            serverClientId = "TODO_REPLACE_BEFORE_RELEASE_T901",
+        )
+    }
+
+    // AuthProvider — выбирается AuthAdapterSelector по GmsAvailabilityPort.
+    // GMS Available / Recoverable → GoogleSignInAuthAdapter.
+    // GMS Fatal (Huawei) → NoSupportedAuthProvider.
+    //
+    // NB: pick() — suspend, потому через runBlocking. GMS-state проверяется
+    // один раз при resolve этого singleton'а и кэшируется (CLAUDE.md §4 —
+    // оверхед мизерный, переоценивать на каждый signIn не имеет смысла).
+    single<com.launcher.api.auth.AuthProvider> {
+        runBlocking {
+            com.launcher.api.auth.AuthAdapterSelector(
+                gmsAvailabilityPort = get(),
+                realAdapterFactory = { get<com.launcher.adapters.auth.GoogleSignInAuthAdapter>() },
+            ).pick()
+        }
+    }
 }

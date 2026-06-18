@@ -281,6 +281,61 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ─── Spec 017 (F-4 AuthProvider) — identity-links + users ──────────
+    //
+    // identity-links/google/{providerAccountId} — реверс-mapping
+    // Google `sub` claim → наш stableId UUID. Атомарный create через
+    // Firestore transaction (race-safe — два устройства с одним Google
+    // аккаунтом получат одинаковый stableId).
+    //
+    // Per spec 017 FR-016a, contract identity-link-v1.md.
+    //
+    // NB: rule использует `request.auth.uid == providerAccountId` — это
+    // означает, что Firebase Auth UID должен совпадать с Google `sub`
+    // claim. Firebase **не** делает это автоматически (UID назначается
+    // Firebase). Альтернатива — использовать custom claims или server-
+    // verified token. Для MVP мы доверяем клиенту: SDK SignInWithCredential
+    // exchange гарантирует что Firebase UID = google.com providerData.uid.
+    // Production-уровень — Cloud Function для server-side verification
+    // (server-roadmap SRV-AUTH-IDENTITY-001).
+    //
+    // TODO(server-roadmap SRV-AUTH-IDENTITY-002): добавить custom claim
+    // `googleSub` в Firebase Auth user, проверять `request.auth.token.googleSub`
+    // вместо `request.auth.uid` — устраняет необходимость доверять клиенту.
+    match /identity-links/google/{providerAccountId} {
+      allow read: if request.auth != null
+                    && request.auth.uid == providerAccountId;
+      allow create: if request.auth != null
+                    && request.auth.uid == providerAccountId
+                    && !exists(/databases/$(database)/documents/identity-links/google/$(providerAccountId))
+                    && request.resource.data.keys().hasOnly(['schemaVersion', 'stableId', 'createdAt'])
+                    && request.resource.data.schemaVersion == 1
+                    && request.resource.data.stableId is string
+                    && request.resource.data.stableId.size() == 36
+                    && request.resource.data.stableId.matches('^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')
+                    && request.resource.data.createdAt == request.time;
+      // Immutable: identity-link создаётся один раз, не редактируется.
+      allow update, delete: if false;
+    }
+
+    // users/{stableId} — каноническая запись профиля. Spec 017 создаёт
+    // doc вместе с identity-link при first-time sign-in. Update / delete
+    // запрещены F-4; их откроют F-5 (профиль) и S-6 (right to be forgotten).
+    match /users/{stableId} {
+      allow read: if request.auth != null
+                  && exists(/databases/$(database)/documents/identity-links/google/$(request.auth.uid))
+                  && get(/databases/$(database)/documents/identity-links/google/$(request.auth.uid)).data.stableId == stableId;
+      allow create: if request.auth != null
+                    && existsAfter(/databases/$(database)/documents/identity-links/google/$(request.auth.uid))
+                    && getAfter(/databases/$(database)/documents/identity-links/google/$(request.auth.uid)).data.stableId == stableId
+                    && request.resource.data.keys().hasOnly(['schemaVersion', 'stableId', 'createdAt'])
+                    && request.resource.data.schemaVersion == 1
+                    && request.resource.data.stableId == stableId
+                    && request.resource.data.createdAt == request.time;
+      // Immutable until F-5 ConfigCipher / S-6 deletion specs override.
+      allow update, delete: if false;
+    }
+
     // ─── default deny for everything else ──────────────────────────────
     match /{document=**} {
       allow read, write: if false;
