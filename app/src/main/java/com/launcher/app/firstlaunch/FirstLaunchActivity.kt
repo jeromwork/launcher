@@ -17,6 +17,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.launcher.api.FlowPreset
 import com.launcher.api.PresetRepository
+import com.launcher.api.auth.AuthProvider
 import com.launcher.api.setup.GmsAvailabilityPort
 import com.launcher.api.setup.GmsStatus
 import com.launcher.app.BuildConfig
@@ -25,6 +26,7 @@ import com.launcher.app.R
 import com.launcher.app.setup.GmsHardBlockActivity
 import com.launcher.ui.screens.FirstLaunchScreen
 import com.launcher.ui.screens.PresetUiModel
+import com.launcher.ui.setup.AuthChoiceStep
 import com.launcher.ui.setup.PostNotificationsStep
 import com.launcher.ui.setup.RoleHomeStep
 import com.launcher.ui.setup.WizardProgressIndicator
@@ -56,6 +58,7 @@ class FirstLaunchActivity : ComponentActivity() {
     private val presetRepository: PresetRepository by inject()
     private val gmsAvailability: GmsAvailabilityPort by inject()
     private val userPreferencesStore: com.launcher.api.wizard.UserPreferencesStore by inject()
+    private val authProvider: AuthProvider by inject()
 
     private var pickedPreset: FlowPreset? = null
 
@@ -157,12 +160,46 @@ class FirstLaunchActivity : ComponentActivity() {
     }
 
     /**
-     * After preset is chosen: show ROLE_HOME step (T042). Wizard progress «Шаг 2/M».
-     * (Step 1 was the picker; Step M is `Home` itself implicitly — counted from
-     * the user's perspective as: preset → role-home → notifications → done.)
+     * After preset is chosen: show **F-4 auth choice step** (spec 017 US 2).
+     * Flow: preset → auth-choice → role-home → notifications → done.
      */
     private fun advanceAfterPreset() {
-        val totalSteps = if (Build.VERSION.SDK_INT >= 33) 4 else 3
+        renderAuthChoiceStep()
+    }
+
+    /**
+     * Spec 017 (F-4 AuthProvider) US 2 — auth choice step. Два варианта:
+     *  - «Настроить с нуля» (skip) → продолжить wizard.
+     *  - «Войти в Google» → Credential Manager bottom-sheet → success → продолжить.
+     *
+     * После любого исхода переход к [renderRoleHomeStep].
+     */
+    private fun renderAuthChoiceStep() {
+        val totalSteps = if (Build.VERSION.SDK_INT >= 33) 5 else 4
+        setContent {
+            LauncherTheme(preset = pickedPreset?.slug) {
+                AuthChoiceStep(
+                    authProvider = authProvider,
+                    onSkip = ::renderRoleHomeStep,
+                    onSignedIn = ::renderRoleHomeStep,
+                    topContent = {
+                        WizardProgressIndicator(
+                            currentStep = 2,
+                            totalSteps = totalSteps,
+                            progressLabelTemplate = getString(R.string.setup_wizard_progress_step),
+                        )
+                    },
+                )
+            }
+        }
+    }
+
+    /**
+     * After auth choice (signed-in or skipped): show ROLE_HOME step (T042).
+     * Wizard progress «Шаг 3/M».
+     */
+    private fun renderRoleHomeStep() {
+        val totalSteps = if (Build.VERSION.SDK_INT >= 33) 5 else 4
         setContent {
             LauncherTheme(preset = pickedPreset?.slug) {
                 RoleHomeStep(
@@ -174,7 +211,7 @@ class FirstLaunchActivity : ComponentActivity() {
                     onSkip = ::advanceAfterRoleHome,
                     topContent = {
                         WizardProgressIndicator(
-                            currentStep = 2,
+                            currentStep = 3,
                             totalSteps = totalSteps,
                             progressLabelTemplate = getString(R.string.setup_wizard_progress_step),
                         )
@@ -246,8 +283,8 @@ class FirstLaunchActivity : ComponentActivity() {
                     onSkip = ::proceedToHome,
                     topContent = {
                         WizardProgressIndicator(
-                            currentStep = 3,
-                            totalSteps = 4,
+                            currentStep = 4,
+                            totalSteps = 5,
                             progressLabelTemplate = getString(R.string.setup_wizard_progress_step),
                         )
                     },
