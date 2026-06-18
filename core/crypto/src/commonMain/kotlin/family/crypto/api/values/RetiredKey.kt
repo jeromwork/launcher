@@ -2,7 +2,7 @@ package family.crypto.api.values
 
 import kotlinx.datetime.Instant
 
-/** Stub-only domain type for spec 017. */
+/** Stub-only domain type for future rotation spec (TBD) — see ADR-008. */
 data class RetiredKey(
     val keyId: KeyId,
     val retiredAt: Instant,

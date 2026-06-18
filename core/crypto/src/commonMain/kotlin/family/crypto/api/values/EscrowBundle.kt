@@ -2,7 +2,7 @@ package family.crypto.api.values
 
 import kotlinx.datetime.Instant
 
-/** Stub-only domain type for spec 017 (ADR-008 social recovery). */
+/** Stub-only domain type for future social recovery spec (TBD) — see ADR-008. */
 class EscrowBundle(
     val schemaVersion: Int,
     val externalId: String,

@@ -180,7 +180,7 @@ benefit from F-CRYPTO without waiting on the audit.
 - **Wycheproof subset not yet pinned.** T658 picks the commit SHA during full
   Phase 5 implementation; this document gets updated with the pinned SHA.
 - **Key rotation is interface-only.** `StubKeyRotation` throws `NotImplementedError`
-  with `spec 017` cross-ref. Real implementation lives in
+  with a future rotation spec cross-ref (TBD number — see ADR-008). Real implementation lives in
   [SRV-CRYPTO-002](server-roadmap.md#srv-crypto-002-manual-key-rotation-flow-future-spec-010).
 
 ---
@@ -226,7 +226,7 @@ TEE-обёртка ключей на Android). Ничего самописног
 **Что ещё впереди**:
 - Платный аудит перед запуском подписок (billing-gate).
 - iOS-реализация когда V-1 спека станет приоритетом.
-- Ротация ключей (spec 017).
+- Ротация ключей (future rotation spec, TBD — see ADR-008).
 
 ---
 
@@ -263,7 +263,7 @@ F-CRYPTO 1.0.0 уже включает `iosX64`, `iosArm64`, `iosSimulatorArm64`
 
 3. **Никаких изменений в commonMain не нужно.** Любая попытка добавить iOS-specific логику в commonMain — нарушение CLAUDE.md rule 1 (domain isolation).
 
-**Wire format совместимость**: `KeyBlob` JSON, написанный Android-launcher, **читается** iOS-launcher байт-в-байт (это гарантировано `KeyBlobCrossPlatformParityTest`). Но: **wrapped private keys** — НЕ переносимы между Android Keystore wrap и iOS Keychain. Это потому, что AES-GCM wrap key на Android привязан к Android Keystore alias, который iOS прочитать не может. Для cross-device миграции «Android-юзер пересел на iPhone» используется **ADR-008 social recovery** (spec 017), не прямой transfer файлов.
+**Wire format совместимость**: `KeyBlob` JSON, написанный Android-launcher, **читается** iOS-launcher байт-в-байт (это гарантировано `KeyBlobCrossPlatformParityTest`). Но: **wrapped private keys** — НЕ переносимы между Android Keystore wrap и iOS Keychain. Это потому, что AES-GCM wrap key на Android привязан к Android Keystore alias, который iOS прочитать не может. Для cross-device миграции «Android-юзер пересел на iPhone» используется **ADR-008 social recovery** (future spec, TBD), не прямой transfer файлов.
 
 **iOS Team ID для будущих app** (launcher + messenger + photo album): чтобы переиспользовать crypto handoff через **App Groups + shared Keychain access groups** на iOS, все 3 app должны быть в **одном Apple Developer account** (один Team ID). Решение про "один аккаунт за $99/год vs три за $99×3" — фиксируется при покупке Apple Developer Program: **один аккаунт обслуживает всю семью**.
 
@@ -303,7 +303,7 @@ Owner-видение от 2026-06-18:
 
 **UX-цель** (буквально слова owner от 2026-06-18): «условно один клик — нажал пользователь, восстановил доступ. Чтоб не для каждого приложения свои.»
 
-### Технические варианты реализации (для будущей спеки 017)
+### Технические варианты реализации (для будущей P-10 спеки в Phase 3)
 
 Эти три варианта **не выбираем сейчас**, фиксируем для research-фазы перед messenger MVP.
 
@@ -323,8 +323,8 @@ Owner-видение от 2026-06-18:
 
 ### Что фиксируется в коде сейчас
 
-- `TODO(pre-release-audit): multi-app cohabitation strategy — выбрать B / C / гибрид при создании spec 017. До тех пор каждое app в семействе использует независимый recovery flow (вариант A).`
-- Заглушка спеки `specs/017-multi-app-cohabitation/` создана с research questions.
+- `TODO(pre-release-audit): multi-app cohabitation strategy — выбрать B / C / гибрид при создании P-10 спеки в Phase 3 (см. docs/product/future/multi-app-cohabitation.md). До тех пор каждое app в семействе использует независимый recovery flow (вариант A).`
+- Research notes для P-10 спеки лежат в `docs/product/future/multi-app-cohabitation.md` (раньше был placeholder `specs/017-multi-app-cohabitation/`, переехал и каталог удалён 2026-06-18 после переназначения номера 017 на F-4 AuthProvider).
 
 ### Что точно НЕ делать
 
@@ -352,7 +352,7 @@ EU Data Act 2024 требует, чтобы пользователь мог **э
   - Большой warning UI перед export на простом русском: «**Внимание**: экспортированный файл **не зашифрован**. Любой, кто получит этот файл, увидит ваши контакты, фото, настройки. Храните его в безопасном месте.»
   - Формат: ZIP с JSON-файлами внутри. Каждый JSON — текстовый, читаемый.
   - На каждый экран добавляется один кнопочный bridge "почему именно мы спрашиваем разрешение перед экспортом".
-- `KeyEscrow` port (сейчас stub) при реализации в spec 017 НЕ используется для этого — это **разные** flow:
+- `KeyEscrow` port (сейчас stub) при реализации в future social recovery spec (TBD) НЕ используется для этого — это **разные** flow:
   - **KeyEscrow** = recovery (шифрованный backup для восстановления на другом устройстве).
   - **DataExport** = compliance (plaintext дамп для самого юзера).
 
@@ -401,7 +401,7 @@ EU Data Act 2024 требует, чтобы пользователь мог **э
 - [ ] Manual test: cloud backup + restore — wrapped keys НЕ переносятся (это expected).
 
 **Multi-app cohabitation** (если выпускается ≥2 app одновременно):
-- [ ] Spec 017 (или следующий номер) — chain-of-trust strategy выбрана (B / C / гибрид) и реализована.
+- [ ] P-10 спека в Phase 3 (number TBD at /speckit.specify time) — chain-of-trust strategy выбрана (B / C / гибрид) и реализована. См. `docs/product/future/multi-app-cohabitation.md`.
 - [ ] Cross-app sealed-box handoff протестирован end-to-end.
 
 **Data sovereignty / compliance:**
@@ -440,7 +440,7 @@ EU Data Act 2024 требует, чтобы пользователь мог **э
 | TEE attestation hard-fail | До монетизации | Перед платным релизом | Документировано в A4 |
 | Library extract `family-crypto-kmp` | До 2-го потребителя | До написания messenger spec.md | TODO inline + watching memory |
 | Real-device StrongBox verification | До покупки Pixel | Pixel б/у в течение 3-4 месяцев | Запланировано через owner |
-| Multi-app cohabitation chain-of-trust | До messenger MVP | Создание messenger спеки | Spec 017 placeholder + variant A в MVP |
+| Multi-app cohabitation chain-of-trust | До messenger MVP | Создание messenger спеки | P-10 в Phase 3 (research notes: `docs/product/future/multi-app-cohabitation.md`) + variant A в MVP |
 | Data export UI | До EU релиза или Data Act enforcement | EU юзеры в base | TODO в коде |
 | Платный crypto-аудит | До устойчивой монетизации | User base ≥ 10k + revenue ≥ $50/мо | Agent-audit вместо в MVP |
 

@@ -86,7 +86,7 @@ Re-running all 14 checklists against current artifact state. Comparing against o
 |---|---|---|
 | `KeyBlob` (persistent — files в app sandbox) | ✓ Int = 1 (FR-016, FR-025, contracts/key-blob-v1.md) | ✅ |
 | AEAD `Ciphertext` envelope (opaque ByteArray) | N/A — internal format, не пересекает device boundary как F-CRYPTO responsibility | ✅ Boundary declared в key-blob-v1.md "What is NOT in this contract" |
-| `EscrowBundle` (stub, real impl in спека 017) | ✓ Int field declared в data-model.md | ✅ |
+| `EscrowBundle` (stub, real impl in future multi-device-recovery spec (TBD)) | ✓ Int field declared в data-model.md | ✅ |
 
 ✅ **All wire formats have `schemaVersion` или explicit boundary declared**.
 

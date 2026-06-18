@@ -32,7 +32,7 @@ F-CRYPTO **является** security infrastructure. Применяем гей
 ## Privacy (Article XIV §3, §4)
 
 - [x] CHK019 — No hidden collection. F-CRYPTO offline.
-- [x] CHK020 — Local-first by design. Cloud usage (cloud key escrow) — отдельная спека 017.
+- [x] CHK020 — Local-first by design. Cloud usage (cloud key escrow) — отдельная future multi-device-recovery spec (TBD).
 - [N/A] CHK021 — Data не покидает device через F-CRYPTO (зашифрованные blobs может потом отправлять F-5/спека 011 — их responsibility).
 - [x] CHK022 — Data minimisation: hierarchy keys derived через HKDF info field — каждый назначение свой key, не shared.
 

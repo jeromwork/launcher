@@ -11,11 +11,11 @@ Run date: 2026-06-17.
 
 ## Sign-In trigger point
 
-- [N/A] CHK-DSS-005..007 — F-CRYPTO не требует Sign-In. Future cloud features (recovery в спеке 017) — отдельный спека.
+- [N/A] CHK-DSS-005..007 — F-CRYPTO не требует Sign-In. Future cloud features (recovery в future multi-device-recovery spec (TBD)) — отдельный спека.
 
 ## Local→cloud promotion
 
-- [N/A] CHK-DSS-008..009 — F-CRYPTO не имеет local state, который мерджить в cloud. **Cross-ref**: cloud key escrow в спеке 017 будет использовать `VersionedConfigViewer`? — нет, recovery flow свой (ADR-008). Не merge — restore.
+- [N/A] CHK-DSS-008..009 — F-CRYPTO не имеет local state, который мерджить в cloud. **Cross-ref**: cloud key escrow в future multi-device-recovery spec (TBD) будет использовать `VersionedConfigViewer`? — нет, recovery flow свой (ADR-008). Не merge — restore.
 
 ## Cloud→local downgrade
 
@@ -36,7 +36,7 @@ Run date: 2026-06-17.
 ## Дополнительно
 
 - [x] **F-CRYPTO support deferred-cloud architecture**: F-4 dependency снят. F-CRYPTO работает без Google UID, device-local salt. Когда F-4 activates (S-5 onwards), UID подмешивается через rotation (project_deferred_cloud_architecture memory).
-- [x] **Cloud recovery как opt-in upgrade**: spec 017 (multi-device-recovery) — value proposition «sign in → recovery enabled», не mandatory.
+- [x] **Cloud recovery как opt-in upgrade**: future multi-device-recovery spec (TBD) — value proposition «sign in → recovery enabled», не mandatory.
 
 ## Open issues
 

@@ -140,7 +140,7 @@ data class EscrowBundle(
   val encryptedPayload: ByteArray,
   val createdAt: Instant
 ) {
-  // Used in spec 017 social recovery; F-CRYPTO declares shape, no real serialization
+  // Used in future spec (TBD) social recovery; F-CRYPTO declares shape, no real serialization
 }
 ```
 
@@ -316,12 +316,12 @@ interface KeyRotation {
 
 // commonMain/stubs/StubKeyRotation.kt
 class StubKeyRotation : KeyRotation {
-  override fun currentKeyId(purpose: KeyNamespace): KeyId = TODO("Implement in spec 017 (multi-device-recovery)")
+  override fun currentKeyId(purpose: KeyNamespace): KeyId = TODO("Implement in future multi-device-recovery spec (TBD)")
   override fun keyHistory(purpose: KeyNamespace): List<RetiredKey> = emptyList()
   override suspend fun rotateIdentityKey(purpose: KeyNamespace, reason: RotationReason): KeyId =
-    throw NotImplementedError("Key rotation real-impl deferred to spec 017 — see ADR-008")
+    throw NotImplementedError("Key rotation real-impl deferred to future spec (TBD) — see ADR-008")
   override suspend fun revoke(keyId: KeyId, reason: RotationReason): Unit =
-    throw NotImplementedError("Key revocation real-impl deferred to spec 017 — see ADR-008")
+    throw NotImplementedError("Key revocation real-impl deferred to future spec (TBD) — see ADR-008")
 }
 ```
 
@@ -332,7 +332,7 @@ class StubKeyRotation : KeyRotation {
 interface KeyEscrow {
   /**
    * Exports a passphrase-encrypted backup of keys.
-   * Real implementation in spec 017 — social recovery per ADR-008.
+   * Real implementation in future spec (TBD) — social recovery per ADR-008.
    */
   suspend fun export(passphrase: ByteArray): EscrowBundle
 
@@ -345,9 +345,9 @@ interface KeyEscrow {
 // commonMain/stubs/StubKeyEscrow.kt
 class StubKeyEscrow : KeyEscrow {
   override suspend fun export(passphrase: ByteArray): EscrowBundle =
-    throw NotImplementedError("KeyEscrow real-impl deferred to spec 017 — see ADR-008")
+    throw NotImplementedError("KeyEscrow real-impl deferred to future spec (TBD) — see ADR-008")
   override suspend fun restore(bundle: EscrowBundle, passphrase: ByteArray): Unit =
-    throw NotImplementedError("KeyEscrow real-impl deferred to spec 017 — see ADR-008")
+    throw NotImplementedError("KeyEscrow real-impl deferred to future spec (TBD) — see ADR-008")
 }
 ```
 

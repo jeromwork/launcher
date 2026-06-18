@@ -246,7 +246,7 @@ Per Clarifications Q8 + Article XIII + CLAUDE.md rule 5:
 ## What is NOT in this contract
 
 - **AEAD ciphertext envelope** (nonce + libsodium ciphertext): not a wire format that consumers can serialize/migrate themselves. F-CRYPTO returns it as opaque `Ciphertext` value class. If F-5 (Config E2E) puts these bytes in Firestore document — F-5 spec must define its own envelope wrapper with schemaVersion.
-- **`EscrowBundle`** (for spec 017 social recovery): F-CRYPTO declares the type, but real serialization format is defined in spec 017.
+- **`EscrowBundle`** (for future spec (TBD) social recovery): F-CRYPTO declares the type, but real serialization format is defined in future spec (TBD).
 - **Public keys** for pairing QR codes: defined in pairing-related spec (007), not here.
 
 ---

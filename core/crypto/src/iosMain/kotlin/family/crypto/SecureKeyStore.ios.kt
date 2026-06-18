@@ -20,7 +20,8 @@ import family.crypto.exception.CryptoException
  *
  * TODO(pre-release-audit): App Groups + shared Keychain access groups для
  * multi-app cohabitation на iOS — все 3 app (launcher + messenger + photo) в
- * одном Apple Developer Team ID. См. docs/dev/crypto-review.md §A2.
+ * одном Apple Developer Team ID. P-10 in Phase 3; см.
+ * docs/product/future/multi-app-cohabitation.md и docs/dev/crypto-review.md §A2.
  */
 actual class SecureKeyStore actual constructor(context: KeyStoreContext) {
 

@@ -37,7 +37,7 @@ AEAD ciphertext blob — внутренний формат libsodium, не сч�
 
 ## Deep-link / QR / exported config
 
-- [N/A] CHK016 — F-CRYPTO не делает deep-links/QR. Future экспорт ключей через `KeyEscrow` — stub-only, реальный flow в спеке 017.
+- [N/A] CHK016 — F-CRYPTO не делает deep-links/QR. Future экспорт ключей через `KeyEscrow` — stub-only, реальный flow в future multi-device-recovery spec (TBD).
 - [N/A] CHK017 — Same as above.
 
 ## Contract folder

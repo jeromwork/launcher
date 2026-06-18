@@ -548,7 +548,7 @@ API: все крипто-ошибки (`MacFailed`, `KeyNotFound`, `BlobMissing`
 - **Спек 008 → впервые заполнить `Contact.photoRef`** реальным значением — **в 012**. В 011 поле остаётся `null` как и сейчас.
 - **Спек 008 → впервые эмитить `partialApplyReasons += media_decrypt_failed`** ([state-applied.md:65](../008-bidirectional-config-sync/contracts/state-applied.md#L65)) — **в 012**. В 011 enum value остаётся зарезервированным.
 - **Спек 009 → подключить фото к Contacts Picker** ([009 spec.md:218](../009-admin-mode-flows/spec.md#L218)) — **в 012**, не в 011.
-- **Compliance → обновить запись `POST_NOTIFICATIONS`** ([permissions-and-resource-budget.md:224](../../docs/compliance/permissions-and-resource-budget.md#L224)) — `deferred to spec 017 (balance alerts) / 018 (critical health push)` после перенумерации 2026-05-22. `READ_CONTACTS` не трогается в 011 (трогается в 012).
+- **Compliance → обновить запись `POST_NOTIFICATIONS`** ([permissions-and-resource-budget.md:224](../../docs/compliance/permissions-and-resource-budget.md#L224)) — `deferred to future balance-alerts spec / critical-health-push spec` (legacy numbering 017/018 pre-2026-06-18; spec 017 reassigned to F-4 AuthProvider 2026-06-18 — see ADR-008 numbering note). `READ_CONTACTS` не трогается в 011 (трогается в 012).
 
 ---
 

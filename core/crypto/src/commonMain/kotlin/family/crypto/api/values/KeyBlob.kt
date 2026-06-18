@@ -13,7 +13,7 @@ import kotlinx.serialization.Serializable
  *  • [wrappedKey] — AES-GCM-wrapped raw X25519/Ed25519 private key bytes.
  *  • [iv] — 12-byte IV used to wrap.
  *  • [wrapKeyAlias] — Android Keystore alias of the wrap AES key.
- *  • [retiredAt] / [replacedBy] — set when the key is rotated out (spec 017).
+ *  • [retiredAt] / [replacedBy] — set when the key is rotated out (future rotation spec, TBD).
  *
  * `toString()` MUST NOT log raw [wrappedKey] / [iv] bytes (only sizes).
  */

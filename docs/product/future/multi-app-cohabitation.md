@@ -1,8 +1,10 @@
-# P-10 (placeholder) — Multi-app cohabitation + chain-of-trust recovery
+# Multi-app Cohabitation + Chain-of-trust Recovery — research notes (P-10 in Phase 3)
 
-**Status**: PLACEHOLDER, **MOVED to Phase 3 as P-10** (2026-06-18 by owner). Каталог сохранён под старым именем `017-multi-app-cohabitation/` чтобы не ломать inline TODO в коде и cross-references из `docs/dev/crypto-review.md` и `ADR-008`. При создании полной спеки каталог будет переименован в `specs/NNN-multi-app-cohabitation/` со свободным порядковым номером на тот момент.
+**Status**: research notes для будущей P-10 спеки в Phase 3. Spec.md ещё не написан, ожидаемый trigger — перед messenger MVP (~2026-11). Номер реальной спеки будет назначен на момент `/speckit.specify`.
 
-Created 2026-06-18 to lock context от mentor-сессии перед messenger spec.
+См. roadmap §P-10: [`docs/product/roadmap.md`](../roadmap.md).
+
+Created 2026-06-18 to lock context от mentor-сессии перед messenger spec. Перенесено сюда из `specs/017-multi-app-cohabitation/README.md` 2026-06-18 (вечер) после того, как номер 017 переназначен на F-4 AuthProvider + Google Sign-In.
 
 **Trigger**: создание полной спеки запускается **до** написания `spec.md` для messenger MVP (планируется ~2026-11 по owner-roadmap). По roadmap'у — после P-9 в Phase 3.
 
@@ -57,12 +59,12 @@ Variant **A (Independent)** — текущее поведение MVP перво
 - Сам messenger MVP — отдельная спека.
 - Сам photo album MVP — отдельная спека.
 - Server architecture для handoff'а — отдельная спека (`server-roadmap` или новая F-Server).
-- Key rotation real-impl — спека 017 (если будет переименована, или отдельная новая).
+- Key rotation real-impl — future rotation spec (TBD, номер будет назначен при `/speckit.specify`).
 - Data export UI — `docs/dev/crypto-review.md` §A3, отдельная спека.
 
 ---
 
-## Inline TODOs в коде, ссылающиеся на эту спеку
+## Inline TODOs в коде, ссылающиеся на эту документацию
 
 - `core/crypto/build.gradle.kts` — `TODO(extract-when-2nd-consumer)` + `TODO(pre-release-audit): library extract sequence`.
 - `app/src/main/java/com/launcher/app/di/F016CryptoModule.kt` — `TODO(pre-release-audit): multi-app cohabitation`.

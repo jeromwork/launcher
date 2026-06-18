@@ -8,7 +8,7 @@ Run date: 2026-06-17 (after Clarifications pass).
   **FAIL** — спека намеренно содержит implementation hints: `kotlinx.serialization.json`, `kotest properties`, `Koin DI`, `ionspin/kotlin-multiplatform-libsodium`, `kotlinx.serialization`, конкретные алгоритмы (XChaCha20-Poly1305, X25519, Ed25519, HKDF-SHA256), Gradle source sets, Detekt-правило. **Обоснование принять с открытыми глазами**: F-CRYPTO — это infrastructure-уровневая спека о криптографических примитивах; «технологически-агнистично» здесь невозможно — алгоритмы и есть user-value (industrial baseline Signal/WhatsApp). Аналогично для KMP targets — это и есть scope. **Принимается как expected exception**, документировано в spec.md «Контекст и цель спека».
 
 - [x] **CHK002** Focus on user value.
-  Раздел «Контекст и цель спека» формулирует value через **потребителей** (F-5, спека 011, спека 017, мессенджер владельца, фото-приложение, AndroidTV/EOS) — для каждого свой use case. User Stories 1, 2, 3, 6 фокусируются на наблюдаемом behaviour, не на коде.
+  Раздел «Контекст и цель спека» формулирует value через **потребителей** (F-5, спека 011, future multi-device-recovery spec (TBD), мессенджер владельца, фото-приложение, AndroidTV/EOS) — для каждого свой use case. User Stories 1, 2, 3, 6 фокусируются на наблюдаемом behaviour, не на коде.
 
 - [x] **CHK003** Non-technical stakeholder readable.
   Секция «Решения mentor-сессии 2026-06-17» даёт plain-Russian summary 8 пунктов. Clarifications таблица — резолюции каждого решения с обоснованием. Edge Cases переформулированы пользовательскими сценариями («App factory reset / переустановка»).
@@ -54,13 +54,13 @@ Run date: 2026-06-17 (after Clarifications pass).
   - Nonce reuse
   - SecureKeyStore + user lock-screen change
   - Key wire-format migration
-  - App reinstall (TEE loss → cross-ref на spec 017)
+  - App reinstall (TEE loss → cross-ref на future spec (TBD))
   - Unknown KeyId prefix (added in Clarifications)
   - Large file OOM (added in Clarifications)
   Покрытие: empty state (нет применимо для крипты), error state (✓), retry (n/a — крипта stateless), double-action (nonce reuse = ✓).
 
 - [x] **CHK012** Scope clearly bounded.
-  «Что строим» — 8 пунктов; «Что НЕ строим» — 7 пунктов. Каждый Out-of-scope item имеет cross-reference куда переехало (F-5, spec 011, spec 017, post-MVP).
+  «Что строим» — 8 пунктов; «Что НЕ строим» — 7 пунктов. Каждый Out-of-scope item имеет cross-reference куда переехало (F-5, spec 011, future spec (TBD), post-MVP).
 
 - [x] **CHK013** Dependencies and assumptions explicit.
   Раздел `## Assumptions` — 9 пунктов. Раздел dependencies — секция `Dependencies` в роадмапе (F-4 dependency снят, F-CRYPTO работает standalone). Cross-references: ADR-008, project_deferred_cloud_architecture memory, SRV-CRYPTO-004/006/007, project_f_crypto_decisions, CLAUDE.md rules 1/2/4/5/6/8.

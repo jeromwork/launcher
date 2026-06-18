@@ -104,7 +104,7 @@ Phase-номера остаются неизменными для FR-trace, но
 ### T006 [P] Update compliance: permissions-and-resource-budget.md
 - **Traces to**: spec.md §Clarifications C-6, scope-split 2026-05-22.
 - **File(s)**: `docs/compliance/permissions-and-resource-budget.md`.
-- **Action**: обновить запись POST_NOTIFICATIONS «deferred to spec 011+» → «deferred to spec 017 (balance alerts) / 018 (offline detection)». READ_CONTACTS — cross-link на спек 012 (там реально trigger'ится).
+- **Action**: обновить запись POST_NOTIFICATIONS «deferred to spec 011+» → «deferred to future balance-alerts spec / offline-detection spec (legacy numbering 017/018 pre-2026-06-18; spec 017 reassigned to F-4 AuthProvider — see ADR-008 numbering note)». READ_CONTACTS — cross-link на спек 012 (там реально trigger'ится).
 - **Acceptance**: нет orphan references на «deferred to spec 011/012/013» (старая нумерация).
 
 ### T007 [P] Create ADR-007 draft

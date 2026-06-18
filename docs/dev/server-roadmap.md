@@ -353,19 +353,21 @@
 
 **Источник**: F-CRYPTO mentor session 2026-06-17 — solo-dev без сети криптографов; friend crypto review снят; платный аудит перенесён на billing gate.
 
-## SRV-CRYPTO-004: Multi-device recovery via social recovery (spec 017, per ADR-008)
+## SRV-CRYPTO-004: Multi-device recovery via social recovery (future spec TBD, per ADR-008)
 
-**Контекст**: F-CRYPTO предоставляет `KeyEscrow` port (interface-only, real-impl = stub). Real-implementation — спека 017 (multi-device-recovery) per [ADR-008](../adr/ADR-008-social-recovery-architecture.md). **Не passphrase-only escrow** (это было бы слабо: атакующий с access к Firestore + слабый PIN бабушки = взлом). Решение: **social recovery** — multi-factor через **(passphrase бабушки) + (2FA confirmation от trusted peer) + (email auth)**.
+> **Numbering note 2026-06-18**: This entry previously referenced future multi-device-recovery spec (TBD). future multi-device-recovery spec (TBD) has been reassigned to F-4 AuthProvider + Google Sign-In. The multi-device-recovery spec will receive its number at `/speckit.specify` time. Все упоминания "future multi-device-recovery spec (TBD)" / "future multi-device-recovery spec (TBD)" ниже читать как "future multi-device-recovery spec (TBD)".
 
-**MVP workaround (F-CRYPTO)**: `KeyEscrow.export()` / `restore()` ports есть, но real-impl = stub; F-CRYPTO лишь предоставляет примитивы (`KeyDerivation` HKDF, `AeadCipher` XChaCha20, `AsymmetricCrypto.sealCEK`/`unsealCEK`), на которых будет построен flow. Если пользователь теряет телефон **сейчас** (до спеки 017) — потеря ключей; documented limitation для beta.
+**Контекст**: F-CRYPTO предоставляет `KeyEscrow` port (interface-only, real-impl = stub). Real-implementation — future multi-device-recovery spec (TBD) (multi-device-recovery) per [ADR-008](../adr/ADR-008-social-recovery-architecture.md). **Не passphrase-only escrow** (это было бы слабо: атакующий с access к Firestore + слабый PIN бабушки = взлом). Решение: **social recovery** — multi-factor через **(passphrase бабушки) + (2FA confirmation от trusted peer) + (email auth)**.
 
-**Own-server destination / отдельная спека (017)**:
+**MVP workaround (F-CRYPTO)**: `KeyEscrow.export()` / `restore()` ports есть, но real-impl = stub; F-CRYPTO лишь предоставляет примитивы (`KeyDerivation` HKDF, `AeadCipher` XChaCha20, `AsymmetricCrypto.sealCEK`/`unsealCEK`), на которых будет построен flow. Если пользователь теряет телефон **сейчас** (до future multi-device-recovery spec (TBD)) — потеря ключей; documented limitation для beta.
+
+**Own-server destination / отдельная спека (future multi-device-recovery spec, TBD)**:
 - Setup phase: бабушка задаёт PIN; генерируется `peer_nonce` (32 байта); `recovery_key = HKDF(passphrase, peer_nonce, "launcher-recovery-aead-v1")`; `encrypted_backup = AEAD(recovery_key, priv_keys_bundle)`; `encrypted_backup → сервер`, `peer_nonce → encrypted_for_peer (через sealCEK)`, `PIN → в голове бабушки`.
 - Recovery phase: новое устройство → email auth → server initiates 2FA push к trusted peer → peer тапает «подтвердить» → peer's device пере-sealCEK'ает `peer_nonce` для freshly-generated Pub нового устройства → новое устройство просит PIN → derives recovery_key → decrypts backup → priv keys восстановлены.
 - **3-фактор**: знание PIN + знание email/password + физическое подтверждение от peer-device.
 - Атомарное активирование новых ключей + invalidation старых.
 
-**Open design questions для спеки 017** (важно для архитектуры сейчас):
+**Open design questions для future multi-device-recovery spec (TBD)** (важно для архитектуры сейчас):
 - **Где хранить `encrypted_backup`** — Firestore document `/backups/{externalId}` (size limit 1 MiB, достаточно для ключей) или Firebase Storage `/backups/{externalId}/v1` (для будущей extension под larger payload). **Главное ограничение от владельца 2026-06-17**: «структура должна **легко переезжать** на собственный сервер». Это означает: что бы мы ни выбрали, abstrahировать через `RecoveryBackupStorage` port в `core/recovery/api/` — тогда переезд = новый adapter, не переписывание. **См. SRV-CRYPTO-007**.
 - TTL для `peer_nonce` — статический или 90-дневная rotation.
 - Multi-peer (Shamir N-of-M) — MVP 1-of-N, future feature.
@@ -374,11 +376,11 @@
 
 **Источник**: ADR-008 social recovery architecture (2026-05-23), reconfirmed F-CRYPTO mentor session 2026-06-17 (владелец напомнил про multi-factor recovery).
 
-## SRV-CRYPTO-006: Server-side rate-limiting на recovery attempts (post-spec 017)
+## SRV-CRYPTO-006: Server-side rate-limiting на recovery attempts (post-future-recovery-spec)
 
-**Контекст**: Спека 017 (multi-device-recovery) допускает попытки восстановления. Без rate-limit'а атакующий с компрометированными email+password может brute-force'ить PIN бабушки 4-6 цифр (10^4 - 10^6 попыток).
+**Контекст**: future multi-device-recovery spec (TBD) (multi-device-recovery) допускает попытки восстановления. Без rate-limit'а атакующий с компрометированными email+password может brute-force'ить PIN бабушки 4-6 цифр (10^4 - 10^6 попыток).
 
-**MVP workaround (спека 017 baseline)**: client-side rate-limit (delay между попытками) + Firestore Security Rules на максимум N попыток в hour per externalId. Acceptable для MVP но **обходимо**: атакующий может удалить app data, обнулить client-side counter, продолжить.
+**MVP workaround (future multi-device-recovery spec (TBD) baseline)**: client-side rate-limit (delay между попытками) + Firestore Security Rules на максимум N попыток в hour per externalId. Acceptable для MVP но **обходимо**: атакующий может удалить app data, обнулить client-side counter, продолжить.
 
 **Own-server destination**:
 - Atomic counter в Cloudflare KV или Firestore transaction: block after N failed attempts в час per externalId.
@@ -389,11 +391,11 @@
 
 **Источник**: ADR-008 §Future enhancements + F-CRYPTO mentor session 2026-06-17.
 
-## SRV-CRYPTO-007: Storage для encrypted_backup — substitution-ready (spec 017)
+## SRV-CRYPTO-007: Storage для encrypted_backup — substitution-ready (future multi-device-recovery spec, TBD)
 
-**Контекст**: Спека 017 будет хранить `encrypted_backup` на сервере. На момент дизайна — кандидаты Firestore document vs Firebase Storage. **Constraint от владельца 2026-06-17**: «выберите так, чтобы потом легко переехали на собственный сервер». Это **substitution-readiness** (checklist-backend-substitution rule).
+**Контекст**: future multi-device-recovery spec (TBD) будет хранить `encrypted_backup` на сервере. На момент дизайна — кандидаты Firestore document vs Firebase Storage. **Constraint от владельца 2026-06-17**: «выберите так, чтобы потом легко переехали на собственный сервер». Это **substitution-readiness** (checklist-backend-substitution rule).
 
-**MVP workaround**: в спеке 017 выбираем один из двух (Firestore document — проще для MVP, 1 MiB limit достаточно для priv keys bundle). **Но**: abstrahируем через `RecoveryBackupStorage` port в `core/recovery/api/`:
+**MVP workaround**: в future multi-device-recovery spec (TBD) выбираем один из двух (Firestore document — проще для MVP, 1 MiB limit достаточно для priv keys bundle). **Но**: abstrahируем через `RecoveryBackupStorage` port в `core/recovery/api/`:
 
 ```kotlin
 interface RecoveryBackupStorage {

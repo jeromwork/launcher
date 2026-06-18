@@ -1,6 +1,6 @@
 package family.crypto.api.values
 
-/** Stub-only domain type for spec 017 (multi-device-recovery). */
+/** Stub-only domain type for future rotation spec (TBD) — see ADR-008. */
 sealed class RotationReason {
     object Periodic : RotationReason()
     object SuspectedCompromise : RotationReason()

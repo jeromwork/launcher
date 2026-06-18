@@ -7,7 +7,7 @@ package family.crypto.api.values
  *  • [Config] — F-5 ConfigDocument encryption keys.
  *  • [Media] — spec 011 media blob encryption keys.
  *  • [Messenger] — future messenger sender-keys / MLS.
- *  • [Recovery] — ADR-008 social recovery escrow keys (spec 017).
+ *  • [Recovery] — ADR-008 social recovery escrow keys (future spec, TBD).
  *  • [Internal] — F-CRYPTO internal keys (e.g., AES wrap key in TEE).
  */
 sealed class KeyNamespace(val prefix: String) {

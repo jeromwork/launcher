@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 
 /**
  * Sealed-box + LibsodiumRandomSource integration smoke tests. Per FR-007 (sealForRecipient/
- * openSealed) — these primitives are used by ADR-008 social recovery (spec 017 envelopes).
+ * openSealed) — these primitives are used by ADR-008 social recovery (future spec, TBD envelopes).
  */
 class SealedBoxRoundtripTest {
 

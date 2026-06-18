@@ -7,7 +7,8 @@ import family.crypto.api.values.RetiredKey
 import family.crypto.api.values.RotationReason
 
 /**
- * Interface-only stub per FR-011. Real implementation in spec 017 (multi-device-recovery).
+ * Interface-only stub per FR-011. Real implementation in a future rotation spec (TBD,
+ * number assigned at /speckit.specify time) — see ADR-008.
  *
  * Safe defaults:
  *  • [currentKeyId] — throws because there is no canonical "current" key yet.
@@ -18,18 +19,18 @@ class StubKeyRotation : KeyRotation {
 
     override fun currentKeyId(purpose: KeyNamespace): KeyId =
         throw NotImplementedError(
-            "KeyRotation.currentKeyId real-impl deferred to spec 017 — see ADR-008"
+            "KeyRotation.currentKeyId real-impl deferred to future spec (TBD) — see ADR-008"
         )
 
     override fun keyHistory(purpose: KeyNamespace): List<RetiredKey> = emptyList()
 
     override suspend fun rotateIdentityKey(purpose: KeyNamespace, reason: RotationReason): KeyId =
         throw NotImplementedError(
-            "KeyRotation.rotateIdentityKey real-impl deferred to spec 017 — see ADR-008"
+            "KeyRotation.rotateIdentityKey real-impl deferred to future spec (TBD) — see ADR-008"
         )
 
     override suspend fun revoke(keyId: KeyId, reason: RotationReason): Unit =
         throw NotImplementedError(
-            "KeyRotation.revoke real-impl deferred to spec 017 — see ADR-008"
+            "KeyRotation.revoke real-impl deferred to future spec (TBD) — see ADR-008"
         )
 }

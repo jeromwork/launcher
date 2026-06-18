@@ -205,7 +205,7 @@ tasks.named("check") { dependsOn("verifyCryptoIsolation") }
 **What**:
 - `commonMain/api/KeyRotation.kt` (interface).
 - `commonMain/stubs/StubKeyRotation.kt` (real-impl = stub throwing `NotImplementedError`, except `currentKeyId` / `keyHistory` return safe defaults).
-**Acceptance**: Compiles. Stub `rotateIdentityKey` throws with message referring to spec 017.
+**Acceptance**: Compiles. Stub `rotateIdentityKey` throws with message referring to future spec (TBD).
 **Dependencies**: requires T621, T624.
 **Files**: 2 files.
 
@@ -791,7 +791,7 @@ Record results in `specs/016-f-crypto-core-module/perf-checkpoint.md`.
 6. Сценарий 7 (library extract dry-run — experimental, no merge).
 7. Сценарий 11 (backward-compat read).
 8. Сценарий 5 (clear data на эмуляторе).
-9. Сценарии 8, 10 — verify primitives есть (deferred to spec 017 для full flow).
+9. Сценарии 8, 10 — verify primitives есть (deferred to future spec (TBD) для full flow).
 **Acceptance**: All checkboxes marked в scenarios.md.
 **Dependencies**: requires all previous phases.
 **Files**: `scenarios.md` (mark checkboxes).

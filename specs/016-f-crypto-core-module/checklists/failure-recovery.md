@@ -13,7 +13,7 @@ Run date: 2026-06-17.
   - Nonce reuse → adapter raises
   - User lock-screen change → key not bound to biometry, не падает
   - Wire format migration → `UnsupportedSchemaVersionException`
-  - App reinstall → cross-ref на spec 017
+  - App reinstall → cross-ref на future spec (TBD)
   - Unknown KeyId prefix → `IllegalArgumentException`
   - Large file OOM → consumer responsibility
 - [x] CHK002 — User-visible behaviour: F-CRYPTO — infrastructure module, **UI не показывает**. Failure modes — exceptions, которые **потребитель** (UI of F-5/spec 011) маппит в snackbar/dialog. Спека делает это явно (Edge Cases «Production app должен fail-fast с ясным сообщением...»).

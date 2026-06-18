@@ -174,7 +174,7 @@ app/
                                  │ Consumers              │
                                  │ - F-5 (:core:config)   │
                                  │ - spec 011 (:core:media│
-                                 │ - spec 017 (recovery)  │
+                                 │ - future spec (TBD) (recovery)  │
                                  │ - future messenger app │
                                  │ - future photo app     │
                                  └───────────┬────────────┘
@@ -384,7 +384,7 @@ Per Article XII §7 — все relevant files проверены и учтены
 
 ### `docs/adr/`
 
-- [`docs/adr/ADR-008-social-recovery-architecture.md`](../../docs/adr/ADR-008-social-recovery-architecture.md) — F-CRYPTO предоставляет ВСЕ примитивы для ADR-008 (включая `sealCEK`/`unsealCEK`). Spec 017 будет потребителем.
+- [`docs/adr/ADR-008-social-recovery-architecture.md`](../../docs/adr/ADR-008-social-recovery-architecture.md) — F-CRYPTO предоставляет ВСЕ примитивы для ADR-008 (включая `sealCEK`/`unsealCEK`). future spec (TBD) будет потребителем.
 
 ### `docs/product/`
 

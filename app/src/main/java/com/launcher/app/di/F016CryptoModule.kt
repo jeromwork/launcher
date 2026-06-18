@@ -21,7 +21,7 @@ import org.koin.dsl.module
  * Spec 016 (F-CRYPTO) Koin wiring per FR-030 + plan.md §"Lifecycle/Initialization order".
  *
  * Binds the 7 F-CRYPTO ports to real Libsodium adapters + interface-only stubs for
- * KeyRotation / KeyEscrow (deferred to spec 017 per FR-011/FR-012).
+ * KeyRotation / KeyEscrow (deferred to a future spec, TBD — see ADR-008, per FR-011/FR-012).
  *
  * Fake* adapters from `family.crypto.fake` are TEST-ONLY and MUST NEVER appear in
  * this module. The [assertNoFakeCryptoInRelease] helper invoked by [LauncherApplication.onCreate]
@@ -29,9 +29,10 @@ import org.koin.dsl.module
  * imports at compile time; R8 strips them from the release APK as defense-in-depth.
  *
  * TODO(pre-release-audit): multi-app cohabitation — chain-of-trust strategy для
- * launcher + messenger + photo (см. docs/dev/crypto-review.md §A2). Сейчас Variant A
- * (Independent) — каждое app имеет свои ключи. Перед messenger MVP — реализовать
- * Variant B (ContentProvider + custom permission) или гибрид B+C.
+ * launcher + messenger + photo (P-10 in Phase 3; см.
+ * docs/product/future/multi-app-cohabitation.md и docs/dev/crypto-review.md §A2).
+ * Сейчас Variant A (Independent) — каждое app имеет свои ключи. Перед messenger MVP —
+ * реализовать Variant B (ContentProvider + custom permission) или гибрид B+C.
  *
  * TODO(pre-release-audit): server-side entitlement JWT validation для billing —
  * клиент проверяет TEE attestation (см. SecureKeyStore.android.kt TODO), но

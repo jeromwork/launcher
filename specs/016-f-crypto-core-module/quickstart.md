@@ -344,7 +344,7 @@ Recommended order:
 6. Сценарий 7 (library extract experiment) — manual dry-run.
 7. Сценарий 11 (backward-compat read) — fixture test.
 8. Сценарий 5 (clear data behavior) — manual эмулятор тест.
-9. Сценарии 8, 10 — пока **deferred** (real implementation в spec 017); проверить, что F-CRYPTO даёт all primitives.
+9. Сценарии 8, 10 — пока **deferred** (real implementation в future spec (TBD)); проверить, что F-CRYPTO даёт all primitives.
 
 ---
 
