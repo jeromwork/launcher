@@ -11,6 +11,16 @@ import family.crypto.exception.CryptoException
  * with V-1 (iOS Admin Preset). Every call here throws clearly.
  *
  * TODO(physical-mac): iOS build verification on macOS host; replace stub when V-1 ships.
+ *
+ * TODO(pre-release-audit): iOS Keychain implementation — заменить throw'и на
+ * SecItemAdd / SecItemCopyMatching / SecItemDelete с kSecClass=GenericPassword,
+ * kSecAttrAccount=keyId.raw, kSecAttrService="family.crypto.v1",
+ * kSecAttrAccessible=kSecAttrAccessibleAfterFirstUnlock.
+ * Detailed reuse strategy: docs/dev/crypto-review.md §A1.
+ *
+ * TODO(pre-release-audit): App Groups + shared Keychain access groups для
+ * multi-app cohabitation на iOS — все 3 app (launcher + messenger + photo) в
+ * одном Apple Developer Team ID. См. docs/dev/crypto-review.md §A2.
  */
 actual class SecureKeyStore actual constructor(context: KeyStoreContext) {
 

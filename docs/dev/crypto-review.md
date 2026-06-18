@@ -227,3 +227,221 @@ TEE-обёртка ключей на Android). Ничего самописног
 - Платный аудит перед запуском подписок (billing-gate).
 - iOS-реализация когда V-1 спека станет приоритетом.
 - Ротация ключей (spec 017).
+
+---
+
+# Appendix — Post-1.0.0 strategic notes
+
+Этот appendix зафиксирован 2026-06-18 по итогам владельческой mentor-сессии. Цель — **не потерять** контекст ключевых решений к моменту pre-release research перед выходом в Google Play / App Store.
+
+---
+
+## A1. iOS reuse strategy
+
+F-CRYPTO 1.0.0 уже включает `iosX64`, `iosArm64`, `iosSimulatorArm64` targets. `commonMain` код (ports, value types, Libsodium-based adapters для AEAD / AsymmetricCrypto / KeyDerivation / RandomSource) — **переиспользуется один-в-один** на iOS, потому что ionspin libsodium binding официально поддерживает все три iOS targets.
+
+**Что переиспользуется без изменений** (один файл, общий для всех платформ):
+- `family.crypto.api.*` — все ports и value types.
+- `family.crypto.libsodium.LibsodiumAeadCipher` — XChaCha20-Poly1305 IETF.
+- `family.crypto.libsodium.LibsodiumAsymmetricCrypto` — X25519 + Ed25519 + sealed-box.
+- `family.crypto.libsodium.LibsodiumKeyDerivation` — HKDF-SHA256 (через expect/actual HmacSha256).
+- `family.crypto.libsodium.LibsodiumRandomSource` — `randombytes_buf`.
+- `family.crypto.fake.*` — фейки для тестов.
+- `family.crypto.stubs.*` — KeyRotation/KeyEscrow stubs.
+- `family.crypto.api.values.KeyBlob` — wire format (JSON-сериализуется одинаково на всех платформах).
+
+**Что нужно заменить на iOS** (3 файла, каждый — замена `actual class` или `actual object`):
+
+1. **`iosMain/SecureKeyStore.ios.kt`** — сейчас stub-screamer, бросает `NotImplementedOnIos`. Замена: реализация через **iOS Keychain Services** (`SecItemAdd` / `SecItemCopyMatching` / `SecItemDelete`). Атрибуты:
+   - `kSecClass = kSecClassGenericPassword` (для произвольных secret bytes).
+   - `kSecAttrAccount = keyId.raw` (наш идентификатор).
+   - `kSecAttrService = "family.crypto.v1"` (namespace).
+   - `kSecAttrAccessible = kSecAttrAccessibleAfterFirstUnlock` (доступно после первого unlock телефона; не требует биометрии).
+   - Опционально `kSecAttrAccessControl` с `SecAccessControlCreateWithFlags(...kSecAccessControlPrivateKeyUsage...)` если когда-то понадобится биометрия для специальных ключей (не для baseline).
+
+2. **`iosMain/HmacSha256.ios.kt`** — сейчас stub-screamer. Замена: вызов `CCHmac(kCCHmacAlgSHA256, ...)` из CommonCrypto (системная iOS библиотека, нулевые зависимости).
+
+3. **Никаких изменений в commonMain не нужно.** Любая попытка добавить iOS-specific логику в commonMain — нарушение CLAUDE.md rule 1 (domain isolation).
+
+**Wire format совместимость**: `KeyBlob` JSON, написанный Android-launcher, **читается** iOS-launcher байт-в-байт (это гарантировано `KeyBlobCrossPlatformParityTest`). Но: **wrapped private keys** — НЕ переносимы между Android Keystore wrap и iOS Keychain. Это потому, что AES-GCM wrap key на Android привязан к Android Keystore alias, который iOS прочитать не может. Для cross-device миграции «Android-юзер пересел на iPhone» используется **ADR-008 social recovery** (spec 017), не прямой transfer файлов.
+
+**iOS Team ID для будущих app** (launcher + messenger + photo album): чтобы переиспользовать crypto handoff через **App Groups + shared Keychain access groups** на iOS, все 3 app должны быть в **одном Apple Developer account** (один Team ID). Решение про "один аккаунт за $99/год vs три за $99×3" — фиксируется при покупке Apple Developer Program: **один аккаунт обслуживает всю семью**.
+
+**Тестирование iOS**: KAT и property tests в `:core:crypto:iosTest` нужны и должны зеленеть. Запуск требует macOS host (KMP iOS targets не собираются на Windows/Linux). До покупки Mac — `TODO(physical-mac)` в `iosMain/SecureKeyStore.ios.kt` (уже стоит).
+
+**TODO(pre-release-audit): iOS — `iosMain/SecureKeyStore.ios.kt` + `HmacSha256.ios.kt` реализованы и `:core:crypto:iosTest` зеленый.**
+
+---
+
+## A2. Multi-app cohabitation — chain-of-trust strategy
+
+### Контекст
+
+Семейство приложений запланировано (в течение ~5 месяцев от 2026-06-18):
+- **launcher** (это приложение).
+- **messenger** (E2E чат для пожилых + admin-родственников).
+- **photo album** (управление семейными фото).
+
+Каждое — отдельное Android-приложение, отдельный package, отдельный sandbox. Android **не позволяет** одному app читать файлы другого. Каждое app имеет **свой** экземпляр `:core:crypto` и **свои** ключи.
+
+### Решение для MVP первого релиза каждого app — Вариант A (Independent)
+
+Каждое app:
+1. При первой установке генерирует свои ключи через свой `:core:crypto`.
+2. Имеет свой ADR-008 social recovery flow (отдельная связка trusted-peer).
+3. Не знает о других app семейства.
+
+**Это уже работает** для launcher 1.0.0 — никаких дополнительных изменений не нужно.
+
+### Желаемое long-term поведение (post-MVP, **сейчас не реализуем**)
+
+Owner-видение от 2026-06-18:
+
+> «При восстановлении лаунчера мы подтвердили его — и сам лаунчер также мог подтвердить, что вот мессенджер тоже доверенный. Чтобы одни ключи шифровали другие ключи. Как двухфакторная авторизация между разными лаунчерами на разных телефонах — здесь чтобы примерно так же работало для разных приложений, чтобы одно подтверждало другое.»
+
+Это паттерн **«chain-of-trust между app в семействе»**: после того как launcher на новом устройстве прошёл recovery (через ADR-008 social recovery, подтверждение от бабушкиного / тёткиного устройства), launcher становится «trusted introducer» для своих same-family app на этом же устройстве. Messenger на новом устройстве при установке видит «launcher уже trusted» → запрашивает у launcher **одну подпись** через App-to-App канал → отправляет эту подпись на свой recovery server → не требует отдельной recovery-сессии.
+
+**UX-цель** (буквально слова owner от 2026-06-18): «условно один клик — нажал пользователь, восстановил доступ. Чтоб не для каждого приложения свои.»
+
+### Технические варианты реализации (для будущей спеки 017)
+
+Эти три варианта **не выбираем сейчас**, фиксируем для research-фазы перед messenger MVP.
+
+**B. ContentProvider + custom permission** (Signal-style):
+- launcher экспортирует `ContentProvider` с custom permission `com.launcher.CRYPTO_FAMILY_BRIDGE`.
+- messenger / photo при установке заявляют это permission в manifest. Android при установке (или при первом use) показывает single confirmation UI: «messenger хочет восстанавливать доступ совместно с launcher — разрешить?».
+- Данные через ContentProvider — **sealed-box** к app-specific pubkey messenger. launcher не видит messenger секреты, только signs trust-introduction.
+
+**C. Server-mediated handoff**:
+- После launcher recovery launcher загружает на сервер encrypted-pending-handoff (зашифрован для messenger pubkey).
+- messenger при первом запуске после установки опрашивает сервер по своему UID → находит pending handoff → расшифровывает (knows own privkey) → запускает свой quick-recovery flow.
+- Работает **cross-device**: launcher на Android, messenger на iPhone.
+
+**Гибрид B + C** (рекомендуемый по итогам mentor-сессии):
+- Cohabitation на одной платформе → ContentProvider (нет cloud dependency).
+- Cross-platform handoff → server-mediated.
+
+### Что фиксируется в коде сейчас
+
+- `TODO(pre-release-audit): multi-app cohabitation strategy — выбрать B / C / гибрид при создании spec 017. До тех пор каждое app в семействе использует независимый recovery flow (вариант A).`
+- Заглушка спеки `specs/017-multi-app-cohabitation/` создана с research questions.
+
+### Что точно НЕ делать
+
+- ❌ `android:sharedUserId` — deprecated в Android 10, удалён в Android 13.
+- ❌ `MODE_WORLD_READABLE` для shared crypto files — Android Security Bulletin SA-2017, deprecated.
+- ❌ Один master ключ через сервер для всех 3 app — концентрация риска.
+- ❌ iCloud Keychain как cross-app sync механизм — only-Apple-id-tied, не работает cross-platform.
+
+---
+
+## A3. Data export (EU Data Act 2024 — minimal compliance)
+
+### Контекст
+
+EU Data Act 2024 требует, чтобы пользователь мог **экспортировать свои данные** независимо от вендора. Если crypto-key и шифрованные данные хранятся только на устройстве — нужен explicit export flow.
+
+### Решение owner от 2026-06-18
+
+> «Ничего не мешает сделать кнопочку экспортировать, и пускай он явно отдаёт свои данные в JSON или в ZIP архиве, не зашифрованным. Это уже его проблемы дальше. Мы всё шифруем, если он хочет экспортировать — мы ему отдаём, но явно предупреждаем, что это убирается шифрование.»
+
+### Что фиксируется
+
+- Спека `018-data-export` (имя tentative, выбирается при создании) описывает:
+  - Кнопка «Экспорт моих данных» в Settings.
+  - Большой warning UI перед export на простом русском: «**Внимание**: экспортированный файл **не зашифрован**. Любой, кто получит этот файл, увидит ваши контакты, фото, настройки. Храните его в безопасном месте.»
+  - Формат: ZIP с JSON-файлами внутри. Каждый JSON — текстовый, читаемый.
+  - На каждый экран добавляется один кнопочный bridge "почему именно мы спрашиваем разрешение перед экспортом".
+- `KeyEscrow` port (сейчас stub) при реализации в spec 017 НЕ используется для этого — это **разные** flow:
+  - **KeyEscrow** = recovery (шифрованный backup для восстановления на другом устройстве).
+  - **DataExport** = compliance (plaintext дамп для самого юзера).
+
+**TODO(pre-release-audit): data export UI — реализован с senior-safe warning + Google Play Data Safety form задекларирован "user can export all data".**
+
+---
+
+## A4. Pre-release agent audit checklist
+
+Стратегия по итогам owner от 2026-06-18: **внешний платный crypto-аудит не проводится** до момента, когда (a) накопится достаточная user base и (b) запустится монетизация. До этого момента — **agent-based pre-release audit**: перед каждым крупным релизом агент проходит этот checklist и репортит, что закрыто, что нет.
+
+### Pre-release audit checklist (запускается перед Google Play submission)
+
+Каждый пункт — это вопрос на стол `pre-release-audit` агенту. Если ответ «не закрыто» — релиз не уходит.
+
+**Cryptography correctness:**
+- [ ] Wycheproof subset SHA pinned, файлы лежат в `core/crypto/src/commonTest/resources/wycheproof-subset/`, CI `f-crypto-tests.yml` гоняет subset на every PR.
+- [ ] Все RFC KAT зеленые на JVM и iOS (если iOS релиз).
+- [ ] Property tests (1000 iter) зеленые на JVM, Android, iOS.
+- [ ] Все известные CVE в libsodium версии 0.9.5+ (ionspin binding) проверены — если есть unpatched HIGH/CRITICAL, апгрейд binding.
+
+**Android Keystore security:**
+- [ ] Real-device verification на **Pixel** (StrongBox) и **Samsung Galaxy A-series** (Knox).
+- [ ] `SecureKeyStoreNoPlaintextLeakTest` зеленый на физическом устройстве (не только эмулятор).
+- [ ] `KeyInfo.isInsideSecureHardware` проверяется на инициализации — если false на production устройстве, log + telemetry.
+- [ ] TEE attestation hard-fail wired для billing-protected features (когда billing появится; не критично для local-mode features).
+
+**iOS Keychain security** (если iOS релиз):
+- [ ] `iosMain/SecureKeyStore.ios.kt` реализован через Keychain Services.
+- [ ] `iosMain/HmacSha256.ios.kt` реализован через CommonCrypto.
+- [ ] `:core:crypto:iosTest` зеленый на macOS host.
+- [ ] Verified на физическом iPhone (не только simulator).
+
+**Wire format integrity:**
+- [ ] `KeyBlob v1-sample.json` + `v1-retired-sample.json` НЕ изменялись (frozen since 1.0.0).
+- [ ] Schema version check (UnsupportedSchemaVersion для `schemaVersion > known`) работает.
+
+**Production hygiene:**
+- [ ] `verifyCryptoIsolation` Gradle task зеленый — `:core:crypto` не зависит от других модулей.
+- [ ] Konsist fitness `NoFakeCryptoInAppTest` зеленый — нет `family.crypto.fake.*` imports в `app/src/main`.
+- [ ] R8/ProGuard рулы strip `family.crypto.fake.**` из release APK (verify через dexdump или unzip).
+- [ ] `assertNoFakeCryptoInRelease()` вызывается в `LauncherApplication.onCreate` под `!BuildConfig.DEBUG`.
+
+**Backup safety:**
+- [ ] `data_extraction_rules.xml` + `backup_rules.xml` exclude `keys/` (verified в обоих файлах).
+- [ ] Manual test: cloud backup + restore — wrapped keys НЕ переносятся (это expected).
+
+**Multi-app cohabitation** (если выпускается ≥2 app одновременно):
+- [ ] Spec 017 (или следующий номер) — chain-of-trust strategy выбрана (B / C / гибрид) и реализована.
+- [ ] Cross-app sealed-box handoff протестирован end-to-end.
+
+**Data sovereignty / compliance:**
+- [ ] Data export UI реализован с senior-safe warning (см. A3).
+- [ ] Google Play Data Safety form заполнен — задекларировано всё, что шифруется на устройстве, и что user может экспортировать.
+- [ ] Apple App Privacy nutrition labels заполнены (если iOS релиз).
+- [ ] Privacy policy упоминает crypto storage и user export rights.
+
+**Research before release:**
+- [ ] Прогон по проектам Signal Android, Bitwarden Android, Threema Android: посмотреть, какие крипто-практики у них появились за прошедшие месяцы, что мы можем у них перенять.
+- [ ] Проверить актуальные Wycheproof commits — pin последний.
+- [ ] Проверить Android Keystore behavior changes в latest Android version.
+- [ ] Проверить iOS Keychain behavior changes в latest iOS version.
+- [ ] Проверить CVE database (NVD, GHSA) для libsodium / ionspin binding.
+
+### Когда переходим к платному аудиту
+
+Платный crypto-аудит ($3-12k, Cure53 / 7ASecurity / Radically Open Security / Trail of Bits) проводится **когда**:
+
+1. Монетизация запущена и есть user base ≥ ~10k активных пользователей; **И**
+2. Доход от подписок превышает $50/месяц устойчиво; **ИЛИ**
+3. PR-инцидент или CVE в libsodium / Android Keystore (тогда аудит делается срочно).
+
+До этих условий — agent-audit + community feedback (issues от пользователей / security researchers) считается достаточным.
+
+**TODO(pre-release-audit): когда выполнились условия выше — перейти на платный внешний аудит. До тех пор — agent-audit перед каждым крупным релизом.**
+
+---
+
+## A5. Что отложено и **причина откладывания** (для будущего self / агента)
+
+| Item | Откладывание | Триггер «делать сейчас» | Текущий статус |
+|---|---|---|---|
+| Wycheproof subset SHA pin | До pre-release research | Перед Play Store submission | TODO в коде + checklist |
+| iOS Keychain + HmacSha256 | До V-1 спеки | Решение делать iOS-релиз | stub-screamer + reuse strategy в A1 |
+| TEE attestation hard-fail | До монетизации | Перед платным релизом | Документировано в A4 |
+| Library extract `family-crypto-kmp` | До 2-го потребителя | До написания messenger spec.md | TODO inline + watching memory |
+| Real-device StrongBox verification | До покупки Pixel | Pixel б/у в течение 3-4 месяцев | Запланировано через owner |
+| Multi-app cohabitation chain-of-trust | До messenger MVP | Создание messenger спеки | Spec 017 placeholder + variant A в MVP |
+| Data export UI | До EU релиза или Data Act enforcement | EU юзеры в base | TODO в коде |
+| Платный crypto-аудит | До устойчивой монетизации | User base ≥ 10k + revenue ≥ $50/мо | Agent-audit вместо в MVP |
+
+Каждый TODO в коде помечен `TODO(pre-release-audit): ...` для grep-discoverability. Будущий агент или владелец проекта запускает `grep -r "TODO(pre-release-audit):" core/ app/ docs/` и получает живой список открытых пунктов.

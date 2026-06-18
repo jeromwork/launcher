@@ -10,6 +10,18 @@
 // TODO(extract-when-2nd-consumer): когда вторая senior-launcher app начнёт зависеть
 // от этого модуля — extract в отдельный repo `family-crypto-kmp` через `git filter-repo`
 // + Apache 2.0 license at extract (см. plan.md §"Library extraction strategy").
+//
+// TODO(pre-release-audit): library extract sequence — выполнить ДО написания
+// spec.md для messenger (планируется ~2026-11, см. owner-mentor 2026-06-18).
+// Логика: 5 месяцев procrastination = 5-10x работы потом, потому что три
+// потребителя одновременно растягивают API в разные стороны. См.
+// docs/dev/crypto-review.md §A5.
+//
+// TODO(pre-release-audit): Wycheproof subset SHA pin — выбрать commit SHA из
+// github.com/google/wycheproof, скачать x25519_test.json + eddsa_test.json +
+// chacha20_poly1305_test.json в core/crypto/src/commonTest/resources/wycheproof-subset/,
+// добавить тесты WycheproofX25519Test + WycheproofEd25519Test + WycheproofAeadTest.
+// Срок: до Play Store submission. См. docs/dev/crypto-review.md §A4.
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)

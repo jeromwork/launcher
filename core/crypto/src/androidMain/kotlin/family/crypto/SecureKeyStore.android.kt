@@ -30,6 +30,15 @@ import javax.crypto.spec.GCMParameterSpec
  * StrongBox-backed where available (Pixel Titan / Samsung Knox), falls back to TEE.
  * `setUserAuthenticationRequired(false)` — admin/identity keys MUST NOT block on
  * biometric/PIN per spec.md Edge Cases (no biometric requirement for the F-CRYPTO baseline).
+ *
+ * TODO(pre-release-audit): TEE attestation hard-fail — на init проверять
+ * `KeyInfo.isInsideSecureHardware`. Если false на production устройстве — для
+ * paid features возвращать KeystoreUnavailable; для local-mode — log warning.
+ * Срок: перед платным релизом. См. docs/dev/crypto-review.md §A4.
+ *
+ * TODO(pre-release-audit): real-device verification на Pixel (StrongBox) и
+ * Samsung Galaxy A-series (Knox) — owner покупает Pixel б/у в течение 3-4
+ * месяцев. См. docs/dev/crypto-review.md §A4.
  */
 actual class SecureKeyStore actual constructor(context: KeyStoreContext) {
 

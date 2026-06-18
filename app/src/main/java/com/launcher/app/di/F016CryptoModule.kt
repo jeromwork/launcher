@@ -27,6 +27,16 @@ import org.koin.dsl.module
  * this module. The [assertNoFakeCryptoInRelease] helper invoked by [LauncherApplication.onCreate]
  * detects accidental wiring at runtime (SC-011); Detekt rule `FakeCryptoInReleaseRule` catches
  * imports at compile time; R8 strips them from the release APK as defense-in-depth.
+ *
+ * TODO(pre-release-audit): multi-app cohabitation — chain-of-trust strategy для
+ * launcher + messenger + photo (см. docs/dev/crypto-review.md §A2). Сейчас Variant A
+ * (Independent) — каждое app имеет свои ключи. Перед messenger MVP — реализовать
+ * Variant B (ContentProvider + custom permission) или гибрид B+C.
+ *
+ * TODO(pre-release-audit): server-side entitlement JWT validation для billing —
+ * клиент проверяет TEE attestation (см. SecureKeyStore.android.kt TODO), но
+ * server проверяет JWT с claims о том, что ключ в TEE. Спека: см. server-roadmap
+ * (отдельная инициатива, не F-CRYPTO scope).
  */
 val f016CryptoModule = module {
     single<RandomSource> { LibsodiumRandomSource() }
