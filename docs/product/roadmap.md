@@ -127,7 +127,7 @@ Phase 2: MVP Core Vertical Slices (REORDERED 2026-06-15 v3, sequential, 9 спе
    S-6   Account Deletion                (CLOUD — GDPR / Play Store gate)
         │
         ▼
-Phase 3: MVP Preset Depth (sequential, 9 P-спек) — ТОЖЕ MVP
+Phase 3: MVP Preset Depth (sequential, 10 P-спек) — ТОЖЕ MVP
    P-1   Preset Schema v2 + Wizard Engine        (schemaVersion bump 1→2 backward-compat)
    P-2   Android Deep Integration Steps          (drawer block / swipe block / hide Settings)
    P-3   Preset Authoring + Sharing              (admin создаёт / экспорт / импорт)
@@ -137,6 +137,7 @@ Phase 3: MVP Preset Depth (sequential, 9 P-спек) — ТОЖЕ MVP
    P-7   Optional Step Reminder System           (persistent reminder без надоедания)
    P-8   Provider Recipe Catalogue               (server-side recipes: deep-link templates с параметрами)  ← NEW
    P-9   Device Inventory Sync                   (зашифрованный список установленных apps senior'а для admin'а)  ← NEW
+   P-10  Multi-app Cohabitation                  (chain-of-trust между launcher / messenger / album, one-click recovery)  ← moved from spec 017 placeholder 2026-06-18
         │
         ▼ ✅ PRODUCTION RELEASE — конец полного MVP (Phase 2 + Phase 3)
         │
@@ -153,7 +154,7 @@ Phase 5: Long-term Parking Lot (L-x, направления на годы)
    L-1 Clinic B2B · L-2 Marketplace · L-3 AI adapters · L-4 Self-hosted Sentry · ...
 ```
 
-**Critical path для production release**: F-3 → F-CRYPTO → F-4 → F-5 → S-1 → S-3 → S-5 → S-8 → S-9 → S-4 → S-2 → S-10 → S-6 → P-1 → P-2 → P-3 → P-4 → P-5 → P-6 → P-7 → P-8 → P-9 (sequential).
+**Critical path для production release**: F-3 → F-CRYPTO → F-4 → F-5 → S-1 → S-3 → S-5 → S-8 → S-9 → S-4 → S-2 → S-10 → S-6 → P-1 → P-2 → P-3 → P-4 → P-5 → P-6 → P-7 → P-8 → P-9 → P-10 (sequential).
 
 **Critical path для local-only public beta**: F-3 → S-1 → S-3. Можно выпустить **local-only public beta** значительно раньше production release.
 
@@ -412,21 +413,24 @@ F-CRYPTO (шаг 2) тоже зависит от F-4: encryption keys привя
 
 ### Scope: что входит
 
-- `AuthProvider` port в `core/domain/`.
-- `GoogleSignInAuthAdapter`:
+- **`AuthProvider` port в `core/domain/`** — **provider-agnostic** интерфейс. Не упоминает Google, Firebase, OAuth, email в сигнатурах. Возвращает абстрактный `AuthIdentity { stableId, displayName?, email?, providerKind }`. Google — **лишь один из возможных провайдеров** (rule 2 ACL применён к auth-провайдерам). Любой будущий провайдер (Phone, Email/Password, Apple, SAML, custom) подключается через **тот же `AuthProvider` port** добавлением нового adapter'а — **без изменения port'а** и без переписывания consumer'ов (F-5, S-2, S-6).
+- **`GoogleSignInAuthAdapter`** — **первая (и единственная в MVP)** реализация `AuthProvider`:
   - Firebase OAuth integration (Google Sign-In).
   - Email-bound identity binding.
   - Token refresh / session management.
-- **Отказ от AnonymousAuthAdapter**: все устройства используют `GoogleSignInAuthAdapter`.
-- `FakeAuthAdapter` для тестов.
+- **`FakeAuthAdapter`** — реализация `AuthProvider` без сети, для unit-тестов (rule 6 mock-first).
+- **DI seam**: где-то один `AuthProvider` инжектится по build flavor / runtime config. Замена provider'а = замена одной DI-привязки.
+- **Отказ от AnonymousAuthAdapter**: все устройства используют named identity через `AuthProvider` (decision 2026-05-30 D-Pair-1).
 - Identity model:
-  - `User { id, identity_keys, email?, display_name?, subscription_state }`
-  - Email — Required для всех пользователей.
-- Session management (token storage, refresh logic, expiry handling).
+  - `User { id, identity_keys, email?, display_name?, subscription_state, providerKind }`
+  - `providerKind` — enum-открытый field (`GOOGLE` сейчас, расширяется при добавлении adapter'а).
+  - Email — Required для всех пользователей **в MVP** (потому что единственный adapter — Google, который email возвращает). Когда добавим phone-only provider — email станет optional, identity model уже это допускает.
+- Session management (token storage, refresh logic, expiry handling) — **в abstract `SessionStore` port'е**, не привязан к Firebase token shape.
+- **Inline TODO**: `// TODO(auth-provider-extensions): Phone / Email-Password / Apple / SSO adapters add through this port without changing the port shape`.
 
 ### Scope: что НЕ входит
 
-- ❌ Phone Auth, Email/Password Auth — только Google Sign-In в MVP (можно добавить позже через adapter pattern).
+- ❌ Phone Auth, Email/Password Auth, Apple Sign-In, SSO — только **Google adapter** в MVP. **Port спроектирован так**, что эти провайдеры добавятся additively (новый adapter + новая DI-привязка), **без переписывания port'а**, F-5, S-2, S-6.
 - ❌ Apple Sign-In — это V-1 iOS территория.
 - ❌ Real subscription billing flow (frozen).
 - ❌ Account recovery UI flow — частично в S-2 (admin onboarding), полная — S-6 (account deletion с recovery option).
@@ -2748,7 +2752,7 @@ REFERENCE DOCS:
 
 ---
 
-# 🚀 Часть VI — Phase 3: MVP Preset Depth (P-1 .. P-7) — **ТОЖЕ MVP**
+# 🚀 Часть VI — Phase 3: MVP Preset Depth (P-1 .. P-10) — **ТОЖЕ MVP**
 
 > **Phase 3 — это вторая половина MVP**. Phase 2 даёт демонстрируемый core, Phase 3 — полноту обещаний vision (preset architecture, adaptive UX, recovery). Production release — после Phase 3.
 >
@@ -2970,6 +2974,59 @@ Senior-устройство периодически собирает списо
 ### Effort
 
 Small (~1-1.5 weeks).
+
+## P-10: Multi-app Cohabitation + Chain-of-trust Recovery
+
+> **Moved here 2026-06-18** from `specs/017-multi-app-cohabitation/` placeholder. Решение владельца — это не Phase 1 dependency, а часть полной preset/recovery полноты, поэтому переехала в Phase 3. Placeholder каталог `specs/017-multi-app-cohabitation/README.md` сохранён как research-контейнер; при создании полной спеки переименуется в свободный порядковый номер на тот момент.
+
+### Что строим (mentor explanation)
+
+Когда у нас будет 3 приложения одной семьи (**launcher + messenger + photo album**) на одном телефоне, владелец хочет, чтобы пользователь **один раз** подтвердил «это новое устройство — реально я», и после этого **все 3 приложения** автоматически восстановили доступ. Не три раза по очереди.
+
+Каждое app — отдельный Android-package с отдельным sandbox'ом и своим экземпляром `:core:crypto`. Android **не разрешает** одному app читать файлы другого по умолчанию. P-10 строит **chain-of-trust**: launcher подтверждает messenger, messenger подтверждает album, и эта цепочка переживает factory reset / смену устройства.
+
+UX-цель: **один клик восстанавливает доступ ко всем same-family app на устройстве**.
+
+### Зачем именно сейчас (а не в Phase 4 рядом с V-2 messenger'ом)
+
+К моменту запуска messenger'а (V-2 в Phase 4) chain-of-trust **должна быть готова** — иначе UX deteriorates обратно к «логиниться в каждое приложение отдельно». P-10 идёт **в конце Phase 3**, незадолго до Phase 4 messenger'а, так что сразу при выходе messenger MVP cohabitation уже работает. Building раньше — преждевременная абстракция (нет 2-го потребителя, нечего подтверждать).
+
+### Источники и резолюции
+
+- Placeholder + mentor-context: [`specs/017-multi-app-cohabitation/README.md`](../../specs/017-multi-app-cohabitation/README.md).
+- Three технических варианта B / C / гибрид — см. [`docs/dev/crypto-review.md`](../dev/crypto-review.md) §A2.
+- Inline TODOs: `TODO(pre-release-audit): multi-app cohabitation` в `app/src/main/java/com/launcher/app/di/F016CryptoModule.kt`, `core/crypto/src/iosMain/kotlin/family/crypto/SecureKeyStore.ios.kt`, `core/crypto/build.gradle.kts`. Все grep-discoverable: `grep -r "TODO(pre-release-audit):" core/ app/ docs/ specs/`.
+
+### Scope: что входит
+
+- Выбор технического варианта: **B (ContentProvider + custom permission)** / **C (Server-mediated handoff)** / **B+C гибрид**.
+- Wire format для encrypted-pending-handoff (если C / гибрид) — `schemaVersion: 1` с первого commit'а (rule 5).
+- Один **`ChainOfTrustVerifier`** port в `core/crypto/` (rule 2 ACL). Adapter'ы — Android (ContentProvider) и iOS (App Groups + shared Keychain).
+- Standalone-install fallback: если установлен только messenger (без launcher) — messenger делает свой recovery flow независимо.
+- Reverse trust: messenger может подтверждать launcher (а не только наоборот) — для случая, когда пользователь восстанавливает messenger первым.
+- Trust revocation: «удалить app X из доверенного семейства» (на случай compromise / give-away).
+
+### Scope: что НЕ входит
+
+- ❌ Сам messenger MVP — V-2.
+- ❌ Сам photo album MVP — V-3.
+- ❌ Cross-platform handoff Android↔iOS — если выбран вариант C, MVP только Android↔Android. iOS↔Android отдельным шагом.
+- ❌ Key rotation cascade — отдельный спек.
+
+### Dependencies
+
+- F-CRYPTO готов (KeyStore, KeyBlob, primitives) — ✅.
+- F-4, F-5 (identity + envelope encryption) — Phase 1 / Phase 2.
+- P-6 (Account Recovery + 2FA escrow) — recovery flow для **single app** уже работает к моменту P-10; P-10 расширяет его до **multi-app**.
+- Хотя бы один **второй потребитель `core/crypto/`** existing или scheduled — иначе нет цепочки. К моменту P-10 messenger MVP scheduled (Phase 4 V-2), значит триггер сработал.
+
+### Effort
+
+**Medium** (~2-3 weeks). Самая большая неизвестная — выбор B / C / гибрид; до того, как решено, нельзя оценить точно.
+
+### Open research questions (для spec-фазы)
+
+См. [`specs/017-multi-app-cohabitation/README.md`](../../specs/017-multi-app-cohabitation/README.md) §Research questions: ContentProvider permission UX на Android 15/16, iOS App Groups ограничения, wire format для handoff'а, standalone install, reverse trust, key rotation cascade, trust revocation.
 
 ---
 
@@ -3302,6 +3359,7 @@ Recorded в decision log of [`01-vision-and-positioning.md`](use-cases/01-vision
 ## История изменений
 
 - **2026-05-28** — Полная перезапись roadmap'а от **«launcher для пожилых»** к **Family Care Ecosystem**. Mentor-стиль с copy-paste-ready prompts для `/speckit.specify`. Phase 0 vision discussion с 28 D-вопросами закрыта в discussion 2026-05-27/2026-05-28. Старый roadmap (691 строка, на 2026-05-07) заменён.
+- **2026-06-18** — F-CRYPTO (spec 016) merged в main (PR #20). Multi-app cohabitation placeholder (`specs/017-multi-app-cohabitation/`) перенесён из текущего скоупа в **Phase 3 как P-10** (решение владельца) — это не Phase 1 dependency, а часть полной preset/recovery полноты перед Phase 4 messenger'ом. Phase 3 теперь P-1..P-10 (было P-1..P-9). F-4 scope усилен: `AuthProvider` port объявлен **provider-agnostic** (Google — лишь один из adapter'ов; Phone / Email-Password / Apple / SSO добавляются additively без переписывания port'а — rule 2 ACL применён к auth-провайдерам).
 - _(сюда добавляются изменения по мере работы)_
 
 ## Связь с другими документами

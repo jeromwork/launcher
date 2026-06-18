@@ -1,8 +1,10 @@
-# Spec 017 (placeholder) — Multi-app cohabitation + chain-of-trust recovery
+# P-10 (placeholder) — Multi-app cohabitation + chain-of-trust recovery
 
-**Status**: PLACEHOLDER. Not yet drafted. Created 2026-06-18 to lock context от mentor-сессии перед messenger spec.
+**Status**: PLACEHOLDER, **MOVED to Phase 3 as P-10** (2026-06-18 by owner). Каталог сохранён под старым именем `017-multi-app-cohabitation/` чтобы не ломать inline TODO в коде и cross-references из `docs/dev/crypto-review.md` и `ADR-008`. При создании полной спеки каталог будет переименован в `specs/NNN-multi-app-cohabitation/` со свободным порядковым номером на тот момент.
 
-**Trigger**: создание полной спеки запускается **до** написания `spec.md` для messenger MVP (планируется ~2026-11 по owner-roadmap).
+Created 2026-06-18 to lock context от mentor-сессии перед messenger spec.
+
+**Trigger**: создание полной спеки запускается **до** написания `spec.md` для messenger MVP (планируется ~2026-11 по owner-roadmap). По roadmap'у — после P-9 в Phase 3.
 
 ---
 
