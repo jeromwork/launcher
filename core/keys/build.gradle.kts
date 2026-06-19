@@ -48,6 +48,8 @@ kotlin {
             implementation(libs.kotest.assertions.core)
             implementation(libs.kotest.property)
             implementation(project(":core:crypto"))
+            // libsodium для real impl JVM tests (через ConfigCipherRoundtripTest).
+            implementation(libs.libsodium.bindings)
         }
         val jvmTest by getting {
             dependencies {
