@@ -1,4 +1,9 @@
-# Auth setup guide (Spec 017 F-4)
+# Auth setup guide (Spec 017 F-4) — troubleshooting
+
+> **2026-06-19 update**: основной dev setup переехал в
+> [`manual-setup-dev.md`](manual-setup-dev.md), production release —
+> в [`manual-setup-production.md`](manual-setup-production.md). Этот файл
+> остался как **focused troubleshooting** для типичных ошибок Google Sign-In.
 
 Onboarding-инструкция для разработчика, который **впервые** запускает
 project'у с Google Sign-In + Firebase Auth (`realBackend` flavor).
