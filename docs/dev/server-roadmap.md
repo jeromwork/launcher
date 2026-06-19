@@ -159,6 +159,37 @@
 - *Сервер должен:* Redis-based persistent rate-limit с window + multiple dimensions (UID, linkId, IP).
 - *Когда поедет:* при daily req >1000 на endpoint или попытке abuse.
 
+### RECOVERY + KEY MANAGEMENT (spec 018 / F-5 + S-2)
+
+**SRV-RECOVERY-001: Own-server recovery key vault** (replaces Firestore-based vault) + atomic brute-force counter.
+- *Сейчас:* recovery key admin'а зашифрован его passphrase'ом и лежит в Firestore `users/{uid}/recovery-key`. Firestore доступен любым actor'ам с правильным Google auth → cloud-feature разработчик / Google / forensics видит ciphertext (но не plaintext без passphrase). Brute-force защита — local DataStore counter (per FR-027 resolved 2026-06-19, H-1 mitigation): 3 попытки / hour sliding window, обходится через Clear App Data / factory reset / root.
+- *Сервер должен:*
+  - (a) предоставлять `RecoveryKeyVault` endpoint с better availability guarantees;
+  - (b) явный audit log access;
+  - (c) no third-party (Google) data residency;
+  - (d) **atomic counter increment** — server-side rate-limit, который **полностью** закрывает H-1: brute-force нельзя обойти через Clear App Data (counter не на устройстве), нельзя через factory reset (counter привязан к UID, а не к устройству), нельзя через root (counter не доступен клиентскому коду). Cost атаки повышается до server-side throttling (нет способа обойти);
+  - (e) защита от schema-version downgrade (per SRV-RECOVERY-002 below).
+- *Когда поедет:* при появлении собственного сервера; F-5 декларирует `RecoveryKeyVault` port — adapter swap без переписывания F-5 кода.
+
+**SRV-CRYPTO-005: Out-of-band fingerprint verification (Safety Number screen в pairing'е).**
+- *Сейчас:* QR pairing полностью «чёрный ящик» с точки зрения user'а — никакого fingerprint сравнения двух pubkey'ев. Ghost device attack vector: Firebase / atttacker с server-write-access может тихо подменить pubkey recipient'а. Accepted risk per F-5 clarify 2026-06-19 («чем тупее сервер, тем лучше»).
+- *Сервер должен:* добавить **endpoint для verified pubkey publication** (admin pubkey подписан собственным private key admin'а + server validates signature перед публикацией) + UI flow: admin и Managed видят 4-6-цифровой fingerprint (SHA-256 от обоих pubkey'ев, первые 24 бит), сверяют голосом / визуально перед confirmation. Закрывает Signal / WhatsApp «Safety Number» паттерн.
+- *Когда поедет:* любой из триггеров (1) реальный incident ghost device attack, (2) compliance требование (EU privacy directive), (3) переезд на свой сервер — где-то в этом окне.
+
+**SRV-CRYPTO-008: Algorithm migration job + schema-version migration policy для устаревших crypto primitives** (renumbered from SRV-CRYPTO-007 due to ID conflict with line 422 entry on encrypted_backup storage).
+- *Сейчас:* F-5 использует XChaCha20-Poly1305 (AEAD) + Argon2id (KDF). Wire-format содержит `algorithm: String` + `schemaVersion: Int` fields, позволяющие сосуществование версий. Clients могут читать старые и новые форматы (forward-compat). Защита от downgrade attacks (H-2) через Firestore Rule `schemaVersion >= existing` (FR-028a) + client TOLU (FR-028b). Миграция existing data (re-encryption под новый algorithm) — manual / отдельная спека.
+- *Сервер должен:* предоставлять server-triggered batch job: (a) для каждого user'а с outdated `algorithm` в `users/{uid}/recovery-key` — попросить клиент пере-wrap'ить root key под новый KDF (требует клиентского участия — passphrase должен быть введён, чтобы расшифровать старый); (b) для каждого SealedConfig в `users/{uid}/config` — re-encrypt под новый AEAD; (c) трекинг migration progress per UID; (d) deadline для clients, не мигрировавших — после deadline принудительный force-update.
+- *Migration policy (WhatsApp E2E backup pattern, per FR-028c в spec 018)*:
+  - **Phase 1 — Coexistence**: новые клиенты пишут v2, старые продолжают читать v1. Защита от downgrade: Firestore Rule (FR-028a) + client TOLU (FR-028b) уже работают с дня релиза v2.
+  - **Phase 2 — Auto-migration (months)**: новые клиенты при каждом успешном recovery (когда пользователь ввёл passphrase) **автоматически** re-encrypt root key в v2 и записывают обратно. Через несколько месяцев большинство данных мигрированы.
+  - **Phase 3 — Deprecation (after ~12 месяцев)**: клиенты v2+ отказываются читать v1, запрашивают forced app update. Min app version повышается в Play Store metadata.
+- *Когда поедет:* когда XChaCha20-Poly1305 или Argon2id будут официально deprecated (или появится post-quantum requirement). Realistically — через 5-10 лет, но spec уже зарезервировал место.
+
+**SRV-CRYPTO-006: Server-side ghost device detection / forward unsharing.**
+- *Сейчас:* удалённый из пары admin теряет доступ к **новым** версиям конфига, но **старые** версии (если они когда-нибудь были) остаются доступны под его ключом. Accepted limitation MVP.
+- *Сервер должен:* при unpair триггерить re-encryption всех existing config snapshots под новым CEK без removed recipient'а (forward unsharing). Требует server-side coordination.
+- *Когда поедет:* future spec, скорее всего одновременно с SRV-CRYPTO-005.
+
 ### COMMANDS + REAL-TIME OPERATIONS
 
 **SRV-CMD-001: Admin-to-Managed runtime commands.**
@@ -209,6 +240,7 @@
 | 2026-05-22 | Добавлен SRV-CRYPTO-001 (универсальный маршрут переезда крипто-инфраструктуры на свой backend) — независимо от Firebase Storage лимитов | Spec 011 mentor-сессия |
 | 2026-05-25 | SRV-CRYPTO-001 rev. 2 — переключение storage с Firebase Storage (требует Blaze) на Backblaze B2 + Cloudflare Worker proxy. Free tier 10 GB, без credit card. Exit ramp сохранён через S3-compatible API. | Spec 011 mentor-сессия по billing |
 | 2026-05-28 | Добавлены SRV-CMD-002 (Firestore Transactions inadequacy для membership ops), SRV-SEC-005 (Firestore Rules complexity → server-side auth logic), SRV-INFRA-003 (Cloudflare Worker CPU time limit), SRV-DEV-001 (staging environment), SRV-CRYPTO-002 (manual key rotation FUTURE-SPEC-010) | Pre-F-1 mentor critique walkthrough |
+| 2026-06-19 | Добавлены SRV-RECOVERY-001 (own-server recovery key vault, replaces Firestore-based), SRV-CRYPTO-005 (out-of-band fingerprint verification / Safety Number screen), SRV-CRYPTO-006 (forward unsharing при removal admin'а), SRV-CRYPTO-007 (algorithm migration job для устаревших primitives) | F-5 spec 018 clarify session — multi-admin envelope перенесён в S-2, F-5 redefined как root key hierarchy + recovery |
 
 ---
 
@@ -509,3 +541,16 @@ identity-links rules станут insecure (любой пользователь 
 претендовать на чужой Google sub).
 
 **Источник**: Spec 017 F-4 firestore.rules.
+
+## SRV-CRYPTO-PARAMS-REVIEW: Argon2id parameters periodic review cadence (spec 018 F-5, H-5)
+
+**Контекст**: F-5 использует Argon2id с interactive params (64 MiB / 3 iter / 1 par) — OWASP 2024 рекомендация. К 2030 году рекомендация скорее всего поднимется. Wire-format уже поддерживает upgrade (`RecoveryVaultBlob.kdfParams`).
+
+**Требование**: review Argon2id params каждые 2 года против OWASP актуальных рекомендаций. **Next review due: 2028-06**.
+
+**Process**:
+1. Сверить с OWASP Password Storage Cheat Sheet.
+2. Если params устарели — bump в `Argon2idPassphraseKdf` default params; existing vaults читаются со старыми params из blob field, новые setup'ы — с новыми.
+3. Если algorithm устарел (Argon2id deprecated) — отдельная migration spec (FR-033, SRV-CRYPTO-007).
+
+**Источник**: Spec 018 F-5 analyze-report.md 2026-06-19 (H-5 finding).
