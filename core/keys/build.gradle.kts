@@ -56,6 +56,15 @@ kotlin {
                 implementation(libs.kotest.runner.junit5)
             }
         }
+        // Android Keystore + Argon2id real-device tests (T122b, OEM matrix).
+        val androidInstrumentedTest by getting {
+            dependencies {
+                implementation("androidx.test:runner:1.6.2")
+                implementation("androidx.test.ext:junit:1.2.1")
+                implementation(libs.kotlinx.coroutines.test)
+                implementation(libs.libsodium.bindings)
+            }
+        }
     }
 }
 
