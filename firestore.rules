@@ -326,6 +326,77 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ─── Spec 018 (F-5) — Recovery Key Vault ───────────────────────────
+    //
+    // Path: users/{uid}/recovery-key/{docId} (subcollection — НЕ covered
+    // правилом /users/{any} выше, которое matches только top-level docs).
+    //
+    // Strict owner-only access + shape validation + schemaVersion monotonic
+    // increase (H-2 downgrade attack mitigation).
+    //
+    // Per spec 018 FR-009, FR-028a, contract firestore-security-rules.md.
+    //
+    // Native Firestore typed fields (НЕ JSON-encoded в одном string):
+    //   • schemaVersion: int  (≥ 1, FR-028a monotonic)
+    //   • algorithm: string   (1..64 chars)
+    //   • kdfSalt: bytes      (== 16 bytes, libsodium constant)
+    //   • kdfParams: map { memoryKiB: int, iterations: int, parallelism: int }
+    //   • wrappedRootKey: bytes (1..1024 bytes — AEAD envelope, не raw 32)
+    //   • nonce: bytes        (== 24 bytes, XChaCha20)
+    //   • createdAt: int      (ms epoch)
+    function isValidRecoveryVaultBlob(d) {
+      return d.schemaVersion is int
+          && d.schemaVersion >= 1
+          && d.algorithm is string
+          && d.algorithm.size() > 0
+          && d.algorithm.size() <= 64
+          && d.wrappedRootKey is bytes
+          && d.wrappedRootKey.size() > 0
+          && d.wrappedRootKey.size() <= 1024
+          && d.kdfSalt is bytes
+          && d.kdfSalt.size() == 16
+          && d.nonce is bytes
+          && d.nonce.size() == 24
+          && d.kdfParams is map
+          && d.kdfParams.memoryKiB is int
+          && d.kdfParams.iterations is int
+          && d.kdfParams.parallelism is int
+          && d.createdAt is int;
+    }
+
+    match /users/{uid}/recovery-key/{docId} {
+      allow read: if request.auth != null
+                  && request.auth.uid == uid;
+
+      allow create: if request.auth != null
+                    && request.auth.uid == uid
+                    && isValidRecoveryVaultBlob(newDoc());
+
+      // FR-028a (H-2 mitigation): schemaVersion can only monotonically increase.
+      // Blocks downgrade attacks где attacker с stolen Google credentials
+      // пытается replace v2+ vault на vulnerable v1 (per WhatsApp E2E backup pattern).
+      allow update: if request.auth != null
+                    && request.auth.uid == uid
+                    && isValidRecoveryVaultBlob(newDoc())
+                    && newDoc().schemaVersion >= existingDoc().schemaVersion;
+
+      allow delete: if request.auth != null
+                    && request.auth.uid == uid;
+    }
+
+    // Spec 018 F-5 consumer-side: encrypted ConfigDocument storage path
+    // (path owned by spec 008, F-5 enforces owner-only + schemaVersion
+    // monotonic increase). Detailed shape validation — spec 008 territory.
+    match /users/{uid}/config/{docId} {
+      allow read, create, delete: if request.auth != null
+                                  && request.auth.uid == uid;
+
+      // FR-028a (H-2 mitigation).
+      allow update: if request.auth != null
+                    && request.auth.uid == uid
+                    && newDoc().schemaVersion >= existingDoc().schemaVersion;
+    }
+
     // ─── default deny for everything else ──────────────────────────────
     match /{document=**} {
       allow read, write: if false;
