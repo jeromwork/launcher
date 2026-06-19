@@ -125,6 +125,8 @@ dependencies {
     implementation(project(":core"))
     // Spec 016 (F-CRYPTO) — KMP crypto foundation module.
     implementation(project(":core:crypto"))
+    // Spec 018 (F-5) — key hierarchy, ConfigCipher, recovery.
+    implementation(project(":core:keys"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
