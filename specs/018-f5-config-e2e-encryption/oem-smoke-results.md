@@ -50,6 +50,13 @@ Run benchmark на первом setup'е, выбрать params чтобы fit 5
 
 **Recommendation**: Option A для MVP, Option C если UX тестирование покажет 1 sec лагает.
 
+## Resolution Applied
+
+**2026-06-19: Owner approved Option A** (по обсуждению — Argon2id срабатывает только при setup + recovery, не daily UX; root key хранится в Android Keystore и passphrase не запрашивается при ежедневном использовании):
+- `spec.md` SC-002 updated: «< 1500ms на realistic 5-летних devices» (раньше 500ms).
+- `Argon2idAndroidPerfBenchmark.interactiveParamsDerivationUnder1500ms` test threshold updated.
+- Argon2id params (64MB / 3 / 1) **сохранены** — brute-force resistance не понижена.
+
 ## MIUI-specific notes
 
 Никаких MIUI-specific issues не обнаружено в тестах:

@@ -393,7 +393,7 @@ Senior (бабушка) видит на launcher'е config, отправленн
 ### Measurable Outcomes
 
 - **SC-001**: 0 plaintext-имён / телефонов / labels в Firestore при включённом F-5 — автотест grep'ит по fixture-именам в скачанных blob'ах.
-- **SC-002**: Roundtrip seal→open для типичного config (≤ 10 KB plaintext) занимает **< 50 ms** на эмуляторе Pixel 5 API 34. Argon2id-derivation passphrase (interactive params) — **< 500 ms**.
+- **SC-002**: Roundtrip seal→open для типичного config (≤ 10 KB plaintext) занимает **< 50 ms** на эмуляторе Pixel 5 API 34 (verified 2026-06-19: 55ms на Xiaomi 11T). Argon2id-derivation passphrase (interactive params 64MB/3/1) — **< 1500 ms** на realistic 5-летних devices (verified 2026-06-19: 776ms Xiaomi 11T, 726ms emulator API 35; ранее заявленные 500ms оказались недостижимы из-за libsodium JNI overhead). Это редкая операция (один раз при setup passphrase + один раз при recovery на новом устройстве / Clear App Data), не блокирует daily UX потому что root key хранится в Android Keystore и passphrase не запрашивается при ежедневном использовании.
 - **SC-003**: Recovery flow end-to-end (Sign-In → fetch vault → unwrap passphrase → restore root → get DEK → decrypt config) — **< 3 seconds** при cold start, при условии что network round-trip к Firestore < 500ms.
 - **SC-004**: 100% случаев: при правильном passphrase recovery успешен; при неправильном — ошибка `WrongPassphrase`, не crash, не silent fail.
 - **SC-005**: Sign-out → Sign-in на том же устройстве: **0 recovery flow triggered** (root key уже в Keystore).

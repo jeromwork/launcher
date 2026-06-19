@@ -15,19 +15,20 @@ import kotlin.time.measureTime
 /**
  * Phase 7 T122b — Argon2id perf benchmark на реальном Android JNI overhead.
  *
- * Целевая планка: < 500ms на interactive params (mem=64MB, iters=3) — это
- * UX baseline для recovery passphrase entry per spec 018 SC-002.
+ * **Updated 2026-06-19** после real-device measurements: SC-002 threshold
+ * был пересмотрен с 500ms → 1500ms — libsodium JNI overhead на realistic
+ * 5-летних devices не позволяет дойти до 500ms без снижения brute-force
+ * resistance (см. oem-smoke-results.md Option A, owner approved).
  *
- * Note: Pixel 5 / API 34 / эмулятор обычно укладывается; old physical devices
- * (Xiaomi MIUI на 2-3 ядерных CPU) могут быть slower. Если test fails на
- * физ. устройстве — оставляем как documented baseline + spec обновляется на
- * realistic threshold.
+ * Это редкая операция (1 раз setup + 1 раз recovery на новом устройстве),
+ * не daily UX — 776ms Xiaomi 11T / 726ms emulator acceptable. Root key хранится
+ * в Android Keystore и passphrase не запрашивается при ежедневном использовании.
  */
 @RunWith(AndroidJUnit4::class)
 class Argon2idAndroidPerfBenchmark {
 
     @Test
-    fun interactiveParamsDerivationUnder500ms() = runTest {
+    fun interactiveParamsDerivationUnder1500ms() = runTest {
         if (!LibsodiumInitializer.isInitialized()) LibsodiumInitializer.initialize()
         val kdf = Argon2idPassphraseKdf(LibsodiumArgon2idPasswordHash())
         val passphrase = "test-passphrase-for-benchmark".toCharArray()
@@ -45,12 +46,12 @@ class Argon2idAndroidPerfBenchmark {
         val best = timings.min()
         println("Argon2id interactive params best timing: $best (all: $timings)")
 
-        // SC-002 цель — 500ms. Реальное устройство может быть медленнее,
-        // но > 2s означает что params слишком тяжёлые для UX.
+        // SC-002 updated 2026-06-19: 1500ms на realistic devices (раньше 500ms).
+        // Это редкая операция, не daily UX — acceptable trade-off vs brute-force resistance.
         assertTrue(
-            "Argon2id derivation должно быть < 2000ms, got $best (cf. SC-002 цель 500ms). " +
-                "На быстром устройстве/эмуляторе — должно быть значительно меньше 500ms.",
-            best < 2000.milliseconds
+            "Argon2id derivation должно быть < 1500ms (SC-002 updated), got $best. " +
+                "На быстром устройстве/эмуляторе обычно ~700-800ms из-за libsodium JNI overhead.",
+            best < 1500.milliseconds
         )
     }
 
