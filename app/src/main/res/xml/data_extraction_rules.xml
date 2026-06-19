@@ -41,6 +41,21 @@
         -->
         <exclude domain="sharedpref" path="auth_session_v1.preferences.xml" />
         <exclude domain="sharedpref" path="auth_session_v1.preferences.xml.bak" />
+        <!--
+          Spec 018 (F-5) — H-1 / H-2 mitigations MUST NOT travel cloud-backup:
+          • passphrase_attempts_v1 — persistent attempt counter (3-strike lockout
+            для recovery passphrase). Restore из cloud → счётчик сброшен →
+            attacker bypass'ит lockout. Accepted residual: Clear App Data
+            тоже сбрасывает счётчик локально, но также удаляет root key cache,
+            поэтому attacker всё равно начинает с zero progress. Cloud-backup
+            restore — другой attack: attacker может восстановить state до lockout
+            не имея физ. доступа к устройству.
+          • tolu_schema_versions_v1 — Trust-On-Last-Use schemaVersion memory.
+            Restore старого state'а позволяет roll-back атаку: attacker
+            подсовывает старую SealedConfig версию которая прошла бы validation.
+        -->
+        <exclude domain="file" path="datastore/passphrase_attempts_v1.preferences_pb" />
+        <exclude domain="file" path="datastore/tolu_schema_versions_v1.preferences_pb" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="file" path="datastore/com.launcher.capability.snapshot_v1.preferences_pb" />
@@ -51,5 +66,8 @@
         <!-- Spec 017 (F-4) — same rationale as cloud-backup. -->
         <exclude domain="sharedpref" path="auth_session_v1.preferences.xml" />
         <exclude domain="sharedpref" path="auth_session_v1.preferences.xml.bak" />
+        <!-- Spec 018 (F-5) — see cloud-backup comment above. -->
+        <exclude domain="file" path="datastore/passphrase_attempts_v1.preferences_pb" />
+        <exclude domain="file" path="datastore/tolu_schema_versions_v1.preferences_pb" />
     </device-transfer>
 </data-extraction-rules>

@@ -2,6 +2,8 @@ package com.launcher.app.di
 
 import com.launcher.api.auth.AuthProvider
 import com.launcher.app.data.identity.GoogleSignInIdentityProof
+import com.launcher.app.data.recovery.DataStorePassphraseAttemptCounter
+import com.launcher.app.data.recovery.DataStoreSchemaVersionMemory
 import family.crypto.api.AeadCipher
 import family.crypto.api.PasswordHash
 import family.crypto.api.RandomSource
@@ -9,8 +11,10 @@ import family.crypto.api.SecureKeyStore
 import family.crypto.libsodium.LibsodiumArgon2idPasswordHash
 import family.keys.api.IdentityProof
 import family.keys.api.PassphraseAttemptCounter
+import family.keys.api.SchemaVersionMemory
 import family.keys.impl.Argon2idPassphraseKdf
 import family.keys.impl.RootKeyManagerImpl
+import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 /**
@@ -44,4 +48,8 @@ val f018KeysModule = module {
             aead = get<AeadCipher>()
         )
     }
+
+    // H-1 / H-2 mitigations (T122f, T122m).
+    single<PassphraseAttemptCounter> { DataStorePassphraseAttemptCounter(context = androidContext()) }
+    single<SchemaVersionMemory> { DataStoreSchemaVersionMemory(context = androidContext()) }
 }
