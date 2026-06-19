@@ -23,6 +23,14 @@ import family.keys.api.PassphraseKdfParams
  * Это работает потому что Argon2id deterministic относительно salt — для recovery
  * мы пересоздадим тот же combinedSalt (uid известен после Sign-In), и получим
  * тот же derived key.
+ *
+ * TODO(future-spec algorithm-migration): при переходе на Argon2id v2 или другую
+ * memory-hard функцию (например, scrypt или новую libsodium primitive) добавить:
+ *  1. New algorithm string в [family.keys.api.RecoveryVaultBlob.algorithm] (например
+ *     "argon2id-v2-xchacha20poly1305-v1");
+ *  2. Branching в [family.keys.impl.RecoveryFlow.performRecovery] по algorithm
+ *     поле для backward-compat read;
+ *  3. Re-wrap при successful recovery в новый algorithm + повторный storeVault.
  */
 class Argon2idPassphraseKdf(
     private val passwordHash: PasswordHash

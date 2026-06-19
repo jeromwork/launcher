@@ -25,6 +25,15 @@ import family.keys.api.SealedConfig
  * **Schema-version validation** (H-3): при open сначала check'аем
  * `sealed.schemaVersion <= MAX_SUPPORTED` ДО передачи в AEAD, чтобы не
  * атрачивать CPU на decrypt unsupported версии.
+ *
+ * TODO(future-spec algorithm-migration): при переходе на post-quantum AEAD
+ * (например, kyber-768 + chacha20 hybrid) добавить новый algorithm string
+ * в [family.keys.api.SealedConfig] + branching по algorithm в open(). Старые
+ * v1 blob'ы — readable через legacy path.
+ *
+ * TODO(future-spec passphrase-change): сейчас нет API для смены passphrase
+ * без потери root key. Реализация: unwrap старым passphrase → re-wrap новым →
+ * storeVault. Не F-5 scope.
  */
 class AeadConfigCipherImpl(
     private val aead: AeadCipher,

@@ -33,7 +33,7 @@
   5. **Search invariant**: search по контактам в admin Editor (FR в спеке 009) переезжает **полностью на клиент** — admin'ский телефон расшифровывает config, ищет локально, повторно отправляет на сервер уже отфильтрованную операцию. Server search **исчезает**.
   6. **Backup / export**: bulk export ConfigDocument для пользователя становится возможным **только** для аутентифицированного admin'а — он расшифровывает локально + экспортирует.
 - **When**: после F-4 (AuthProvider) и до production release. Не блокирует S-features в development.
-- **Status**: 🔴 OPEN — production blocker
+- **Status**: 🟡 IN PROGRESS — F-5 implementation 75% complete на 2026-06-19. Реализованы core/keys/ KMP module, ConfigCipher (XChaCha20-Poly1305 + identity-binding AAD), RecoveryFlow (Argon2id + Firestore vault + 3-strike lockout), DataStore-backed H-1/H-2 mitigations, 75 JVM/Robolectric тестов проходят. Остаются: Firestore Emulator E2E grep test (SC-001 verification), recovery E2E test, OEM matrix, Firestore Rules deploy — всё требует эмулятор / физ. устройство. Branch 018-f5-config-e2e-encryption.
 - **Origin**: User raised 2026-05-28 — обнаружено при обсуждении spec 014 (Contact Sharing UX). Зафиксировано как F-5 в roadmap.md.
 
 ### TODO-OPS-001: Включить 2FA на Cloudflare account 🔴

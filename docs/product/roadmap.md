@@ -107,7 +107,7 @@ Phase 1: Foundation (~5-7 weeks sequential)
    Шаг 1: F-3  Wizard Module + Localization    — wizard работает ЛОКАЛЬНО (✅ Done 2026-06-17, merged PR #19)
    Шаг 2: F-CRYPTO  core/crypto/ KMP module    — lib-family-crypto (🚧 InProgress 2026-06-17 — implementation: ports + Libsodium adapters + Android Keystore wrap + RFC KAT + instrumentation green on emulator; docs/dev/crypto-review.md published; awaits paid audit before billing per SRV-CRYPTO-003)
    Шаг 3: F-4  AuthProvider + Google Sign-In   — identity foundation (✅ Done, merged PR #21 2026-06-18)
-   Шаг 4: F-5  Root Key Hierarchy + Config Encryption + Recovery 🔴 PRODUCTION BLOCKER (🚧 Planning 2026-06-19 — spec 018; spec/clarify/scenarios/plan complete; next: /speckit.tasks)
+   Шаг 4: F-5  Root Key Hierarchy + Config Encryption + Recovery 🔴 PRODUCTION BLOCKER (🟡 In Progress 2026-06-19 — spec 018; core/keys/ KMP module + ConfigCipher + RecoveryFlow + DataStore H-1/H-2 mitigations реализованы; 75 JVM/Robolectric тестов проходят; emulator-based E2E (T056/T086) + Firestore Rules deploy + OEM matrix остаются для финализации)
           → создаёт core/keys/ module + recovery foundation, на котором строятся все cloud-фичи Phase 2
 
    F-2  Capability Registry  — отложен в Phase 4+ entirely
