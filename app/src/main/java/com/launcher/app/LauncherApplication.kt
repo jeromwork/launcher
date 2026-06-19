@@ -2,6 +2,7 @@ package com.launcher.app
 
 import android.app.Application
 import androidx.work.Configuration
+import com.launcher.adapters.auth.installAuthActivityTracker
 import com.launcher.adapters.lifecycle.ConfigRefreshWorker
 import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
 import com.launcher.app.di.appAndroidModule
@@ -48,6 +49,9 @@ class LauncherApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        // Spec 017 (F-4) — Credential Manager requires Activity context;
+        // tracker заполняет ActivityHolder на каждый resume.
+        installAuthActivityTracker()
         startKoin {
             androidLogger(Level.INFO)
             androidContext(this@LauncherApplication)

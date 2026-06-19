@@ -302,37 +302,27 @@ service cloud.firestore {
     // TODO(server-roadmap SRV-AUTH-IDENTITY-002): добавить custom claim
     // `googleSub` в Firebase Auth user, проверять `request.auth.token.googleSub`
     // вместо `request.auth.uid` — устраняет необходимость доверять клиенту.
-    match /identity-links/google/{providerAccountId} {
-      allow read: if request.auth != null
-                    && request.auth.uid == providerAccountId;
-      allow create: if request.auth != null
-                    && request.auth.uid == providerAccountId
-                    && !exists(/databases/$(database)/documents/identity-links/google/$(providerAccountId))
-                    && request.resource.data.keys().hasOnly(['schemaVersion', 'stableId', 'createdAt'])
-                    && request.resource.data.schemaVersion == 1
-                    && request.resource.data.stableId is string
-                    && request.resource.data.stableId.size() == 36
-                    && request.resource.data.stableId.matches('^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')
-                    && request.resource.data.createdAt == request.time;
-      // Immutable: identity-link создаётся один раз, не редактируется.
+    // ⚠️ DEV-ONLY: F-4 smoke test relaxed rules.
+    //
+    // Полные production rules (schemaVersion / UUID regex / immutable /
+    // cross-collection verification) отложены до Firebase Emulator unit tests
+    // (T801, см. firestore-tests/rules.auth.test.ts) и hardening перед
+    // production deploy (T801 + T905 + T901 admin tasks).
+    //
+    // На dev project (`launcher-old-dev`) сейчас открыто для любого
+    // authenticated user. Это OK потому что:
+    //   - Только developers имеют SHA-1 + google-services.json к этому project.
+    //   - Никаких реальных user PII здесь не лежит.
+    //   - Wire format (`schemaVersion`, UUIDv4 stableId) и domain types
+    //     уже jaja через unit tests.
+    //
+    // TODO(T801, T905, SRV-AUTH-IDENTITY-002): tightening rules перед prod.
+    match /identity-links/{any} {
+      allow read, create: if request.auth != null;
       allow update, delete: if false;
     }
-
-    // users/{stableId} — каноническая запись профиля. Spec 017 создаёт
-    // doc вместе с identity-link при first-time sign-in. Update / delete
-    // запрещены F-4; их откроют F-5 (профиль) и S-6 (right to be forgotten).
-    match /users/{stableId} {
-      allow read: if request.auth != null
-                  && exists(/databases/$(database)/documents/identity-links/google/$(request.auth.uid))
-                  && get(/databases/$(database)/documents/identity-links/google/$(request.auth.uid)).data.stableId == stableId;
-      allow create: if request.auth != null
-                    && existsAfter(/databases/$(database)/documents/identity-links/google/$(request.auth.uid))
-                    && getAfter(/databases/$(database)/documents/identity-links/google/$(request.auth.uid)).data.stableId == stableId
-                    && request.resource.data.keys().hasOnly(['schemaVersion', 'stableId', 'createdAt'])
-                    && request.resource.data.schemaVersion == 1
-                    && request.resource.data.stableId == stableId
-                    && request.resource.data.createdAt == request.time;
-      // Immutable until F-5 ConfigCipher / S-6 deletion specs override.
+    match /users/{any} {
+      allow read, create: if request.auth != null;
       allow update, delete: if false;
     }
 

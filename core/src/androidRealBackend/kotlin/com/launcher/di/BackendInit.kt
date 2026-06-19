@@ -307,17 +307,24 @@ val backendModule: Module = module {
 
     // GoogleSignInAuthAdapter — real Google Sign-In implementation.
     //
-    // TODO(server-roadmap SRV-AUTH-002): serverClientId сейчас — placeholder.
-    // Перед первым production-релизом подставить Web Application Client ID
-    // из Firebase Auth Settings → OAuth Consent Screen (T901 admin task).
-    // Передавать через BuildConfig поле либо через :app:BackendInit override.
+    // serverClientId = Web Application Client ID (OAuth client_type: 3) из
+    // google-services.json текущего dev Firebase project (`launcher-old-dev`).
+    // НЕ секретный — embedded в APK через google-services plugin, виден
+    // любому reverse engineer'у. Безопасность держится на SHA-1 fingerprint
+    // verification на стороне Google + Firebase Auth domain whitelist.
+    //
+    // TODO(server-roadmap SRV-AUTH-002, T901): перед production release
+    // вытащить ID через BuildConfig.WEB_CLIENT_ID, генерируемый Gradle
+    // plugin per-flavor (dev / staging / prod), чтобы не хардкодить
+    // dev-project ID в коде. Сейчас acceptable потому что есть только
+    // один Firebase project и production ещё не настроен.
     single {
         com.launcher.adapters.auth.GoogleSignInAuthAdapter(
             context = androidContext(),
             firebaseAuth = get(),
             firestore = get(),
             sessionStore = get(),
-            serverClientId = "TODO_REPLACE_BEFORE_RELEASE_T901",
+            serverClientId = "276980181074-ckqsoapcio17rfldredelv0tme3qm72m.apps.googleusercontent.com",
         )
     }
 

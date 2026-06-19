@@ -1,12 +1,13 @@
 package com.launcher.adapters.auth
 
 import android.content.Context
+import android.util.Log
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.FirebaseTooManyRequestsException
@@ -127,16 +128,27 @@ internal class GoogleSignInAuthAdapter(
     private suspend fun doSignIn(): Outcome<AuthIdentity, AuthError> {
         return try {
             // 1. Credential Manager → Google ID Token credential.
+            //
+            // Используем GetSignInWithGoogleOption (не GetGoogleIdOption) —
+            // первая всегда показывает Google Sign-In bottom-sheet, даже если
+            // в системе нет authorized accounts; GetGoogleIdOption с
+            // setFilterByAuthorizedAccounts(false) бросает NoCredentialException
+            // на новых устройствах. Per Google docs:
+            // https://developer.android.com/identity/sign-in/credential-manager-siwg
             val request = GetCredentialRequest.Builder()
                 .addCredentialOption(
-                    GetGoogleIdOption.Builder()
-                        .setServerClientId(serverClientId)
-                        .setFilterByAuthorizedAccounts(false)
-                        .setAutoSelectEnabled(false)
-                        .build(),
+                    GetSignInWithGoogleOption.Builder(serverClientId).build(),
                 )
                 .build()
-            val credResponse = credentialManager.getCredential(context, request)
+            Log.i(TAG, "sign_in.attempt serverClientId.last8=${serverClientId.takeLast(8)}")
+            // Credential Manager требует Activity-based context (не application).
+            // ActivityHolder заполняется ActivityHolderLifecycleObserver на onResume.
+            // Если Activity нет (background) — это user error, не падаем.
+            val activityContext = ActivityHolder.current() ?: run {
+                Log.w(TAG, "sign_in.no_activity — adapter called without foreground Activity")
+                return Outcome.Failure(AuthError.Unknown("no_activity"))
+            }
+            val credResponse = credentialManager.getCredential(activityContext, request)
             val googleCred = GoogleIdTokenCredential.createFrom(credResponse.credential.data)
             val idToken = googleCred.idToken
             val email = googleCred.id  // Google ID Credential — `id` = email.
@@ -144,18 +156,23 @@ internal class GoogleSignInAuthAdapter(
                 return Outcome.Failure(AuthError.NoEmail)
             }
 
-            // 2. Extract Google `sub` claim (T750, см. GoogleIdTokenParser).
-            val sub = GoogleIdTokenParser.extractSubClaim(idToken, json)
-
-            // 3. Lookup or create identity-link (T751).
-            val stableId = lookupOrCreateIdentityLink(sub)
-
-            // 4. Firebase exchange (T752).
+            // 2. Firebase exchange (T752) — выполняется ПЕРВЫМ, чтобы
+            // получить Firebase Auth UID для identity-link rules. Firebase UID
+            // стабилен per (google account, firebase project) пара, поэтому
+            // надёжнее использовать его как identifier чем sub claim
+            // (sub claim — Google-specific, а Firebase UID работает для любого
+            // provider'а — упрощает future migration к Apple/Phone auth).
             val firebaseResult = firebaseAuth
                 .signInWithCredential(GoogleAuthProvider.getCredential(idToken, null))
                 .await()
             val firebaseUser = firebaseResult.user
                 ?: return Outcome.Failure(AuthError.Unknown("Firebase signIn succeeded but user is null"))
+            val firebaseUid = firebaseUser.uid
+
+            // 3. Lookup or create identity-link (T751). Document ID = Firebase UID
+            // (не Google sub claim) — это согласуется с request.auth.uid в Firestore
+            // Rules без custom claims (см. SRV-AUTH-IDENTITY-002 — больше не нужен).
+            val stableId = lookupOrCreateIdentityLink(firebaseUid)
 
             val tokenResult = firebaseUser.getIdToken(false).await()
             val jwt = tokenResult.token ?: ""
@@ -188,20 +205,27 @@ internal class GoogleSignInAuthAdapter(
         } catch (e: CancellationException) {
             throw e
         } catch (e: GetCredentialCancellationException) {
+            Log.w(TAG, "sign_in.cancelled by user")
             Outcome.Failure(AuthError.Cancelled)
         } catch (e: NoCredentialException) {
+            Log.w(TAG, "sign_in.no_credential: ${e.message}")
             Outcome.Failure(AuthError.ProviderUnavailable)
         } catch (e: GetCredentialException) {
             // Generic Credential Manager failure (configuration, network, etc.).
+            Log.w(TAG, "sign_in.credential_error type=${e::class.simpleName} msg=${e.message} cause=${e.cause?.message}")
             Outcome.Failure(AuthError.Unknown(e::class.simpleName ?: "credential"))
         } catch (e: FirebaseNetworkException) {
+            Log.w(TAG, "sign_in.firebase_network: ${e.message}")
             Outcome.Failure(AuthError.NetworkError)
         } catch (e: FirebaseTooManyRequestsException) {
-            Outcome.Failure(AuthError.NetworkError)  // rate-limited → user retries позже.
+            Log.w(TAG, "sign_in.firebase_rate_limited: ${e.message}")
+            Outcome.Failure(AuthError.NetworkError)
         } catch (e: Exception) {
+            Log.w(TAG, "sign_in.unknown type=${e::class.simpleName} msg=${e.message}", e)
             Outcome.Failure(AuthError.Unknown(e::class.simpleName ?: "auth"))
         }
     }
+
 
     override suspend fun signOut() {
         firebaseAuth.signOut()
@@ -227,12 +251,12 @@ internal class GoogleSignInAuthAdapter(
      * Per spec 017 FR-016a, contract `identity-link-v1.md`.
      */
     internal suspend fun lookupOrCreateIdentityLink(sub: String): String {
-        val identityLinkRef = firestore.document("identity-links/google/$sub")
+        val identityLinkRef = firestore.document("identity-links/google_$sub")
         return firestore.runTransaction<String> { txn ->
             val snapshot = txn.get(identityLinkRef)
             if (snapshot.exists()) {
                 snapshot.getString("stableId")
-                    ?: error("identity-links/google/$sub exists but missing stableId field")
+                    ?: error("identity-links/google_$sub exists but missing stableId field")
             } else {
                 val newUuid = UUID.randomUUID().toString()
                 txn.set(
@@ -291,6 +315,7 @@ internal class GoogleSignInAuthAdapter(
     }
 
     companion object {
+        private const val TAG = "Auth"
         private const val REFRESH_BUFFER_MILLIS = 5 * 60 * 1000L
     }
 }
