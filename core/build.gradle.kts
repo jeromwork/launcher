@@ -161,6 +161,13 @@ dependencies {
     "realBackendImplementation"(libs.firebase.firestore.ktx)
     "realBackendImplementation"(libs.firebase.auth.ktx)
     "realBackendImplementation"(libs.firebase.messaging.ktx)
+
+    // Spec 017 (F-4 AuthProvider) — Credential Manager + Google Identity provider.
+    // Используются GoogleSignInAuthAdapter (androidRealBackend/adapters/auth/).
+    // mockBackend не подтягивает — там FakeAuthAdapter.
+    "realBackendImplementation"(libs.androidx.credentials)
+    "realBackendImplementation"(libs.androidx.credentials.play.services.auth)
+    "realBackendImplementation"(libs.google.id)
     // Spec 011 — encrypted blobs storage переехал на Worker-proxied B2
     // (server-roadmap SRV-CRYPTO-001 — раньше планировали Firebase Storage,
     // но Spark plan требует Blaze для Storage). См. WorkerEncryptedMediaStorage.

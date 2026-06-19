@@ -129,6 +129,8 @@ SPECKIT-SCENARIOS for specs/<id>/spec.md:
 ## Heuristics
 
 - **Plain language only.** No `WizardCheckpointStore.load()`, no `Intent.startActivity()`. Translate every code-like reference to "what app does" prose.
+- **Не visual диаграммы.** Owner mandate 2026-06-18: scenarios это **просто пронумерованные шаги текстом**, не Mermaid sequence diagrams, не PlantUML, не ASCII boxes. Если хочется визуальной диаграммы — она в plan.md, не здесь.
+- **Уровень абстракции — UX и cross-app interaction.** Шаги описывают «что пользователь делает», «что приложение показывает», «что одна часть приложения посылает другой части на смысловом уровне». **НЕ** «какая функция вызывается», «какой класс инстанцируется», «какой API SDK дёргается». Если в шаге появляется имя класса, метода, SDK или техническая абстракция (Flow, coroutine, port, adapter) — переписать в plain Russian. Owner — non-developer, scenarios должны читаться как описание use case'а.
 - **Brevity.** 5-10 sentences per scenario. Owner reads these to orient — long scenarios defeat the purpose.
 - **Scenario count is derived, not prescribed.** Count is whatever the spec needs: every US covered, every critical SC measurable from a step, every edge case from the Edge Cases section addressed. Could be 3 for a small spec, 12 for a foundation spec. Do not pad to hit a number; do not trim if coverage is real.
 - **Trouble cases preferred over new scenarios.** If a variation can fit inside existing scenario as "trouble case N.b" — do that. A trouble case is cheaper to read and keeps related behaviour co-located.

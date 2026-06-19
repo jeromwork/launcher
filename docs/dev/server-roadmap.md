@@ -427,3 +427,85 @@ MVP adapter — `FirestoreRecoveryBackupStorage`. Domain (HKDF derivation, AEAD 
 **Trigger**: первая реальная ротация identity key (например, suspected compromise сценарий) или regulator requirement (GDPR right-to-erasure требует cryptographic erasure).
 
 **Источник**: F-CRYPTO mentor session 2026-06-17 — scenario D (suspected compromise) обсуждён.
+
+## SRV-AUTH-001: Auth credential exchange — Firebase → own backend (spec 017 F-4)
+
+**Контекст**: `GoogleSignInAuthAdapter.signIn()` напрямую вызывает Firebase
+`signInWithCredential(GoogleAuthProvider.getCredential(idToken, null))`.
+Это означает что Google ID Token уходит к Firebase, не к нам. Когда мы
+поедем на свой backend, exchange должен идти через `POST /auth/google-signin`
+к нашему серверу, который сам проверит Google ID Token и выпустит наш
+session token.
+
+**MVP workaround**: Firebase Auth — convenient, free, batteries-included.
+Vendor lock-in для auth flow, но `AuthProvider` port abstrahирует так,
+что adapter swap = новая реализация без переписывания consumer'ов
+(CLAUDE.md §1, §2).
+
+**Own-server destination**:
+1. Backend endpoint `POST /auth/google-signin` принимает Google ID Token.
+2. Verifies через Google Token Info API (или JWKS public key).
+3. Issues наш JWT с claim `stableId`.
+4. `GoogleSignInAuthAdapter.signIn()` переключается на наш endpoint,
+   убирает Firebase exchange.
+
+**Effort estimate**: 3-5 дней (server endpoint + client switch + tests).
+
+**Trigger**: own-server cutover (Phase 2+, post-MVP) ИЛИ Firebase pricing change.
+
+**Источник**: Spec 017 F-4 AuthProvider (2026-06-18).
+
+## SRV-AUTH-IDENTITY-001: Identity-links migration (spec 017 F-4)
+
+**Контекст**: `identity-links/google/{providerAccountId}` — Firestore collection,
+authoritative mapping Google `sub` → наш `stableId` UUID. Если переключим
+storage без миграции существующих ссылок, у вернувшихся пользователей
+сгенерируется новый UUID, что сломает delegation/pair-key.
+
+**MVP workaround**: Firestore — convenient atomic transaction для
+race-safe lookup-or-create.
+
+**Own-server destination**:
+1. Backend table `identity_links` (3 поля + providerKind + providerAccountId).
+2. One-time export Firestore `identity-links/google/*` → SQL.
+3. Client switches lookup endpoint к нашему backend.
+4. Read-only режим Firestore identity-links collection ещё 30 дней
+   как fallback.
+
+**Effort estimate**: 1 week dev + 1 day migration window.
+
+**Trigger**: own-server cutover. **MUST migrate first**, чтобы preserve
+UUID stability.
+
+**Risk if skipped**: stableId UUIDs могут разойтись между client
+expectations и server state → broken delegations, broken config-sync.
+
+**Источник**: Spec 017 F-4 AuthProvider research.md §R4.
+
+## SRV-AUTH-IDENTITY-002: Server-verified googleSub custom claim (spec 017 F-4)
+
+**Контекст**: `firestore.rules` для `identity-links/google/{sub}` сейчас
+проверяет `request.auth.uid == providerAccountId`. Это требует чтобы
+Firebase Auth UID совпадал с Google `sub` claim. Firebase **не делает это
+автоматически** — работает потому что Firebase SDK устанавливает UID =
+первый providerData entry UID, а GoogleAuthProvider даёт
+`providerData.uid = google.sub`. Это **fragile**.
+
+**MVP workaround**: rely on SDK behaviour, document fragility в Rules
+comments. Backed by Rules unit tests (`firestore-tests/rules.auth.test.ts`).
+
+**Own-server destination**:
+1. Cloud Function triggered on user create.
+2. Извлекает Google `sub` claim из `additionalUserInfo`.
+3. Устанавливает Firebase Auth custom claim `googleSub`.
+4. Firestore Rule меняется на `request.auth.token.googleSub == providerAccountId`.
+
+**Effort estimate**: 2 дня + production rollout.
+
+**Trigger**: до production launch (P0 hardening) — это блокер для billing tier.
+
+**Risk if skipped**: если Firebase SDK поменяет UID generation strategy,
+identity-links rules станут insecure (любой пользователь сможет
+претендовать на чужой Google sub).
+
+**Источник**: Spec 017 F-4 firestore.rules.

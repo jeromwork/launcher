@@ -37,3 +37,10 @@ Thumbs.db
 
 # Cloudflare Wrangler local runtime cache (regenerated on every wrangler dev/run)
 .wrangler/
+
+# Firebase per-developer keys (committed template — app/google-services.json.template).
+# Real google-services.json содержит project-specific API key и SHA-1 fingerprints
+# — каждый разработчик должен подложить свой (см. docs/dev/auth-setup.md).
+app/google-services.json
+google-services.json
+

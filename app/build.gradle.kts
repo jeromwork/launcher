@@ -83,6 +83,27 @@ android {
         }
     }
 
+    // libsodium.so duplication между spec 011 (lazysodium-android) и
+    // spec 016 (multiplatform-crypto-libsodium-bindings via :core:crypto).
+    // Обе библиотеки приносят идентичный libsodium.so под /lib/<abi>/.
+    // pickFirsts — берём первый встреченный, бит-в-бит идентичный второму.
+    // Технически правильнее было бы исключить одну из библиотек из :app
+    // classpath, но обе нужны: lazysodium для legacy spec 011 адаптеров,
+    // multiplatform-crypto для :core:crypto F-CRYPTO модуля.
+    // TODO(spec 016/011 cleanup): когда spec 011 lazysodium-based adapters
+    // будут мигрированы на :core:crypto KMP binding, можно убрать
+    // lazysodium dependency и pickFirsts тоже.
+    packaging {
+        jniLibs {
+            pickFirsts += setOf(
+                "lib/arm64-v8a/libsodium.so",
+                "lib/armeabi-v7a/libsodium.so",
+                "lib/x86/libsodium.so",
+                "lib/x86_64/libsodium.so",
+            )
+        }
+    }
+
     // Spec 011 — ABI splits для release builds.
     // Lazysodium-android поставляет нативный .so файл под 4 ABI.
     // Без splits release APK потяжелеет на ~1.0-1.2 MiB (все ABIs упакованы).
@@ -149,6 +170,11 @@ dependencies {
     // Guava ListenableFuture — needed at compile time for ProcessCameraProvider.getInstance().
     // The CameraX runtime brings it transitively, but Kotlin compiler needs the type.
     "realBackendImplementation"("com.google.guava:guava:33.4.0-android")
+
+    // Spec 017 (F-4 AuthProvider) — Credential Manager + Google Identity provider
+    // подключены в :core/androidRealBackend (где живут GoogleSignInAuthAdapter
+    // и EncryptedLocalSessionStore). Транзитивно доступны в :app через api(),
+    // если когда-то понадобится прямой вызов из Activity.
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

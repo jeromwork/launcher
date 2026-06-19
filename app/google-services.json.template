@@ -1,0 +1,36 @@
+{
+  "_comment": "TEMPLATE for app/google-services.json. Copy this file to app/google-services.json and fill the placeholders с реальными values from Firebase Console (Project Settings → General → Your apps → Android app). Реальный google-services.json должен быть в .gitignore (см. .gitignore). Это шаблон для onboarding нового developer'a.",
+  "project_info": {
+    "project_number": "REPLACE_WITH_PROJECT_NUMBER",
+    "project_id": "REPLACE_WITH_PROJECT_ID",
+    "storage_bucket": "REPLACE_WITH_PROJECT_ID.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:REPLACE_WITH_APP_ID:android:REPLACE",
+        "android_client_info": {
+          "package_name": "com.launcher.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "REPLACE_WITH_WEB_CLIENT_ID.apps.googleusercontent.com",
+          "client_type": 3,
+          "_comment": "client_type: 3 = Web client ID (used as serverClientId в GoogleSignInAuthAdapter — spec 017 F-4)"
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "REPLACE_WITH_API_KEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

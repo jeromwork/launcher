@@ -287,4 +287,60 @@ val backendModule: Module = module {
             auth = get(),
         )
     }
+
+    // ─── Spec 017 (F-4 AuthProvider) — Google Sign-In + SessionStore ──────
+    //
+    // SessionStore — EncryptedSharedPreferences с TEE master key. Internal
+    // visibility модификатор не пускает SessionRecord/SessionStore наружу
+    // (consumer'ы видят только AuthProvider порт). Detekt rule T797 это
+    // дополнительно enforces для cross-package leak'ов.
+
+    single<com.launcher.api.auth.internal.SessionStore> {
+        com.launcher.adapters.auth.EncryptedLocalSessionStore(
+            context = androidContext(),
+            json = kotlinx.serialization.json.Json {
+                ignoreUnknownKeys = true
+                encodeDefaults = true
+            },
+        )
+    }
+
+    // GoogleSignInAuthAdapter — real Google Sign-In implementation.
+    //
+    // serverClientId = Web Application Client ID (OAuth client_type: 3) из
+    // google-services.json текущего dev Firebase project (`launcher-old-dev`).
+    // НЕ секретный — embedded в APK через google-services plugin, виден
+    // любому reverse engineer'у. Безопасность держится на SHA-1 fingerprint
+    // verification на стороне Google + Firebase Auth domain whitelist.
+    //
+    // TODO(server-roadmap SRV-AUTH-002, T901): перед production release
+    // вытащить ID через BuildConfig.WEB_CLIENT_ID, генерируемый Gradle
+    // plugin per-flavor (dev / staging / prod), чтобы не хардкодить
+    // dev-project ID в коде. Сейчас acceptable потому что есть только
+    // один Firebase project и production ещё не настроен.
+    single {
+        com.launcher.adapters.auth.GoogleSignInAuthAdapter(
+            context = androidContext(),
+            firebaseAuth = get(),
+            firestore = get(),
+            sessionStore = get(),
+            serverClientId = "276980181074-ckqsoapcio17rfldredelv0tme3qm72m.apps.googleusercontent.com",
+        )
+    }
+
+    // AuthProvider — выбирается AuthAdapterSelector по GmsAvailabilityPort.
+    // GMS Available / Recoverable → GoogleSignInAuthAdapter.
+    // GMS Fatal (Huawei) → NoSupportedAuthProvider.
+    //
+    // NB: pick() — suspend, потому через runBlocking. GMS-state проверяется
+    // один раз при resolve этого singleton'а и кэшируется (CLAUDE.md §4 —
+    // оверхед мизерный, переоценивать на каждый signIn не имеет смысла).
+    single<com.launcher.api.auth.AuthProvider> {
+        runBlocking {
+            com.launcher.api.auth.AuthAdapterSelector(
+                gmsAvailabilityPort = get(),
+                realAdapterFactory = { get<com.launcher.adapters.auth.GoogleSignInAuthAdapter>() },
+            ).pick()
+        }
+    }
 }

@@ -79,7 +79,13 @@ lazysodium = "5.1.0"
 jna = "5.13.0"
 # EncryptedSharedPreferences — для хранения AES-wrapped X25519/Ed25519 priv bytes
 # (Android Keystore не поддерживает X25519 нативно; wrap-strategy per research.md §3, §2b).
+# Также используется F-4 AuthProvider (spec 017) для EncryptedLocalSessionStore.
 androidxSecurityCrypto = "1.1.0-alpha06"
+
+# Credential Manager + Google Identity (spec 017 F-4 AuthProvider).
+# Per research.md §R6 (T701 verification 2026-06-18): latest stable, minSdk 23 — наш 26 OK.
+androidxCredentials = "1.6.0"
+googleId = "1.2.0"
 
 # ionspin/kotlin-multiplatform-libsodium — KMP binding для :core:crypto (spec 016).
 # Один binding для всех KMP targets (Android/JVM/iOS). Pinned per research.md §R1 (T601-T602, 2026-06-17).
@@ -196,6 +202,13 @@ jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }
 # не поддерживает X25519 нативно; AES key в Keystore оборачивает X25519 priv bytes,
 # wrapped bytes хранятся в EncryptedSharedPreferences). Per research.md §3, quickstart.md §6.
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "androidxSecurityCrypto" }
+
+# Credential Manager + Google Identity provider (spec 017 F-4 AuthProvider).
+# `credentials` — universal API; `credentials-play-services-auth` — Google provider backend (требует GMS).
+# `googleid` — типы GoogleIdTokenCredential / GetGoogleIdOption для парсинга ID Token.
+androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "androidxCredentials" }
+androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "androidxCredentials" }
+google-id = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleId" }
 
 # Firebase Storage — для encrypted blob persistence (spec 011 EncryptedMediaStorage adapter).
 firebase-storage-ktx = { group = "com.google.firebase", name = "firebase-storage-ktx" }
