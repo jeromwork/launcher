@@ -44,15 +44,18 @@
   (нон-recipient → `NotARecipient`).
 - Phase 6 US4 (T110-T113) — three-tier cache invariant proved at unit
   test level (`emptyPlaintextRoundtrip`, `firestorePathOpaqueToCallerGreptest`).
-  Instrumented emulator tests pending — see deferred items below.
+- SC-001 end-to-end **закрыт на Xiaomi 11T** (2026-06-20):
+  - emulator path (Firebase Emulator + `adb reverse`): 2/2 PASSED
+  - real cloud path (`launcher-old-dev` + signed-in Google user): 2/2 PASSED
+  - см. [`CloudConfigEncryptionE2ETest`](../../app/src/androidTest/java/com/launcher/app/data/envelope/CloudConfigEncryptionE2ETest.kt)
+    и `manual-setup-dev.md §3.3` пути A / A' / B.
+- WorkManager async push — wired in commit `06af513`
+  ([`InMemoryAsyncConfigPushQueueImpl`](../../app/src/main/java/com/launcher/app/data/envelope/InMemoryAsyncConfigPushQueueImpl.kt)
+  + WorkManager production adapter).
 
-**Original F-5 tasks deferred outside this spec** (separate spec when needed):
-- SC-001 end-to-end через **real** Firestore Emulator (требует
-  google-services.json sandbox setup — deferred per user 2026-06-20).
+**Tasks deferred outside this spec** (separate spec when needed):
 - FCM-driven config-updated notification — see
   [`docs/dev/server-roadmap.md` SRV-FCM-CONFIG-UPDATE](../../docs/dev/server-roadmap.md#srv-fcm-config-update-fcm-notifier-on-remote-storage-write-spec-018-f-5b-отложено).
-- WorkManager async push (local-first hybrid) — included in product
-  vision (user Q5 answer 2026-06-20) but implementation deferred.
 - Integration into existing `DefaultConfigEditor` save flow — deferred to
   spec 008 rewrite.
 

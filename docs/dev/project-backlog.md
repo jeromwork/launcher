@@ -21,7 +21,7 @@
 
 ## Security & Operations
 
-### TODO-SEC-CRITICAL-024: ConfigDocument E2E encryption 🔴 PRODUCTION BLOCKER
+### TODO-SEC-CRITICAL-024: ConfigDocument E2E encryption ✅ DONE 2026-06-20 (F-5b envelope variant)
 
 - **What**: Сейчас `ConfigDocument` хранится в Firestore в **plaintext**. Firebase / Google / любой с доступом к Firestore project видит: имена контактов, телефоны (E.164), labels слотов («Внук Петя», «Скорая помощь»), package names приложений, структуру layout. Зашифрованы (через спеки 011/012) **только** photo и document blob'ы — но **сам конфиг — нет**.
 - **Why**: Это **критическая privacy regression**. Решено 2026-05-28: F-5 в Phase 1 Foundation roadmap'а, **production blocker** (не можем выпустить в работу пока не закрыто), но **не блокирует development** S-features (можем разрабатывать с plaintext config'ом в dev environment).
@@ -33,7 +33,13 @@
   5. **Search invariant**: search по контактам в admin Editor (FR в спеке 009) переезжает **полностью на клиент** — admin'ский телефон расшифровывает config, ищет локально, повторно отправляет на сервер уже отфильтрованную операцию. Server search **исчезает**.
   6. **Backup / export**: bulk export ConfigDocument для пользователя становится возможным **только** для аутентифицированного admin'а — он расшифровывает локально + экспортирует.
 - **When**: после F-4 (AuthProvider) и до production release. Не блокирует S-features в development.
-- **Status**: 🟡 IN PROGRESS — F-5 implementation 75% complete на 2026-06-19. Реализованы core/keys/ KMP module, ConfigCipher (XChaCha20-Poly1305 + identity-binding AAD), RecoveryFlow (Argon2id + Firestore vault + 3-strike lockout), DataStore-backed H-1/H-2 mitigations, 75 JVM/Robolectric тестов проходят. Остаются: Firestore Emulator E2E grep test (SC-001 verification), recovery E2E test, OEM matrix, Firestore Rules deploy — всё требует эмулятор / физ. устройство. Branch 018-f5-config-e2e-encryption.
+- **Status**: 🟢 DONE 2026-06-20 — implemented as **F-5b envelope variant** (architectural pivot 2026-06-20 from symmetric self-edit to hybrid envelope per spec 011 §C-2/§C-3). Branch `018-f5-config-e2e-encryption` ready for PR. Состояние:
+  - **core/keys/** KMP module: RemoteStorage facade + Envelope wire format (XChaCha20-Poly1305 для контента + libsodium `crypto_box_seal` X25519 для CEK) + ConfigSaver + EnvelopeBootstrap caller API + multi-recipient cross-user delegation (membership-agnostic).
+  - **Адаптеры**: FirestoreRemoteStorage, FirestorePublicKeyDirectory, AndroidDeviceIdentity (X25519 keypair + DataStore, `allowBackup=false`), GoogleSignInIdentityProof, WorkManagerAsyncConfigPushQueue.
+  - **Firestore Security Rules**: owner + access-grant model, schemaVersion monotonic (H-2 downgrade defence), 22/22 rules unit tests в [rules.f5b.envelope.test.ts](../../firestore-tests/rules.f5b.envelope.test.ts).
+  - **Recovery vault path (root key)** сохранён рядом: RootKeyManager + Argon2id + Firestore-backed RecoveryKeyVault + 3-strike lockout + DataStore H-1 mitigation + 20/20 rules tests в rules.f5.recovery.test.ts. Используется для восстановления **root key** (отдельный концерн от envelope data encryption).
+  - **Tests**: 68 JVM в `:core:keys:jvmTest`; instrumented [CloudConfigEncryptionE2ETest](../../app/src/androidTest/java/com/launcher/app/data/envelope/CloudConfigEncryptionE2ETest.kt) — 🟢 2/2 PASSED на Xiaomi 11T через Firebase Emulator (path A') и 2/2 PASSED против real `launcher-old-dev` cloud (path B). SC-001 acceptance закрыт на реальном TEE Keystore + MIUI quirks.
+  - **Legacy removal**: AeadConfigCipher, KeyRegistry, SealedConfig, WrappedDek + контракты — удалены в Batch 6 (`d135216`).
 - **Origin**: User raised 2026-05-28 — обнаружено при обсуждении spec 014 (Contact Sharing UX). Зафиксировано как F-5 в roadmap.md.
 
 ### TODO-RULES-TESTS-REGRESSION-001: Pre-existing baseline failures в rules.auth.test.ts + rules.test.ts ✅ DONE 2026-06-20
