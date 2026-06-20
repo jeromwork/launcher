@@ -1,10 +1,64 @@
 # Tasks: F-5 — Root Key Hierarchy + ConfigDocument Encryption + Recovery
 
-**Feature**: F-5 (spec 018)
+**Feature**: F-5 (spec 018) — implemented as **F-5b envelope variant** since 2026-06-20.
 **Branch**: `018-f5-config-e2e-encryption`
 **Plan**: [plan.md](./plan.md)
-**Spec**: [spec.md](./spec.md)
+**Spec**: [spec.md](./spec.md) (see §"🔀 2026-06-20 — Architectural pivot to F-5b").
 **Generated**: 2026-06-19
+**Revised**: 2026-06-20 (F-5b batches appended at the end).
+
+## F-5b status (envelope architecture)
+
+Все 7 batches F-5b закрыты в commits на этой ветке:
+
+| Batch | Commit | Что |
+|---|---|---|
+| 1 | `b364649` | RemoteStorage facade + Envelope wire format + EnvelopeConfigCipherImpl + 25 tests |
+| 2 | `6097b9d` | Firestore + InMemory adapters (EnvelopeStorage, PublicKeyDirectory, RecipientResolver) + encapsulation fitness rule |
+| 3 | `754dc52` | AndroidDeviceIdentity (Keystore + DataStore) в `:core:keys/androidMain` |
+| 4 | `8e327f9` | DI wiring (real + mock) + Firestore Security Rules для envelope/devices/grants + backup exclusion device_identity |
+| 5 | `c6498ad` | ConfigSaver + EnvelopeBootstrap caller API + 6 tests |
+| 6 | `d135216` | Removal of legacy symmetric pattern (AeadConfigCipherImpl, KeyRegistry, SealedConfig, KeyHierarchy, WrappedDek + tests + fixtures) |
+| 7 | (this commit) | Docs sync (spec.md, data-model.md, ecosystem-vision.md, server-roadmap.md, tasks.md) |
+
+**Tests state**: 68 jvmTest'ов в `:core:keys:jvmTest`, all green.
+
+**What stays from original F-5 task list** (Phases 1-4 + 7):
+- Phase 1 (T001-T006 Setup): done in original F-5 commits.
+- Phase 4 recovery flow (T060-T089): done; root key + Argon2id + recovery
+  passphrase flow preserved unchanged.
+- Phase 7 polish: T120 + T121 fitness functions done (commits da63e1d
+  + 6097b9d encapsulation rule for `family.keys.api.internal.*`).
+
+**What changed from original F-5 task list** (no longer applies):
+- Phase 2 (T010-T033 Foundational) — ports + wire format переписаны под
+  envelope. Original `ConfigCipher`, `KeyRegistry`, `SealedConfig`,
+  `WrappedDek`, contracts/sealed-config-v1.md, contracts/key-registry-v1.md
+  — **удалены** (Batch 6).
+- Phase 3 US1 (T040-T057) — symmetric AeadConfigCipherImpl pipeline
+  заменён на envelope path; T050/T051 picture redefined через
+  `ConfigSaver.saveOwn/saveForOther` + `RemoteStorage`.
+- Phase 5 US3 (T100-T106) — multi-DEK / identity isolation tests removed
+  (DEKs concept gone; envelope is membership-agnostic). Recipient
+  isolation testing folded into `EnvelopeConfigCipherRoundtripTest`
+  (нон-recipient → `NotARecipient`).
+- Phase 6 US4 (T110-T113) — three-tier cache invariant proved at unit
+  test level (`emptyPlaintextRoundtrip`, `firestorePathOpaqueToCallerGreptest`).
+  Instrumented emulator tests pending — see deferred items below.
+
+**Original F-5 tasks deferred outside this spec** (separate spec when needed):
+- SC-001 end-to-end через **real** Firestore Emulator (требует
+  google-services.json sandbox setup — deferred per user 2026-06-20).
+- FCM-driven config-updated notification — see
+  [`docs/dev/server-roadmap.md` SRV-FCM-CONFIG-UPDATE](../../docs/dev/server-roadmap.md#srv-fcm-config-update-fcm-notifier-on-remote-storage-write-spec-018-f-5b-отложено).
+- WorkManager async push (local-first hybrid) — included in product
+  vision (user Q5 answer 2026-06-20) but implementation deferred.
+- Integration into existing `DefaultConfigEditor` save flow — deferred to
+  spec 008 rewrite.
+
+---
+
+## Original F-5 task list (kept for traceability — see status table above)
 
 ## Overview
 

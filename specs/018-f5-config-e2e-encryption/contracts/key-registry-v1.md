@@ -1,4 +1,14 @@
-# Contract: `KeyRegistry` port v1
+# Contract: `KeyRegistry` port v1 (LEGACY)
+
+> ## ⚠️ Deprecated — removed on 2026-06-20
+>
+> Этот контракт описывает **legacy** `KeyRegistry` + `WrappedDek` концепт,
+> который был удалён в commit `d135216` (Batch 6). В envelope architecture
+> per-DEK lookup не нужен — каждый blob получает свой одноразовый CEK
+> (см. [envelope-v1.md](envelope-v1.md)).
+>
+> Файл сохранён только для трассируемости commits до pivot'а 2026-06-20.
+> Не используйте этот контракт в новой работе.
 
 **Spec**: [../spec.md](../spec.md) | **Plan**: [../plan.md](../plan.md) | **FRs**: FR-004, FR-005, FR-023, FR-031
 

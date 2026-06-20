@@ -6,6 +6,117 @@ Phase 1 — описание entities, wire-formats, lifecycle и инвариа
 
 ---
 
+## 0. F-5b amendment 2026-06-20 (envelope architecture)
+
+После [архитектурного pivot'а в spec.md](./spec.md#-2026-06-20--architectural-pivot-to-f-5b-envelope-pattern)
+эта data-model имеет **две половины**:
+
+**Часть A — root key + recovery (без изменений)**: §1.1 AuthIdentity, §1.2 RootKey,
+§1.5 RecoveryVaultBlob, §1.6 PassphraseKdfParams, §1.7 IdentityProof —
+работают как описано. Recovery flow остаётся.
+
+**Часть B — config encryption (заменена на envelope pattern)**: §1.3 WrappedDek,
+§1.4 SealedConfig секции — **legacy**. Реальная модель сейчас:
+
+| Старая entity (удалена) | Новая entity (реализована) | Файл |
+|---|---|---|
+| `SealedConfig` (single-recipient) | `Envelope` (N≥1 recipients) | [family.keys.api.Envelope](../../core/keys/src/commonMain/kotlin/family/keys/api/Envelope.kt) |
+| `WrappedDek` (per-DEK lookup) | удалён — каждый blob получает свой одноразовый CEK | — |
+| `KeyRegistry` port | удалён — больше нет именованных DEK'ов | — |
+| `ConfigCipher` (port) | `ConfigCipher2` (internal SPI) | [family.keys.api.internal.ConfigCipher2](../../core/keys/src/commonMain/kotlin/family/keys/api/internal/ConfigCipher2.kt) |
+| `AeadConfigCipherImpl` | `EnvelopeConfigCipherImpl` | [family.keys.impl.EnvelopeConfigCipherImpl](../../core/keys/src/commonMain/kotlin/family/keys/impl/EnvelopeConfigCipherImpl.kt) |
+| — (legacy не имел) | `RemoteStorage` (caller facade) | [family.keys.api.RemoteStorage](../../core/keys/src/commonMain/kotlin/family/keys/api/RemoteStorage.kt) |
+| — | `ConfigSaver` (product-domain wrapper) | [family.keys.api.ConfigSaver](../../core/keys/src/commonMain/kotlin/family/keys/api/ConfigSaver.kt) |
+| — | `EnvelopeBootstrap` (publish my pub key) | [family.keys.api.EnvelopeBootstrap](../../core/keys/src/commonMain/kotlin/family/keys/api/EnvelopeBootstrap.kt) |
+| — | `RecipientResolver` (internal) | [family.keys.api.internal.RecipientResolver](../../core/keys/src/commonMain/kotlin/family/keys/api/internal/RecipientResolver.kt) |
+| — | `EnvelopeStorage` (internal) | [family.keys.api.internal.EnvelopeStorage](../../core/keys/src/commonMain/kotlin/family/keys/api/internal/EnvelopeStorage.kt) |
+| — | `PublicKeyDirectory` (internal) | [family.keys.api.internal.PublicKeyDirectory](../../core/keys/src/commonMain/kotlin/family/keys/api/internal/PublicKeyDirectory.kt) |
+| — | `DeviceIdentity` (internal) | [family.keys.api.internal.DeviceIdentity](../../core/keys/src/commonMain/kotlin/family/keys/api/internal/DeviceIdentity.kt) |
+| — | `DeviceId` (value class) | [family.keys.api.DeviceId](../../core/keys/src/commonMain/kotlin/family/keys/api/DeviceId.kt) |
+| — | `RecipientPubKey` (value class) | [family.keys.api.RecipientPubKey](../../core/keys/src/commonMain/kotlin/family/keys/api/RecipientPubKey.kt) |
+
+### F-5b Envelope wire format (replaces §1.4 SealedConfig)
+
+```
+Envelope {
+  schemaVersion: Int = 1
+  algorithm: String = "envelope-xchacha20poly1305-x25519-v1"
+  ciphertext: ByteArray         // XChaCha20-Poly1305 под одноразовый CEK
+  nonce: ByteArray              // 24 bytes (XChaCha20 IETF nonce)
+  aad: ByteArray                // "family-storage::v1::{namespace}::{key}"
+  recipientKeys: Map<String, ByteArray>  // DeviceId.value → sealed CEK (80 bytes each)
+}
+```
+
+`sealed CEK` = libsodium `crypto_box_seal` output: `ephemeralPub(32) +
+ciphertext(32) + mac(16) = 80` bytes per recipient.
+
+### F-5b storage layout (Firestore today)
+
+```
+/users/{ownerUid}/data/{escapedKey}                      ← one Envelope document
+  ├── schemaVersion, algorithm, ciphertext, nonce, aad
+  └── recipientKeys: { deviceId1: <sealed>, deviceId2: <sealed>, ... }
+
+/users/{uid}/devices/{deviceId}/pub-key/current          ← X25519 pub key
+  └── { schemaVersion, pubKey: 32 bytes, algorithm, createdAt }
+
+/users/{ownerUid}/access-grants/{helperUid}              ← grant (managed by pairing)
+  └── { permissions, grantedAt, revokedAt? }
+
+/users/{uid}/recovery-key/main                           ← root key vault (unchanged)
+```
+
+`escapedKey` = base64url(no-padding) of UTF-8 key bytes.
+
+### F-5b RecipientResolver semantics
+
+Resolved from the **owner**'s perspective regardless of caller:
+
+```
+recipients(ownerNamespace) =
+    PublicKeyDirectory.fetchDevicesFor(ownerNamespace)             // owner's own devices
+    ∪ ⋃ PublicKeyDirectory.fetchDevicesFor(helperUid)
+         for helperUid in PublicKeyDirectory.fetchGrantHolders(ownerNamespace)
+```
+
+Self-edit (caller == owner) and cross-user edit (caller != owner, holds grant)
+are the same code path; only resolver output differs.
+
+### F-5b read path
+
+```
+caller → RemoteStorage.get(namespace, key)
+       → EnvelopeStorage.load(namespace, key)              → Envelope
+       → ConfigCipher2.open(envelope, myPrivKey, myDeviceId, aad)
+            ├── verify schemaVersion / algorithm           → CipherError.AlgorithmUnsupported on mismatch
+            ├── lookup envelope.recipientKeys[myDeviceId]  → CipherError.NotARecipient if absent
+            ├── verify envelope.aad == recomputed(aad)     → CipherError.AeadAuthFailed on mismatch
+            ├── crypto_box_seal_open(sealedCEK, myPrivKey) → recovered CEK (32 bytes)
+            └── AEAD.decrypt(envelope.ciphertext, CEK, aad)→ plaintext
+       → return plaintext
+```
+
+### F-5b write path
+
+```
+caller → RemoteStorage.put(namespace, key, bytes)
+       → RecipientResolver.resolveFor(namespace, key)      → List<RecipientPubKey>
+       → ConfigCipher2.seal(bytes, recipients, aad)
+            ├── generate random CEK (32 bytes)
+            ├── AEAD.encrypt(bytes, CEK, aad)              → ciphertext + nonce
+            ├── for each recipient: crypto_box_seal(CEK, pubKey) → sealed CEK
+            ├── build recipientKeys map: { deviceId → sealedCEK }
+            └── zeroize CEK
+       → EnvelopeStorage.store(namespace, key, envelope)
+       → return Success
+```
+
+§§1.3, 1.4 ниже сохранены **как исторический контекст** (что было до pivot'а)
+для трассируемости. Активный код использует только entities из этой таблицы.
+
+---
+
 ## 1. Entities
 
 ### 1.1 AuthIdentity (внешняя — из F-4, spec 017)

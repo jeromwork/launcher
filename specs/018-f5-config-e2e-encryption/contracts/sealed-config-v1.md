@@ -1,4 +1,13 @@
-# Contract: `ConfigCipher` port + `SealedConfig` wire-format v1
+# Contract: `ConfigCipher` port + `SealedConfig` wire-format v1 (LEGACY)
+
+> ## ⚠️ Deprecated — replaced by [envelope-v1.md](envelope-v1.md) on 2026-06-20
+>
+> Этот контракт описывает **legacy** single-recipient symmetric pattern,
+> который был удалён в commit `d135216` (Batch 6). Реальная wire-format'а
+> сейчас — `Envelope` per [envelope-v1.md](envelope-v1.md).
+>
+> Файл сохранён только для трассируемости commits до pivot'а 2026-06-20.
+> Не используйте этот контракт в новой работе.
 
 **Spec**: [../spec.md](../spec.md) | **Plan**: [../plan.md](../plan.md) | **FRs**: FR-015, FR-016, FR-017, FR-018, FR-019, FR-020, FR-029, FR-032
 

@@ -2,12 +2,53 @@
 
 **Feature Branch**: `018-f5-config-e2e-encryption`
 **Created**: 2026-06-19
-**Status**: Draft (clarified 2026-06-19)
+**Status**: Implemented as **F-5b envelope variant** (architecturally pivoted 2026-06-20)
 **Input**: User description: «F-5: ConfigDocument E2E Encryption — production blocker для cloud release».
 
-> **Scope evolved через clarify session 2026-06-19**: исходный «multi-admin envelope encryption» оказался смешением двух разных задач. Финальная декомпозиция:
+> ## 🔀 2026-06-20 — Architectural pivot to F-5b (envelope pattern)
+>
+> После mentor-сессии 2026-06-20 решено заменить symmetric-self-edit pattern
+> (root key + DEK + AEAD под admin'ский UID) на **hybrid envelope pattern**
+> per [`specs/011-contacts-and-e2e-encrypted-media/spec.md` §C-2/§C-3](../011-contacts-and-e2e-encrypted-media/spec.md#L125).
+>
+> **Что изменилось** по сравнению с исходным F-5 scope:
+> - Wire format `SealedConfig` (single-recipient AEAD) → `Envelope` с
+>   `recipientKeys: Map<DeviceId, sealedCEK>` (N≥1 получателей).
+> - Concept `KeyRegistry` / `WrappedDek` / per-DEK lookup **удалён**. Каждый
+>   blob получает свой одноразовый CEK; CEK обёрнут под каждый recipient
+>   X25519 pub key через `crypto_box_seal`.
+> - Появились новые ports: `RemoteStorage` (caller facade), `ConfigSaver`
+>   (product-domain wrapper), `EnvelopeBootstrap` (publish my pub key after
+>   sign-in), и internal SPI (`ConfigCipher2`, `RecipientResolver`,
+>   `EnvelopeStorage`, `PublicKeyDirectory`, `DeviceIdentity`).
+> - Cross-UID delegation **не отложен в S-2**, а реализован в этом же спайке:
+>   admin может править бабушкин конфиг через access-grant в её namespace,
+>   обе стороны расшифровывают (membership-agnostic envelope).
+> - `RootKeyManager` + `RecoveryFlow` + `RecoveryKeyVault` сохранены — они
+>   восстанавливают **root key через passphrase** (не envelope keys), это
+>   отдельный концерн.
+>
+> **Откуда взят envelope pattern**: spec 011 §C-2 явно зафиксировал
+> «envelope format с первого commit поддерживает список получателей
+> произвольной длины; в спеке 011 список всегда содержит одного получателя.
+> В будущих спеках список расширяется до N без изменения envelope format.»
+> Цена закладывания = 0 строк сейчас, экономия = миграция всех blob'ов в
+> будущем.
+>
+> **Удалённые legacy артефакты**: см. commit `d135216` (Batch 6 removal).
+> Этот документ описывает **итоговую модель F-5b**; устаревшие FR-005,
+> FR-015..017, FR-024 переписаны под envelope.
+
+> **Scope evolved через clarify session 2026-06-19** (исторический контекст):
+> исходный «multi-admin envelope encryption» оказался смешением двух разных задач.
+> Декомпозиция clarify-сессии:
 > - **F-5 (эта спека)** = **root key hierarchy + первый потребитель (ConfigCipher) + recovery flow**. Foundation для всех будущих cloud-фичей.
 > - **S-2 (Phase 2)** = multi-admin envelope, pairing-восстановление, ghost device defence. См. [enhancement notes 2026-06-19](../../docs/product/roadmap.md#enhancement-notes-2026-06-19--multi-admin-encrypted-config-sharing-из-f-5-clarify-session).
+>
+> **После 2026-06-20 pivot multi-recipient envelope перешёл в F-5b scope**;
+> S-2 теперь покрывает только UX-уровень (group management UI, role enum,
+> server arbitration), не crypto, так как crypto уже готов через
+> membership-agnostic envelope.
 
 > **Roadmap anchor**: [`docs/product/roadmap.md` шаг 3 Phase 1](../../docs/product/roadmap.md#шаг-3--f-5-root-key-hierarchy--configdocument-encryption--recovery--🔴-production-blocker).
 > **Закрывает**: [TODO-SEC-CRITICAL-024](../../docs/dev/project-backlog.md).

@@ -554,3 +554,129 @@ identity-links rules станут insecure (любой пользователь 
 3. Если algorithm устарел (Argon2id deprecated) — отдельная migration spec (FR-033, SRV-CRYPTO-007).
 
 **Источник**: Spec 018 F-5 analyze-report.md 2026-06-19 (H-5 finding).
+
+## SRV-STORAGE-001: EnvelopeStorage own-server replacement (spec 018 F-5b)
+
+**Контекст**: F-5b `EnvelopeStorage` сейчас реализован через
+`FirestoreEnvelopeStorage` (`app/src/realBackend/.../data/envelope/`). Один
+`Envelope` document = одна Firestore document по пути
+`/users/{namespace}/data/{escapedKey}`. Atomic write/read через Firestore SDK.
+
+**Требование при переезде на свой сервер**: REST endpoint:
+```
+PUT  /users/{namespace}/data/{key}          ← envelope JSON body
+GET  /users/{namespace}/data/{key}          ← returns envelope JSON
+LIST /users/{namespace}/data?prefix={p}     ← returns list of keys
+DELETE /users/{namespace}/data/{key}
+```
+
+С JWT auth (Bearer token). Server-side validation: schemaVersion monotonic
+increase (для downgrade defence), envelope shape (Maps/Blobs typed).
+
+**Path migration**: domain port `EnvelopeStorage` не меняется. Меняется только
+`OwnServerEnvelopeStorage` adapter; existing data migrate'ится через одноразовый
+ETL: Firestore → REST upload.
+
+**Источник**: Spec 018 F-5b Batch 2 inline TODO.
+
+## SRV-PKD-001: PublicKeyDirectory own-server replacement (spec 018 F-5b)
+
+**Контекст**: F-5b `PublicKeyDirectory` хранит per-device X25519 public keys
+и access-grants. Сейчас Firestore через `FirestorePublicKeyDirectory`. Доступ
+к чужой directory protected through Security Rules (`hasActiveGrant`).
+
+**Требование при переезде на свой сервер**: REST endpoints:
+```
+PUT  /users/{uid}/devices/{deviceId}/pub-key   ← X25519 pub bytes
+GET  /users/{uid}/devices                       ← list of (deviceId, pubKey) with grant check
+GET  /users/{uid}/access-grants                 ← list of grant holders
+PUT  /users/{ownerUid}/access-grants/{helperUid} ← create grant (owner only)
+DELETE /users/{ownerUid}/access-grants/{helperUid}
+```
+
+Server-side enforces:
+1. Owner-only write to own pub-key entries.
+2. Helper read of owner devices iff non-revoked grant exists.
+3. Atomic grant create/revoke (transactional).
+
+Server-side grant state simplifies client logic: no race conditions при concurrent
+grant change. Каждое client device subscribes to push notification "your grant
+status changed" → pulls fresh state.
+
+**Migration**: domain port unchanged. Existing Firestore directory bulk-exported
++ replayed into own server during cutover.
+
+**Источник**: Spec 018 F-5b Batch 2 inline TODO.
+
+## SRV-DEVICEID-001: DeviceId allocation collision-resistance (spec 018 F-5b)
+
+**Контекст**: F-5b `AndroidDeviceIdentity` allocates DeviceId как 16 random
+bytes (hex). Collision probability астрономически мала (2^64 для half-collision
+по birthday bound), но это всё ещё **client-side allocation** — нет глобальной
+гарантии uniqueness между UID'ами.
+
+**Требование при переезде на свой сервер**: server-allocated DeviceId через
+endpoint:
+```
+POST /users/{uid}/devices/allocate   ← server returns unique deviceId
+```
+
+Server transactionally reserves deviceId in directory с проверкой of uniqueness
+within namespace. Eliminates collision residual entirely.
+
+**Альтернатива (cheaper)**: server validates client-proposed deviceId на
+collision при `publishMyDevice`; rejects with 409 Conflict если занят.
+
+**Migration**: domain port unchanged (`DeviceIdentity.thisDeviceId()` continues
+to return stable string). Implementation в `AndroidDeviceIdentity` switches
+from local random → server-allocated.
+
+**Risk if skipped**: client с broken RNG может collide DeviceId existing'у в
+своём namespace, нарушив envelope.recipientKeys map (последний write wins;
+старый recipient теряет доступ). Низкая вероятность, но не нулевая.
+
+**Источник**: Spec 018 F-5b Batch 3 inline TODO.
+
+## SRV-FCM-CONFIG-UPDATE: FCM notifier on remote storage write (spec 018 F-5b, отложено)
+
+**Контекст**: При write в `RemoteStorage.put(ownerUid, key, bytes)` другие
+устройства владельца + grant-holders должны узнать «config обновился, скачайте
+новую версию». Это FCM-driven cache invalidation.
+
+**Сейчас в коде**: NOTHING. Каждое устройство pulls по запросу (`pull-on-app-open`
+будет реализован в Batch 5+). Push-driven invalidation отсутствует.
+
+**Требование при переезде на свой сервер** (или сейчас как client-callable
+Cloudflare Worker endpoint):
+```
+POST /trigger-config-updated
+  body: { ownerUid, configName }
+  auth: owner или grant holder
+```
+
+Server endpoint resolves recipients (own devices + grant holders) и пушит
+через FCM:
+```
+FCM payload:
+  data: { type: "config-updated", ownerUid, configName }
+  target: List<FCM device tokens of recipients>
+```
+
+Client `MessagingService.onMessageReceived` triggers
+`ConfigSaver.loadForOther(ownerUid, configName)` → updates DataStore →
+UI refresh.
+
+**Retry policy**: server retries up to 5 times с exponential backoff
+(per user instruction 2026-06-20). After 5 failures — entry marked стalе;
+client получает stale notification при следующем app open.
+
+**Why deferred to separate spec**: FCM topic management, server-side resolution
+of recipients (read directory + grants), Cloudflare Worker route — нетривиальная
+инфраструктура. Sufficient implementation требует:
+1. FCM Sender API key + project quota (Spark plan: 10K push/day).
+2. Cloudflare Worker route `/trigger-config-updated`.
+3. Client `MessagingService` extension.
+4. Subscription management (subscribe to per-device topic on bootstrap).
+
+**Источник**: Spec 018 F-5b user discussion 2026-06-20 — explicitly deferred to
+separate spec.
