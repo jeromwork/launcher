@@ -19,9 +19,10 @@ import kotlinx.datetime.Clock
 /**
  * Setup + Recovery flows для F-5 root key (T063-T065, FR-003, FR-027).
  *
- * **Setup flow** ([performSetup]): после первого `KeyHierarchy.bootstrap` —
- * запросить passphrase у user'а → derive Argon2id wrapKey → AEAD-wrap root key →
- * upload blob в [RecoveryKeyVault].
+ * **Setup flow** ([performSetup]): после генерации root key (через
+ * [RootKeyManagerImpl.getOrCreate]) — запросить passphrase у user'а →
+ * derive Argon2id wrapKey → AEAD-wrap root key → upload blob в
+ * [RecoveryKeyVault].
  *
  * **Recovery flow** ([performRecovery]): на новом устройстве после Sign-In —
  * fetchVault → prompt passphrase → derive wrapKey → AEAD-unwrap root → seed
@@ -51,7 +52,7 @@ class RecoveryFlow(
 
     /**
      * Создаёт RecoveryVaultBlob и upload'ит в Vault. Вызывается сразу после
-     * первого [KeyHierarchy.bootstrap] (когда root key только-что generated).
+     * генерации root key через [RootKeyManagerImpl.getOrCreate].
      *
      * Идемпотентно: повторный setup для same UID — overwrite blob (rotation
      * passphrase).

@@ -29,11 +29,14 @@ import org.koin.dsl.module
  * **Flavor-specific bindings** (см. f018KeysBackendModule):
  *  • [family.keys.api.RecoveryKeyVault] → FirestoreRecoveryKeyVault (realBackend)
  *    или NoOpRecoveryKeyVault (mockBackend / non-GMS fallback).
- *  • [PassphraseAttemptCounter] → DataStorePassphraseAttemptCounter (T122f, Lane B).
- *  • [family.keys.api.PassphrasePrompter] → AndroidPassphrasePrompter (T074, Lane B).
+ *  • [family.keys.api.RemoteStorage] / [family.keys.api.ConfigSaver] /
+ *    [family.keys.api.EnvelopeBootstrap] (F-5b envelope surface).
+ *  • [PassphraseAttemptCounter] → DataStorePassphraseAttemptCounter.
+ *  • [family.keys.api.PassphrasePrompter] → AndroidPassphrasePrompter.
  *
- * **Не bindings RecoveryFlow / KeyHierarchy** — они per-identity instance'ы,
- * создаются on-demand в ViewModel'ах после Sign-In.
+ * RecoveryFlow создаётся on-demand в ViewModel'ах после Sign-In; root key
+ * восстанавливается через passphrase, а envelope-decryption ключи (per-device
+ * X25519 keypair) хранятся в Keystore — recovery'у не подлежат.
  */
 val f018KeysModule = module {
     single<IdentityProof> { GoogleSignInIdentityProof(authProvider = get<AuthProvider>()) }

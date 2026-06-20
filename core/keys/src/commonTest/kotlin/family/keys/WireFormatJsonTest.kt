@@ -1,9 +1,8 @@
 package family.keys
 
+import family.keys.api.Envelope
 import family.keys.api.PassphraseKdfParams
 import family.keys.api.RecoveryVaultBlob
-import family.keys.api.SealedConfig
-import family.keys.api.WrappedDek
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
@@ -12,11 +11,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * JSON wire-format roundtrip для F-5 типов (CLAUDE.md rule 5, FR-017, FR-010).
+ * JSON wire-format roundtrip sanity check for the surviving `:core:keys`
+ * wire types (CLAUDE.md rule 5).
  *
- * Полные backward-compat fixture tests с frozen JSON живут в [SealedConfigBackwardCompatTest]
- * и [RecoveryVaultBackwardCompatTest] (Phase 3/4). Тут — базовая sanity check
- * что serializer-конфигурация работает.
+ * Full backward-compat fixture tests for [RecoveryVaultBlob] live in
+ * [RecoveryVaultBackwardCompatTest]. The envelope wire format
+ * (Envelope) is covered by [EnvelopeConfigCipherRoundtripTest] +
+ * [EnvelopeRemoteStorageTest].
  */
 class WireFormatJsonTest {
 
@@ -26,16 +27,22 @@ class WireFormatJsonTest {
     }
 
     @Test
-    fun sealedConfigRoundtrip() {
-        val original = SealedConfig(
+    fun envelopeRoundtrip() {
+        val original = Envelope(
             ciphertext = ByteArray(64) { it.toByte() },
             nonce = ByteArray(24) { (it + 100).toByte() },
-            aad = ByteArray(32) { (it + 200).toByte() }
+            aad = ByteArray(32) { (it + 200).toByte() },
+            recipientKeys = mapOf(
+                "phone-abc" to ByteArray(80) { it.toByte() },
+                "tablet-def" to ByteArray(80) { (it + 1).toByte() }
+            )
         )
         val text = json.encodeToString(original)
         assertContains(text, "\"schemaVersion\":1")
-        assertContains(text, "\"algorithm\":\"xchacha20poly1305-v1\"")
-        val parsed = json.decodeFromString<SealedConfig>(text)
+        assertContains(text, "\"algorithm\":\"envelope-xchacha20poly1305-x25519-v1\"")
+        assertContains(text, "\"phone-abc\"")
+        assertContains(text, "\"tablet-def\"")
+        val parsed = json.decodeFromString<Envelope>(text)
         assertEquals(original, parsed)
     }
 
@@ -55,32 +62,6 @@ class WireFormatJsonTest {
         assertContains(text, "\"iterations\":3")
         val parsed = json.decodeFromString<RecoveryVaultBlob>(text)
         assertEquals(original, parsed)
-    }
-
-    @Test
-    fun wrappedDekRoundtrip() {
-        val original = WrappedDek(
-            name = "config-cipher-aead-v1",
-            ciphertext = ByteArray(48) { 0x33 },
-            nonce = ByteArray(24) { 0x55 }
-        )
-        val text = json.encodeToString(original)
-        assertContains(text, "\"name\":\"config-cipher-aead-v1\"")
-        val parsed = json.decodeFromString<WrappedDek>(text)
-        assertEquals(original, parsed)
-    }
-
-    @Test
-    fun sealedConfigWithNullRecipientSignatureSerializes() {
-        val original = SealedConfig(
-            ciphertext = ByteArray(16),
-            nonce = ByteArray(24),
-            aad = ByteArray(8)
-        )
-        val text = json.encodeToString(original)
-        // Null recipientMasterSignature должно быть либо "null", либо absent. Оба ок.
-        val parsed = json.decodeFromString<SealedConfig>(text)
-        assertEquals(null, parsed.recipientMasterSignature)
     }
 
     @Test

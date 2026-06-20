@@ -6,50 +6,25 @@ import family.crypto.api.SecureKeyStore
 import family.crypto.libsodium.LibsodiumAeadCipher
 import family.crypto.libsodium.LibsodiumRandomSource
 import family.keys.api.AuthIdentity
-import family.keys.impl.KeyHierarchy
-import family.keys.impl.KeyRegistryImpl
 import family.keys.impl.RootKeyManagerImpl
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 
 /**
- * Fitness function — H-4 finding (T122d).
+ * Fitness function — H-4 finding (rejected empty UID at construction time).
  *
- * Empty uid / AuthIdentity.stableId MUST быть отвергнут на construction time,
- * чтобы избежать cross-UID alias formation race в KeyRegistryImpl.
+ * Empty `AuthIdentity.stableId` MUST be rejected, otherwise all
+ * configs / vaults across UID-less users would collide in the same backend
+ * namespace.
  *
- * Если бы пустой UID был разрешён — все DEK'и пользователей без stableId
- * попадали бы в один namespace `config-dek--{name}` (double-hyphen), и
- * первый бы видел DEK'и второго.
+ * Coverage in F-5b envelope architecture:
+ *  - [RootKeyManagerImpl] still rejects empty UID (preserved here).
+ *  - The envelope cipher / remote storage path enforces `namespace.isNotEmpty()`
+ *    at port level (see [family.keys.api.RemoteStorage] / [family.keys.impl.EnvelopeRemoteStorage]) —
+ *    those are covered by [family.keys.EnvelopeRemoteStorageTest].
  */
 class EmptyUidRejectionTest {
-
-    @Test
-    fun keyHierarchyRejectsEmptyUid() = runTest {
-        if (!LibsodiumInitializer.isInitialized()) LibsodiumInitializer.initialize()
-        assertFailsWith<IllegalArgumentException> {
-            KeyHierarchy(
-                uid = "",
-                secureKeyStore = SecureKeyStore(KeyStoreContext()),
-                aead = LibsodiumAeadCipher(),
-                random = LibsodiumRandomSource()
-            )
-        }
-    }
-
-    @Test
-    fun keyRegistryImplRejectsEmptyUid() = runTest {
-        if (!LibsodiumInitializer.isInitialized()) LibsodiumInitializer.initialize()
-        assertFailsWith<IllegalArgumentException> {
-            KeyRegistryImpl(
-                uid = "",
-                rootKeyProvider = { null },
-                secureKeyStore = SecureKeyStore(KeyStoreContext()),
-                aead = LibsodiumAeadCipher()
-            )
-        }
-    }
 
     @Test
     fun rootKeyManagerRejectsEmptyStableId() = runTest {

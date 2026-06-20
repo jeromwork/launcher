@@ -1,16 +1,27 @@
 package family.keys.api
 
 /**
- * Ошибки [ConfigCipher.seal] / [ConfigCipher.open] (FR-025, FR-026, FR-029).
+ * Sealed error type returned by the envelope cipher
+ * ([family.keys.api.internal.ConfigCipher2]).
  *
- *  • [AeadAuthFailed] — tampered ciphertext (MAC mismatch), wrong key, или wrong AAD
- *    (например, attempt'нул open под другим UID — FR-020 identity binding rejection).
- *  • [ConfigTooLarge] — plaintext > 256 KB (FR-029).
- *  • [AlgorithmUnsupported] — SealedConfig.algorithm не recognised — clear separation
- *    от AEAD failure, чтобы UI показал «обновите приложение» а не «неверный пароль».
- *  • [SchemaDowngradeDetected] — SealedConfig.schemaVersion < last seen (TOLU, H-2).
- *  • [InvalidInput] — IO/serialization error при serialize/deserialize blob'а.
- *  • [KeyUnavailable] — DEK не зарегистрирован (recovery flow или OOO).
+ * Surfaces at adapter boundaries only — caller-side code does not see this type;
+ * [family.keys.api.RemoteStorage] / [family.keys.api.ConfigSaver] translate
+ * these into [StorageError].
+ *
+ *  - [AeadAuthFailed] — tampered ciphertext, wrong key, or AAD mismatch
+ *    (context-confusion defence). Surfaces identically for all three causes
+ *    so the failure mode is indistinguishable to an attacker.
+ *  - [ConfigTooLarge] — plaintext > 256 KB.
+ *  - [AlgorithmUnsupported] — envelope.algorithm or schemaVersion not
+ *    understood by this build; UI surfaces "please update" instead of
+ *    crypto-failure.
+ *  - [SchemaDowngradeDetected] — envelope.schemaVersion < last-seen
+ *    (Trust-On-Last-Use, H-2 defence).
+ *  - [KeyUnavailable] — caller has no signed-in identity / device keypair.
+ *  - [NotARecipient] — this device's [DeviceId] is not in
+ *    [Envelope.recipientKeys]; either it was excluded at write time or
+ *    the device is post-reinstall with a new identity.
+ *  - [InvalidInput] — IO / serialization error, malformed wire-format.
  */
 sealed class CipherError {
     object AeadAuthFailed : CipherError()
@@ -18,7 +29,6 @@ sealed class CipherError {
     object AlgorithmUnsupported : CipherError()
     object SchemaDowngradeDetected : CipherError()
     object KeyUnavailable : CipherError()
-    /** Envelope did not include this device's [DeviceId] as a recipient. */
     object NotARecipient : CipherError()
     data class InvalidInput(val cause: Throwable) : CipherError()
 }
