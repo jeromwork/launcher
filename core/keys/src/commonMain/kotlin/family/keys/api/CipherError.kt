@@ -18,5 +18,7 @@ sealed class CipherError {
     object AlgorithmUnsupported : CipherError()
     object SchemaDowngradeDetected : CipherError()
     object KeyUnavailable : CipherError()
+    /** Envelope did not include this device's [DeviceId] as a recipient. */
+    object NotARecipient : CipherError()
     data class InvalidInput(val cause: Throwable) : CipherError()
 }
