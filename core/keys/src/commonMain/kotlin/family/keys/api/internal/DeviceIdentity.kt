@@ -18,7 +18,7 @@ import family.keys.api.DeviceId
  * needed. Their root key (F-5 [family.keys.api.RootKeyManager]) is independently
  * recovered via passphrase — separate concern.
  */
-internal interface DeviceIdentity {
+interface DeviceIdentity {
 
     /** This device's stable ID within the signed-in user's namespace. */
     suspend fun thisDeviceId(): DeviceId

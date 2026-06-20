@@ -32,7 +32,7 @@ import family.keys.api.internal.ConfigCipher2
  *  5. AEAD-decrypt ciphertext.
  *  6. Zeroize CEK.
  */
-internal class EnvelopeConfigCipherImpl(
+class EnvelopeConfigCipherImpl(
     private val aead: AeadCipher,
     private val asymmetric: AsymmetricCrypto,
     private val random: RandomSource

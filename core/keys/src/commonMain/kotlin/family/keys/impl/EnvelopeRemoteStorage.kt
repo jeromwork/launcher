@@ -24,7 +24,7 @@ import family.keys.api.internal.ResolverError
  * key to defend against context confusion (re-routing a sealed envelope from
  * one path to another inside the same backend).
  */
-internal class EnvelopeRemoteStorage(
+class EnvelopeRemoteStorage(
     private val cipher: ConfigCipher2,
     private val resolver: RecipientResolver,
     private val storage: EnvelopeStorage,

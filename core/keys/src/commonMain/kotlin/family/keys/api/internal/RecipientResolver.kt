@@ -26,7 +26,7 @@ import family.keys.api.RecipientPubKey
  * fan-out, and cross-user delegation. No code change when grants are added /
  * removed — only the resolver's output list changes.
  */
-internal interface RecipientResolver {
+interface RecipientResolver {
 
     suspend fun resolveFor(
         ownerNamespace: String,
@@ -34,7 +34,7 @@ internal interface RecipientResolver {
     ): Outcome<List<RecipientPubKey>, ResolverError>
 }
 
-internal sealed class ResolverError {
+sealed class ResolverError {
     /** Backend round-trip failed. */
     data class Network(val cause: Throwable? = null) : ResolverError()
 

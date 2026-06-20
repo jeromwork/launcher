@@ -15,7 +15,7 @@ import family.keys.api.Outcome
  *   where `escapedKey` is `key` with `/` replaced by `__` to fit Firestore
  *   document-id constraints.
  */
-internal interface EnvelopeStorage {
+interface EnvelopeStorage {
 
     /** Atomically store [envelope] at `(namespace, key)`, overwriting any prior. */
     suspend fun store(namespace: String, key: String, envelope: Envelope): Outcome<Unit, EnvelopeStorageError>
@@ -30,7 +30,7 @@ internal interface EnvelopeStorage {
     suspend fun delete(namespace: String, key: String): Outcome<Unit, EnvelopeStorageError>
 }
 
-internal sealed class EnvelopeStorageError {
+sealed class EnvelopeStorageError {
     data class Network(val cause: Throwable? = null) : EnvelopeStorageError()
     data object Unauthorized : EnvelopeStorageError()
     data object NotFound : EnvelopeStorageError()

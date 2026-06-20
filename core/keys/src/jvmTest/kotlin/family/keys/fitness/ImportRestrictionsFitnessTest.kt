@@ -82,6 +82,30 @@ class ImportRestrictionsFitnessTest {
     }
 
     @Test
+    fun appCodeOutsideAdaptersMustNotImportKeysApiInternal() {
+        // family.keys.api.internal.* — это backend-adapter SPI: ConfigCipher2,
+        // RecipientResolver, EnvelopeStorage, PublicKeyDirectory, DeviceIdentity.
+        // Caller code должен использовать только family.keys.api.RemoteStorage и
+        // прочие top-level public ports (без `internal` segment в пакете).
+        // realBackend / mockBackend / тесты — единственные легитимные потребители.
+        val appMain = File(repoRoot, "app/src/main")
+        if (!appMain.exists()) return
+
+        val violations = mutableListOf<Violation>()
+        appMain.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .forEach { file ->
+                findForbiddenImport(file, FORBIDDEN_KEYS_INTERNAL_IMPORT)?.let { violations.add(it) }
+            }
+        assertNoViolations(
+            violations,
+            ruleName = "Encapsulation — no family.keys.api.internal in app/src/main",
+            hint = "Use family.keys.api.RemoteStorage (public facade). " +
+                "If you need a port from family.keys.api.internal, the adapter must live in app/src/realBackend (or mockBackend)."
+        )
+    }
+
+    @Test
     fun realBackendIsTheOnlyFirebaseSurface() {
         // Sanity-check: убеждаемся что realBackend существует и содержит хотя бы
         // одну Firebase ссылку. Без этого правило T121 теряет смысл (false-negative
@@ -165,6 +189,16 @@ class ImportRestrictionsFitnessTest {
          */
         private val FORBIDDEN_FIREBASE_IMPORT = Regex(
             """com\.google\.firebase\b|com\.google\.android\.gms\.tasks\b"""
+        )
+
+        /**
+         * The keys-module SPI package: backend-adapter contracts (ConfigCipher2,
+         * RecipientResolver, EnvelopeStorage, PublicKeyDirectory, DeviceIdentity).
+         * App code outside realBackend / mockBackend must reach the keys layer via
+         * family.keys.api.RemoteStorage facade, not via these internal contracts.
+         */
+        private val FORBIDDEN_KEYS_INTERNAL_IMPORT = Regex(
+            """family\.keys\.api\.internal\b"""
         )
     }
 }

@@ -21,7 +21,7 @@ import family.keys.api.RecipientPubKey
  * keys. [RecipientResolver] is the only consumer that turns published keys into
  * a recipient list.
  */
-internal interface PublicKeyDirectory {
+interface PublicKeyDirectory {
 
     /** Publish [pubKey] for `(myUid, myDeviceId)`. Idempotent overwrite. */
     suspend fun publishMyDevice(
@@ -43,7 +43,7 @@ internal interface PublicKeyDirectory {
     suspend fun unpublishMyDevice(myUid: String, myDeviceId: DeviceId): Outcome<Unit, DirectoryError>
 }
 
-internal sealed class DirectoryError {
+sealed class DirectoryError {
     data class Network(val cause: Throwable? = null) : DirectoryError()
     data object Unauthorized : DirectoryError()
     data object NotFound : DirectoryError()

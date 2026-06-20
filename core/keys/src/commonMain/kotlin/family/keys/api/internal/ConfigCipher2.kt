@@ -18,7 +18,7 @@ import family.keys.api.RecipientPubKey
  * supports N=1..M recipients with identical wire format and code path; multi-
  * recipient activation is a property of [RecipientResolver], not of this port.
  */
-internal interface ConfigCipher2 {
+interface ConfigCipher2 {
 
     /**
      * Seal [plaintext] under N recipient public keys. Internally:
