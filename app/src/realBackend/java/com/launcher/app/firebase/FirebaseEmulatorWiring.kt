@@ -3,6 +3,7 @@ package com.launcher.app.firebase
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.launcher.app.BuildConfig
 
 /**
  * Routes Firebase SDK calls to the local Firebase Emulator instead of the
@@ -13,11 +14,14 @@ import com.google.firebase.firestore.FirebaseFirestore
  * reflection so the main source set does not have a compile-time dependency
  * on Firebase types (mockBackend variant must build without them).
  *
- * **Hosts to use**:
- *  - Android emulator AVD: `10.0.2.2` (loopback to host OS where
- *    `firebase emulators:start` runs).
- *  - Real device on the same Wi-Fi: replace with the host's LAN IP and
- *    invoke `setSslEnabled(false)` on Firestore (TODO if needed).
+ * **Host** comes from `BuildConfig.FIREBASE_EMULATOR_HOST` (gradle prop
+ * `-PfirebaseEmulatorHost=<host>`):
+ *  - `10.0.2.2` (default) — Android AVD loopback to the host OS.
+ *  - `127.0.0.1` — real USB-connected device with
+ *    `adb reverse tcp:8080 tcp:8080 && adb reverse tcp:9099 tcp:9099`.
+ *  - `<LAN IP>` — real device on the same Wi-Fi as the host. Firestore
+ *    Emulator listens on all interfaces; Auth Emulator may need
+ *    `firebase emulators:start --inspect-functions` style options.
  *
  * **Ports**: 8080 Firestore, 9099 Auth — defaults of `firebase.json`.
  */
@@ -36,15 +40,15 @@ object FirebaseEmulatorWiring {
         if (wired) return
         synchronized(this) {
             if (wired) return
-            FirebaseFirestore.getInstance().useEmulator(HOST_ANDROID_AVD, PORT_FIRESTORE)
-            FirebaseAuth.getInstance().useEmulator(HOST_ANDROID_AVD, PORT_AUTH)
+            val host = BuildConfig.FIREBASE_EMULATOR_HOST
+            FirebaseFirestore.getInstance().useEmulator(host, PORT_FIRESTORE)
+            FirebaseAuth.getInstance().useEmulator(host, PORT_AUTH)
             wired = true
-            Log.i(TAG, "Firebase SDK redirected to emulator at $HOST_ANDROID_AVD:$PORT_FIRESTORE (Firestore) and :$PORT_AUTH (Auth)")
+            Log.i(TAG, "Firebase SDK redirected to emulator at $host:$PORT_FIRESTORE (Firestore) and :$PORT_AUTH (Auth)")
         }
     }
 
     private const val TAG: String = "FirebaseEmulatorWiring"
-    private const val HOST_ANDROID_AVD: String = "10.0.2.2"
     private const val PORT_FIRESTORE: Int = 8080
     private const val PORT_AUTH: Int = 9099
 }

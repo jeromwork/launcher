@@ -187,7 +187,7 @@ npm test               # поднимает emulator на 8080/9099 → гоня
 
 **Два режима запуска**:
 
-#### A. Против local Firebase Emulator (рекомендуется для CI / quick dev loop)
+#### A. Против local Firebase Emulator на AVD (рекомендуется для CI / quick dev loop)
 
 Не задевает cloud, не жжёт quota, не оставляет мусор.
 
@@ -201,6 +201,40 @@ firebase emulators:start --only firestore,auth
 ```
 
 Требует AVD Android 14+ (API 34/35 recommended).
+
+#### A'. Против local Firebase Emulator на **реальном** USB-устройстве
+
+Хост-`10.0.2.2` доступен только AVD. На реальном телефоне переадресуем
+порты через `adb reverse` и сообщаем Wiring новый хост через
+`-PfirebaseEmulatorHost=127.0.0.1`:
+
+```bash
+# Terminal 1: поднять эмуляторы на PC
+firebase emulators:start --only firestore,auth
+
+# Terminal 2: проверить, что устройство одно (если есть AVD — отключить)
+"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe" devices
+# Перенаправить порты с device:127.0.0.1 на host:127.0.0.1
+"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe" reverse tcp:8080 tcp:8080
+"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe" reverse tcp:9099 tcp:9099
+
+# Запустить E2E
+./gradlew :app:connectedRealBackendDebugAndroidTest \
+    -PuseFirebaseEmulator=true \
+    -PfirebaseEmulatorHost=127.0.0.1
+```
+
+Покрывает то же, что вариант A, плюс TEE-backed Keystore + OEM-specific
+quirks (Xiaomi MIUI «Optimize» cleanup, Samsung Knox).
+
+`adb reverse` действует только пока устройство в той же ADB-сессии
+(пропадает после `adb kill-server` / reboot / отключения кабеля) — нужно
+прогнать ещё раз перед следующим запуском теста.
+
+Полезно параллельно открыть зеркало экрана:
+```bash
+scrcpy --serial=<device-serial> --window-title="Xiaomi 11T"
+```
 
 #### B. Против real `launcher-old-dev` Firestore (real-cloud confidence)
 
@@ -216,14 +250,6 @@ instrumented test.
 
 Тест cleanup'ит свой namespace (`teardown()` удаляет device entry) — после
 прогона dev project остаётся чистым.
-
-#### Real device
-
-Тот же gradle command, но `adb` подключает физ. устройство, не AVD.
-Полезно для проверки:
-- TEE-backed Android Keystore (StrongBox attestation если есть).
-- OEM-specific Keystore quirks (Xiaomi MIUI "Optimize" cleanup).
-- Реальный network round-trip latency (вариант B).
 
 ---
 

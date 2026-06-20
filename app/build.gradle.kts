@@ -33,11 +33,17 @@ android {
 
         // F-5b E2E: when `-PuseFirebaseEmulator=true` is passed to gradle,
         // LauncherApplication routes Firestore + Auth SDK calls to the local
-        // Firebase Emulator (10.0.2.2:8080 / :9099) instead of the real cloud.
+        // Firebase Emulator instead of the real cloud.
+        // Default host = `10.0.2.2` (AVD loopback). For a real device on USB,
+        // set up `adb reverse tcp:8080 tcp:8080 && adb reverse tcp:9099 tcp:9099`
+        // and pass `-PfirebaseEmulatorHost=127.0.0.1`.
         // Default is false (use real launcher-old-dev project).
         val useEmulator = (project.findProperty("useFirebaseEmulator") as? String)
             ?.toBooleanStrictOrNull() ?: false
+        val emulatorHost = (project.findProperty("firebaseEmulatorHost") as? String)
+            ?.takeIf { it.isNotBlank() } ?: "10.0.2.2"
         buildConfigField("boolean", "USE_FIREBASE_EMULATOR", useEmulator.toString())
+        buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"$emulatorHost\"")
 
         // F-5b E2E instrumented tests (CloudConfigEncryptionE2ETest).
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

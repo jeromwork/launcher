@@ -42,10 +42,12 @@ class FirestorePublicKeyDirectory(
     private val firestore: FirebaseFirestore
 ) : PublicKeyDirectory {
 
-    private fun pubKeyDoc(uid: String, deviceId: DeviceId) =
+    private fun deviceDoc(uid: String, deviceId: DeviceId) =
         firestore.collection(COLLECTION_USERS).document(uid)
             .collection(COLLECTION_DEVICES).document(deviceId.value)
-            .collection(COLLECTION_PUB_KEY).document(DOCUMENT_CURRENT)
+
+    private fun pubKeyDoc(uid: String, deviceId: DeviceId) =
+        deviceDoc(uid, deviceId).collection(COLLECTION_PUB_KEY).document(DOCUMENT_CURRENT)
 
     private fun devicesCollection(uid: String) =
         firestore.collection(COLLECTION_USERS).document(uid)
@@ -63,14 +65,30 @@ class FirestorePublicKeyDirectory(
         if (myUid.isEmpty()) return Outcome.Failure(DirectoryError.Unauthorized)
         require(pubKey.size == 32) { "X25519 pub key must be 32 bytes" }
         return try {
-            pubKeyDoc(myUid, myDeviceId).set(
-                mapOf(
-                    FIELD_SCHEMA_VERSION to PUBKEY_SCHEMA_VERSION,
-                    FIELD_PUB_KEY to Blob.fromBytes(pubKey),
-                    FIELD_ALGORITHM to ALGORITHM_X25519,
-                    FIELD_CREATED_AT to com.google.firebase.firestore.FieldValue.serverTimestamp()
+            // Firestore queries return only documents that have been
+            // explicitly written. Without a marker doc at
+            // `/users/{uid}/devices/{deviceId}`, [fetchDevicesFor] cannot see
+            // this device — Firestore does not surface virtual parents of
+            // subcollections in a collection `.get()`. Write the marker
+            // alongside the pub-key blob so resolution is consistent.
+            firestore.runBatch { batch ->
+                batch.set(
+                    deviceDoc(myUid, myDeviceId),
+                    mapOf(
+                        FIELD_SCHEMA_VERSION to PUBKEY_SCHEMA_VERSION,
+                        FIELD_CREATED_AT to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                    )
                 )
-            ).await()
+                batch.set(
+                    pubKeyDoc(myUid, myDeviceId),
+                    mapOf(
+                        FIELD_SCHEMA_VERSION to PUBKEY_SCHEMA_VERSION,
+                        FIELD_PUB_KEY to Blob.fromBytes(pubKey),
+                        FIELD_ALGORITHM to ALGORITHM_X25519,
+                        FIELD_CREATED_AT to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                    )
+                )
+            }.await()
             Outcome.Success(Unit)
         } catch (e: FirebaseFirestoreException) {
             Outcome.Failure(mapFirestore(e))

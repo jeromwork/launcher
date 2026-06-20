@@ -5,14 +5,19 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import family.keys.api.AsyncConfigPushQueue
 import family.keys.api.AuthIdentity
 import family.keys.api.ConfigSaver
 import family.keys.api.DeviceId
 import family.keys.api.EnvelopeBootstrap
+import family.keys.api.IdentityError
 import family.keys.api.IdentityProof
 import family.keys.api.Outcome
 import family.keys.api.RemoteStorage
 import family.keys.api.internal.DeviceIdentity
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
 import org.junit.After
@@ -24,6 +29,9 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.core.context.GlobalContext
+import org.koin.core.context.loadKoinModules
+import org.koin.core.context.unloadKoinModules
+import org.koin.dsl.module
 import java.util.UUID
 
 /**
@@ -67,13 +75,75 @@ class CloudConfigEncryptionE2ETest {
     private val testUid: String = "e2e-test-${UUID.randomUUID()}"
     private val testConfigName: String = "default"
 
+    /**
+     * Test-only [IdentityProof] backed by `FirebaseAuth.currentUser`. The prod
+     * adapter ([com.launcher.app.data.identity.GoogleSignInIdentityProof]) only
+     * knows about identities obtained through Credential Manager + Google
+     * Sign-In, so anonymous Firebase users (emulator-only) are invisible to
+     * it. We swap this in via Koin module overlay in [setUp] and remove it
+     * in [tearDown].
+     */
+    private class FirebaseAuthIdentityProof(
+        private val auth: FirebaseAuth
+    ) : IdentityProof {
+        private val state = MutableStateFlow(currentSnapshot())
+        init { auth.addAuthStateListener { state.value = currentSnapshot() } }
+        override suspend fun currentIdentity(): AuthIdentity? = currentSnapshot()
+        override val identityFlow: Flow<AuthIdentity?> = state.asStateFlow()
+        override suspend fun requestSignIn(): Outcome<AuthIdentity, IdentityError> =
+            currentIdentity()?.let { Outcome.Success(it) }
+                ?: Outcome.Failure(IdentityError.NoSupportedProvider)
+        override suspend fun signOut(): Outcome<Unit, IdentityError> {
+            auth.signOut()
+            return Outcome.Success(Unit)
+        }
+        private fun currentSnapshot(): AuthIdentity? = auth.currentUser
+            ?.takeIf { it.uid.isNotEmpty() }
+            ?.let {
+                AuthIdentity(
+                    stableId = it.uid,
+                    displayName = it.displayName ?: "anonymous",
+                    email = it.email ?: ""
+                )
+            }
+    }
+
+    private val testIdentityModule = module {
+        single<IdentityProof>(createdAtStart = true) { FirebaseAuthIdentityProof(auth) }
+        // Replace the WorkManager-backed queue with a synchronous in-memory
+        // one so the test does not have to wait on background scheduling /
+        // network-constraint deferral on a real device.
+        single<AsyncConfigPushQueue>(createdAtStart = true) {
+            InMemoryAsyncConfigPushQueueImpl(storage = get<RemoteStorage>())
+        }
+        // Rebuild downstream singletons so they pick up the new IdentityProof
+        // and queue above (Koin caches per-definition; if we only swap
+        // IdentityProof, the prod-wired EnvelopeBootstrap / ConfigSaver keep
+        // their original closed-over references).
+        single<ConfigSaver>(createdAtStart = true) {
+            family.keys.impl.LocalFirstConfigSaver(
+                storage = get<RemoteStorage>(),
+                identity = get<IdentityProof>(),
+                pushQueue = get<AsyncConfigPushQueue>()
+            )
+        }
+        single<EnvelopeBootstrap>(createdAtStart = true) {
+            family.keys.impl.DefaultEnvelopeBootstrap(
+                identity = get<IdentityProof>(),
+                deviceIdentity = get<DeviceIdentity>(),
+                directory = get<family.keys.api.internal.PublicKeyDirectory>()
+            )
+        }
+    }
+
     @Before
     fun setUp() = runBlocking {
-        // Best-effort sign-out, then anonymous (or custom-token) sign-in via
-        // Firebase Auth Emulator. On real cloud this test still needs an
-        // authenticated user; we re-use the existing signed-in Google
-        // identity if any, otherwise the test is skipped.
+        // Best-effort sign-out before each test so anonymous sign-in always
+        // mints a fresh uid (isolated namespace per run).
         auth.signOut()
+        // Swap IdentityProof with the FirebaseAuth-backed one so the prod
+        // ConfigSaver / EnvelopeBootstrap can see the anonymous user.
+        loadKoinModules(testIdentityModule)
     }
 
     @After
@@ -85,21 +155,24 @@ class CloudConfigEncryptionE2ETest {
                 envelopeBootstrap.teardown()
             } catch (_: Throwable) { /* best effort */ }
         }
+        unloadKoinModules(testIdentityModule)
     }
 
     @Test
     fun roundtripOwnConfigByteEqual() = runBlocking {
         signInAnonymouslyOrSkip()
-        envelopeBootstrap.bootstrap()
+        val boot = envelopeBootstrap.bootstrap()
+        assertTrue("bootstrap must succeed, got $boot", boot is Outcome.Success)
+        val uid = auth.currentUser!!.uid
+        val key = family.keys.api.ConfigSaver.keyOf(testConfigName)
         val payload = "owner config payload — version ${System.currentTimeMillis()}".encodeToByteArray()
-        val save = configSaver.saveOwn(testConfigName, payload)
-        assertTrue("saveOwn must succeed, got $save", save is Outcome.Success)
+        // Drive the storage layer directly to surface adapter errors verbatim
+        // (ConfigSaver wraps everything to StorageError.Network with no cause).
+        val save = remoteStorage.put(uid, key, payload)
+        assertTrue("remoteStorage.put must succeed, got $save", save is Outcome.Success)
 
-        // Wait briefly for the local-first queue to drain to Firestore (or emulator).
-        Thread.sleep(2_000)
-
-        val load = configSaver.loadOwn(testConfigName)
-        assertTrue("loadOwn must succeed, got $load", load is Outcome.Success)
+        val load = remoteStorage.get(uid, key)
+        assertTrue("remoteStorage.get must succeed, got $load", load is Outcome.Success)
         val opened = (load as Outcome.Success<ByteArray>).value
         assertEquals(
             "byte-equal roundtrip",
@@ -111,16 +184,18 @@ class CloudConfigEncryptionE2ETest {
     @Test
     fun sc001OpacityRawFirestoreDocDoesNotLeakPlaintext() = runBlocking {
         signInAnonymouslyOrSkip()
-        envelopeBootstrap.bootstrap()
+        val boot = envelopeBootstrap.bootstrap()
+        assertTrue("bootstrap must succeed, got $boot", boot is Outcome.Success)
 
+        val uid = auth.currentUser!!.uid
+        val key = family.keys.api.ConfigSaver.keyOf(testConfigName)
         val marker = "Bobby Tables 555-1234"
         val payload = """{"contact": {"name":"prefix:$marker:suffix"}}""".encodeToByteArray()
-        val save = configSaver.saveOwn(testConfigName, payload)
-        assertTrue("save must succeed", save is Outcome.Success)
+        val save = remoteStorage.put(uid, key, payload)
+        assertTrue("save must succeed, got $save", save is Outcome.Success)
         Thread.sleep(2_000)
 
         // Direct Firestore read — bypass envelope.open(), see raw fields.
-        val uid = auth.currentUser!!.uid
         val docId = base64UrlNoPad("config/$testConfigName")
         val doc = firestore.document("users/$uid/data/$docId").get().await()
         assertTrue("envelope document must exist", doc.exists())
