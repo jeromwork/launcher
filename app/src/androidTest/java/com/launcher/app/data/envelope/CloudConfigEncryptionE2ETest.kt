@@ -138,11 +138,15 @@ class CloudConfigEncryptionE2ETest {
 
     @Before
     fun setUp() = runBlocking {
-        // Best-effort sign-out before each test so anonymous sign-in always
-        // mints a fresh uid (isolated namespace per run).
-        auth.signOut()
+        // Best-effort sign-out only if the current user is anonymous (emulator
+        // path) so each run mints a fresh uid. On real cloud we keep the
+        // existing Google Sign-In user — anonymous sign-in is disabled
+        // (decision 2026-05-30) and we'd lose the only authenticated identity.
+        if (auth.currentUser?.isAnonymous == true) {
+            auth.signOut()
+        }
         // Swap IdentityProof with the FirebaseAuth-backed one so the prod
-        // ConfigSaver / EnvelopeBootstrap can see the anonymous user.
+        // ConfigSaver / EnvelopeBootstrap can see whichever user is signed in.
         loadKoinModules(testIdentityModule)
     }
 
