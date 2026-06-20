@@ -12,7 +12,6 @@ import family.keys.api.EnvelopeBootstrap
 import family.keys.api.IdentityProof
 import family.keys.api.Outcome
 import family.keys.api.RemoteStorage
-import family.keys.api.StorageError
 import family.keys.api.internal.DeviceIdentity
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
@@ -24,7 +23,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.koin.android.ext.android.inject
 import org.koin.core.context.GlobalContext
 import java.util.UUID
 
@@ -60,21 +58,11 @@ class CloudConfigEncryptionE2ETest {
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
-    private val configSaver: ConfigSaver by lazy {
-        GlobalContext.get().get(ConfigSaver::class.java)
-    }
-    private val remoteStorage: RemoteStorage by lazy {
-        GlobalContext.get().get(RemoteStorage::class.java)
-    }
-    private val envelopeBootstrap: EnvelopeBootstrap by lazy {
-        GlobalContext.get().get(EnvelopeBootstrap::class.java)
-    }
-    private val identityProof: IdentityProof by lazy {
-        GlobalContext.get().get(IdentityProof::class.java)
-    }
-    private val deviceIdentity: DeviceIdentity by lazy {
-        GlobalContext.get().get(DeviceIdentity::class.java)
-    }
+    private val configSaver: ConfigSaver by lazy { GlobalContext.get().get<ConfigSaver>() }
+    private val remoteStorage: RemoteStorage by lazy { GlobalContext.get().get<RemoteStorage>() }
+    private val envelopeBootstrap: EnvelopeBootstrap by lazy { GlobalContext.get().get<EnvelopeBootstrap>() }
+    private val identityProof: IdentityProof by lazy { GlobalContext.get().get<IdentityProof>() }
+    private val deviceIdentity: DeviceIdentity by lazy { GlobalContext.get().get<DeviceIdentity>() }
 
     private val testUid: String = "e2e-test-${UUID.randomUUID()}"
     private val testConfigName: String = "default"

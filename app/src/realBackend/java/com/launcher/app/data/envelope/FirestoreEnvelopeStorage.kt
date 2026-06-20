@@ -130,27 +130,31 @@ class FirestoreEnvelopeStorage(
     )
 
     @Suppress("UNCHECKED_CAST")
-    private fun decode(data: Map<String, Any>): Envelope? = try {
-        val schemaVersion = (data[FIELD_SCHEMA_VERSION] as? Number)?.toInt() ?: return null
-        val algorithm = data[FIELD_ALGORITHM] as? String ?: return null
-        val ciphertext = (data[FIELD_CIPHERTEXT] as? Blob)?.toBytes() ?: return null
-        val nonce = (data[FIELD_NONCE] as? Blob)?.toBytes() ?: return null
-        val aad = (data[FIELD_AAD] as? Blob)?.toBytes() ?: return null
-        val rawRecipients = data[FIELD_RECIPIENT_KEYS] as? Map<String, Any> ?: return null
-        val recipientKeys = rawRecipients.mapValues {
-            (it.value as? Blob)?.toBytes() ?: return null
+    private fun decode(data: Map<String, Any>): Envelope? {
+        return try {
+            val schemaVersion = (data[FIELD_SCHEMA_VERSION] as? Number)?.toInt() ?: return null
+            val algorithm = data[FIELD_ALGORITHM] as? String ?: return null
+            val ciphertext = (data[FIELD_CIPHERTEXT] as? Blob)?.toBytes() ?: return null
+            val nonce = (data[FIELD_NONCE] as? Blob)?.toBytes() ?: return null
+            val aad = (data[FIELD_AAD] as? Blob)?.toBytes() ?: return null
+            val rawRecipients = data[FIELD_RECIPIENT_KEYS] as? Map<String, Any> ?: return null
+            val recipientKeysBuilder = mutableMapOf<String, ByteArray>()
+            for ((k, v) in rawRecipients) {
+                val bytes = (v as? Blob)?.toBytes() ?: return null
+                recipientKeysBuilder[k] = bytes
+            }
+            if (recipientKeysBuilder.isEmpty()) return null
+            Envelope(
+                schemaVersion = schemaVersion,
+                algorithm = algorithm,
+                ciphertext = ciphertext,
+                nonce = nonce,
+                aad = aad,
+                recipientKeys = recipientKeysBuilder
+            )
+        } catch (t: Throwable) {
+            null
         }
-        if (recipientKeys.isEmpty()) return null
-        Envelope(
-            schemaVersion = schemaVersion,
-            algorithm = algorithm,
-            ciphertext = ciphertext,
-            nonce = nonce,
-            aad = aad,
-            recipientKeys = recipientKeys
-        )
-    } catch (t: Throwable) {
-        null
     }
 
     private fun mapFirestore(e: FirebaseFirestoreException): EnvelopeStorageError = when (e.code) {

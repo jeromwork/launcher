@@ -184,6 +184,13 @@ dependencies {
     // The CameraX runtime brings it transitively, but Kotlin compiler needs the type.
     "realBackendImplementation"("com.google.guava:guava:33.4.0-android")
 
+    // Firebase SDKs needed by realBackend adapters (FirestoreEnvelopeStorage,
+    // FirestorePublicKeyDirectory, FirestoreRecoveryKeyVault, FirebaseEmulatorWiring).
+    "realBackendImplementation"(platform(libs.firebase.bom))
+    "realBackendImplementation"(libs.firebase.firestore.ktx)
+    "realBackendImplementation"(libs.firebase.auth.ktx)
+    "realBackendImplementation"("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
+
     // Spec 017 (F-4 AuthProvider) — Credential Manager + Google Identity provider
     // подключены в :core/androidRealBackend (где живут GoogleSignInAuthAdapter
     // и EncryptedLocalSessionStore). Транзитивно доступны в :app через api(),
