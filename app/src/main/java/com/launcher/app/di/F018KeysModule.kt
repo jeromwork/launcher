@@ -52,4 +52,9 @@ val f018KeysModule = module {
     // H-1 / H-2 mitigations (T122f, T122m).
     single<PassphraseAttemptCounter> { DataStorePassphraseAttemptCounter(context = androidContext()) }
     single<SchemaVersionMemory> { DataStoreSchemaVersionMemory(context = androidContext()) }
+
+    // F-5b envelope caller surface (ConfigSaver, EnvelopeBootstrap) лежит в
+    // f018KeysBackendModule — потому что эти binding'и используют internal
+    // family.keys.api.internal ports (DeviceIdentity, PublicKeyDirectory),
+    // которые fitness rule запрещает импортировать из app/src/main.
 }

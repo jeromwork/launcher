@@ -9,14 +9,19 @@ import family.crypto.api.AsymmetricCrypto
 import family.crypto.api.RandomSource
 import family.crypto.api.SecureKeyStore
 import family.keys.android.AndroidDeviceIdentity
+import family.keys.api.ConfigSaver
+import family.keys.api.EnvelopeBootstrap
+import family.keys.api.IdentityProof
 import family.keys.api.RecoveryKeyVault
 import family.keys.api.RemoteStorage
 import family.keys.api.internal.DeviceIdentity
 import family.keys.api.internal.EnvelopeStorage
 import family.keys.api.internal.PublicKeyDirectory
 import family.keys.api.internal.RecipientResolver
+import family.keys.impl.DefaultEnvelopeBootstrap
 import family.keys.impl.EnvelopeConfigCipherImpl
 import family.keys.impl.EnvelopeRemoteStorage
+import family.keys.impl.RemoteStorageConfigSaver
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
@@ -63,6 +68,21 @@ val f018KeysBackendModule = module {
             resolver = get<RecipientResolver>(),
             storage = get<EnvelopeStorage>(),
             deviceIdentity = get<DeviceIdentity>()
+        )
+    }
+
+    single<ConfigSaver> {
+        RemoteStorageConfigSaver(
+            storage = get<RemoteStorage>(),
+            identity = get<IdentityProof>()
+        )
+    }
+
+    single<EnvelopeBootstrap> {
+        DefaultEnvelopeBootstrap(
+            identity = get<IdentityProof>(),
+            deviceIdentity = get<DeviceIdentity>(),
+            directory = get<PublicKeyDirectory>()
         )
     }
 }
