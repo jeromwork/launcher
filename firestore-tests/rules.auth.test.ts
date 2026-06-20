@@ -52,13 +52,13 @@ beforeEach(async () => {
   await testEnv.clearFirestore();
 });
 
-// ─── identity-links/google/{sub} ────────────────────────────────────────
+// ─── identity-links/google_{sub} (single doc-id, google_ prefix per production code) ────────────────────────────────────────
 
-describe("identity-links/google/{sub}", () => {
+describe("identity-links/google_{sub} (single doc-id)", () => {
   test("owner can create their own link with valid stableId", async () => {
     const ctx = testEnv.authenticatedContext(SUB_A);
     await assertSucceeds(
-      setDoc(doc(ctx.firestore(), `identity-links/google/${SUB_A}`), {
+      setDoc(doc(ctx.firestore(), `identity-links/google_${SUB_A}`), {
         schemaVersion: 1,
         stableId: STABLE_ID_A,
         createdAt: serverTimestamp(),
@@ -69,7 +69,7 @@ describe("identity-links/google/{sub}", () => {
   test("owner cannot create a link with mismatched providerAccountId", async () => {
     const ctx = testEnv.authenticatedContext(SUB_A);
     await assertFails(
-      setDoc(doc(ctx.firestore(), `identity-links/google/${SUB_B}`), {
+      setDoc(doc(ctx.firestore(), `identity-links/google_${SUB_B}`), {
         schemaVersion: 1,
         stableId: STABLE_ID_A,
         createdAt: serverTimestamp(),
@@ -80,7 +80,7 @@ describe("identity-links/google/{sub}", () => {
   test("owner cannot create a link with malformed stableId (not UUIDv4)", async () => {
     const ctx = testEnv.authenticatedContext(SUB_A);
     await assertFails(
-      setDoc(doc(ctx.firestore(), `identity-links/google/${SUB_A}`), {
+      setDoc(doc(ctx.firestore(), `identity-links/google_${SUB_A}`), {
         schemaVersion: 1,
         stableId: "not-a-uuid",
         createdAt: serverTimestamp(),
@@ -91,7 +91,7 @@ describe("identity-links/google/{sub}", () => {
   test("owner cannot create a link with wrong schemaVersion", async () => {
     const ctx = testEnv.authenticatedContext(SUB_A);
     await assertFails(
-      setDoc(doc(ctx.firestore(), `identity-links/google/${SUB_A}`), {
+      setDoc(doc(ctx.firestore(), `identity-links/google_${SUB_A}`), {
         schemaVersion: 2,
         stableId: STABLE_ID_A,
         createdAt: serverTimestamp(),
@@ -102,7 +102,7 @@ describe("identity-links/google/{sub}", () => {
   test("owner cannot create a link with extra fields", async () => {
     const ctx = testEnv.authenticatedContext(SUB_A);
     await assertFails(
-      setDoc(doc(ctx.firestore(), `identity-links/google/${SUB_A}`), {
+      setDoc(doc(ctx.firestore(), `identity-links/google_${SUB_A}`), {
         schemaVersion: 1,
         stableId: STABLE_ID_A,
         createdAt: serverTimestamp(),
@@ -114,7 +114,7 @@ describe("identity-links/google/{sub}", () => {
   test("stranger cannot read someone else's identity-link", async () => {
     // Seed: SUB_A's link.
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), `identity-links/google/${SUB_A}`), {
+      await setDoc(doc(ctx.firestore(), `identity-links/google_${SUB_A}`), {
         schemaVersion: 1,
         stableId: STABLE_ID_A,
         createdAt: serverTimestamp(),
@@ -122,13 +122,13 @@ describe("identity-links/google/{sub}", () => {
     });
     const stranger = testEnv.authenticatedContext(SUB_B);
     await assertFails(
-      getDoc(doc(stranger.firestore(), `identity-links/google/${SUB_A}`)),
+      getDoc(doc(stranger.firestore(), `identity-links/google_${SUB_A}`)),
     );
   });
 
   test("owner can read their own identity-link", async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), `identity-links/google/${SUB_A}`), {
+      await setDoc(doc(ctx.firestore(), `identity-links/google_${SUB_A}`), {
         schemaVersion: 1,
         stableId: STABLE_ID_A,
         createdAt: serverTimestamp(),
@@ -136,13 +136,13 @@ describe("identity-links/google/{sub}", () => {
     });
     const owner = testEnv.authenticatedContext(SUB_A);
     await assertSucceeds(
-      getDoc(doc(owner.firestore(), `identity-links/google/${SUB_A}`)),
+      getDoc(doc(owner.firestore(), `identity-links/google_${SUB_A}`)),
     );
   });
 
   test("identity-link is immutable — update fails", async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), `identity-links/google/${SUB_A}`), {
+      await setDoc(doc(ctx.firestore(), `identity-links/google_${SUB_A}`), {
         schemaVersion: 1,
         stableId: STABLE_ID_A,
         createdAt: serverTimestamp(),
@@ -150,7 +150,7 @@ describe("identity-links/google/{sub}", () => {
     });
     const owner = testEnv.authenticatedContext(SUB_A);
     await assertFails(
-      setDoc(doc(owner.firestore(), `identity-links/google/${SUB_A}`), {
+      setDoc(doc(owner.firestore(), `identity-links/google_${SUB_A}`), {
         schemaVersion: 1,
         stableId: "9999",  // attempt to rotate stableId
         createdAt: serverTimestamp(),
@@ -168,7 +168,7 @@ describe("users/{stableId}", () => {
     // Поэтому используем withSecurityRulesDisabled чтобы seed identity-link,
     // потом проверяем что user create with matching stableId работает.
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), `identity-links/google/${SUB_A}`), {
+      await setDoc(doc(ctx.firestore(), `identity-links/google_${SUB_A}`), {
         schemaVersion: 1,
         stableId: STABLE_ID_A,
         createdAt: serverTimestamp(),
@@ -186,7 +186,7 @@ describe("users/{stableId}", () => {
 
   test("stranger without identity-link cannot read user doc", async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), `identity-links/google/${SUB_A}`), {
+      await setDoc(doc(ctx.firestore(), `identity-links/google_${SUB_A}`), {
         schemaVersion: 1,
         stableId: STABLE_ID_A,
         createdAt: serverTimestamp(),
@@ -217,7 +217,7 @@ describe("users/{stableId}", () => {
 
   test("user doc create fails if stableId doesn't match identity-link", async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), `identity-links/google/${SUB_A}`), {
+      await setDoc(doc(ctx.firestore(), `identity-links/google_${SUB_A}`), {
         schemaVersion: 1,
         stableId: STABLE_ID_A,
         createdAt: serverTimestamp(),
@@ -236,7 +236,7 @@ describe("users/{stableId}", () => {
 
   test("user doc is immutable in F-4 — update fails", async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), `identity-links/google/${SUB_A}`), {
+      await setDoc(doc(ctx.firestore(), `identity-links/google_${SUB_A}`), {
         schemaVersion: 1,
         stableId: STABLE_ID_A,
         createdAt: serverTimestamp(),

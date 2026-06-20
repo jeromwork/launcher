@@ -1,0 +1,74 @@
+package family.keys
+
+import family.keys.api.Envelope
+import family.keys.api.PassphraseKdfParams
+import family.keys.api.RecoveryVaultBlob
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlin.test.Test
+import kotlin.test.assertContains
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+/**
+ * JSON wire-format roundtrip sanity check for the surviving `:core:keys`
+ * wire types (CLAUDE.md rule 5).
+ *
+ * Full backward-compat fixture tests for [RecoveryVaultBlob] live in
+ * [RecoveryVaultBackwardCompatTest]. The envelope wire format
+ * (Envelope) is covered by [EnvelopeConfigCipherRoundtripTest] +
+ * [EnvelopeRemoteStorageTest].
+ */
+class WireFormatJsonTest {
+
+    private val json = Json {
+        prettyPrint = false
+        encodeDefaults = true
+    }
+
+    @Test
+    fun envelopeRoundtrip() {
+        val original = Envelope(
+            ciphertext = ByteArray(64) { it.toByte() },
+            nonce = ByteArray(24) { (it + 100).toByte() },
+            aad = ByteArray(32) { (it + 200).toByte() },
+            recipientKeys = mapOf(
+                "phone-abc" to ByteArray(80) { it.toByte() },
+                "tablet-def" to ByteArray(80) { (it + 1).toByte() }
+            )
+        )
+        val text = json.encodeToString(original)
+        assertContains(text, "\"schemaVersion\":1")
+        assertContains(text, "\"algorithm\":\"envelope-xchacha20poly1305-x25519-v1\"")
+        assertContains(text, "\"phone-abc\"")
+        assertContains(text, "\"tablet-def\"")
+        val parsed = json.decodeFromString<Envelope>(text)
+        assertEquals(original, parsed)
+    }
+
+    @Test
+    fun recoveryVaultBlobRoundtrip() {
+        val original = RecoveryVaultBlob(
+            kdfSalt = ByteArray(16) { 0x42 },
+            kdfParams = PassphraseKdfParams(),
+            wrappedRootKey = ByteArray(48) { it.toByte() },
+            nonce = ByteArray(24) { (it + 50).toByte() },
+            createdAt = 1_700_000_000L
+        )
+        val text = json.encodeToString(original)
+        assertContains(text, "\"schemaVersion\":1")
+        assertContains(text, "\"algorithm\":\"argon2id-xchacha20poly1305-v1\"")
+        assertContains(text, "\"memoryKib\":65536")
+        assertContains(text, "\"iterations\":3")
+        val parsed = json.decodeFromString<RecoveryVaultBlob>(text)
+        assertEquals(original, parsed)
+    }
+
+    @Test
+    fun rootKeyToStringDoesNotLeakBytes() {
+        val rk = family.keys.api.RootKey(ByteArray(32) { 0xAB.toByte() })
+        val str = rk.toString()
+        assertTrue("***" in str, "RootKey.toString must mask bytes")
+        assertTrue("ab" !in str.lowercase(), "RootKey.toString must NOT leak hex bytes")
+    }
+}

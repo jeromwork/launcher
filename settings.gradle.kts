@@ -16,7 +16,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "launcher"
 
-include(":app", ":core", ":core:crypto")
+include(":app", ":core", ":core:crypto", ":core:keys")
 
 // Future feature modules (pattern :feature-* per spec FR-019), e.g.:
 // include(":feature-favorites")

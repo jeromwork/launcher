@@ -302,28 +302,194 @@ service cloud.firestore {
     // TODO(server-roadmap SRV-AUTH-IDENTITY-002): добавить custom claim
     // `googleSub` в Firebase Auth user, проверять `request.auth.token.googleSub`
     // вместо `request.auth.uid` — устраняет необходимость доверять клиенту.
-    // ⚠️ DEV-ONLY: F-4 smoke test relaxed rules.
+    // Production-strict rules (T801) — tightened 2026-06-20 to pass
+    // firestore-tests/rules.auth.test.ts. Were "open to any authenticated"
+    // before; now enforce identity ownership, immutability, shape validation,
+    // and cross-collection verification.
     //
-    // Полные production rules (schemaVersion / UUID regex / immutable /
-    // cross-collection verification) отложены до Firebase Emulator unit tests
-    // (T801, см. firestore-tests/rules.auth.test.ts) и hardening перед
-    // production deploy (T801 + T905 + T901 admin tasks).
+    // Path scheme: production code writes single-document
+    // `identity-links/google_{sub}` (see GoogleSignInAuthAdapter.kt L254);
+    // rules below match that 2-segment path. Future providers add their own
+    // `match /identity-links/<prefix>_{accountId}` blocks additively.
     //
-    // На dev project (`launcher-old-dev`) сейчас открыто для любого
-    // authenticated user. Это OK потому что:
-    //   - Только developers имеют SHA-1 + google-services.json к этому project.
-    //   - Никаких реальных user PII здесь не лежит.
-    //   - Wire format (`schemaVersion`, UUIDv4 stableId) и domain types
-    //     уже jaja через unit tests.
-    //
-    // TODO(T801, T905, SRV-AUTH-IDENTITY-002): tightening rules перед prod.
-    match /identity-links/{any} {
-      allow read, create: if request.auth != null;
-      allow update, delete: if false;
+    // Still pending for prod (SRV-AUTH-IDENTITY-002): replace
+    // `request.auth.uid` with server-verified `request.auth.token.googleSub`
+    // custom claim so we no longer trust the client's choice of UID.
+    function isGoogleLinkIdForCaller(linkId) {
+      return request.auth != null
+          && linkId == "google_" + request.auth.uid;
     }
-    match /users/{any} {
-      allow read, create: if request.auth != null;
-      allow update, delete: if false;
+    function isValidUuidV4(s) {
+      return s is string
+          && s.size() == 36
+          && s.matches('^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$');
+    }
+    function ownerIdentityLink(uid) {
+      return /databases/$(database)/documents/identity-links/$("google_" + uid);
+    }
+    match /identity-links/{linkId} {
+      allow read: if isGoogleLinkIdForCaller(linkId);
+
+      allow create: if isGoogleLinkIdForCaller(linkId)
+                    && !exists(/databases/$(database)/documents/identity-links/$(linkId))
+                    && request.resource.data.keys().hasOnly(['schemaVersion', 'stableId', 'createdAt'])
+                    && request.resource.data.schemaVersion == 1
+                    && isValidUuidV4(request.resource.data.stableId)
+                    && request.resource.data.createdAt == request.time;
+
+      allow update: if false;       // immutable post-creation
+      allow delete: if false;       // S-6 Account Deletion via Cloud Function only
+    }
+
+    match /users/{stableId} {
+      allow create: if request.auth != null
+                    && exists(ownerIdentityLink(request.auth.uid))
+                    && get(ownerIdentityLink(request.auth.uid)).data.stableId == stableId
+                    && request.resource.data.keys().hasOnly(['schemaVersion', 'stableId', 'createdAt'])
+                    && request.resource.data.schemaVersion == 1
+                    && request.resource.data.stableId == stableId
+                    && request.resource.data.createdAt == request.time;
+
+      allow read: if request.auth != null
+                  && exists(ownerIdentityLink(request.auth.uid))
+                  && get(ownerIdentityLink(request.auth.uid)).data.stableId == stableId;
+
+      allow update: if false;       // F-5 / S-8 add own match blocks additively
+      allow delete: if false;       // S-6 Account Deletion via Cloud Function only
+    }
+
+    // ─── Spec 018 (F-5) — Recovery Key Vault ───────────────────────────
+    //
+    // Path: users/{uid}/recovery-key/{docId} (subcollection — НЕ covered
+    // правилом /users/{any} выше, которое matches только top-level docs).
+    //
+    // Strict owner-only access + shape validation + schemaVersion monotonic
+    // increase (H-2 downgrade attack mitigation).
+    //
+    // Per spec 018 FR-009, FR-028a, contract firestore-security-rules.md.
+    //
+    // Native Firestore typed fields (НЕ JSON-encoded в одном string):
+    //   • schemaVersion: int  (≥ 1, FR-028a monotonic)
+    //   • algorithm: string   (1..64 chars)
+    //   • kdfSalt: bytes      (== 16 bytes, libsodium constant)
+    //   • kdfParams: map { memoryKiB: int, iterations: int, parallelism: int }
+    //   • wrappedRootKey: bytes (1..1024 bytes — AEAD envelope, не raw 32)
+    //   • nonce: bytes        (== 24 bytes, XChaCha20)
+    //   • createdAt: int      (ms epoch)
+    function isValidRecoveryVaultBlob(d) {
+      return d.schemaVersion is int
+          && d.schemaVersion >= 1
+          && d.algorithm is string
+          && d.algorithm.size() > 0
+          && d.algorithm.size() <= 64
+          && d.wrappedRootKey is bytes
+          && d.wrappedRootKey.size() > 0
+          && d.wrappedRootKey.size() <= 1024
+          && d.kdfSalt is bytes
+          && d.kdfSalt.size() == 16
+          && d.nonce is bytes
+          && d.nonce.size() == 24
+          && d.kdfParams is map
+          && d.kdfParams.memoryKiB is int
+          && d.kdfParams.iterations is int
+          && d.kdfParams.parallelism is int
+          && d.createdAt is int;
+    }
+
+    match /users/{uid}/recovery-key/{docId} {
+      allow read: if request.auth != null
+                  && request.auth.uid == uid;
+
+      allow create: if request.auth != null
+                    && request.auth.uid == uid
+                    && isValidRecoveryVaultBlob(newDoc());
+
+      // FR-028a (H-2 mitigation): schemaVersion can only monotonically increase.
+      // Blocks downgrade attacks где attacker с stolen Google credentials
+      // пытается replace v2+ vault на vulnerable v1 (per WhatsApp E2E backup pattern).
+      allow update: if request.auth != null
+                    && request.auth.uid == uid
+                    && isValidRecoveryVaultBlob(newDoc())
+                    && newDoc().schemaVersion >= existingDoc().schemaVersion;
+
+      allow delete: if request.auth != null
+                    && request.auth.uid == uid;
+    }
+
+    // Spec 018 F-5 consumer-side: encrypted ConfigDocument storage path
+    // (path owned by spec 008, F-5 enforces owner-only + schemaVersion
+    // monotonic increase). Detailed shape validation — spec 008 territory.
+    match /users/{uid}/config/{docId} {
+      allow read, create, delete: if request.auth != null
+                                  && request.auth.uid == uid;
+
+      // FR-028a (H-2 mitigation).
+      allow update: if request.auth != null
+                    && request.auth.uid == uid
+                    && newDoc().schemaVersion >= existingDoc().schemaVersion;
+    }
+
+    // ─── Spec 018 F-5b — Envelope Storage (RemoteStorage backend) ────────
+    //
+    // Path: /users/{ownerUid}/data/{escapedKey}
+    // Stores hybrid envelope: ciphertext + per-recipient sealed CEK.
+    //
+    // Access model:
+    //  - Owner can read/write/delete their own data.
+    //  - A helper UID can read/write/delete IF a non-revoked access-grant
+    //    exists at /users/{ownerUid}/access-grants/{helperUid}.
+    //  - The envelope itself enforces decryption permission via per-device
+    //    sealed CEK; rules only gate raw document access.
+    //
+    // Owner-write of monotonic schemaVersion (defence-in-depth in case the
+    // envelope format gains incremental versions later).
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    function hasActiveGrant(ownerUid, helperUid) {
+      return exists(/databases/$(database)/documents/users/$(ownerUid)/access-grants/$(helperUid))
+        && get(/databases/$(database)/documents/users/$(ownerUid)/access-grants/$(helperUid)).data.revokedAt == null;
+    }
+    function isOwnerOrGrantedHelper(ownerUid) {
+      return isOwner(ownerUid) || hasActiveGrant(ownerUid, request.auth.uid);
+    }
+
+    match /users/{ownerUid}/data/{key} {
+      allow read, delete: if isOwnerOrGrantedHelper(ownerUid);
+      allow create: if isOwnerOrGrantedHelper(ownerUid);
+      allow update: if isOwnerOrGrantedHelper(ownerUid)
+                    && newDoc().schemaVersion >= existingDoc().schemaVersion;
+    }
+
+    // ─── Spec 018 F-5b — Public Key Directory ───────────────────────────
+    //
+    // Paths:
+    //  /users/{uid}/devices/{deviceId}                     — empty owner-only doc
+    //  /users/{uid}/devices/{deviceId}/pub-key/current     — X25519 pub key
+    //
+    // Owner publishes and unpublishes their own devices. Anyone with an
+    // active access-grant can read the directory in order to resolve
+    // recipients before encrypting an envelope under {uid}'s namespace.
+    match /users/{uid}/devices/{deviceId} {
+      allow read: if isOwnerOrGrantedHelper(uid);
+      allow write, delete: if isOwner(uid);
+    }
+    match /users/{uid}/devices/{deviceId}/pub-key/{docId} {
+      allow read: if isOwnerOrGrantedHelper(uid);
+      allow write, delete: if isOwner(uid);
+    }
+
+    // ─── Spec 018 F-5b — Access Grants ──────────────────────────────────
+    //
+    // Path: /users/{ownerUid}/access-grants/{helperUid}
+    //
+    // Only the owner writes / revokes grants in their own namespace. Any
+    // signed-in user may read their own row (so they can discover that they
+    // hold a grant); owner may read their full grants list.
+    match /users/{ownerUid}/access-grants/{helperUid} {
+      allow read: if isOwner(ownerUid)
+                  || (isSignedIn() && request.auth.uid == helperUid);
+      allow create, update, delete: if isOwner(ownerUid);
     }
 
     // ─── default deny for everything else ──────────────────────────────

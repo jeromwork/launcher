@@ -138,7 +138,122 @@ firebase deploy --only firestore:rules
 
 ---
 
-## 3. Проверка что всё работает
+## 3. Spec 018 (F-5b) — envelope storage + rules tests
+
+После Spec 007 + Spec 017 setup, F-5b добавляет:
+- новые Firestore коллекции (`/users/{uid}/data/`, `/users/{uid}/devices/`, `/users/{uid}/access-grants/`),
+- Security Rules для них (commit `8e327f9` в branch `018-f5-config-e2e-encryption`),
+- TypeScript rules unit tests + опционально Android instrumented E2E.
+
+### 3.1. Deploy F-5b Firestore Rules (если уже работаете на dev project)
+
+Rules уже в [`firestore.rules`](../../firestore.rules) — коммит Batch 4. Deploy на dev:
+
+```bash
+firebase use launcher-old-dev   # (или ваше имя dev project'а)
+firebase deploy --only firestore:rules
+```
+
+Если deploy fails с "rules compile error" — поправить syntax (Firebase CLI выводит конкретную строку) и повторить.
+
+### 3.2. Локальный Firebase Emulator (для rules unit tests)
+
+Установить Firebase CLI глобально (если ещё нет — см. §0.3) и тестовые npm deps:
+
+```bash
+cd firestore-tests
+npm install            # одноразово, ставит @firebase/rules-unit-testing, vitest, и т.д.
+npm test               # поднимает emulator на 8080/9099 → гоняет все *.test.ts → гасит
+```
+
+Ожидается зелёное на всех файлах:
+- `rules.test.ts` (Spec 007 pairings — 14 tests),
+- `rules.auth.test.ts` (Spec 017 identity-links — 7 tests),
+- `rules.f5.recovery.test.ts` (Spec 018 F-5 recovery vault — 20 tests),
+- `rules.f5b.envelope.test.ts` (Spec 018 F-5b envelope + devices + grants — 22 tests, добавлено в коммите `06af513`).
+
+Эмулятор использует sandboxed `demo-test` project — НЕ требует google-services.json
+и НЕ задевает ваш dev Firebase. Безопасно гонять на CI и локально.
+
+### 3.3. Android instrumented E2E (CloudConfigEncryptionE2ETest)
+
+[CloudConfigEncryptionE2ETest](../../app/src/androidTest/java/com/launcher/app/data/envelope/CloudConfigEncryptionE2ETest.kt)
+гоняет два сценария на реальном Android-устройстве (emulator или физ.):
+
+1. **roundtripOwnConfigByteEqual** — saveOwn → loadOwn → byte-equal.
+2. **sc001OpacityRawFirestoreDocDoesNotLeakPlaintext** — SC-001 acceptance:
+   прямое чтение Firestore document body → assert «Bobby Tables 555-1234»
+   plaintext там не появляется.
+
+**Два режима запуска**:
+
+#### A. Против local Firebase Emulator на AVD (рекомендуется для CI / quick dev loop)
+
+Не задевает cloud, не жжёт quota, не оставляет мусор.
+
+```bash
+# Terminal 1: поднять эмуляторы
+firebase emulators:start --only firestore,auth
+
+# Terminal 2: build с -PuseFirebaseEmulator=true → SDK routed на 10.0.2.2:8080/9099.
+# Anonymous sign-in доступен в эмуляторе — тест проходит без cloud.
+./gradlew :app:connectedRealBackendDebugAndroidTest -PuseFirebaseEmulator=true
+```
+
+Требует AVD Android 14+ (API 34/35 recommended).
+
+#### A'. Против local Firebase Emulator на **реальном** USB-устройстве
+
+Хост-`10.0.2.2` доступен только AVD. На реальном телефоне переадресуем
+порты через `adb reverse` и сообщаем Wiring новый хост через
+`-PfirebaseEmulatorHost=127.0.0.1`:
+
+```bash
+# Terminal 1: поднять эмуляторы на PC
+firebase emulators:start --only firestore,auth
+
+# Terminal 2: проверить, что устройство одно (если есть AVD — отключить)
+"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe" devices
+# Перенаправить порты с device:127.0.0.1 на host:127.0.0.1
+"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe" reverse tcp:8080 tcp:8080
+"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe" reverse tcp:9099 tcp:9099
+
+# Запустить E2E
+./gradlew :app:connectedRealBackendDebugAndroidTest \
+    -PuseFirebaseEmulator=true \
+    -PfirebaseEmulatorHost=127.0.0.1
+```
+
+Покрывает то же, что вариант A, плюс TEE-backed Keystore + OEM-specific
+quirks (Xiaomi MIUI «Optimize» cleanup, Samsung Knox).
+
+`adb reverse` действует только пока устройство в той же ADB-сессии
+(пропадает после `adb kill-server` / reboot / отключения кабеля) — нужно
+прогнать ещё раз перед следующим запуском теста.
+
+Полезно параллельно открыть зеркало экрана:
+```bash
+scrcpy --serial=<device-serial> --window-title="Xiaomi 11T"
+```
+
+#### B. Против real `launcher-old-dev` Firestore (real-cloud confidence)
+
+```bash
+./gradlew :app:connectedRealBackendDebugAndroidTest    # без -P флага
+```
+
+⚠️ Anonymous sign-in **выключен** на real cloud (decision 2026-05-30 удалил
+anonymous Firebase Auth). Тест будет skipped через `Assume.assumeNoException`
+если на устройстве нет signed-in Google user'а. Для полного прогона:
+запустить app один раз, Sign-In через Google → выйти из app → запустить
+instrumented test.
+
+Тест cleanup'ит свой namespace (`teardown()` удаляет device entry) — после
+прогона dev project остаётся чистым.
+
+---
+
+## 4. Проверка что всё работает
 
 После всех шагов:
 

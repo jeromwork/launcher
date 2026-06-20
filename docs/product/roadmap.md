@@ -106,19 +106,22 @@ Phase 1: Foundation (~5-7 weeks sequential)
                                       (moved to ecosystem-vision.md)
    Шаг 1: F-3  Wizard Module + Localization    — wizard работает ЛОКАЛЬНО (✅ Done 2026-06-17, merged PR #19)
    Шаг 2: F-CRYPTO  core/crypto/ KMP module    — lib-family-crypto (🚧 InProgress 2026-06-17 — implementation: ports + Libsodium adapters + Android Keystore wrap + RFC KAT + instrumentation green on emulator; docs/dev/crypto-review.md published; awaits paid audit before billing per SRV-CRYPTO-003)
+   Шаг 3: F-4  AuthProvider + Google Sign-In   — identity foundation (✅ Done, merged PR #21 2026-06-18)
+   Шаг 4: F-5  Root Key Hierarchy + Config Encryption + Recovery 🔴 PRODUCTION BLOCKER (🟢 Implemented as F-5b envelope variant 2026-06-20 — spec 018 pivoted from symmetric self-edit to hybrid envelope per spec 011 §C-2/§C-3; RemoteStorage facade + ConfigSaver + EnvelopeBootstrap + multi-recipient cross-user delegation; 68 JVM tests green; legacy AeadConfigCipher/KeyRegistry/SealedConfig removed)
+          → создаёт core/keys/ envelope foundation, multi-recipient ready, reusable across launcher + future messenger + album
+   Шаг 4a: F-5c FCM-trigger config-updated — отдельная мини-спека (📋 PLANNED 2026-06-20)
+          → Cloudflare Worker route /trigger-config-updated → resolve recipients → FCM data-message → клиент через LauncherFirebaseMessagingService (spec 007) ловит PushType.ConfigChanged → ConfigSaver.loadOwn/loadForOther → DataStore + UI refresh. Retry до 5 раз с exponential backoff. Скоп: ~3-5 дней работы. Owner approved 2026-06-20.
+   Шаг 4b: Spec 008 rewrite (collaborative editing) — отдельная спайка (📋 PLANNED 2026-06-20)
+          → Текущая spec 008 устарела (anonymous pair model до decisions 2026-05-30/2026-06-15). Concepts (collaborative editing, merge UI, pending-changes warning, Room persistence) сохраняются. Storage layer переписывается на ConfigSaver + RemoteStorage от F-5b. Legacy code: DefaultConfigEditor, FirebaseConfigApplier, FirebaseTransactionScope удаляются. WorkManager async push integration. Объём: ~2-3 недели работы. Owner approved 2026-06-20.
+   Шаг 4c: E2E через Firestore Emulator extension — F-5b envelope rules tests (TypeScript через @firebase/rules-unit-testing — 22/22 в firestore-tests/rules.f5b.envelope.test.ts) + Android instrumented [CloudConfigEncryptionE2ETest](../../app/src/androidTest/java/com/launcher/app/data/envelope/CloudConfigEncryptionE2ETest.kt) (🟢 Verified 2026-06-20 на Xiaomi 11T: Firebase Emulator + real `launcher-old-dev` cloud — оба пути 2/2 PASSED, SC-001 acceptance закрыт на реальном TEE Keystore + MIUI).
 
-   (F-4, F-5 — cloud-feature setup, активируются в Phase 2
-    F-2 — отложен в Phase 4+ entirely)
-
-   F-4  AuthProvider + Google Sign-In  — активируется на первом cloud action
-   F-5  ConfigDocument E2E Encryption   🔴 PRODUCTION BLOCKER для cloud release
-   F-2  Capability Registry             — отложен в Phase 4+
+   F-2  Capability Registry  — отложен в Phase 4+ entirely
         │
         ▼
 Phase 2: MVP Core Vertical Slices (REORDERED 2026-06-15 v3, sequential, 9 спек)
    S-1   Simple Launcher Wizard         (LOCAL — 1 default config only)
    S-3   Contact Tiles + Calling         (LOCAL — ACTION_DIAL)
-   S-5   Contact Photos                  (CLOUD — первый Sign-In; F-4 + F-5)
+   S-5   Contact Photos                  (CLOUD — первый Sign-In; первый потребитель F-5 KeyRegistry под new DEK)
    S-8   VersionedConfigViewer + Editor  (CLOUD — named configs в cloud namespace)
    S-9   Phone Health Monitoring         (CLOUD — battery / online / activity)  ← NEW
    S-4   SOS Capability                  (CLOUD — push admin'у)
@@ -178,11 +181,15 @@ Phase 5: Long-term Parking Lot (L-x, направления на годы)
 
 > ⚠️ **Divergence note (опция A 2026-06-15)**: спека [`014-tile-editing-admin-senior-profiles`](../specs/014-tile-editing-admin-senior-profiles/spec.md) FR-003 в текущем виде описывает «до 5 named configs локально». Это **противоречит** решению v3 (local = 1 default only). Спека 014 остаётся как есть в работающем коде F-014.0, но **будет переписана в P-3** (Preset Authoring + Sharing) в Phase 3. До тех пор любой код, опирающийся на named configs в local mode, должен **рассматриваться как legacy**.
 
-**Phase 1 reorder v2** (2026-06-15, ещё актуально):
-- F-3 (Wizard + Localization) первый — работает локально без identity.
-- F-CRYPTO второй — `core/crypto/` KMP-модуль.
-- F-4, F-5 — moved out of sequential, активируются при cloud features.
-- F-2 — moved out of Phase 2, теперь Phase 4+.
+**Phase 1 reorder v3** (2026-06-19, current):
+- F-3 (Wizard + Localization) первый — работает локально без identity. ✅ Done.
+- F-CRYPTO второй — `core/crypto/` KMP-модуль. 🚧 InProgress.
+- F-4 третий — AuthProvider + Google Sign-In, identity foundation. ✅ Done (PR #21).
+- **F-5 четвёртый — redefined 2026-06-19**: root key hierarchy + ConfigCipher + recovery flow. Production blocker для cloud release. Foundation, на которой строятся все cloud-фичи Phase 2 (S-2 multi-admin, S-4 SOS, S-5 photo, S-9 health, V-2 messenger). Spec 018. 🚧 Planning.
+- F-2 — Phase 4+ entirely.
+
+**Phase 1 reorder v2** (2026-06-15, superseded):
+- F-3 первый, F-CRYPTO второй, F-4 и F-5 «активируются при cloud features» (наглядное упрощение). v3 явно ставит F-5 в Phase 1 sequential, потому что F-5 теперь не «активируется», а **строит foundation** для всего Phase 2.
 
 **Phase 1 reorder v1** (отменён, для истории):
 - ~~F-4 (AuthProvider) — первый шаг~~ → отменено в v2, F-3 стал первым.
@@ -727,123 +734,147 @@ REFERENCE DOCS:
 
 ---
 
-## Шаг 3 — F-5: ConfigDocument E2E Encryption — 🔴 PRODUCTION BLOCKER
+## Шаг 3 — F-5: Root Key Hierarchy + ConfigDocument Encryption + Recovery — 🔴 PRODUCTION BLOCKER
 
 > **Order shift (2026-06-15)**: F-5 = **шаг 3 Phase 1**, после F-4 (identity) и F-CRYPTO (модуль). F-5 — **потребитель** `core/crypto/`, не место для inline libsodium.
+>
+> **Scope redefinition 2026-06-19** (per clarify session): F-5 = **root key hierarchy + первый потребитель (ConfigCipher) + recovery flow**. Полный обновлённый scope — в подразделах ниже. Multi-admin envelope, pairing-recovery, ghost device defence перенесены в [S-2 enhancement notes 2026-06-19](#enhancement-notes-2026-06-19--multi-admin-encrypted-config-sharing-из-f-5-clarify-session). Cross-app broker — в [P-10](#phase-3-mvp-preset-depth-sequential-10-p-спек--тоже-mvp).
+>
+> **Spec статус** (2026-06-19): spec.md / clarify / scenarios / plan / contracts complete. Next step — `/speckit.tasks`.
 
 ### Что строим (mentor explanation)
 
-Сейчас `ConfigDocument` (то, что admin отправляет бабушке: имена контактов, телефоны, layout'ы плиток, labels) лежит в Firestore **в plaintext**. Firebase / Google / любой с доступом к Firestore project видит **всё**: имена пожилых, телефоны их родственников, какие приложения они открывают, как зовут их соседку. Это **критическая privacy regression**.
+Сейчас `ConfigDocument` (раскладки плиток, имена контактов, телефоны, labels, темы) лежит в Firestore **в plaintext**. Firebase / Google / любой с доступом к Firestore project видит **всё**. Критическая privacy regression.
 
-F-5 закрывает эту дыру: `ConfigCipher` port в domain (CLAUDE.md rule 1+2), реализация **поверх `core/crypto/` ports** (`AeadCipher` + `AsymmetricCrypto` + `KeyDerivation` из F-CRYPTO) — шифрует ConfigDocument **полностью** перед записью в Firestore, расшифровывает при чтении. Остальной код не знает, что шифрование вообще существует — он работает с `ConfigDocument` как раньше.
+F-5 закрывает дыру **двумя сцепленными частями**:
 
-**Trade-off**: server теряет возможность field-level merge / diff. Все merge-операции переезжают на клиент. Это переписывает часть спеки 008 (optimistic concurrency остаётся, но на уровне document hash, не fields).
+1. **Crypto foundation** — новый KMP module `core/keys/` с **root key hierarchy**: один главный ключ на identity (Google UID), под который шифруются все DEKs (data encryption keys). Хранится в Android Keystore TEE. Это **foundation для всей экосистемы** — F-5 регистрирует первый DEK (`ConfigCipher`), будущие спеки (S-2 X25519 pair-keys, S-5 photo, V-2 messenger, V-3 album) регистрируют свои **под тот же root**.
+
+2. **Recovery flow** — при потере телефона / переустановке: passphrase-encrypted root key хранится в Firestore `users/{uid}/recovery-key`. Пользователь логинится в Google, вводит passphrase (через Android Autofill → Google Password Manager «Suggest strong password»), root key восстанавливается, все DEKs автоматически становятся доступны. **Один passphrase возвращает всё.**
+
+ConfigDocument шифруется через `ConfigCipher.seal()` → SealedConfig улетает в Firestore. Сервер видит opaque bytes. Остальной код не знает про шифрование.
 
 ### Зачем именно сейчас
 
-Решение 2026-05-28 (vision review): **production blocker**, нельзя выпустить app пока plaintext config летает в Firebase. **Не блокирует development** S-features в dev environment (admin'ская команда работает с plaintext'ом локально). Поэтому в Phase 1 Foundation, сразу после F-CRYPTO — модуль готов, теперь его первый потребитель.
+Решение 2026-05-28 (vision review): **production blocker** для cloud release. Решение 2026-06-19 (clarify session): расширено с «encryption only» до «encryption + recovery + root key hierarchy», потому что (a) encryption без recovery = technical debt без user value; (b) root key hierarchy нужна сразу — иначе каждая последующая cloud-спека изобретёт свой key management.
 
 ### Источники и резолюции
 
 - User raised 2026-05-28 при обсуждении спеки 014 (Contact Sharing UX).
-- Backlog entry: [TODO-SEC-CRITICAL-024](../dev/project-backlog.md).
-- Closes: privacy gap не покрытый спекой 011 (она закрывает только media blobs, не config).
-- Extends: спека 008 (config sync) — переписывает field-level merge на client-side.
+- Backlog: [TODO-SEC-CRITICAL-024](../dev/project-backlog.md).
+- Closes: privacy gap не покрытый спекой 011 (та закрывает только media blobs).
+- Extends: спека 008 (config sync) — adapter pattern, не переписывание merge logic.
+- **Clarify session 2026-06-19** — 14 решений (см. Clarifications секция в spec.md).
+- **Owner decision 2026-06-19** (multi-app-cohabitation.md): экосистема family apps подписывается одним signing key → broker pattern для cross-app sharing.
 
-### Scope: что входит
+### Scope: что входит (final 2026-06-19)
 
-- `ConfigCipher` port в `core/crypto/api/` (живёт **в** F-CRYPTO модуле, потому что это криптография):
-  ```kotlin
-  interface ConfigCipher {
-      suspend fun seal(linkId: String, config: ConfigDocument): SealedConfig
-      suspend fun open(linkId: String, sealed: SealedConfig): Outcome<ConfigDocument, CryptoError>
-  }
-  ```
-- `AeadConfigCipherImpl` — реализация поверх `AeadCipher` + `AsymmetricCrypto` + `KeyDerivation` из F-CRYPTO. **Никаких прямых libsodium вызовов** — только через ports.
-- Pair-derived encryption key (X25519 ECDH между admin pub и Managed pub → HKDF → symmetric key для config).
-- `SealedConfig` wire-format: `{schemaVersion, encrypted_payload, nonce, recipients[]}` — backward-compat с plain ConfigDocument schemaVersion 1 (legacy read path).
-- Wire-format schemaVersion bump: ConfigDocument v1 (plain) → SealedConfig v2 (encrypted). Cross-version roundtrip + backward-compat tests.
-- Multi-admin case: **Wrapped Key Envelope** паттерн. Сервер хранит ровно одну зашифрованную копию конфига (зашифрованную CEK). Сам CEK шифруется KEK-ключами каждого админа и Managed устройства.
-- Client-side merge/diff/search: переписать `ConfigEditor.pushPending` optimistic concurrency на document-hash level, не field-by-field. `ConfigDiff` (sealed type) переезжает полностью на клиент.
-- Migration: existing pair'ов с plain config → re-encrypt. **Одноразовый server-triggered job** (как FR-019 в архивированной спеке 013).
+**Crypto foundation**:
+- Новый KMP module `core/keys/` (~10 файлов в commonMain) поверх F-CRYPTO примитивов.
+- Ports: `KeyRegistry`, `RootKeyManager`, `IdentityProof`, `RecoveryKeyVault`, `ConfigCipher`.
+- Wire-formats: `SealedConfig`, `RecoveryVaultBlob`, `WrappedDek` — все с `schemaVersion` + `algorithm` от первого коммита.
+- Identity isolation: каждый Google UID = независимый namespace в Keystore (alias `rootkey-${uid}`).
+- App-layer adapters: `GoogleSignInIdentityProof` (wraps F-4), `FirestoreRecoveryKeyVault`, `NoOpRecoveryKeyVault` для Huawei.
 
-### Scope: что НЕ входит
+**Encryption layer** (первый потребитель foundation):
+- `ConfigCipher.seal(config) / open(sealed)` через `KeyRegistry`-managed `config-cipher-aead-v1` DEK.
+- XChaCha20-Poly1305 AEAD, ConfigDocument в Firestore — только opaque bytes.
 
-- ❌ Group-level encryption (priv_G, N>2 recipients) — в launcher не нужно, в мессенджер позже.
-- ❌ Personal vault (admin's private storage) — отдельная спека (TODO-FUTURE-SPEC-005).
-- ❌ Server-side search / index (исчезает — search на client).
-- ❌ Cross-version migration UI — server side migration однократно.
-- ❌ Libsodium binding — это **в** F-CRYPTO, F-5 только использует ports.
+**Recovery flow**:
+- При первом setup: random root key → wrapped passphrase'ом (Argon2id 64MB/3 iter/1 par) → Firestore `users/{uid}/recovery-key`.
+- При recovery: Google Sign-In → fetch vault → passphrase prompt с Android Autofill `password` hint → unwrap → restore root key в Keystore → все DEKs автоматически доступны.
+- Passphrase UX: «Suggest strong password» chip Google Password Manager / Bitwarden / 1Password — admin не видит пароль глазами; опциональная кнопка «копировать в clipboard» (60s auto-clear на Android 13+).
+
+**Cross-app forward-compat** (per owner decision 2026-06-19):
+- Wire-format `RecoveryVaultBlob` и `KeyRegistry` — app-agnostic, global DEK names (`config-cipher-aead-v1`, future `pair-x25519-v1`).
+- Format совместим с **broker pattern** (Path A — единый signing key экосистемы) и с **independent cloud access** (Path B). Решение между путями — P-10.
+
+### Scope: что НЕ входит (final)
+
+- ❌ **Multi-admin envelope** (Wrapped Key Envelope, N recipients), pairing-recovery flow, ghost device defence, re-pairing — всё это **переехало в [S-2](#s-2-admin-app--qr-pairing-was-admin-app-preset--remote-pairing)** Phase 2 как enhancement notes 2026-06-19.
+- ❌ Cross-app broker / AIDL infrastructure — P-10 territory.
+- ❌ Смена passphrase после setup — inline TODO future-spec.
+- ❌ Старые ключи при sign-in под другим Google account — accepted decision «остаются изолированно в Keystore» (per owner clarification — Sign-in под другим UID = новая независимая иерархия, старые ключи доступны при возврате на исходный UID).
+- ❌ Биометрический unlock root key — future enhancement (FR-003 имеет место под `setUserAuthenticationRequired(true)` flag).
+- ❌ Field-level merge / CRDT — moved to S-2 (multi-admin) territory.
+- ❌ Group-level encryption (N>2), personal vault, server-side search — out of scope (как раньше).
+- ❌ Libsodium binding — в F-CRYPTO, F-5 только consume через ports.
 
 ### Dependencies
 
-- F-4 AuthProvider — нужен stable admin identity для key management.
-- **F-CRYPTO готов** — F-5 — потребитель `AeadCipher` / `AsymmetricCrypto` / `KeyDerivation` ports.
-- Спека 008 — переписывается часть `ConfigEditor` + `LocalConfigStore`.
-- Спека 011 — reuse `AeadCipher`, `AsymmetricCrypto` ports (после F-CRYPTO они теперь в одном месте).
+- **F-4 готов**: `AuthIdentity.stableId` стабильно доступен; `AuthProvider` wrapped через `GoogleSignInIdentityProof`.
+- **F-CRYPTO готов**: `AeadCipher`, `AsymmetricCrypto`, `KeyDerivation`, `SecureKeystore`, `CryptoError` доступны в `family.crypto.api`.
+- **Не зависит от спеки 007** (pairing) — pairing появляется в S-2 как потребитель foundation, не наоборот.
+- **Не зависит от спеки 008** в части merge logic — F-5 шифрует на уровне adapter'а pull/push, merge logic переезжает на client позже в S-2.
 
 ### Local Test Path
 
-- JVM unit tests на `ConfigCipher` roundtrip (encrypt → decrypt → assert equal) — поверх FakeAeadCipher из F-CRYPTO.
-- Cross-version test: read SealedConfig schemaVersion 2 → assert correct ConfigDocument; read plain v1 fixture → assert correct ConfigDocument (legacy path).
-- Integration test через Miniflare: admin pushes encrypted config → server stores opaque bytes → Managed pulls → decrypts → renders correctly.
-- Cross-device test: D1 (admin) seals → D2 (Managed) opens, и наоборот.
+- JVM unit tests `core/keys/` (KeyRegistry, RootKeyManager, ConfigCipher roundtrip, backward-compat read v1 fixtures).
+- Integration через **Firestore Emulator** + два fake-клиентов (старый device, новый device после recovery).
+- Smoke на `pixel_5_api_34` через skill `android-emulator` для проверки реального Android Autofill + Google Password Manager UX.
+- Cross-version: read SealedConfig v1 → ok; read новый — ok; коэксистенция через `algorithm` field.
+- Identity isolation test: UID1 → setup → sign-out → UID2 → новая иерархия → return UID1 → старые данные доступны без recovery.
 
 ### Effort
 
-**Large** (~2-3 weeks).
+**Medium+** (~2-3 weeks). Module `core/keys/` маленький (~10 файлов), но добавляет один layer над F-CRYPTO + 3 Compose screens (setup / entry / fallback).
 
-### Copy-paste prompt для `/speckit.specify`
+### Copy-paste prompt для `/speckit.specify` (final 2026-06-19)
 
 ```
-Напиши спецификацию для F-5: ConfigDocument E2E Encryption.
+Напиши спецификацию для F-5: Root Key Hierarchy + ConfigDocument Encryption + Recovery.
 
 КОНТЕКСТ:
-Сейчас ConfigDocument хранится plaintext в Firestore — privacy regression
-(имена, телефоны, layout видны Firebase). F-5 закрывает дыру через
-прозрачный port/adapter pattern — ConfigCipher port в core/crypto/api/,
-AeadConfigCipherImpl поверх AeadCipher/AsymmetricCrypto/KeyDerivation
-из F-CRYPTO, остальной код не знает про шифрование.
+ConfigDocument хранится plaintext в Firestore — privacy regression. F-5 строит
+foundation для всей экосистемы: один root key на identity (Google UID) защищает
+все будущие DEKs (S-2 X25519 pair-keys, S-5 photo, V-2 messenger). Recovery —
+через passphrase в Firestore (Argon2id + Android Autofill).
 
 ЦЕЛЬ:
-ConfigDocument никогда не лежит plaintext на сервере. Server side comparisons
-переезжают на клиент. Никаких прямых libsodium вызовов в F-5 — только через
-core/crypto/ ports.
+1. ConfigDocument никогда не лежит plaintext на сервере (первый потребитель).
+2. Root key hierarchy готова для добавления DEKs будущими спеками без переделки.
+3. Recovery flow возвращает root key (и автоматически все DEKs) после потери устройства.
 
 SCOPE ВКЛЮЧАЕТ:
-- ConfigCipher port (в core/crypto/api/) + AeadConfigCipherImpl adapter.
-- SealedConfig wire-format с schemaVersion (v2 vs v1 plain legacy).
-- Pair-derived encryption key (X25519 ECDH + HKDF).
-- Multi-admin case: Wrapped Key Envelope (1 копия конфига, N зашифрованных ключей).
-- Client-side ConfigDiff / merge / search.
-- Server-triggered migration job для existing pair configs.
-- Backward-compat read для plain v1 ConfigDocument.
+- Новый KMP module core/keys/ (~10 файлов) поверх F-CRYPTO ports.
+- Ports: KeyRegistry, RootKeyManager, IdentityProof, RecoveryKeyVault, ConfigCipher.
+- Wire-formats: SealedConfig, RecoveryVaultBlob, WrappedDek (все с schemaVersion + algorithm).
+- Identity isolation: per-UID namespace в Android Keystore.
+- ConfigCipher через KeyRegistry (config-cipher-aead-v1 DEK).
+- Recovery flow: passphrase + Argon2id + Firestore vault + Android Autofill UX.
+- Cross-app forward-compat (broker pattern или independent cloud — решение в P-10).
+- Huawei / non-GMS: NoOpRecoveryAdapter, local mode.
 
 SCOPE НЕ ВКЛЮЧАЕТ:
-- Group-level encryption (не в launcher).
-- Personal vault.
-- Server-side search.
-- Libsodium binding (это F-CRYPTO).
+- Multi-admin envelope (S-2 territory).
+- Pairing flow (spec 007 / S-2).
+- Cross-app broker (P-10).
+- Смена passphrase (future-spec).
+- Биометрический unlock (future enhancement).
 
 DEPENDENCIES:
-- F-4 готов (stable admin identity).
-- F-CRYPTO готов (AeadCipher, AsymmetricCrypto, KeyDerivation ports).
-- Спека 008 (переписывается merge на client-side).
+- F-4 (AuthProvider + AuthIdentity).
+- F-CRYPTO (AeadCipher, AsymmetricCrypto, KeyDerivation, SecureKeystore).
 
 REFERENCE DOCS:
-- CLAUDE.md rules 1, 2, 5
-- specs/008 — extends
-- specs/011 — reuses AeadCipher, AsymmetricCrypto (через F-CRYPTO)
-- TODO-SEC-CRITICAL-024 в backlog
+- CLAUDE.md rules 1, 2, 4, 5
+- spec 016 (F-CRYPTO) ports
+- spec 017 (F-4) ports
+- docs/product/future/multi-app-cohabitation.md (signing key decision 2026-06-19)
+- docs/dev/server-roadmap.md (SRV-RECOVERY-001, SRV-CRYPTO-005, SRV-CRYPTO-006, SRV-CRYPTO-007)
 ```
 
-### Notes / gotchas
+### Notes / gotchas (final 2026-06-19)
 
-- **Многоадминный кейс** — закрытый design point. Фиксируется паттерн **Wrapped Key Envelope** (один зашифрованный конфиг CEK + N зашифрованных ключей KEK). Никаких N копий конфига, чтобы избежать проблем с синхронизацией.
-- **Server arbitration исчезает на field-level**. `ConfigEditor.pushPending` optimistic concurrency остаётся, но на уровне document hash (expected_hash). **Разрешение конфликтов (Merge Strategy) для MVP фиксируется как Блокирующий Alert**. Мы отказываемся от сложного построчного слияния (CRDT/OT) или Visual Diff UI в первой версии. При ошибке HTTP 409 Conflict клиент скачивает чужую свежую версию и показывает жесткий попап: *"Экран был изменен другим админом. Отменить ваши локальные изменения или жестко перезаписать чужие?"*. Это перекладывает ответственность на пользователя и спасает сроки релиза.
-- **Migration of existing data**: production не запущен → существующие test data можем просто стереть. Migration job не критичен, но желателен для smooth transition.
-- **Performance**: AEAD encryption на 10 KB config = микросекунды, не bottleneck.
-- **Никаких inline libsodium**. Если в PR'е появится `import com.ionspin.kotlin.crypto.*` внутри F-5-кода — refuse, направь в `core/crypto/`.
+- **Root key hierarchy** — один root per identity, защищает все DEKs. Future cloud-фичи (S-2, S-5, V-2) **обязаны** регистрировать свои ключи в `KeyRegistry`, а не изобретать свой key management.
+- **Passphrase UX через Android Autofill** — `EditText` с `autofillHints="newPassword"` активирует «Suggest strong password» Google Password Manager / Bitwarden / 1Password. Admin не видит пароль глазами. Опциональная кнопка «копировать в clipboard» для тех, кто пользуется внешним менеджером.
+- **Sign-out НЕ wipe'ит root key** — Keystore сохраняется при sign-out. Recovery нужен только при физически пустом Keystore (переустановка / factory reset / новое устройство).
+- **Identity isolation** — Sign-in под другим Google UID создаёт новую независимую иерархию. Старые UID ключи остаются в Keystore, доступны при возврате.
+- **Huawei / non-GMS** — `NoOpRecoveryAdapter` активируется (как F-4 `NoSupportedAuthProvider`). App работает в local mode. Future support через свой сервер (SRV-RECOVERY-001).
+- **Wire-format `algorithm: String`** — позволяет сосуществование версий, готовность к future algorithm migration (XChaCha20 → post-quantum через SRV-CRYPTO-007).
+- **Никаких libsodium / Firebase в `core/keys/commonMain`** — Detekt fitness function (CLAUDE.md rule 7). Adapter паттерн обязателен.
+- **Multi-admin envelope ушёл в S-2** — F-5 single-owner. Если в F-5 PR'е появится Wrapped Key Envelope / N recipients — refuse, направь в S-2.
+- **Cross-app sharing decision** — broker pattern (Path A) per owner decision 2026-06-19, требует единого signing key экосистемы. P-10 строит broker поверх F-5 foundation.
 
 ---
 
@@ -1393,6 +1424,36 @@ REFERENCE DOCS:
 - **Signed invite link — нескольких параметров**: group_id, role (Member / Caregiver), TTL, nonce (против replay). Подпись `priv_admin`. Server verifies.
 - **Email-bound identity admin'а используется для billing / recovery / deletion**. Подставляется в Family Group `primary_admin_id`.
 - **Health snapshot — periodic** (per 007 + 009). Managed posts every 1h or on event. Admin's UI receives via 007 push.
+
+### Enhancement notes 2026-06-19 — multi-admin encrypted config sharing (из F-5 clarify session)
+
+> **Контекст**: F-5 (spec 018) переопределена на **single-owner encryption + recovery**. Multi-admin envelope (когда second admin читает зашифрованный config бабушки) **переехал сюда в S-2** как часть scope «Admin App + QR Pairing».
+
+**Дополнительные требования в S-2** (поверх существующих):
+
+- **Wrapped Key Envelope pattern**: один ciphertext конфига бабушки + N wrapped CEK (по одному на каждого admin'а пары). При добавлении нового admin'а — wrapped CEK для него добавляется при следующем push'е любого существующего admin'а. **Сервер сам wrapped CEK добавлять не может** (у него нет CEK plaintext).
+- **`PairKeyRegistry` port** (где живёт directory pubkey'ев recipients): port должен быть деклаирован в `core/crypto/api/` с минимальной сигнатурой `getRecipientPubKeys(linkId) → List<RecipientPubKey>`. Real adapter поверх Firestore `/links/{linkId}/devices/*` — здесь же.
+- **KDF info-string для multi-admin**: derived encryption key содержит `linkId + recipientStableId` для domain separation между admin'ами одной пары (компрометация одного wrapped CEK не открывает чужие).
+- **`documentHash`-based optimistic concurrency**: вместо field-level merge (которое невозможно при шифровании на клиенте) — сравнение `expected_hash` от plaintext ConfigDocument. **Conflict resolution = blocking alert** «отменить мои / перезаписать чужие». CRDT/OT — out of scope MVP.
+- **Re-pairing flow при смене pubkey'я recipient'а** (бабушка переустановила app):
+  - Сервер при обнаружении смены X25519 pubkey'я в `/links/{linkId}/devices/{deviceId}` рассылает push admin'ам с уведомлением `pairing-pending-confirmation`.
+  - Admin в UI видит значок «требуется подтверждение pairing'а» у этой пары.
+  - Admin может (a) пройти QR заново физически, (b) нажать **«Подтвердить удалённо»** после голосового звонка бабушке — это cryptographic подпись нового pubkey'я admin'ским privkey'ём.
+  - Сервер принимает новый pubkey бабушки **только если** есть валидная `recoveryConfirmation` подпись хотя бы одного admin'а пары.
+  - Сервер-side rate limit: не более 1 successful re-pairing per `linkId` в 24 часа.
+- **Senior fallback во время `pending-confirmation`**: бабушка продолжает работать из app cache (per memory `project_config_cache_model`). Никакого «пустого экрана» — three-tier cache model уже решает.
+- **Удалённый recipient (admin удалён из пары)**: следующий push не включает его wrapped CEK. Старые версии остаются доступны удалённому recipient'у — accepted limitation MVP. Forward unsharing (re-encryption старых версий) — future spec.
+
+**Non-goals (явные)**:
+- ❌ Защита от malicious authorized admin'а (например, родственник-недоброжелатель формально в семье) — **семейные конфликты не наша территория**, accepted risk.
+- ❌ Уведомление других admin'ов когда один admin подтверждает re-pairing — accepted risk per owner decision 2026-06-19.
+- ❌ Out-of-band Safety Number / fingerprint comparison на pairing-экранах — отложено в [`server-roadmap.md SRV-CRYPTO-005`](../dev/server-roadmap.md).
+
+**Concept note 2026-06-19**: pairing и recovery — концептуально **одна операция** «authorize new device to existing identity» с разными триггерами. Сейчас разнесены (pairing = spec 007 + S-2, recovery = F-5 / spec 018). Возможно слияние в **unified `DeviceAuthorization` flow** (iMessage / Matrix pattern) в Phase 3 или Phase 4 — research note в [`docs/product/future/`](future/) если потребуется.
+
+### Effort revision
+
+S-2 effort расширяется с **Large (~3 weeks)** до **Large+ (~4 weeks)** из-за multi-admin envelope + re-pairing FRs. Если scope окажется слишком большим — split на **S-2a (basic QR pairing + envelope)** + **S-2b (re-pairing flow + ghost device handling)**.
 
 ---
 

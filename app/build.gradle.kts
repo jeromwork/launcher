@@ -30,6 +30,23 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1
         versionName = "0.1.0"
+
+        // F-5b E2E: when `-PuseFirebaseEmulator=true` is passed to gradle,
+        // LauncherApplication routes Firestore + Auth SDK calls to the local
+        // Firebase Emulator instead of the real cloud.
+        // Default host = `10.0.2.2` (AVD loopback). For a real device on USB,
+        // set up `adb reverse tcp:8080 tcp:8080 && adb reverse tcp:9099 tcp:9099`
+        // and pass `-PfirebaseEmulatorHost=127.0.0.1`.
+        // Default is false (use real launcher-old-dev project).
+        val useEmulator = (project.findProperty("useFirebaseEmulator") as? String)
+            ?.toBooleanStrictOrNull() ?: false
+        val emulatorHost = (project.findProperty("firebaseEmulatorHost") as? String)
+            ?.takeIf { it.isNotBlank() } ?: "10.0.2.2"
+        buildConfigField("boolean", "USE_FIREBASE_EMULATOR", useEmulator.toString())
+        buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"$emulatorHost\"")
+
+        // F-5b E2E instrumented tests (CloudConfigEncryptionE2ETest).
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     // Spec 007 product flavors (FR-034). `realBackend` wires Firebase + Cloudflare Worker;
@@ -125,6 +142,8 @@ dependencies {
     implementation(project(":core"))
     // Spec 016 (F-CRYPTO) — KMP crypto foundation module.
     implementation(project(":core:crypto"))
+    // Spec 018 (F-5) — key hierarchy, ConfigCipher, recovery.
+    implementation(project(":core:keys"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -171,6 +190,13 @@ dependencies {
     // The CameraX runtime brings it transitively, but Kotlin compiler needs the type.
     "realBackendImplementation"("com.google.guava:guava:33.4.0-android")
 
+    // Firebase SDKs needed by realBackend adapters (FirestoreEnvelopeStorage,
+    // FirestorePublicKeyDirectory, FirestoreRecoveryKeyVault, FirebaseEmulatorWiring).
+    "realBackendImplementation"(platform(libs.firebase.bom))
+    "realBackendImplementation"(libs.firebase.firestore.ktx)
+    "realBackendImplementation"(libs.firebase.auth.ktx)
+    "realBackendImplementation"("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
+
     // Spec 017 (F-4 AuthProvider) — Credential Manager + Google Identity provider
     // подключены в :core/androidRealBackend (где живут GoogleSignInAuthAdapter
     // и EncryptedLocalSessionStore). Транзитивно доступны в :app через api(),
@@ -186,4 +212,14 @@ dependencies {
     // payloads for the wizard step host. kotlinx-serialization-json is
     // implementation in :core (not api) so test classpath needs it explicit.
     testImplementation(libs.kotlinx.serialization.json)
+
+    // F-5b E2E instrumented tests (app/src/androidTest/).
+    // Firebase SDKs (firestore/auth) уже подключены к realBackend variant'у
+    // через :core/androidRealBackend, andtest classpath их подхватывает
+    // транзитивно. Coroutines tasks await помогает с .await() в тестах.
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:rules:1.6.1")
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
 }

@@ -159,6 +159,37 @@
 - *Сервер должен:* Redis-based persistent rate-limit с window + multiple dimensions (UID, linkId, IP).
 - *Когда поедет:* при daily req >1000 на endpoint или попытке abuse.
 
+### RECOVERY + KEY MANAGEMENT (spec 018 / F-5 + S-2)
+
+**SRV-RECOVERY-001: Own-server recovery key vault** (replaces Firestore-based vault) + atomic brute-force counter.
+- *Сейчас:* recovery key admin'а зашифрован его passphrase'ом и лежит в Firestore `users/{uid}/recovery-key`. Firestore доступен любым actor'ам с правильным Google auth → cloud-feature разработчик / Google / forensics видит ciphertext (но не plaintext без passphrase). Brute-force защита — local DataStore counter (per FR-027 resolved 2026-06-19, H-1 mitigation): 3 попытки / hour sliding window, обходится через Clear App Data / factory reset / root.
+- *Сервер должен:*
+  - (a) предоставлять `RecoveryKeyVault` endpoint с better availability guarantees;
+  - (b) явный audit log access;
+  - (c) no third-party (Google) data residency;
+  - (d) **atomic counter increment** — server-side rate-limit, который **полностью** закрывает H-1: brute-force нельзя обойти через Clear App Data (counter не на устройстве), нельзя через factory reset (counter привязан к UID, а не к устройству), нельзя через root (counter не доступен клиентскому коду). Cost атаки повышается до server-side throttling (нет способа обойти);
+  - (e) защита от schema-version downgrade (per SRV-RECOVERY-002 below).
+- *Когда поедет:* при появлении собственного сервера; F-5 декларирует `RecoveryKeyVault` port — adapter swap без переписывания F-5 кода.
+
+**SRV-CRYPTO-005: Out-of-band fingerprint verification (Safety Number screen в pairing'е).**
+- *Сейчас:* QR pairing полностью «чёрный ящик» с точки зрения user'а — никакого fingerprint сравнения двух pubkey'ев. Ghost device attack vector: Firebase / atttacker с server-write-access может тихо подменить pubkey recipient'а. Accepted risk per F-5 clarify 2026-06-19 («чем тупее сервер, тем лучше»).
+- *Сервер должен:* добавить **endpoint для verified pubkey publication** (admin pubkey подписан собственным private key admin'а + server validates signature перед публикацией) + UI flow: admin и Managed видят 4-6-цифровой fingerprint (SHA-256 от обоих pubkey'ев, первые 24 бит), сверяют голосом / визуально перед confirmation. Закрывает Signal / WhatsApp «Safety Number» паттерн.
+- *Когда поедет:* любой из триггеров (1) реальный incident ghost device attack, (2) compliance требование (EU privacy directive), (3) переезд на свой сервер — где-то в этом окне.
+
+**SRV-CRYPTO-008: Algorithm migration job + schema-version migration policy для устаревших crypto primitives** (renumbered from SRV-CRYPTO-007 due to ID conflict with line 422 entry on encrypted_backup storage).
+- *Сейчас:* F-5 использует XChaCha20-Poly1305 (AEAD) + Argon2id (KDF). Wire-format содержит `algorithm: String` + `schemaVersion: Int` fields, позволяющие сосуществование версий. Clients могут читать старые и новые форматы (forward-compat). Защита от downgrade attacks (H-2) через Firestore Rule `schemaVersion >= existing` (FR-028a) + client TOLU (FR-028b). Миграция existing data (re-encryption под новый algorithm) — manual / отдельная спека.
+- *Сервер должен:* предоставлять server-triggered batch job: (a) для каждого user'а с outdated `algorithm` в `users/{uid}/recovery-key` — попросить клиент пере-wrap'ить root key под новый KDF (требует клиентского участия — passphrase должен быть введён, чтобы расшифровать старый); (b) для каждого SealedConfig в `users/{uid}/config` — re-encrypt под новый AEAD; (c) трекинг migration progress per UID; (d) deadline для clients, не мигрировавших — после deadline принудительный force-update.
+- *Migration policy (WhatsApp E2E backup pattern, per FR-028c в spec 018)*:
+  - **Phase 1 — Coexistence**: новые клиенты пишут v2, старые продолжают читать v1. Защита от downgrade: Firestore Rule (FR-028a) + client TOLU (FR-028b) уже работают с дня релиза v2.
+  - **Phase 2 — Auto-migration (months)**: новые клиенты при каждом успешном recovery (когда пользователь ввёл passphrase) **автоматически** re-encrypt root key в v2 и записывают обратно. Через несколько месяцев большинство данных мигрированы.
+  - **Phase 3 — Deprecation (after ~12 месяцев)**: клиенты v2+ отказываются читать v1, запрашивают forced app update. Min app version повышается в Play Store metadata.
+- *Когда поедет:* когда XChaCha20-Poly1305 или Argon2id будут официально deprecated (или появится post-quantum requirement). Realistically — через 5-10 лет, но spec уже зарезервировал место.
+
+**SRV-CRYPTO-006: Server-side ghost device detection / forward unsharing.**
+- *Сейчас:* удалённый из пары admin теряет доступ к **новым** версиям конфига, но **старые** версии (если они когда-нибудь были) остаются доступны под его ключом. Accepted limitation MVP.
+- *Сервер должен:* при unpair триггерить re-encryption всех existing config snapshots под новым CEK без removed recipient'а (forward unsharing). Требует server-side coordination.
+- *Когда поедет:* future spec, скорее всего одновременно с SRV-CRYPTO-005.
+
 ### COMMANDS + REAL-TIME OPERATIONS
 
 **SRV-CMD-001: Admin-to-Managed runtime commands.**
@@ -209,6 +240,7 @@
 | 2026-05-22 | Добавлен SRV-CRYPTO-001 (универсальный маршрут переезда крипто-инфраструктуры на свой backend) — независимо от Firebase Storage лимитов | Spec 011 mentor-сессия |
 | 2026-05-25 | SRV-CRYPTO-001 rev. 2 — переключение storage с Firebase Storage (требует Blaze) на Backblaze B2 + Cloudflare Worker proxy. Free tier 10 GB, без credit card. Exit ramp сохранён через S3-compatible API. | Spec 011 mentor-сессия по billing |
 | 2026-05-28 | Добавлены SRV-CMD-002 (Firestore Transactions inadequacy для membership ops), SRV-SEC-005 (Firestore Rules complexity → server-side auth logic), SRV-INFRA-003 (Cloudflare Worker CPU time limit), SRV-DEV-001 (staging environment), SRV-CRYPTO-002 (manual key rotation FUTURE-SPEC-010) | Pre-F-1 mentor critique walkthrough |
+| 2026-06-19 | Добавлены SRV-RECOVERY-001 (own-server recovery key vault, replaces Firestore-based), SRV-CRYPTO-005 (out-of-band fingerprint verification / Safety Number screen), SRV-CRYPTO-006 (forward unsharing при removal admin'а), SRV-CRYPTO-007 (algorithm migration job для устаревших primitives) | F-5 spec 018 clarify session — multi-admin envelope перенесён в S-2, F-5 redefined как root key hierarchy + recovery |
 
 ---
 
@@ -509,3 +541,142 @@ identity-links rules станут insecure (любой пользователь 
 претендовать на чужой Google sub).
 
 **Источник**: Spec 017 F-4 firestore.rules.
+
+## SRV-CRYPTO-PARAMS-REVIEW: Argon2id parameters periodic review cadence (spec 018 F-5, H-5)
+
+**Контекст**: F-5 использует Argon2id с interactive params (64 MiB / 3 iter / 1 par) — OWASP 2024 рекомендация. К 2030 году рекомендация скорее всего поднимется. Wire-format уже поддерживает upgrade (`RecoveryVaultBlob.kdfParams`).
+
+**Требование**: review Argon2id params каждые 2 года против OWASP актуальных рекомендаций. **Next review due: 2028-06**.
+
+**Process**:
+1. Сверить с OWASP Password Storage Cheat Sheet.
+2. Если params устарели — bump в `Argon2idPassphraseKdf` default params; existing vaults читаются со старыми params из blob field, новые setup'ы — с новыми.
+3. Если algorithm устарел (Argon2id deprecated) — отдельная migration spec (FR-033, SRV-CRYPTO-007).
+
+**Источник**: Spec 018 F-5 analyze-report.md 2026-06-19 (H-5 finding).
+
+## SRV-STORAGE-001: EnvelopeStorage own-server replacement (spec 018 F-5b)
+
+**Контекст**: F-5b `EnvelopeStorage` сейчас реализован через
+`FirestoreEnvelopeStorage` (`app/src/realBackend/.../data/envelope/`). Один
+`Envelope` document = одна Firestore document по пути
+`/users/{namespace}/data/{escapedKey}`. Atomic write/read через Firestore SDK.
+
+**Требование при переезде на свой сервер**: REST endpoint:
+```
+PUT  /users/{namespace}/data/{key}          ← envelope JSON body
+GET  /users/{namespace}/data/{key}          ← returns envelope JSON
+LIST /users/{namespace}/data?prefix={p}     ← returns list of keys
+DELETE /users/{namespace}/data/{key}
+```
+
+С JWT auth (Bearer token). Server-side validation: schemaVersion monotonic
+increase (для downgrade defence), envelope shape (Maps/Blobs typed).
+
+**Path migration**: domain port `EnvelopeStorage` не меняется. Меняется только
+`OwnServerEnvelopeStorage` adapter; existing data migrate'ится через одноразовый
+ETL: Firestore → REST upload.
+
+**Источник**: Spec 018 F-5b Batch 2 inline TODO.
+
+## SRV-PKD-001: PublicKeyDirectory own-server replacement (spec 018 F-5b)
+
+**Контекст**: F-5b `PublicKeyDirectory` хранит per-device X25519 public keys
+и access-grants. Сейчас Firestore через `FirestorePublicKeyDirectory`. Доступ
+к чужой directory protected through Security Rules (`hasActiveGrant`).
+
+**Требование при переезде на свой сервер**: REST endpoints:
+```
+PUT  /users/{uid}/devices/{deviceId}/pub-key   ← X25519 pub bytes
+GET  /users/{uid}/devices                       ← list of (deviceId, pubKey) with grant check
+GET  /users/{uid}/access-grants                 ← list of grant holders
+PUT  /users/{ownerUid}/access-grants/{helperUid} ← create grant (owner only)
+DELETE /users/{ownerUid}/access-grants/{helperUid}
+```
+
+Server-side enforces:
+1. Owner-only write to own pub-key entries.
+2. Helper read of owner devices iff non-revoked grant exists.
+3. Atomic grant create/revoke (transactional).
+
+Server-side grant state simplifies client logic: no race conditions при concurrent
+grant change. Каждое client device subscribes to push notification "your grant
+status changed" → pulls fresh state.
+
+**Migration**: domain port unchanged. Existing Firestore directory bulk-exported
++ replayed into own server during cutover.
+
+**Источник**: Spec 018 F-5b Batch 2 inline TODO.
+
+## SRV-DEVICEID-001: DeviceId allocation collision-resistance (spec 018 F-5b)
+
+**Контекст**: F-5b `AndroidDeviceIdentity` allocates DeviceId как 16 random
+bytes (hex). Collision probability астрономически мала (2^64 для half-collision
+по birthday bound), но это всё ещё **client-side allocation** — нет глобальной
+гарантии uniqueness между UID'ами.
+
+**Требование при переезде на свой сервер**: server-allocated DeviceId через
+endpoint:
+```
+POST /users/{uid}/devices/allocate   ← server returns unique deviceId
+```
+
+Server transactionally reserves deviceId in directory с проверкой of uniqueness
+within namespace. Eliminates collision residual entirely.
+
+**Альтернатива (cheaper)**: server validates client-proposed deviceId на
+collision при `publishMyDevice`; rejects with 409 Conflict если занят.
+
+**Migration**: domain port unchanged (`DeviceIdentity.thisDeviceId()` continues
+to return stable string). Implementation в `AndroidDeviceIdentity` switches
+from local random → server-allocated.
+
+**Risk if skipped**: client с broken RNG может collide DeviceId existing'у в
+своём namespace, нарушив envelope.recipientKeys map (последний write wins;
+старый recipient теряет доступ). Низкая вероятность, но не нулевая.
+
+**Источник**: Spec 018 F-5b Batch 3 inline TODO.
+
+## SRV-FCM-CONFIG-UPDATE: FCM notifier on remote storage write (spec 018 F-5b, отложено)
+
+**Контекст**: При write в `RemoteStorage.put(ownerUid, key, bytes)` другие
+устройства владельца + grant-holders должны узнать «config обновился, скачайте
+новую версию». Это FCM-driven cache invalidation.
+
+**Сейчас в коде**: NOTHING. Каждое устройство pulls по запросу (`pull-on-app-open`
+будет реализован в Batch 5+). Push-driven invalidation отсутствует.
+
+**Требование при переезде на свой сервер** (или сейчас как client-callable
+Cloudflare Worker endpoint):
+```
+POST /trigger-config-updated
+  body: { ownerUid, configName }
+  auth: owner или grant holder
+```
+
+Server endpoint resolves recipients (own devices + grant holders) и пушит
+через FCM:
+```
+FCM payload:
+  data: { type: "config-updated", ownerUid, configName }
+  target: List<FCM device tokens of recipients>
+```
+
+Client `MessagingService.onMessageReceived` triggers
+`ConfigSaver.loadForOther(ownerUid, configName)` → updates DataStore →
+UI refresh.
+
+**Retry policy**: server retries up to 5 times с exponential backoff
+(per user instruction 2026-06-20). After 5 failures — entry marked стalе;
+client получает stale notification при следующем app open.
+
+**Why deferred to separate spec**: FCM topic management, server-side resolution
+of recipients (read directory + grants), Cloudflare Worker route — нетривиальная
+инфраструктура. Sufficient implementation требует:
+1. FCM Sender API key + project quota (Spark plan: 10K push/day).
+2. Cloudflare Worker route `/trigger-config-updated`.
+3. Client `MessagingService` extension.
+4. Subscription management (subscribe to per-device topic on bootstrap).
+
+**Источник**: Spec 018 F-5b user discussion 2026-06-20 — explicitly deferred to
+separate spec.

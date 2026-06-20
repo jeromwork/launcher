@@ -26,6 +26,38 @@ Spec 013 originally introduced `GroupRepository`, `MembershipRepository`, `Envel
 
 **Therefore spec 013 was archived. The group primitive lives in future companion apps**, not in launcher.
 
+### 2026-06-20 update — partial reversal: N-recipient envelope is now in launcher (without group bureaucracy)
+
+После architectural pivot'а в F-5b ([`specs/018-f5-config-e2e-encryption/spec.md`](../../../specs/018-f5-config-e2e-encryption/spec.md#-2026-06-20--architectural-pivot-to-f-5b-envelope-pattern))
+N-recipient envelope **реализован в launcher'е** через [`RemoteStorage`](../../../core/keys/src/commonMain/kotlin/family/keys/api/RemoteStorage.kt)
++ [`ConfigCipher2`](../../../core/keys/src/commonMain/kotlin/family/keys/api/internal/ConfigCipher2.kt)
++ [`RecipientResolver`](../../../core/keys/src/commonMain/kotlin/family/keys/api/internal/RecipientResolver.kt).
+Use case — admin правит бабушкин конфиг через её access-grant, обе стороны
+расшифровывают envelope под их собственный X25519 keypair.
+
+**Что от spec 013 не вернулось** (правильно архивированное — мы не делаем):
+- `Role` enum (Admin / CoAdmin / Member / Managed / Caregiver) + TTL.
+- Server arbitration через Cloudflare Worker + Ed25519 signed membership ops.
+- Monotonic `membership_version` counter.
+- Multi-tier audit log (Tier 1 plaintext metadata + Tier 2 encrypted payload).
+- `Last-admin-cannot-leave` invariant.
+
+**Что из spec 013 в launcher НЕ нужно потому что F-5b проще:**
+- "Group" в нашем смысле = просто **список pub keys** в envelope.recipientKeys,
+  derived из `PublicKeyDirectory.fetchDevicesFor(ownerUid)` +
+  `fetchGrantHolders(ownerUid)`. Никакого Group entity.
+- Revocation = удаление grant → следующий push не включает revoked helper'а.
+  Прошлые envelope'ы остаются accessible (accepted residual — то же
+  поведение, что у WhatsApp при удалении участника из группы).
+- Conflict resolution на concurrent edits — это spec 008 territory
+  (collaborative sync), не F-5b.
+
+**Family Messenger (V-2) всё ещё нуждается в group bureaucracy** —
+групповой чат требует Role enum, membership versioning, audit log. Это
+**остаётся** в spec 013 архиве для будущей messenger spec'и. F-5b закрывает
+только crypto layer для launcher use case'а; всё социально-сложное
+остаётся out of scope launcher'а.
+
 ---
 
 ## Where Family Group will live in the future

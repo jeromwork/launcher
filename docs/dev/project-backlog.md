@@ -21,7 +21,7 @@
 
 ## Security & Operations
 
-### TODO-SEC-CRITICAL-024: ConfigDocument E2E encryption 🔴 PRODUCTION BLOCKER
+### TODO-SEC-CRITICAL-024: ConfigDocument E2E encryption ✅ DONE 2026-06-20 (F-5b envelope variant)
 
 - **What**: Сейчас `ConfigDocument` хранится в Firestore в **plaintext**. Firebase / Google / любой с доступом к Firestore project видит: имена контактов, телефоны (E.164), labels слотов («Внук Петя», «Скорая помощь»), package names приложений, структуру layout. Зашифрованы (через спеки 011/012) **только** photo и document blob'ы — но **сам конфиг — нет**.
 - **Why**: Это **критическая privacy regression**. Решено 2026-05-28: F-5 в Phase 1 Foundation roadmap'а, **production blocker** (не можем выпустить в работу пока не закрыто), но **не блокирует development** S-features (можем разрабатывать с plaintext config'ом в dev environment).
@@ -33,8 +33,71 @@
   5. **Search invariant**: search по контактам в admin Editor (FR в спеке 009) переезжает **полностью на клиент** — admin'ский телефон расшифровывает config, ищет локально, повторно отправляет на сервер уже отфильтрованную операцию. Server search **исчезает**.
   6. **Backup / export**: bulk export ConfigDocument для пользователя становится возможным **только** для аутентифицированного admin'а — он расшифровывает локально + экспортирует.
 - **When**: после F-4 (AuthProvider) и до production release. Не блокирует S-features в development.
-- **Status**: 🔴 OPEN — production blocker
+- **Status**: 🟢 DONE 2026-06-20 — implemented as **F-5b envelope variant** (architectural pivot 2026-06-20 from symmetric self-edit to hybrid envelope per spec 011 §C-2/§C-3). Branch `018-f5-config-e2e-encryption` ready for PR. Состояние:
+  - **core/keys/** KMP module: RemoteStorage facade + Envelope wire format (XChaCha20-Poly1305 для контента + libsodium `crypto_box_seal` X25519 для CEK) + ConfigSaver + EnvelopeBootstrap caller API + multi-recipient cross-user delegation (membership-agnostic).
+  - **Адаптеры**: FirestoreRemoteStorage, FirestorePublicKeyDirectory, AndroidDeviceIdentity (X25519 keypair + DataStore, `allowBackup=false`), GoogleSignInIdentityProof, WorkManagerAsyncConfigPushQueue.
+  - **Firestore Security Rules**: owner + access-grant model, schemaVersion monotonic (H-2 downgrade defence), 22/22 rules unit tests в [rules.f5b.envelope.test.ts](../../firestore-tests/rules.f5b.envelope.test.ts).
+  - **Recovery vault path (root key)** сохранён рядом: RootKeyManager + Argon2id + Firestore-backed RecoveryKeyVault + 3-strike lockout + DataStore H-1 mitigation + 20/20 rules tests в rules.f5.recovery.test.ts. Используется для восстановления **root key** (отдельный концерн от envelope data encryption).
+  - **Tests**: 68 JVM в `:core:keys:jvmTest`; instrumented [CloudConfigEncryptionE2ETest](../../app/src/androidTest/java/com/launcher/app/data/envelope/CloudConfigEncryptionE2ETest.kt) — 🟢 2/2 PASSED на Xiaomi 11T через Firebase Emulator (path A') и 2/2 PASSED против real `launcher-old-dev` cloud (path B). SC-001 acceptance закрыт на реальном TEE Keystore + MIUI quirks.
+  - **Legacy removal**: AeadConfigCipher, KeyRegistry, SealedConfig, WrappedDek + контракты — удалены в Batch 6 (`d135216`).
 - **Origin**: User raised 2026-05-28 — обнаружено при обсуждении spec 014 (Contact Sharing UX). Зафиксировано как F-5 в roadmap.md.
+
+### TODO-RULES-TESTS-REGRESSION-001: Pre-existing baseline failures в rules.auth.test.ts + rules.test.ts ✅ DONE 2026-06-20
+
+- **What**: При запуске `cd firestore-tests && npm test` падают **14 тестов** в двух файлах:
+  - `rules.auth.test.ts` (spec 017 F-4 identity-links): **все 12 тестов FAILED**.
+    Ошибка: `Invalid document reference. Document references must have an even number of segments, but identity-links/google/108547295013826509471 has 3.`
+    Тесты пишут в path `identity-links/google/{sub}` — Firestore интерпретирует
+    этот 3-segment path как **collection reference**, не document. Чтобы был
+    document — нужно 2 сегмента (`identity-links/{sub}`) или 4
+    (`identity-links/google/{sub}/something`).
+  - `rules.test.ts` (spec 007 pairings):
+    - `only_managed_can_delete_link` — ожидает что admin не может delete link,
+      но rules позволяют. Либо тест устарел после rules change, либо rules
+      регрессировали.
+    - `user doc create fails if identity-link missing` — связан со spec 017
+      path bug выше.
+- **Why**: Pre-existing baseline regression. **Не блокирует F-5b** — spec 018
+  F-5b tests (rules.f5b.envelope.test.ts: 22/22) и rules.f5.recovery.test.ts
+  (20/20) **passes**. Но указывает на тo, что либо path schema в spec 017
+  изменилась без обновления тестов, либо rules для spec 007 link delete'а
+  ослаблены.
+- **How**:
+  1. `git log -p -- firestore.rules firestore-tests/rules.auth.test.ts` — найти
+     commit где path schema split'нулся между rules и tests.
+  2. Решить: исправить tests (4-segment path) или rules (2-segment path).
+     Identity-link concept имеет `{provider, sub}` ключ — natural fit для
+     4 сегментов (`identity-links/{provider}/{sub}/main`) или 2 с composite
+     id (`identity-links/{provider}-{sub}`).
+  3. `only_managed_can_delete_link` — проверить FR-033 в spec 007 contracts
+     (revoke semantics), посмотреть в rules.test.ts что именно ожидает.
+- **When**: before next sync of dev project rules (т.е. при следующем
+  изменении rules.auth.test.ts или rules.test.ts). **Не блокирует F-5b PR**.
+- **Status**: ✅ DONE 2026-06-20
+- **Origin**: Обнаружено 2026-06-20 при запуске rules tests после deploy F-5b
+  rules на launcher-old-dev. F-5b сам зелёный (22/22 + 20/20); baseline
+  regression в pre-existing spec 007 / 017 tests существовал ДО F-5b и не
+  затронут F-5b commits.
+- **Resolution (2026-06-20)**:
+  - **rules.auth.test.ts** path fix: тесты писали в `identity-links/google/{sub}`
+    (3 сегмента — Firestore интерпретирует как collection reference), а
+    production code (`GoogleSignInAuthAdapter.kt:254`) пишет в
+    `identity-links/google_{sub}` (single document). Обновлены пути в тестах.
+  - **firestore.rules** tightened: rules для `/identity-links/{linkId}` и
+    `/users/{stableId}` переписаны из "open to any authenticated" на
+    production-strict per spec 017 contract: identity ownership check
+    (`linkId == "google_" + request.auth.uid`), UUIDv4 regex, immutability,
+    cross-collection verification (`user create` требует existing identity-link
+    с matching stableId). Helper functions `isGoogleLinkIdForCaller`,
+    `isValidUuidV4`, `ownerIdentityLink` extracted. Deployed на
+    launcher-old-dev 2026-06-20.
+  - **rules.test.ts** `only_managed_can_delete_link` → переименован на
+    `both_admin_and_managed_can_delete_link`. Rule был намеренно расширен
+    на admin'а (см. firestore.rules L125-127 — для admin "prune stale link"
+    button); тест устарел. Добавлен новый тест `stranger_cannot_delete_link`
+    как defence-in-depth (третья сторона не имеет права).
+  - Full rules tests suite: **84/84 passes** (rules.test.ts 29 + rules.auth.test.ts 13
+    + rules.f5.recovery.test.ts 20 + rules.f5b.envelope.test.ts 22).
 
 ### TODO-OPS-001: Включить 2FA на Cloudflare account 🔴
 
