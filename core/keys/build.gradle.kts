@@ -56,6 +56,12 @@ kotlin {
                 implementation(libs.kotest.runner.junit5)
             }
         }
+        // Android-specific adapters: AndroidDeviceIdentity (DataStore + SecureKeyStore).
+        val androidMain by getting {
+            dependencies {
+                implementation(libs.androidx.datastore.preferences)
+            }
+        }
         // Android Keystore + Argon2id real-device tests (T122b, OEM matrix).
         val androidInstrumentedTest by getting {
             dependencies {
