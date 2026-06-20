@@ -36,6 +36,43 @@
 - **Status**: 🟡 IN PROGRESS — F-5 implementation 75% complete на 2026-06-19. Реализованы core/keys/ KMP module, ConfigCipher (XChaCha20-Poly1305 + identity-binding AAD), RecoveryFlow (Argon2id + Firestore vault + 3-strike lockout), DataStore-backed H-1/H-2 mitigations, 75 JVM/Robolectric тестов проходят. Остаются: Firestore Emulator E2E grep test (SC-001 verification), recovery E2E test, OEM matrix, Firestore Rules deploy — всё требует эмулятор / физ. устройство. Branch 018-f5-config-e2e-encryption.
 - **Origin**: User raised 2026-05-28 — обнаружено при обсуждении spec 014 (Contact Sharing UX). Зафиксировано как F-5 в roadmap.md.
 
+### TODO-RULES-TESTS-REGRESSION-001: Pre-existing baseline failures в rules.auth.test.ts + rules.test.ts 🟡
+
+- **What**: При запуске `cd firestore-tests && npm test` падают **14 тестов** в двух файлах:
+  - `rules.auth.test.ts` (spec 017 F-4 identity-links): **все 12 тестов FAILED**.
+    Ошибка: `Invalid document reference. Document references must have an even number of segments, but identity-links/google/108547295013826509471 has 3.`
+    Тесты пишут в path `identity-links/google/{sub}` — Firestore интерпретирует
+    этот 3-segment path как **collection reference**, не document. Чтобы был
+    document — нужно 2 сегмента (`identity-links/{sub}`) или 4
+    (`identity-links/google/{sub}/something`).
+  - `rules.test.ts` (spec 007 pairings):
+    - `only_managed_can_delete_link` — ожидает что admin не может delete link,
+      но rules позволяют. Либо тест устарел после rules change, либо rules
+      регрессировали.
+    - `user doc create fails if identity-link missing` — связан со spec 017
+      path bug выше.
+- **Why**: Pre-existing baseline regression. **Не блокирует F-5b** — spec 018
+  F-5b tests (rules.f5b.envelope.test.ts: 22/22) и rules.f5.recovery.test.ts
+  (20/20) **passes**. Но указывает на тo, что либо path schema в spec 017
+  изменилась без обновления тестов, либо rules для spec 007 link delete'а
+  ослаблены.
+- **How**:
+  1. `git log -p -- firestore.rules firestore-tests/rules.auth.test.ts` — найти
+     commit где path schema split'нулся между rules и tests.
+  2. Решить: исправить tests (4-segment path) или rules (2-segment path).
+     Identity-link concept имеет `{provider, sub}` ключ — natural fit для
+     4 сегментов (`identity-links/{provider}/{sub}/main`) или 2 с composite
+     id (`identity-links/{provider}-{sub}`).
+  3. `only_managed_can_delete_link` — проверить FR-033 в spec 007 contracts
+     (revoke semantics), посмотреть в rules.test.ts что именно ожидает.
+- **When**: before next sync of dev project rules (т.е. при следующем
+  изменении rules.auth.test.ts или rules.test.ts). **Не блокирует F-5b PR**.
+- **Status**: 🟡 OPEN
+- **Origin**: Обнаружено 2026-06-20 при запуске rules tests после deploy F-5b
+  rules на launcher-old-dev. F-5b сам зелёный (22/22 + 20/20); baseline
+  regression в pre-existing spec 007 / 017 tests существовал ДО F-5b и не
+  затронут F-5b commits.
+
 ### TODO-OPS-001: Включить 2FA на Cloudflare account 🔴
 
 - **What**: Two-Factor Authentication для `gpt1.jeromwork@gmail.com` на Cloudflare.

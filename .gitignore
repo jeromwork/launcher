@@ -4,6 +4,9 @@ build/
 out/
 local.properties
 
+# Local portable toolchains (downloaded by setup scripts — JDK, kotlinc, etc.)
+.tools/
+
 # Android
 *.apk
 *.aab
