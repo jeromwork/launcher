@@ -1,6 +1,7 @@
 package com.launcher.app
 
 import android.app.Application
+import android.util.Log
 import androidx.work.Configuration
 import com.launcher.adapters.auth.installAuthActivityTracker
 import com.launcher.adapters.lifecycle.ConfigRefreshWorker
@@ -20,6 +21,18 @@ import com.launcher.di.backendModule
 import com.launcher.di.setupModule
 import com.launcher.ui.di.androidPlatformModule
 import com.launcher.ui.di.coreCommonModule
+import family.keys.api.AuthIdentity
+import family.keys.api.BootstrapError
+import family.keys.api.EnvelopeBootstrap
+import family.keys.api.IdentityProof
+import family.keys.api.Outcome
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
@@ -37,6 +50,15 @@ class LauncherApplication : Application(), Configuration.Provider {
 
     private val core: LauncherCore by inject()
     private val workerFactory: ConfigSyncWorkerFactory by inject()
+    private val identityProof: IdentityProof by inject()
+    private val envelopeBootstrap: EnvelopeBootstrap by inject()
+
+    /**
+     * Application-scoped supervisor that hosts the F-5b envelope bootstrap
+     * observer. SupervisorJob so a transient bootstrap failure does not kill
+     * the listener; subsequent identity changes still trigger fresh attempts.
+     */
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
      * Configuration.Provider override (spec 008 FR-022 T3) — uses our custom
@@ -89,10 +111,68 @@ class LauncherApplication : Application(), Configuration.Provider {
         // Application.onCreate. Worker fires every 15 minutes when network is
         // available, fetching /config/current and applying if newer.
         ConfigRefreshWorker.schedulePeriodicRefresh(this)
+
+        // Spec 018 F-5b: publish this device's X25519 public key into the
+        // PublicKeyDirectory under the signed-in user's namespace, so other
+        // devices and grant holders can resolve us as a recipient for envelope
+        // encryption. EnvelopeBootstrap.bootstrap() is idempotent (Firestore
+        // set overwrites the same entry), so we re-run on every identity
+        // transition without side-effects. teardown() is fired on sign-out
+        // to remove the device from the directory.
+        observeIdentityAndBootstrapEnvelope()
+    }
+
+    private fun observeIdentityAndBootstrapEnvelope() {
+        identityProof.identityFlow
+            .distinctUntilChangedBy { it?.stableId }
+            .onEach { identity ->
+                if (identity != null) {
+                    bootstrapEnvelope(identity)
+                } else {
+                    teardownEnvelope()
+                }
+            }
+            .launchIn(applicationScope)
+    }
+
+    private fun bootstrapEnvelope(identity: AuthIdentity) {
+        applicationScope.launch {
+            when (val r = envelopeBootstrap.bootstrap()) {
+                is Outcome.Success -> Log.i(
+                    TAG_ENVELOPE,
+                    "envelope bootstrap published for uid=${identity.stableId}"
+                )
+                is Outcome.Failure -> Log.w(
+                    TAG_ENVELOPE,
+                    "envelope bootstrap failed for uid=${identity.stableId}: ${formatError(r.error)}"
+                )
+            }
+        }
+    }
+
+    private fun teardownEnvelope() {
+        applicationScope.launch {
+            when (val r = envelopeBootstrap.teardown()) {
+                is Outcome.Success -> Log.i(TAG_ENVELOPE, "envelope teardown completed")
+                is Outcome.Failure -> Log.w(
+                    TAG_ENVELOPE,
+                    "envelope teardown failed: ${formatError(r.error)}"
+                )
+            }
+        }
+    }
+
+    private fun formatError(error: BootstrapError): String = when (error) {
+        BootstrapError.NoIdentity -> "no-identity"
+        is BootstrapError.Backend -> "backend: ${error.message}"
     }
 
     override fun onTerminate() {
         core.stop()
         super.onTerminate()
+    }
+
+    private companion object {
+        const val TAG_ENVELOPE: String = "F5bEnvelopeBootstrap"
     }
 }

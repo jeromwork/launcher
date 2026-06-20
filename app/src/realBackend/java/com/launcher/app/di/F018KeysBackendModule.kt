@@ -10,6 +10,8 @@ import family.crypto.api.AsymmetricCrypto
 import family.crypto.api.RandomSource
 import family.crypto.api.SecureKeyStore
 import family.keys.android.AndroidDeviceIdentity
+import family.keys.android.WorkManagerAsyncConfigPushQueue
+import family.keys.api.AsyncConfigPushQueue
 import family.keys.api.ConfigSaver
 import family.keys.api.EnvelopeBootstrap
 import family.keys.api.IdentityProof
@@ -22,7 +24,7 @@ import family.keys.api.internal.RecipientResolver
 import family.keys.impl.DefaultEnvelopeBootstrap
 import family.keys.impl.EnvelopeConfigCipherImpl
 import family.keys.impl.EnvelopeRemoteStorage
-import family.keys.impl.RemoteStorageConfigSaver
+import family.keys.impl.LocalFirstConfigSaver
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
@@ -81,10 +83,17 @@ val f018KeysBackendModule = module {
         )
     }
 
+    single<AsyncConfigPushQueue> {
+        WorkManagerAsyncConfigPushQueue(context = androidContext())
+    }
+
+    // F-5b local-first ConfigSaver: stages payload в WorkManager queue → instant
+    // UI success → background push с exponential backoff (5 retries).
     single<ConfigSaver> {
-        RemoteStorageConfigSaver(
+        LocalFirstConfigSaver(
             storage = get<RemoteStorage>(),
-            identity = get<IdentityProof>()
+            identity = get<IdentityProof>(),
+            pushQueue = get<AsyncConfigPushQueue>()
         )
     }
 

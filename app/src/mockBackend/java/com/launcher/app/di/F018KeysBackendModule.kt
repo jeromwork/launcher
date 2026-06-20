@@ -8,7 +8,9 @@ import family.crypto.api.AeadCipher
 import family.crypto.api.AsymmetricCrypto
 import family.crypto.api.RandomSource
 import family.crypto.api.SecureKeyStore
+import com.launcher.app.data.envelope.InMemoryAsyncConfigPushQueueImpl
 import family.keys.android.AndroidDeviceIdentity
+import family.keys.api.AsyncConfigPushQueue
 import family.keys.api.ConfigSaver
 import family.keys.api.EnvelopeBootstrap
 import family.keys.api.IdentityProof
@@ -21,7 +23,7 @@ import family.keys.api.internal.RecipientResolver
 import family.keys.impl.DefaultEnvelopeBootstrap
 import family.keys.impl.EnvelopeConfigCipherImpl
 import family.keys.impl.EnvelopeRemoteStorage
-import family.keys.impl.RemoteStorageConfigSaver
+import family.keys.impl.LocalFirstConfigSaver
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
@@ -71,10 +73,15 @@ val f018KeysBackendModule = module {
         )
     }
 
+    single<AsyncConfigPushQueue> {
+        InMemoryAsyncConfigPushQueueImpl(storage = get<RemoteStorage>())
+    }
+
     single<ConfigSaver> {
-        RemoteStorageConfigSaver(
+        LocalFirstConfigSaver(
             storage = get<RemoteStorage>(),
-            identity = get<IdentityProof>()
+            identity = get<IdentityProof>(),
+            pushQueue = get<AsyncConfigPushQueue>()
         )
     }
 

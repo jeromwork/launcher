@@ -56,10 +56,14 @@ kotlin {
                 implementation(libs.kotest.runner.junit5)
             }
         }
-        // Android-specific adapters: AndroidDeviceIdentity (DataStore + SecureKeyStore).
+        // Android-specific adapters: AndroidDeviceIdentity (DataStore + SecureKeyStore)
+        // + WorkManagerAsyncConfigPushQueue (WorkManager + Koin GlobalContext).
         val androidMain by getting {
             dependencies {
                 implementation(libs.androidx.datastore.preferences)
+                implementation(libs.androidx.work.runtime.ktx)
+                implementation(libs.koin.core)
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.10.1")
             }
         }
         // Android Keystore + Argon2id real-device tests (T122b, OEM matrix).

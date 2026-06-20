@@ -107,8 +107,13 @@ Phase 1: Foundation (~5-7 weeks sequential)
    Шаг 1: F-3  Wizard Module + Localization    — wizard работает ЛОКАЛЬНО (✅ Done 2026-06-17, merged PR #19)
    Шаг 2: F-CRYPTO  core/crypto/ KMP module    — lib-family-crypto (🚧 InProgress 2026-06-17 — implementation: ports + Libsodium adapters + Android Keystore wrap + RFC KAT + instrumentation green on emulator; docs/dev/crypto-review.md published; awaits paid audit before billing per SRV-CRYPTO-003)
    Шаг 3: F-4  AuthProvider + Google Sign-In   — identity foundation (✅ Done, merged PR #21 2026-06-18)
-   Шаг 4: F-5  Root Key Hierarchy + Config Encryption + Recovery 🔴 PRODUCTION BLOCKER (🟡 In Progress 2026-06-19 — spec 018; core/keys/ KMP module + ConfigCipher + RecoveryFlow + DataStore H-1/H-2 mitigations реализованы; 75 JVM/Robolectric тестов проходят; emulator-based E2E (T056/T086) + Firestore Rules deploy + OEM matrix остаются для финализации)
-          → создаёт core/keys/ module + recovery foundation, на котором строятся все cloud-фичи Phase 2
+   Шаг 4: F-5  Root Key Hierarchy + Config Encryption + Recovery 🔴 PRODUCTION BLOCKER (🟢 Implemented as F-5b envelope variant 2026-06-20 — spec 018 pivoted from symmetric self-edit to hybrid envelope per spec 011 §C-2/§C-3; RemoteStorage facade + ConfigSaver + EnvelopeBootstrap + multi-recipient cross-user delegation; 68 JVM tests green; legacy AeadConfigCipher/KeyRegistry/SealedConfig removed)
+          → создаёт core/keys/ envelope foundation, multi-recipient ready, reusable across launcher + future messenger + album
+   Шаг 4a: F-5c FCM-trigger config-updated — отдельная мини-спека (📋 PLANNED 2026-06-20)
+          → Cloudflare Worker route /trigger-config-updated → resolve recipients → FCM data-message → клиент через LauncherFirebaseMessagingService (spec 007) ловит PushType.ConfigChanged → ConfigSaver.loadOwn/loadForOther → DataStore + UI refresh. Retry до 5 раз с exponential backoff. Скоп: ~3-5 дней работы. Owner approved 2026-06-20.
+   Шаг 4b: Spec 008 rewrite (collaborative editing) — отдельная спайка (📋 PLANNED 2026-06-20)
+          → Текущая spec 008 устарела (anonymous pair model до decisions 2026-05-30/2026-06-15). Concepts (collaborative editing, merge UI, pending-changes warning, Room persistence) сохраняются. Storage layer переписывается на ConfigSaver + RemoteStorage от F-5b. Legacy code: DefaultConfigEditor, FirebaseConfigApplier, FirebaseTransactionScope удаляются. WorkManager async push integration. Объём: ~2-3 недели работы. Owner approved 2026-06-20.
+   Шаг 4c: E2E через Firestore Emulator extension — F-5b envelope rules tests (TypeScript через @firebase/rules-unit-testing — добавляется в существующий firestore-tests/) + Android instrumented test когда google-services.json sandbox настроен. Скоп: ~1 день. Owner approved 2026-06-20.
 
    F-2  Capability Registry  — отложен в Phase 4+ entirely
         │
