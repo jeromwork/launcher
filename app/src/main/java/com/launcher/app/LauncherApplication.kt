@@ -76,6 +76,10 @@ class LauncherApplication : Application(), Configuration.Provider {
         // Spec 017 (F-4) — Credential Manager requires Activity context;
         // tracker заполняет ActivityHolder на каждый resume.
         installAuthActivityTracker()
+        // F-5b E2E (-PuseFirebaseEmulator=true): route Firebase SDK to the
+        // local emulator instead of cloud `launcher-old-dev`. Must run BEFORE
+        // any Firebase singleton is constructed by Koin or by the SDK itself.
+        wireFirebaseEmulatorIfRequested()
         startKoin {
             androidLogger(Level.INFO)
             androidContext(this@LauncherApplication)
@@ -167,6 +171,30 @@ class LauncherApplication : Application(), Configuration.Provider {
         is BootstrapError.Backend -> "backend: ${error.message}"
     }
 
+    /**
+     * If this build was compiled with `-PuseFirebaseEmulator=true`, route the
+     * Firebase Firestore + Auth SDKs to the local emulator (10.0.2.2:8080/9099).
+     *
+     * Implemented as reflection lookup of `realBackend`-flavor class
+     * `FirebaseEmulatorWiring.apply()` so the main source set does not
+     * compile-depend on Firebase types (mockBackend variant has no Firebase SDK).
+     */
+    private fun wireFirebaseEmulatorIfRequested() {
+        if (!BuildConfig.USE_FIREBASE_EMULATOR) return
+        try {
+            val cls = Class.forName("com.launcher.app.firebase.FirebaseEmulatorWiring")
+            cls.getMethod("apply").invoke(null)
+        } catch (e: ClassNotFoundException) {
+            Log.w(
+                TAG_EMULATOR,
+                "USE_FIREBASE_EMULATOR=true but FirebaseEmulatorWiring class not found " +
+                    "(this is mockBackend variant or class was stripped) — Firebase calls will fail."
+            )
+        } catch (t: Throwable) {
+            Log.e(TAG_EMULATOR, "Failed to wire Firebase emulator", t)
+        }
+    }
+
     override fun onTerminate() {
         core.stop()
         super.onTerminate()
@@ -174,5 +202,6 @@ class LauncherApplication : Application(), Configuration.Provider {
 
     private companion object {
         const val TAG_ENVELOPE: String = "F5bEnvelopeBootstrap"
+        const val TAG_EMULATOR: String = "FirebaseEmulatorWiring"
     }
 }

@@ -30,6 +30,17 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1
         versionName = "0.1.0"
+
+        // F-5b E2E: when `-PuseFirebaseEmulator=true` is passed to gradle,
+        // LauncherApplication routes Firestore + Auth SDK calls to the local
+        // Firebase Emulator (10.0.2.2:8080 / :9099) instead of the real cloud.
+        // Default is false (use real launcher-old-dev project).
+        val useEmulator = (project.findProperty("useFirebaseEmulator") as? String)
+            ?.toBooleanStrictOrNull() ?: false
+        buildConfigField("boolean", "USE_FIREBASE_EMULATOR", useEmulator.toString())
+
+        // F-5b E2E instrumented tests (CloudConfigEncryptionE2ETest).
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     // Spec 007 product flavors (FR-034). `realBackend` wires Firebase + Cloudflare Worker;
@@ -188,4 +199,14 @@ dependencies {
     // payloads for the wizard step host. kotlinx-serialization-json is
     // implementation in :core (not api) so test classpath needs it explicit.
     testImplementation(libs.kotlinx.serialization.json)
+
+    // F-5b E2E instrumented tests (app/src/androidTest/).
+    // Firebase SDKs (firestore/auth) уже подключены к realBackend variant'у
+    // через :core/androidRealBackend, andtest classpath их подхватывает
+    // транзитивно. Coroutines tasks await помогает с .await() в тестах.
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:rules:1.6.1")
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
 }

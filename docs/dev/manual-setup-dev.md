@@ -175,20 +175,55 @@ npm test               # поднимает emulator на 8080/9099 → гоня
 Эмулятор использует sandboxed `demo-test` project — НЕ требует google-services.json
 и НЕ задевает ваш dev Firebase. Безопасно гонять на CI и локально.
 
-### 3.3. Android instrumented E2E через emulator (опционально, требует google-services.json sandbox)
+### 3.3. Android instrumented E2E (CloudConfigEncryptionE2ETest)
 
-Этот раздел добавляется позже — когда настроим отдельный **sandbox** Firebase
-project (отдельный от dev) и instrumented test, который sign-in'ит через
-emulator + проверяет full encryption flow.
+[CloudConfigEncryptionE2ETest](../../app/src/androidTest/java/com/launcher/app/data/envelope/CloudConfigEncryptionE2ETest.kt)
+гоняет два сценария на реальном Android-устройстве (emulator или физ.):
 
-**Сейчас**: skip. Rules tests из §3.2 покрывают server-side rules; F-5b
-crypto-side покрыт 75 jvmTest'ами в `:core:keys:jvmTest`.
+1. **roundtripOwnConfigByteEqual** — saveOwn → loadOwn → byte-equal.
+2. **sc001OpacityRawFirestoreDocDoesNotLeakPlaintext** — SC-001 acceptance:
+   прямое чтение Firestore document body → assert «Bobby Tables 555-1234»
+   plaintext там не появляется.
 
-**Когда понадобится**: создать второй Firebase project (`launcher-sandbox`),
-скачать его google-services.json в отдельный variant'ы (потребует gradle
-flavor `realBackendSandbox` рядом с `realBackend`/`mockBackend`), запустить
-`firebase emulators:start` + connectedAndroidTest. Документация на этот шаг
-будет добавлена когда понадобится.
+**Два режима запуска**:
+
+#### A. Против local Firebase Emulator (рекомендуется для CI / quick dev loop)
+
+Не задевает cloud, не жжёт quota, не оставляет мусор.
+
+```bash
+# Terminal 1: поднять эмуляторы
+firebase emulators:start --only firestore,auth
+
+# Terminal 2: build с -PuseFirebaseEmulator=true → SDK routed на 10.0.2.2:8080/9099.
+# Anonymous sign-in доступен в эмуляторе — тест проходит без cloud.
+./gradlew :app:connectedRealBackendDebugAndroidTest -PuseFirebaseEmulator=true
+```
+
+Требует AVD Android 14+ (API 34/35 recommended).
+
+#### B. Против real `launcher-old-dev` Firestore (real-cloud confidence)
+
+```bash
+./gradlew :app:connectedRealBackendDebugAndroidTest    # без -P флага
+```
+
+⚠️ Anonymous sign-in **выключен** на real cloud (decision 2026-05-30 удалил
+anonymous Firebase Auth). Тест будет skipped через `Assume.assumeNoException`
+если на устройстве нет signed-in Google user'а. Для полного прогона:
+запустить app один раз, Sign-In через Google → выйти из app → запустить
+instrumented test.
+
+Тест cleanup'ит свой namespace (`teardown()` удаляет device entry) — после
+прогона dev project остаётся чистым.
+
+#### Real device
+
+Тот же gradle command, но `adb` подключает физ. устройство, не AVD.
+Полезно для проверки:
+- TEE-backed Android Keystore (StrongBox attestation если есть).
+- OEM-specific Keystore quirks (Xiaomi MIUI "Optimize" cleanup).
+- Реальный network round-trip latency (вариант B).
 
 ---
 
