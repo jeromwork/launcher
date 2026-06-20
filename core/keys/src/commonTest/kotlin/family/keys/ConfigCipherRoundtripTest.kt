@@ -157,6 +157,19 @@ class ConfigCipherRoundtripTest {
     }
 
     @Test
+    fun emptyConfigSealsAndOpensWithoutBlocking() = runTest {
+        // T113 (US4) — F-5 не должен блокировать edge case, когда admin ещё не
+        // push'нул config. Spec 008 решает «empty → wizard» на caller side; F-5
+        // только обязан не уронить sealед empty payload.
+        val cipher = makeCipher()
+        val empty = ByteArray(0)
+        val sealed = (cipher.seal(empty, uid) as Outcome.Success<SealedConfig>).value
+        assertEquals(24, sealed.nonce.size)
+        val opened = (cipher.open(sealed, uid) as Outcome.Success<ByteArray>).value
+        assertEquals(0, opened.size, "Empty roundtrip MUST preserve 0-length plaintext (US4 edge case)")
+    }
+
+    @Test
     fun sealProducesDifferentCiphertextEachCall() = runTest {
         val cipher = makeCipher()
         val plaintext = "deterministic-ish?".encodeToByteArray()

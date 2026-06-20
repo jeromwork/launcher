@@ -22,6 +22,11 @@ class KeyRegistryStorageBackwardCompatTest {
     /**
      * Frozen v1 fixture — 3 DEK'а как WrappedDek (per FR-005). Каждый со своим
      * schemaVersion=1, algorithm="xchacha20poly1305-v1".
+     *
+     * **Canonical копия — `core/keys/src/commonTest/resources/fixtures/multi-dek-keyregistry-v1.json`**
+     * (T106). KMP commonTest не загружает resources через classpath единым образом
+     * на всех targets, поэтому inline string используется на runtime'е; JSON-файл —
+     * человекочитаемый reference и source of truth при изменении wire-format'а.
      */
     private val v1MultiDekFixture = """
         [
