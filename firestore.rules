@@ -397,6 +397,69 @@ service cloud.firestore {
                     && newDoc().schemaVersion >= existingDoc().schemaVersion;
     }
 
+    // ─── Spec 018 F-5b — Envelope Storage (RemoteStorage backend) ────────
+    //
+    // Path: /users/{ownerUid}/data/{escapedKey}
+    // Stores hybrid envelope: ciphertext + per-recipient sealed CEK.
+    //
+    // Access model:
+    //  - Owner can read/write/delete their own data.
+    //  - A helper UID can read/write/delete IF a non-revoked access-grant
+    //    exists at /users/{ownerUid}/access-grants/{helperUid}.
+    //  - The envelope itself enforces decryption permission via per-device
+    //    sealed CEK; rules only gate raw document access.
+    //
+    // Owner-write of monotonic schemaVersion (defence-in-depth in case the
+    // envelope format gains incremental versions later).
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    function hasActiveGrant(ownerUid, helperUid) {
+      return exists(/databases/$(database)/documents/users/$(ownerUid)/access-grants/$(helperUid))
+        && get(/databases/$(database)/documents/users/$(ownerUid)/access-grants/$(helperUid)).data.revokedAt == null;
+    }
+    function isOwnerOrGrantedHelper(ownerUid) {
+      return isOwner(ownerUid) || hasActiveGrant(ownerUid, request.auth.uid);
+    }
+
+    match /users/{ownerUid}/data/{key} {
+      allow read, delete: if isOwnerOrGrantedHelper(ownerUid);
+      allow create: if isOwnerOrGrantedHelper(ownerUid);
+      allow update: if isOwnerOrGrantedHelper(ownerUid)
+                    && newDoc().schemaVersion >= existingDoc().schemaVersion;
+    }
+
+    // ─── Spec 018 F-5b — Public Key Directory ───────────────────────────
+    //
+    // Paths:
+    //  /users/{uid}/devices/{deviceId}                     — empty owner-only doc
+    //  /users/{uid}/devices/{deviceId}/pub-key/current     — X25519 pub key
+    //
+    // Owner publishes and unpublishes their own devices. Anyone with an
+    // active access-grant can read the directory in order to resolve
+    // recipients before encrypting an envelope under {uid}'s namespace.
+    match /users/{uid}/devices/{deviceId} {
+      allow read: if isOwnerOrGrantedHelper(uid);
+      allow write, delete: if isOwner(uid);
+    }
+    match /users/{uid}/devices/{deviceId}/pub-key/{docId} {
+      allow read: if isOwnerOrGrantedHelper(uid);
+      allow write, delete: if isOwner(uid);
+    }
+
+    // ─── Spec 018 F-5b — Access Grants ──────────────────────────────────
+    //
+    // Path: /users/{ownerUid}/access-grants/{helperUid}
+    //
+    // Only the owner writes / revokes grants in their own namespace. Any
+    // signed-in user may read their own row (so they can discover that they
+    // hold a grant); owner may read their full grants list.
+    match /users/{ownerUid}/access-grants/{helperUid} {
+      allow read: if isOwner(ownerUid)
+                  || (isSignedIn() && request.auth.uid == helperUid);
+      allow create, update, delete: if isOwner(ownerUid);
+    }
+
     // ─── default deny for everything else ──────────────────────────────
     match /{document=**} {
       allow read, write: if false;
