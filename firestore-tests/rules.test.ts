@@ -236,10 +236,20 @@ describe("/links/{linkId}", () => {
     }));
   });
 
-  test("only_managed_can_delete_link", async () => {
+  // Rule was widened on 2026-xx-xx to allow admin-side delete as well, so
+  // the admin-side "prune stale link" button (paired-devices screen) and the
+  // reconnect-dedup cleanup can both delete obsolete /links/{linkId} entries.
+  // See firestore.rules L125-129 — both parties of the link may delete.
+  test("both_admin_and_managed_can_delete_link", async () => {
     await seedLink();
-    await assertFails(deleteDoc(doc(adminCtx().firestore(), `links/${LINK_ID}`)));
+    await assertSucceeds(deleteDoc(doc(adminCtx().firestore(), `links/${LINK_ID}`)));
+    await seedLink();
     await assertSucceeds(deleteDoc(doc(managedCtx().firestore(), `links/${LINK_ID}`)));
+  });
+
+  test("stranger_cannot_delete_link", async () => {
+    await seedLink();
+    await assertFails(deleteDoc(doc(strangerCtx().firestore(), `links/${LINK_ID}`)));
   });
 
 });

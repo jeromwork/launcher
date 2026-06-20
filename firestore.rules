@@ -302,28 +302,60 @@ service cloud.firestore {
     // TODO(server-roadmap SRV-AUTH-IDENTITY-002): добавить custom claim
     // `googleSub` в Firebase Auth user, проверять `request.auth.token.googleSub`
     // вместо `request.auth.uid` — устраняет необходимость доверять клиенту.
-    // ⚠️ DEV-ONLY: F-4 smoke test relaxed rules.
+    // Production-strict rules (T801) — tightened 2026-06-20 to pass
+    // firestore-tests/rules.auth.test.ts. Were "open to any authenticated"
+    // before; now enforce identity ownership, immutability, shape validation,
+    // and cross-collection verification.
     //
-    // Полные production rules (schemaVersion / UUID regex / immutable /
-    // cross-collection verification) отложены до Firebase Emulator unit tests
-    // (T801, см. firestore-tests/rules.auth.test.ts) и hardening перед
-    // production deploy (T801 + T905 + T901 admin tasks).
+    // Path scheme: production code writes single-document
+    // `identity-links/google_{sub}` (see GoogleSignInAuthAdapter.kt L254);
+    // rules below match that 2-segment path. Future providers add their own
+    // `match /identity-links/<prefix>_{accountId}` blocks additively.
     //
-    // На dev project (`launcher-old-dev`) сейчас открыто для любого
-    // authenticated user. Это OK потому что:
-    //   - Только developers имеют SHA-1 + google-services.json к этому project.
-    //   - Никаких реальных user PII здесь не лежит.
-    //   - Wire format (`schemaVersion`, UUIDv4 stableId) и domain types
-    //     уже jaja через unit tests.
-    //
-    // TODO(T801, T905, SRV-AUTH-IDENTITY-002): tightening rules перед prod.
-    match /identity-links/{any} {
-      allow read, create: if request.auth != null;
-      allow update, delete: if false;
+    // Still pending for prod (SRV-AUTH-IDENTITY-002): replace
+    // `request.auth.uid` with server-verified `request.auth.token.googleSub`
+    // custom claim so we no longer trust the client's choice of UID.
+    function isGoogleLinkIdForCaller(linkId) {
+      return request.auth != null
+          && linkId == "google_" + request.auth.uid;
     }
-    match /users/{any} {
-      allow read, create: if request.auth != null;
-      allow update, delete: if false;
+    function isValidUuidV4(s) {
+      return s is string
+          && s.size() == 36
+          && s.matches('^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$');
+    }
+    function ownerIdentityLink(uid) {
+      return /databases/$(database)/documents/identity-links/$("google_" + uid);
+    }
+    match /identity-links/{linkId} {
+      allow read: if isGoogleLinkIdForCaller(linkId);
+
+      allow create: if isGoogleLinkIdForCaller(linkId)
+                    && !exists(/databases/$(database)/documents/identity-links/$(linkId))
+                    && request.resource.data.keys().hasOnly(['schemaVersion', 'stableId', 'createdAt'])
+                    && request.resource.data.schemaVersion == 1
+                    && isValidUuidV4(request.resource.data.stableId)
+                    && request.resource.data.createdAt == request.time;
+
+      allow update: if false;       // immutable post-creation
+      allow delete: if false;       // S-6 Account Deletion via Cloud Function only
+    }
+
+    match /users/{stableId} {
+      allow create: if request.auth != null
+                    && exists(ownerIdentityLink(request.auth.uid))
+                    && get(ownerIdentityLink(request.auth.uid)).data.stableId == stableId
+                    && request.resource.data.keys().hasOnly(['schemaVersion', 'stableId', 'createdAt'])
+                    && request.resource.data.schemaVersion == 1
+                    && request.resource.data.stableId == stableId
+                    && request.resource.data.createdAt == request.time;
+
+      allow read: if request.auth != null
+                  && exists(ownerIdentityLink(request.auth.uid))
+                  && get(ownerIdentityLink(request.auth.uid)).data.stableId == stableId;
+
+      allow update: if false;       // F-5 / S-8 add own match blocks additively
+      allow delete: if false;       // S-6 Account Deletion via Cloud Function only
     }
 
     // ─── Spec 018 (F-5) — Recovery Key Vault ───────────────────────────

@@ -36,7 +36,7 @@
 - **Status**: 🟡 IN PROGRESS — F-5 implementation 75% complete на 2026-06-19. Реализованы core/keys/ KMP module, ConfigCipher (XChaCha20-Poly1305 + identity-binding AAD), RecoveryFlow (Argon2id + Firestore vault + 3-strike lockout), DataStore-backed H-1/H-2 mitigations, 75 JVM/Robolectric тестов проходят. Остаются: Firestore Emulator E2E grep test (SC-001 verification), recovery E2E test, OEM matrix, Firestore Rules deploy — всё требует эмулятор / физ. устройство. Branch 018-f5-config-e2e-encryption.
 - **Origin**: User raised 2026-05-28 — обнаружено при обсуждении spec 014 (Contact Sharing UX). Зафиксировано как F-5 в roadmap.md.
 
-### TODO-RULES-TESTS-REGRESSION-001: Pre-existing baseline failures в rules.auth.test.ts + rules.test.ts 🟡
+### TODO-RULES-TESTS-REGRESSION-001: Pre-existing baseline failures в rules.auth.test.ts + rules.test.ts ✅ DONE 2026-06-20
 
 - **What**: При запуске `cd firestore-tests && npm test` падают **14 тестов** в двух файлах:
   - `rules.auth.test.ts` (spec 017 F-4 identity-links): **все 12 тестов FAILED**.
@@ -67,11 +67,31 @@
      (revoke semantics), посмотреть в rules.test.ts что именно ожидает.
 - **When**: before next sync of dev project rules (т.е. при следующем
   изменении rules.auth.test.ts или rules.test.ts). **Не блокирует F-5b PR**.
-- **Status**: 🟡 OPEN
+- **Status**: ✅ DONE 2026-06-20
 - **Origin**: Обнаружено 2026-06-20 при запуске rules tests после deploy F-5b
   rules на launcher-old-dev. F-5b сам зелёный (22/22 + 20/20); baseline
   regression в pre-existing spec 007 / 017 tests существовал ДО F-5b и не
   затронут F-5b commits.
+- **Resolution (2026-06-20)**:
+  - **rules.auth.test.ts** path fix: тесты писали в `identity-links/google/{sub}`
+    (3 сегмента — Firestore интерпретирует как collection reference), а
+    production code (`GoogleSignInAuthAdapter.kt:254`) пишет в
+    `identity-links/google_{sub}` (single document). Обновлены пути в тестах.
+  - **firestore.rules** tightened: rules для `/identity-links/{linkId}` и
+    `/users/{stableId}` переписаны из "open to any authenticated" на
+    production-strict per spec 017 contract: identity ownership check
+    (`linkId == "google_" + request.auth.uid`), UUIDv4 regex, immutability,
+    cross-collection verification (`user create` требует existing identity-link
+    с matching stableId). Helper functions `isGoogleLinkIdForCaller`,
+    `isValidUuidV4`, `ownerIdentityLink` extracted. Deployed на
+    launcher-old-dev 2026-06-20.
+  - **rules.test.ts** `only_managed_can_delete_link` → переименован на
+    `both_admin_and_managed_can_delete_link`. Rule был намеренно расширен
+    на admin'а (см. firestore.rules L125-127 — для admin "prune stale link"
+    button); тест устарел. Добавлен новый тест `stranger_cannot_delete_link`
+    как defence-in-depth (третья сторона не имеет права).
+  - Full rules tests suite: **84/84 passes** (rules.test.ts 29 + rules.auth.test.ts 13
+    + rules.f5.recovery.test.ts 20 + rules.f5b.envelope.test.ts 22).
 
 ### TODO-OPS-001: Включить 2FA на Cloudflare account 🔴
 
