@@ -138,7 +138,61 @@ firebase deploy --only firestore:rules
 
 ---
 
-## 3. Проверка что всё работает
+## 3. Spec 018 (F-5b) — envelope storage + rules tests
+
+После Spec 007 + Spec 017 setup, F-5b добавляет:
+- новые Firestore коллекции (`/users/{uid}/data/`, `/users/{uid}/devices/`, `/users/{uid}/access-grants/`),
+- Security Rules для них (commit `8e327f9` в branch `018-f5-config-e2e-encryption`),
+- TypeScript rules unit tests + опционально Android instrumented E2E.
+
+### 3.1. Deploy F-5b Firestore Rules (если уже работаете на dev project)
+
+Rules уже в [`firestore.rules`](../../firestore.rules) — коммит Batch 4. Deploy на dev:
+
+```bash
+firebase use launcher-old-dev   # (или ваше имя dev project'а)
+firebase deploy --only firestore:rules
+```
+
+Если deploy fails с "rules compile error" — поправить syntax (Firebase CLI выводит конкретную строку) и повторить.
+
+### 3.2. Локальный Firebase Emulator (для rules unit tests)
+
+Установить Firebase CLI глобально (если ещё нет — см. §0.3) и тестовые npm deps:
+
+```bash
+cd firestore-tests
+npm install            # одноразово, ставит @firebase/rules-unit-testing, vitest, и т.д.
+npm test               # поднимает emulator на 8080/9099 → гоняет все *.test.ts → гасит
+```
+
+Ожидается зелёное на всех файлах:
+- `rules.test.ts` (Spec 007 pairings — 14 tests),
+- `rules.auth.test.ts` (Spec 017 identity-links — 7 tests),
+- `rules.f5.recovery.test.ts` (Spec 018 F-5 recovery vault — 20 tests),
+- `rules.f5b.envelope.test.ts` (Spec 018 F-5b envelope + devices + grants — 22 tests, добавлено в коммите `06af513`).
+
+Эмулятор использует sandboxed `demo-test` project — НЕ требует google-services.json
+и НЕ задевает ваш dev Firebase. Безопасно гонять на CI и локально.
+
+### 3.3. Android instrumented E2E через emulator (опционально, требует google-services.json sandbox)
+
+Этот раздел добавляется позже — когда настроим отдельный **sandbox** Firebase
+project (отдельный от dev) и instrumented test, который sign-in'ит через
+emulator + проверяет full encryption flow.
+
+**Сейчас**: skip. Rules tests из §3.2 покрывают server-side rules; F-5b
+crypto-side покрыт 75 jvmTest'ами в `:core:keys:jvmTest`.
+
+**Когда понадобится**: создать второй Firebase project (`launcher-sandbox`),
+скачать его google-services.json в отдельный variant'ы (потребует gradle
+flavor `realBackendSandbox` рядом с `realBackend`/`mockBackend`), запустить
+`firebase emulators:start` + connectedAndroidTest. Документация на этот шаг
+будет добавлена когда понадобится.
+
+---
+
+## 4. Проверка что всё работает
 
 После всех шагов:
 
