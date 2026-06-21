@@ -1,5 +1,6 @@
 package family.push.api
 
+import family.push.internal.PushPayloadWireFormat
 import kotlinx.serialization.Serializable
 
 /**
@@ -35,4 +36,20 @@ data class PushPayload(
     val triggerId: String,
     val fields: Map<String, String> = emptyMap(),
     val linkId: String? = null,
-)
+) {
+    companion object {
+        /**
+         * Public parse façade — receiver-side entry point.
+         *
+         * Parses flat FCM data-map (per FCM constraint `Map<String, String>`) into
+         * domain [PushPayload]. Returns null on any invariant violation (missing
+         * required field, schemaVersion > MAX_SUPPORTED, unparseable shape) —
+         * caller MUST drop silently (FR-075).
+         *
+         * Wraps internal [PushPayloadWireFormat.parse] — keeps wire encoding
+         * private while exposing stable public API.
+         */
+        fun parseFromFcmData(data: Map<String, String>): PushPayload? =
+            PushPayloadWireFormat.parse(data)
+    }
+}
