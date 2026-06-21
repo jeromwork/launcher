@@ -12,6 +12,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import family.keys.api.AsyncConfigPushQueue
+import family.keys.api.ConfigChangeNotifier
 import family.keys.api.Outcome
 import family.keys.api.PushStatus
 import family.keys.api.QueueError
@@ -169,6 +170,14 @@ class WorkManagerAsyncConfigPushQueue(
             return when (val r = storage.put(namespace, key, payload)) {
                 is Outcome.Success -> {
                     stagingFile.delete()
+                    // F-5c integration: notify higher layers that a config save
+                    // completed (e.g. trigger Worker push). Optional, fire-and-forget
+                    // — failure here MUST NOT affect storage success outcome.
+                    runCatching {
+                        org.koin.core.context.GlobalContext.get()
+                            .getOrNull<ConfigChangeNotifier>()
+                            ?.onConfigSaved(namespace, key)
+                    }
                     Result.success()
                 }
                 is Outcome.Failure -> {

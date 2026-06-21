@@ -144,6 +144,8 @@ dependencies {
     implementation(project(":core:crypto"))
     // Spec 018 (F-5) — key hierarchy, ConfigCipher, recovery.
     implementation(project(":core:keys"))
+    // Spec 019 (F-5c) — generic push-trigger foundation.
+    implementation(project(":core:push"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -206,6 +208,8 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    // Spec 019 (F-5c) — runTest для ConfigUpdatedHandlerTest.
+    testImplementation(libs.kotlinx.coroutines.test)
     // Spec 016 (F-CRYPTO) — Konsist fitness function: catches Fake crypto imports in :app/src/main.
     testImplementation(libs.konsist)
     // Spec 015 T119 — WizardEngineIntegrationTest constructs JsonPrimitive
