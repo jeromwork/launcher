@@ -637,46 +637,147 @@ from local random → server-allocated.
 
 **Источник**: Spec 018 F-5b Batch 3 inline TODO.
 
-## SRV-FCM-CONFIG-UPDATE: FCM notifier on remote storage write (spec 018 F-5b, отложено)
+## SRV-PUSH-FOUNDATION: Generic push-trigger infrastructure (spec 019 F-5c, rescoped 2026-06-20)
 
-**Контекст**: При write в `RemoteStorage.put(ownerUid, key, bytes)` другие
-устройства владельца + grant-holders должны узнать «config обновился, скачайте
-новую версию». Это FCM-driven cache invalidation.
+> **Renamed/rescoped 2026-06-20 evening** из узкого `SRV-FCM-CONFIG-UPDATE`.
+> Изначальный план был «один endpoint для config-updated». При проектировании
+> обнаружено **9 known future consumers** (S-4 SOS, S-9 Health, S-2 Pairing,
+> S-10 Subscription, V-2 Messenger, V-3 Album, V-6 Caregiver, spec 008 rewrite +
+> config-updated). Узкий путь требовал rewrite × 9; generic foundation = addition × 9.
+> Per CLAUDE.md rule 4 «only add abstraction if not adding forces rewrite» —
+> abstraction оправдана. Spec 019 строит foundation + первый use case.
 
-**Сейчас в коде**: NOTHING. Каждое устройство pulls по запросу (`pull-on-app-open`
-будет реализован в Batch 5+). Push-driven invalidation отсутствует.
+**Контекст**: Generic push-trigger infrastructure для семейного приложения —
+permits любой event type делать «trigger push на recipients семьи». Изначальный
+use case (cache invalidation для F-5b configs) — один из 9+ known consumers.
 
-**Требование при переезде на свой сервер** (или сейчас как client-callable
-Cloudflare Worker endpoint):
+**Сейчас в коде (после spec 019 implementation)**:
+- `core/push/` KMP module: `PushTrigger` port + `PushHandler` + `EventType` sealed
+  + `TargetScope` enum + wire-format DTOs.
+- `core/push-android/`: `HttpPushTrigger`, `FcmTokenPublisher`,
+  `LauncherFirebaseMessagingService` extension.
+- `workers/push/`: TypeScript Cloudflare Worker с `POST /push` endpoint,
+  EventTypeRegistry, JWT verification (jose), KV-based idempotency + rate limit,
+  FCM dispatch.
+
+**Endpoint** (Cloudflare Worker, временное решение per rule 8):
 ```
-POST /trigger-config-updated
-  body: { ownerUid, configName }
-  auth: owner или grant holder
+POST /push
+  Header: Authorization: Bearer <Firebase ID-token>
+  Header: Idempotency-Key: <UUID v4>
+  Body: {
+    schemaVersion: 1,
+    eventType: "config-updated" | "sos-triggered" | ...,
+    targetScope: "own-devices" | "own-and-grants",
+    ownerUid: "<uid>",
+    payload: { ...event-specific fields... }
+  }
 ```
 
-Server endpoint resolves recipients (own devices + grant holders) и пушит
-через FCM:
-```
-FCM payload:
-  data: { type: "config-updated", ownerUid, configName }
-  target: List<FCM device tokens of recipients>
-```
+Worker:
+1. Validates JWT через `jose` library с dynamic JWKS TTL (Cache-Control из Google response).
+2. Lookup eventType в EventTypeRegistry (static TypeScript const, whitelist).
+3. Per-event-type authorisation rule (config-updated = owner ∨ grant-holder; sos-triggered = owner; entitlement-expired = server-internal only).
+4. Per-event-type rate-limit (config-updated 60/min; sos-triggered 10/min; etc.).
+5. Idempotency dedupe через Workers KV (10-min TTL).
+6. Recipient resolution per TargetScope (Firestore `/users/{uid}/devices/*` + `/users/{uid}/grants/*`).
+7. FCM dispatch: `{schemaVersion, eventType, ownerUid, ...payload}` + `collapse_key: "{eventType}:{ownerUid}:{contextKey}"`.
+8. Bounded retry на FCM 429/5xx (3 attempts: 500ms, 2s, 8s).
 
-Client `MessagingService.onMessageReceived` triggers
-`ConfigSaver.loadForOther(ownerUid, configName)` → updates DataStore →
-UI refresh.
+Client `MessagingService.onMessageReceived` → `PushHandlerRegistry.handlerFor(eventType)` → dispatch к event-specific handler (например, `ConfigUpdatedHandler` → `ConfigSaver.loadForOther`).
 
-**Retry policy**: server retries up to 5 times с exponential backoff
-(per user instruction 2026-06-20). After 5 failures — entry marked стalе;
-client получает stale notification при следующем app open.
+**Retry policy** (поправлено per industry research, spec 019 Q3):
+- Client НЕ retries Worker endpoint на 5xx (fire-and-forget; recipient'ы получат свежий state через pull-on-app-open).
+- Worker retries FCM 3× (не 5 — per Twilio/SendGrid/Stripe industry standard для transient errors).
+- Receiver idempotent (debounce 2s на `(ownerUid, eventType, triggerId)`).
 
-**Why deferred to separate spec**: FCM topic management, server-side resolution
-of recipients (read directory + grants), Cloudflare Worker route — нетривиальная
-инфраструктура. Sufficient implementation требует:
-1. FCM Sender API key + project quota (Spark plan: 10K push/day).
-2. Cloudflare Worker route `/trigger-config-updated`.
-3. Client `MessagingService` extension.
-4. Subscription management (subscribe to per-device topic on bootstrap).
+**Требование при переезде на свой сервер**:
+Когда launcher переезжает с CF Worker free tier на собственный backend (например Ktor) — портировать:
+1. `POST /push` endpoint generic (та же wire-format).
+2. JWT verification: `jose` (JS) → Java JOSE library (Nimbus или эквивалент).
+3. EventTypeRegistry со всеми event types зарегистрированными к моменту migration.
+4. Recipient resolution: Firestore client SDK → собственная БД (user-device-grant таблицы).
+5. FCM dispatch: Firebase Admin SDK (на своём сервере без CF CPU limits — теперь OK).
+6. Idempotency: Workers KV → Redis или Postgres.
+7. Rate limit: Workers KV → Redis.
+8. JWKS cache: тот же Cache-Control pattern, но в memory cache своего сервера.
 
-**Источник**: Spec 018 F-5b user discussion 2026-06-20 — explicitly deferred to
-separate spec.
+**Что НЕ меняется при migration**:
+- Client-side `HttpPushTrigger` — только URL меняется (через app update; см. spec 019 Q5 — hardcoded URL вариант принят).
+- Wire-format JSON — unchanged.
+- `PushHandler` registry на receiver — unchanged.
+- `BackgroundDispatcher` port (foundation) — unchanged. `WorkManagerBackgroundDispatcher` adapter unchanged.
+- Все consumers (`ConfigSaver`, `SosService`, etc.) — unchanged (используют port).
+
+**`workers/_shared/auth-jwt/` extraction (separate concern)**:
+JWT verification (Firebase ID-token validation) extracted в standalone TypeScript module `workers/_shared/auth-jwt/` с первого commit (spec 019). Не push-specific — может быть reused любыми future Workers (V-3 album metadata, S-4 SOS если decoupled, etc.).
+
+При migration на own backend — **auth-jwt module portируется ОТДЕЛЬНО от push transport**:
+- Если оставляем Firebase Auth as identity provider → auth-jwt module impl остаётся, переносится 1:1 (jose → Java JOSE library типа Nimbus).
+- Если переходим на свой identity provider (F-4 / spec 017 territory): auth-jwt module расширяется на multiple JWT issuers (Firebase + наш own). Mapping table «Google identity → internal UID» лежит в auth-server, не в auth-jwt.
+
+Это позволяет **независимую migration** auth и push transports.
+
+**FCM Service Account JWT** (Worker → Google FCM HTTP v1 API):
+При переезде на own backend и сохранении FCM:
+- Нужен **Firebase project** (или просто Google Cloud Project с FCM enabled) — для FCM trust.
+- **Service Account JSON** с FCM Sender role — private key переезжает в свой secret manager (HashiCorp Vault, AWS Secrets Manager, и т.д.), НЕ в plain file.
+- Backend (Ktor сервер) при каждом FCM call'е генерит short-lived JWT через SA private key. Same mechanism как Worker сейчас, только в другом host.
+- Если переезжаем на own push transport (WebPush/APNS/own protocol) — FCM SA не нужен, `dispatch/fcm-dispatcher.ts` полностью replaced.
+
+**Inline TODOs** в Worker (`workers/push/src/`):
+- `auth/jwks-verifier.ts`: `TODO(server-roadmap SRV-PUSH-FOUNDATION): port to own backend, use Java JOSE`
+- `dispatch/fcm-dispatcher.ts`: `TODO(server-roadmap SRV-PUSH-FOUNDATION): replace with Firebase Admin SDK when off CF`
+- `dedupe/idempotency.ts`: `TODO(server-roadmap SRV-PUSH-FOUNDATION): Workers KV → Redis on own backend`
+- `ratelimit/rate-limiter.ts`: same pattern
+
+**Estimated migration cost**: 5-7 дней (когда own server уже существует, остаётся только port логики 1:1).
+
+**Spark plan FCM quota**: 10K push/day. Для MVP scale (~500 admins × ~20 push/day) с запасом. Beyond — upgrade Blaze или client-side rate-limit.
+
+**Why CF Worker сейчас, не свой сервер**: per CLAUDE.md rule 8 — «бесплатный обход». Cost экономии: $0/month vs ~$10-30/month managed Ktor hosting + ~5-7 дней dev времени.
+
+**Источник**: Spec 019 F-5c rescope discussion 2026-06-20 evening — owner approved generic foundation per rule 4 (forces rewrite × 9).
+
+---
+
+## SRV-PUSH-EXTRACTION: Push foundation → отдельный repo (spec 019 F-5c future)
+
+**Контекст**: `core/push/` (KMP module) и `workers/push/` (TypeScript Worker) спроектированы как **extraction-ready** с первого commit — независимые билды, общая только wire-format JSON. Сейчас (Phase 1) живут в monorepo `c:\work\launcher` — правильное решение для единственного consumer (Android launcher).
+
+**Триггер extraction**: появление **второго независимого consumer**. Конкретно — начало работы над спекой **V-2 Elderly-Friendly Messenger** (Phase 4), которая будет **отдельным приложением** в отдельном repo.
+
+**Не выносить пока**:
+- Только один consumer (launcher).
+- Wire-format ещё стабилизируется через несколько спек-итераций (S-4, S-9 могут обнаружить design промахи в начальной версии).
+- Простой рефакторинг внутри одного репо.
+
+**Что готово к extraction уже сейчас** (design-level):
+
+| Компонент | Готовность | Действие при extraction |
+|---|---|---|
+| `workers/push/` | ✅ полностью | `git subtree split --prefix=workers/push -b push-worker` → push в новый repo |
+| `core/push/` (KMP) | ✅ полностью | `mv core/push/ ../push-client/` + настроить Maven publishing + заменить `project(":core:push")` на `"com.familycare:push-client:1.0.0"` |
+| Wire-format contract | ✅ versioned (schemaVersion) | unchanged |
+| Зависимости `core/push/` от других `core/*` модулей | минимальные (только `core/auth/api` для AuthIdentity) | `core/auth/api` тоже extraction-ready (мелкий refactor если нужно) |
+
+**Estimated extraction cost**: ~1 день работы (publishing setup + Maven coordinates + git subtree split + замена project deps на artifact deps + тесты).
+
+**Inline TODOs**:
+- `core/push/build.gradle.kts`: `TODO(extraction SRV-PUSH-EXTRACTION): when V-2 starts, extract to standalone Maven artifact com.familycare:push-client`
+- `workers/push/wrangler.toml`: `TODO(extraction SRV-PUSH-EXTRACTION): extraction-ready via git subtree split`
+
+**Pre-extraction hygiene** (что делать ДО extraction, чтобы не превратить в задачу):
+- НЕ добавлять в `core/push/` зависимости от launcher-specific модулей (`core/launcher/*`, `feature/*`).
+- НЕ позволять Android-specific типам утекать в public API (`api/` package).
+- Любое расширение wire-format — через `schemaVersion` bump (rule 5).
+
+**Status**: 🟢 Nice-to-have, выполняется когда триггер срабатывает. До тех пор — design discipline (см. pre-extraction hygiene) поддерживает extraction-readiness без работы.
+
+**Источник**: Spec 019 F-5c architectural discussion 2026-06-20 evening — extraction roadmap explicitly approved.
+
+---
+
+## SRV-FCM-CONFIG-UPDATE: replaced by SRV-PUSH-FOUNDATION (2026-06-20)
+
+Этот entry **заменён** на `SRV-PUSH-FOUNDATION` выше. Узкий scope «один endpoint для config-updated» расширен до generic push infrastructure при проектировании spec 019. См. SRV-PUSH-FOUNDATION для актуальной планировки migration на свой сервер.
