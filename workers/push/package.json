@@ -1,0 +1,26 @@
+{
+  "name": "launcher-push-v2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Generic push-trigger Worker — Cloudflare relay between client devices and FCM. Spec 019 F-5c. Endpoint POST /push. Replaces (eventually) /notify endpoint of legacy push-worker/ during Phase 4 migration. Reuses @familycare/auth-jwt for Firebase ID-token verification.",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@familycare/auth-jwt": "file:../_shared/auth-jwt",
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.5.40",
+    "@cloudflare/workers-types": "^4.20241218.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
+    "wrangler": "^3.99.0"
+  }
+}

@@ -1,0 +1,7 @@
+# Local dev secrets (T005) — never commit.
+.dev.vars
+
+# Build artefacts.
+node_modules/
+dist/
+.wrangler/

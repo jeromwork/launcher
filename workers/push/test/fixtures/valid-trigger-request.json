@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "eventType": "config-updated",
+  "targetScope": "own-and-grants",
+  "ownerUid": "TestUid1234567890123456789AB",
+  "payload": {
+    "configName": "main"
+  }
+}

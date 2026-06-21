@@ -1,0 +1,21 @@
+{
+  "name": "@familycare/auth-jwt",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Firebase ID-token JWT verification module for Cloudflare Workers. Spec 019 F-5c §FR-002, FR-003. Standalone (no Firebase Admin SDK — incompatible with Workers runtime). Reusable across Workers (push, future V-3 album, etc.). Per TODO-ARCH-018 — extraction trigger when 2nd Worker consumer ships.",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241218.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
