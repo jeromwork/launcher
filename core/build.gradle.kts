@@ -178,6 +178,12 @@ dependencies {
     // Wired через 'androidMainImplementation' Android-flavor-agnostic configuration.
     "androidMainImplementation"(variantOf(libs.jna) { artifactType("aar") })
 
+    // Spec 019 (F-5c) — receiver-side dispatch via PushHandlerRegistry.
+    // Used by LauncherFirebaseMessagingService (androidRealBackend) для
+    // forking new-shape payloads ("eventType" field) к family.push.api.PushHandlerRegistry.
+    // Legacy "type"-shape payloads продолжают работать через existing FcmReceiverContract.
+    "androidMainImplementation"(project(":core:push"))
+
     // Spec 011 — Robolectric unit tests for libsodium adapters need pure JVM
     // JNA jar (aar variant carries .so файлы для device runtime, не работают
     // в host JVM). aar exclusion ниже исключает jna для Android compilation;

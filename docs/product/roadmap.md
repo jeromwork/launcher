@@ -109,8 +109,21 @@ Phase 1: Foundation (~5-7 weeks sequential)
    Шаг 3: F-4  AuthProvider + Google Sign-In   — identity foundation (✅ Done, merged PR #21 2026-06-18)
    Шаг 4: F-5  Root Key Hierarchy + Config Encryption + Recovery 🔴 PRODUCTION BLOCKER (🟢 Implemented as F-5b envelope variant 2026-06-20 — spec 018 pivoted from symmetric self-edit to hybrid envelope per spec 011 §C-2/§C-3; RemoteStorage facade + ConfigSaver + EnvelopeBootstrap + multi-recipient cross-user delegation; 68 JVM tests green; legacy AeadConfigCipher/KeyRegistry/SealedConfig removed)
           → создаёт core/keys/ envelope foundation, multi-recipient ready, reusable across launcher + future messenger + album
-   Шаг 4a: F-5c FCM-trigger config-updated — отдельная мини-спека (📋 PLANNED 2026-06-20)
-          → Cloudflare Worker route /trigger-config-updated → resolve recipients → FCM data-message → клиент через LauncherFirebaseMessagingService (spec 007) ловит PushType.ConfigChanged → ConfigSaver.loadOwn/loadForOther → DataStore + UI refresh. Retry до 5 раз с exponential backoff. Скоп: ~3-5 дней работы. Owner approved 2026-06-20.
+   Шаг 4a: F-5c Push-trigger foundation + config-updated event (📋 PLANNED 2026-06-20, rescoped 2026-06-20 evening)
+          → **Generic reusable push infrastructure** (не узкая мини-спека) + первый use case (config-updated). Foundation:
+            - Cloudflare Worker `POST /push` endpoint (generic, не /trigger-config-updated) с EventTypeRegistry (whitelist event types + per-type rules: auth, rate-limit, collapse-key, priority).
+            - JWT verification через `jose` library (dynamic JWKS TTL по Cache-Control), все claims проверяются (alg=RS256, iss, aud, exp, iat, sub, kid).
+            - Idempotency-Key (UUID v4 per push action) через Workers KV, 10-min TTL.
+            - Recipient resolution per TargetScope (OwnDevices / OwnAndGrants).
+            - FCM dispatch с bounded retry (3 attempts), collapse_key per `(eventType, ownerUid, contextKey)`.
+            - Rate-limit per UID per eventType (защита от abuse, не от UX — нет debounce, push = explicit user action per spec 008 model).
+            - Client side: `core/push/` KMP module — generic `PushTrigger` port + `PushHandler` + `EventType` sealed + `TargetScope`.
+            - Android adapter: `HttpPushTrigger`, `FcmTokenPublisher` (отдельный port от EnvelopeBootstrap — lifecycle independence).
+            - PushPayload breaking change: `linkId` → nullable, `ownerUid + configName + eventType` first-class (старая spec 008 единственный consumer, переписывается параллельно).
+            - First event type: `ConfigUpdated`. ConfigSaver triggers push после successful save через `PushTrigger.trigger(...)`.
+          → Foundation переиспользуется в S-4 (sos-triggered), S-9 (battery-critical, device-offline), S-2 (pairing-accepted), V-2 (message-arrived, call-incoming), V-3 (album-photo-added) — каждый последующий = ~30 строк (EventTypeRegistry entry + handler + consumer wrapper), без правки foundation. Архитектура изложена в spec 019 §«Reuse pattern».
+          → Extraction-ready: `core/push/` → Maven artifact + `workers/push/` → отдельный repo. Триггер extraction: начало V-2 (Messenger как отдельное приложение). Документировано в SRV-PUSH-EXTRACTION (server-roadmap.md).
+          → Скоп: **5-7 дней работы** (foundation +2 дня против узкой мини-спеки, payback в S-4/S-9/V-2 которые сэкономят 3-5 дней каждая). Owner approved scope expansion 2026-06-20 evening.
    Шаг 4b: Spec 008 rewrite (collaborative editing) — отдельная спайка (📋 PLANNED 2026-06-20)
           → Текущая spec 008 устарела (anonymous pair model до decisions 2026-05-30/2026-06-15). Concepts (collaborative editing, merge UI, pending-changes warning, Room persistence) сохраняются. Storage layer переписывается на ConfigSaver + RemoteStorage от F-5b. Legacy code: DefaultConfigEditor, FirebaseConfigApplier, FirebaseTransactionScope удаляются. WorkManager async push integration. Объём: ~2-3 недели работы. Owner approved 2026-06-20.
    Шаг 4c: E2E через Firestore Emulator extension — F-5b envelope rules tests (TypeScript через @firebase/rules-unit-testing — 22/22 в firestore-tests/rules.f5b.envelope.test.ts) + Android instrumented [CloudConfigEncryptionE2ETest](../../app/src/androidTest/java/com/launcher/app/data/envelope/CloudConfigEncryptionE2ETest.kt) (🟢 Verified 2026-06-20 на Xiaomi 11T: Firebase Emulator + real `launcher-old-dev` cloud — оба пути 2/2 PASSED, SC-001 acceptance закрыт на реальном TEE Keystore + MIUI).

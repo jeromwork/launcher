@@ -612,6 +612,89 @@
 - **Status**: 🟢 OPEN (триггер: первый schema bump)
 - **Origin**: spec 009 pre-specify discovery (пункт 6 роадмапа, schema invalidation Q).
 
+### TODO-ARCH-017: Push foundation extraction в отдельные repos 🟢
+
+- **What**: Вынести `core/push/` (KMP module) в отдельный Maven artifact `com.familycare:push-client` и `workers/push/` (TypeScript Worker) в отдельный git repo `github.com/familycare/push-worker`. **auth-jwt module** (`workers/_shared/auth-jwt/`) вынести **отдельно** — он independent от push, см. TODO-ARCH-018.
+- **Why**: Push foundation спроектирован в спеке 019 (F-5c) как **reusable infrastructure** для 9+ known consumers (config-updated, sos-triggered, battery-critical, message-arrived, call-incoming, album-photo-added, pairing-accepted, entitlement-expired, caregiver-invited). Сейчас (Phase 1) живёт в monorepo — правильно для единственного consumer (launcher). При появлении второго независимого приложения (V-2 Messenger) — extraction избавит от двойного maintenance.
+- **How**:
+  - `workers/push/` уже extraction-ready: independent `package.json`, `wrangler.toml`, deploy через `wrangler deploy`. Один command: `git subtree split --prefix=workers/push -b push-worker` → push в новый repo.
+  - `core/push/` extraction: `mv core/push/ ../push-client/` + настроить Maven publishing (publish to Maven Central или GitHub Packages) + заменить `implementation(project(":core:push"))` на `implementation("com.familycare:push-client:1.0.0")`.
+  - Pre-extraction hygiene (поддерживать с первого commit, чтобы extraction остался ~1 день работы):
+    - НЕ добавлять в `core/push/` зависимости от launcher-specific модулей (`core/launcher/*`, `feature/*`).
+    - НЕ позволять Android-specific типам утекать в public API (`core/push/api/` package).
+    - Любое расширение wire-format — через `schemaVersion` bump.
+- **When**: Триггер — начало работы над спекой **V-2 Elderly-Friendly Messenger** (Phase 4), которая будет отдельным приложением. До этого — design discipline поддерживает extraction-readiness без работы.
+- **Status**: 🟢 OPEN (триггер: V-2 spec start)
+- **Origin**: Spec 019 F-5c architectural discussion 2026-06-20 evening. Полная планировка в [server-roadmap.md SRV-PUSH-EXTRACTION](server-roadmap.md#srv-push-extraction-push-foundation--отдельный-repo-spec-019-f-5c-future).
+
+### TODO-ARCH-018: Auth-JWT module extraction в отдельный package 🟢
+
+- **What**: Вынести `workers/_shared/auth-jwt/` (TypeScript module для Firebase ID-token verification — jose, JWKS cache, claims validation) в отдельный npm package `@familycare/auth-jwt` (private или published).
+- **Why**: Auth-jwt module spec 019 F-5c намеренно spроектирован как **separate concern** от push transport. Сейчас живёт в `workers/_shared/auth-jwt/` внутри monorepo, importable любыми Worker'ами через relative path. При появлении второго Worker (V-3 album metadata, или any future Worker который нужно auth) — extraction в standalone package избавит от relative imports + позволит independent versioning.
+- **Critical for own-server migration**: при переезде на own backend (per [SRV-PUSH-FOUNDATION](server-roadmap.md)) auth-jwt module — **первый кандидат на портирование**. Чёткий API без push-coupling позволяет: «возьмите эту библиотеку, замените `iss === securetoken.google.com/...` на ваш auth provider, остальное работает».
+- **How**:
+  1. Add `workers/_shared/auth-jwt/package.json` с `"name": "@familycare/auth-jwt"`, `"private": true` (или `"private": false` если решим публиковать).
+  2. Configure `workers/push/package.json` to depend on `@familycare/auth-jwt` через `file:../_shared/auth-jwt` (current setup) or `workspace:*` (если уйдём в npm workspaces).
+  3. При extraction в отдельный repo: setup CI для publishing + Worker depends on published version.
+- **When**: 
+  - **Now (Phase 1)**: module создаётся как `workers/_shared/auth-jwt/` в monorepo — это уже **первый шаг extraction** (clear boundary, own package.json).
+  - **Future trigger**: появление второго Worker который тоже imports auth-jwt → consider extraction в отдельный repo.
+- **Status**: 🟢 OPEN (initial scaffolding делается в Spec 019 F-5c; final extraction — future trigger).
+- **Origin**: Spec 019 F-5c clarify pass + scenarios discussion 2026-06-21. Принято что JWT verification — НЕ push concern, должно жить отдельно с первого commit.
+
+### TODO-ARCH-019: F-5c pull-fallback hook — explicit `onAppForeground()` nomenclature 🟢
+
+- **What**: F-5c FR-038 говорит «recipient converges via existing pull-on-app-open path (`ConfigSaver.loadOwn(...)` invoked at app foreground per F-5b)». Но в F-5b (spec 018, merged) **нет явного hook'а** `ConfigSaver.onAppForeground()` / `onAppStart()` — `loadOwn` invoked где попало (ConfigSaverImpl callers). F-5c полагается на mechanism который semantically существует, но не имеет first-class API.
+- **Why**: Если в будущем `ConfigSaver.loadOwn` consumers расходятся (несколько call-sites, разные lifecycle moments) — push-failure-fallback может молча сломаться. Сейчас "работает because all call-sites cover the path", но без явного контракта это easy to break.
+- **How** (когда возникнет необходимость):
+  1. Добавить в `ConfigSaver` (или сопутствующий port) метод `onAppForeground()` или `refreshAll(): Outcome<Unit, _>` с явной семантикой «catch-up after possible push miss».
+  2. Single call-site: `MainActivity.onResume()` / `LauncherApp.processLifecycleObserver` → `coroutineScope.launch { configSaver.onAppForeground() }`.
+  3. F-5c FR-038 пере-formulate'ся: «recipient converges via `ConfigSaver.onAppForeground()` invoked at process foreground per V-1».
+- **When**: Триггер — V-1 «activity hub / launcher resume policy» spec; ИЛИ когда push reliability deteriorates and need observable refresh path.
+- **Status**: 🟢 OPEN (F-5c works without this; nomenclature gap, не functional gap).
+- **Origin**: User feedback на F-5c implementation 2026-06-21 — "F-5c должен явно сказать «я делегирую catch-up на ConfigSaver.onAppStart()», без этого юзер увидит stale config после force-stop, не поймёт почему".
+
+### TODO-ARCH-020: V-2 messenger — hybrid FCM + persistent connection architecture 🟢
+
+- **What**: V-2 Family Messenger потребует real-time presence (typing indicators, online status, delivered receipts) — это **за пределами F-5c push** (which is delivery-without-presence). Решение в индустрии: hybrid FCM (background notifications) + WebSocket/LiveQuery (foreground active session). WhatsApp/Signal используют именно эту модель.
+- **Why**:
+  - F-5c `BackgroundDispatcher` (WorkManager-based) **не подходит** для long-lived WebSocket: WorkManager constraint violations, Doze kills socket, foreground service для socket = постоянная иконка в статусбаре (UX expensive).
+  - Гибрид: FCM wakes app for "new message" notifications + при app в foreground открывается WebSocket для realtime presence + foreground service (с visible notification) **только** когда active call/typing.
+  - F-5c решение НЕ закрывает дорогу (additive): `LiveQuery` port вводится отдельно от `PushTrigger`, существуют параллельно.
+- **How** (когда дойдёт до V-2 messenger spec):
+  1. Добавить port `LiveQuery` (или `RealtimeChannel`) — separate от `BackgroundDispatcher`. NOT replacement, **additive**.
+  2. Спроектировать гибридную модель: FCM-only path (default), FCM + WebSocket promotion при active session.
+  3. Foreground service policy: visible notification «{N} active chats» только когда WebSocket держится; никогда «Launcher активен» permanent.
+  4. Battery budget: измерить FCM-only baseline vs hybrid, document accepted overhead в спеке.
+- **When**: V-2 «Elderly-Friendly Messenger» spec start. До этого — никакого preemptive abstraction (rule 4).
+- **Status**: 🟢 OPEN (out of F-5c scope; not blocked by F-5c design).
+- **Origin**: User architectural concern на F-5c implementation 2026-06-21 — "WhatsApp и Signal делают именно гибрид — FCM в background, WebSocket только в foreground".
+
+### TODO-ARCH-021: PushTrigger naming reconsideration at extraction trigger 🟢
+
+- **What**: Port `family.push.api.PushTrigger` назван по EFFECT'у («trigger push»). Слово «push» — semi-transport-leaky (FCM concept, хотя и applies к APNs / future protocols). Альтернативы для рассмотрения при extraction: `EventNotifier` (too vague), `RemoteEventDispatch` (verbose), `BackgroundEventChannel` (channel = WebSocket vibes — confusing).
+- **Why**: Сейчас наименование embedded в 15+ files (`PushTrigger`, `PushTriggerError`, `PushTriggerRequest`, `PushHandler`, `PushHandlerRegistry`, `PushPayload`) и в callers (ConfigSaver, future SOS/album/messenger). Rename СЕЙЧАС = no functional benefit + diff noise. Rename в TODO-ARCH-017 (extraction trigger) — extraction уже breaking change, naming pass идёт one go.
+- **How** (когда extraction начнётся):
+  1. Bikeshed proposal: `PushTrigger` → `EventNotifier` или `EventDispatch`. Принять перед `git subtree split`.
+  2. Soft-rename: keep old name as `@Deprecated typealias` в первой extracted version → consumers migrate.
+  3. Hard-remove typealias на schemaVersion bump.
+- **When**: TODO-ARCH-017 trigger (V-2 spec start).
+- **Status**: 🟢 OPEN (defer until extraction).
+- **Origin**: User feedback на F-5c implementation 2026-06-21 — "port назван по тому что снаружи (плохо) vs port назван по тому что внутри хочет caller (хорошо)".
+
+### TODO-ARCH-022: V-2 FakeLiveQuery contract — eventual consistency simulation 🟢
+
+- **What**: Когда добавим `LiveQuery` port (TODO-ARCH-020), его fake adapter ОБЯЗАН симулировать eventual consistency Firestore (snapshot latency, write→listener propagation delay 100ms-2s). Иначе test suite green но prod багает на race conditions.
+- **Why**: F-5c fakes (`FakePushTrigger`, `FakeBackgroundDispatcher`) — synchronous (no eventual consistency concern — push fire-and-forget). Но `LiveQuery` semantically отличается: подписка возвращает stream snapshots, между write и snapshot есть latency. Tests с synchronous fake → false confidence. CLAUDE.md rule 6 (mock-first) требует чтобы fake adequately моделировал real behavior.
+- **How** (когда LiveQuery port появится):
+  1. `FakeLiveQuery` принимает `simulatedWriteLatency: Duration` constructor parameter (default 200ms).
+  2. `subscribe(query): Flow<Snapshot>` emits initial snapshot immediately, subsequent snapshots — after configured latency relative к `write()` calls.
+  3. Test helpers: `advanceTimeBy(...)` для kotlinx-coroutines-test integration.
+  4. Property test: write→subscribe в любом order'е → eventual consistent state observed within `latency × 2` window.
+- **When**: V-2 messenger spec start (когда `LiveQuery` port вводится).
+- **Status**: 🟢 OPEN (forward-looking design discipline).
+- **Origin**: User architectural concern на F-5c implementation 2026-06-21 — "FakeLiveQuery должен правильно эмулировать eventual consistency Firestore (не возвращать данные мгновенно), иначе тесты будут зелёными, а прод будет багать".
+
 ---
 
 ## Security Hardening

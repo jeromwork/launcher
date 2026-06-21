@@ -1,0 +1,22 @@
+{
+  "owner": "TestUid1234567890123456789AB",
+  "ownerDevices": [
+    {
+      "deviceId": "device-owner-001",
+      "fcmToken": "fake-fcm-token-owner-001"
+    }
+  ],
+  "grantHolders": [
+    {
+      "uid": "GrantHolderUid001",
+      "role": "write",
+      "expiresAt": "2099-12-31T23:59:59Z",
+      "devices": [
+        {
+          "deviceId": "device-holder-001",
+          "fcmToken": "fake-fcm-token-holder-001"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+# workers/push — generic push-trigger Worker (Spec 019 F-5c).
+#
+# Replaces /notify endpoint of legacy push-worker/ during Phase 4 migration.
+# Per plan.md §Architecture (Module map).
+#
+# TODO(C10 exit ramp / TODO-ARCH-001): при миграции на свой домен — раскомментировать
+#   [[routes]] block ниже + удалить *.workers.dev из HttpPushTrigger
+#   WORKER_BASE_URL constant. См. server-roadmap.md SRV-PUSH-FOUNDATION.
+
+name = "launcher-push-v2"
+main = "src/index.ts"
+compatibility_date = "2025-05-11"
+
+# TODO(setup T004): заполнить account_id перед первым `wrangler deploy`.
+# account_id = "<copy from existing push-worker/wrangler.toml after Phase 4 migration>"
+
+[vars]
+# Public (не secret) — Firebase project ID для FCM HTTP v1 send API.
+# Same project as legacy push-worker/.
+FIREBASE_PROJECT_ID = "launcher-old-dev"
+
+# Maximum supported wire-format schema version (mirrors Kotlin const
+# WireFormatVersion.MAX_SUPPORTED_SCHEMA_VERSION). T402 fitness function
+# verifies these stay in sync.
+MAX_SUPPORTED_SCHEMA_VERSION = "1"
+
+# TODO(setup T004): создать KV namespaces через `wrangler kv:namespace create`
+# и подставить ID + preview_id для каждой пары.
+#
+# wrangler kv:namespace create JWKS_CACHE
+# wrangler kv:namespace create JWKS_CACHE --preview
+# (повторить для IDEMPOTENCY_CACHE, RATE_LIMIT)
+#
+# [[kv_namespaces]]
+# binding = "JWKS_CACHE"
+# id = "<TODO>"
+# preview_id = "<TODO>"
+#
+# [[kv_namespaces]]
+# binding = "IDEMPOTENCY_CACHE"
+# id = "<TODO>"
+# preview_id = "<TODO>"
+#
+# [[kv_namespaces]]
+# binding = "RATE_LIMIT"
+# id = "<TODO>"
+# preview_id = "<TODO>"
+
+# TODO(setup T005): secrets через `wrangler secret put`:
+#   FCM_SERVER_KEY      — service-account JWT signing key (for FCM HTTP v1)
+#   FIREBASE_SA_JSON    — full service-account JSON (alternative; choose one)
+# Для local dev — workers/push/.dev.vars (gitignored).
+
+# TODO(TODO-ARCH-001 custom domain): раскомментировать routes block
+# когда переедем с *.workers.dev на собственный домен.
+# [[routes]]
+# pattern = "push.<our-domain>/push"
+# custom_domain = true
