@@ -164,7 +164,7 @@ class CloudConfigEncryptionE2ETest {
 
     @Test
     fun roundtripOwnConfigByteEqual() = runBlocking {
-        signInAnonymouslyOrSkip()
+        requireSignedInUser()
         val boot = envelopeBootstrap.bootstrap()
         assertTrue("bootstrap must succeed, got $boot", boot is Outcome.Success)
         val uid = auth.currentUser!!.uid
@@ -187,7 +187,7 @@ class CloudConfigEncryptionE2ETest {
 
     @Test
     fun sc001OpacityRawFirestoreDocDoesNotLeakPlaintext() = runBlocking {
-        signInAnonymouslyOrSkip()
+        requireSignedInUser()
         val boot = envelopeBootstrap.bootstrap()
         assertTrue("bootstrap must succeed, got $boot", boot is Outcome.Success)
 
@@ -225,22 +225,17 @@ class CloudConfigEncryptionE2ETest {
     // ─── helpers ───────────────────────────────────────────────────────────
 
     /**
-     * Try to sign in for the test. On the Firebase Emulator anonymous sign-in
-     * is unconditionally available; on real cloud anonymous is disabled
-     * (decision 2026-05-30), so the test is skipped if an authenticated user
-     * is not already present.
+     * Per decision 2026-05-30 anonymous Firebase Auth удалён полностью.
+     * Тест ожидает, что caller уже выполнил Google Sign-In (через app или
+     * прошлый E2E прогон — сессия persisted в EncryptedLocalSessionStore).
+     * Если currentUser отсутствует — тест skip, не fail.
      */
-    private suspend fun signInAnonymouslyOrSkip() {
-        if (auth.currentUser != null) return
-        try {
-            auth.signInAnonymously().await()
-        } catch (t: Throwable) {
-            org.junit.Assume.assumeNoException(
-                "Anonymous sign-in not available (real cloud — decision 2026-05-30). " +
-                    "Run this test with -PuseFirebaseEmulator=true.",
-                t
-            )
-        }
+    private fun requireSignedInUser() {
+        org.junit.Assume.assumeTrue(
+            "test requires pre-signed-in Google user (anonymous auth removed per decision 2026-05-30). " +
+                "Run app once to sign in, then re-run this test.",
+            auth.currentUser != null
+        )
     }
 
     private fun base64UrlNoPad(s: String): String =
