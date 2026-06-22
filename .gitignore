@@ -51,3 +51,8 @@ node_modules/
 app/google-services.json
 google-services.json
 
+# Local diagnostic artifacts — screenshots, ad-hoc test scripts. Не часть
+# source-of-truth; полезны во время сессии и удаляются между сессиями.
+tmp/
+firestore-tests/test-*.mjs
+

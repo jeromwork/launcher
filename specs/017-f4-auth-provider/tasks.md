@@ -3,6 +3,44 @@
 **Branch**: `017-f4-auth-provider` | **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md)
 **Generated**: 2026-06-18
 
+---
+
+## Status snapshot (2026-06-22)
+
+Большая часть кода спеки уже реализована в `main` (через параллельные сессии до создания этой ветки). Реальное состояние:
+
+### Реализовано (53 из 64 задач)
+- **Phase 0 (deps)**: T701, T702, T703 — DONE
+- **Phase 1 (domain types)**: T710–T718 — DONE. Размещены в `com.launcher.api.auth.*` (не `family.launcher.domain.auth.*`, как в исходном тексте задач). `Outcome` уже существовал в `com.launcher.api.result`.
+- **Phase 2 (Fakes + contract tests)**: T720–T723 — DONE.
+- **Phase 3 (wire format)**: T730–T732 — DONE. Fixture хранится как `const val` в `SessionRecordFixtures.kt` (а не как JSON-ресурс — KMP commonTest resource loading нестабилен между Android/JVM/iOS).
+- **Phase 4 (EncryptedLocalSessionStore)**: T740, T741, T743 — DONE. `SessionRecord.expiresAt: Instant` заменено на `expiresAtEpochMillis: Long` (избегаем kotlinx-datetime в `:core`; контракт `session-record-v1.md` обновлён).
+- **Phase 5 (GoogleSignInAuthAdapter)**: T750, T751, T752, T753 — DONE. **Важное отклонение от tasks.md**: identity-link использует `firebaseUid` как `providerAccountId` (документ `identity-links/google_{firebaseUid}`), НЕ google `sub` claim. Это упрощает Firestore Rules и убирает gap с F-5b на стороне identity-links.
+- **Phase 6 (Selector + DI)**: T760, T761, T762 — DONE. Wired в `androidRealBackend/.../di/BackendInit.kt`.
+- **Phase 7 (UI)**: T780, T781, T782 — DONE. Файлы в `core/src/commonMain/kotlin/com/launcher/ui/auth/`.
+- **Phase 8 (fitness)**: T791–T798 — DONE через единый `Spec017AuthIsolationTest.kt` (Konsist-style file scanner вместо отдельных Detekt rules — эффект тот же, реализация компактнее).
+- **Phase 9 (Firestore Rules)**: T800, T801 — DONE.
+- **Phase 10 (docs)**: T810–T814 — DONE.
+
+### Что реально осталось (11 задач)
+- **Unit tests (без эмулятора)**: T754 (`GoogleSignInAdapterUnitTest`), T755 (`AuthProviderContractTestGoogle`), T763 (`ProviderSwapFitnessTest`), T790 (`AuthLog` структурированный логгер — сейчас используется `Log.i/w` напрямую).
+- **Instrumentation tests (нужен эмулятор)**: T742 (`EncryptedLocalSessionStoreInstrumentationTest`), T756 (`GoogleSignInAdapterInstrumentationTest`), T757 (`InFlightSignInRotationTest`), T764 (`LocalModeNoSignInTest`), T765 (`ColdStartLatencyTest`), T802 (`IdentityLinksRaceTest`).
+- **Локализация**: T784 (screenshots RU/EN/DE).
+
+### Текущий gap: F-4 ↔ F-5b интеграция
+
+Identity-links gap (на стороне F-4) уже закрыт через переход на `firebaseUid` как `providerAccountId`. Остаточный gap — на стороне F-5b: consumer передаёт `AuthIdentity.stableId` в Firestore path `/users/{ownerUid}/...`, а Rules ожидают `firebaseUid` (= `request.auth.uid`). **Решение — отдельный port `FirebaseAuthBridge` в `core/src/androidMain/.../adapters/auth/`** (взято в работу в этой ветке, см. план ниже).
+
+---
+
+## История планирования
+
+- **2026-06-18** (план 0): `/speckit.analyze` вернул `READY`, спека готова к коду от T701. Предполагалось пройти все 64 задачи последовательно в одной ветке.
+- **2026-06-22** (план 1 → 2): первая разведка ветки `017-f4-auth-provider` показала, что 17 задач Phase 0–4 уже реализованы в `main`. Решено: пересобрать tasks.md под реальное состояние, потом писать только недостающее.
+- **2026-06-22** (план 2 → 3, текущий): полный аудит выявил, что **53 из 64 задач уже реализованы** (а не 17). Реальный gap — F-4↔F-5b на стороне consumer'а Firestore, плюс ~10 тестов. Решено: (а) обновить tasks.md под реальность (этот блок), (б) реализовать `FirebaseAuthBridge` + точечные тесты, (в) открыть узкий PR. Instrumentation tests — отдельным PR, требует эмулятор.
+
+---
+
 Tasks decomposed from plan.md §"Project Structure" + "Test Strategy" + "Rollout / verification". Each task traces to FR / US / SC / Plan section / Research section.
 
 **Format**: `T7NN [P?] [Story] Description`

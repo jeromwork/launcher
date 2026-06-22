@@ -13,6 +13,7 @@
 
 import { verifyFirebaseIdToken } from "@familycare/auth-jwt";
 import type { Env } from "./env.js";
+import { getAccessToken, ServiceAccountError } from "./auth/service-account.js";
 import {
   parsePushTriggerRequest,
   MAX_SUPPORTED_SCHEMA_VERSION,
@@ -32,7 +33,10 @@ export default {
     try {
       return await routeRequest(request, env);
     } catch (e) {
-      console.error("Unhandled error", e);
+      // Log full error для диагностики через `wrangler tail`. Cloudflare скрывает
+      // stack traces в production responses (мы не возвращаем их клиенту).
+      const err = e as Error;
+      console.error("Unhandled error", err.name, err.message, err.stack);
       return json(500, { ok: false, error: "internal" });
     }
   },
@@ -132,15 +136,21 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
     );
   }
 
-  // Step 7 — acquire SA access-token. TODO(T077-integration): reuse legacy
-  // push-worker/src/fcm.ts getAccessToken implementation.
-  const accessToken = env.FCM_SERVER_KEY;
-  if (!accessToken) {
-    return json(500, {
-      ok: false,
-      error: "fcm-credentials-missing",
-      message: "Set FCM_SERVER_KEY secret via wrangler secret put.",
-    });
+  // Step 7 — acquire SA OAuth2 access-token (T077). Requires FIREBASE_SA_JSON
+  // secret (Service Account private key JSON downloaded from Firebase Console).
+  // Cached for 50min per Cloudflare isolate.
+  let accessToken: string;
+  try {
+    accessToken = await getAccessToken(env.FIREBASE_SA_JSON);
+  } catch (e) {
+    if (e instanceof ServiceAccountError) {
+      return json(500, {
+        ok: false,
+        error: "fcm-credentials-error",
+        message: e.message,
+      });
+    }
+    throw e;
   }
 
   // Step 8 — resolve recipients + dispatch.

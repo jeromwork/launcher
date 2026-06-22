@@ -4,6 +4,7 @@
 // в EVENT_TYPES registry. Этот файл предоставляет переиспользуемые primitives.
 
 import type { Env } from "../env.js";
+import { getAccessToken } from "./service-account.js";
 
 /**
  * Active write-grant check. Reads Firestore `/users/{ownerUid}/grants/{callerUid}`
@@ -65,16 +66,42 @@ function isActiveWriteGrant(doc: FirestoreDocument): boolean {
 
 /**
  * Acquires Service Account access-token via OAuth2 (JWT bearer flow).
- *
- * TODO(stub): этот placeholder возвращает env.FCM_SERVER_KEY если есть, иначе
- * null. Real impl должен подписать JWT assertion + exchange на access-token
- * (Google OAuth2 SA flow). Существующий push-worker/src/fcm.ts имеет working
- * implementation — referенс при заполнении (Phase 4 migration).
- *
- * Для unit tests — inject через env override.
+ * Delegates to shared service-account.ts helper (cached 50min per isolate).
  */
 async function acquireServiceAccountToken(env: Env): Promise<string | null> {
-  // TODO(T077 integration): reuse fcm.ts:getAccessToken logic из legacy
-  // push-worker/, adapted для new Env shape. Caching в KV (5-min TTL).
-  return env.FCM_SERVER_KEY ?? null;
+  try {
+    return await getAccessToken(env.FIREBASE_SA_JSON);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Identity-link join: проверяет что callerUid (Firebase Auth UID) — это
+ * тот же владелец, что и ownerUid (наш stableId UUID). Зеркалирует
+ * Firestore Rules `isOwner(uid)` (firestore.rules L446-457): читает
+ * `identity-links/google_{firebaseUid}` и сравнивает `stableId` поле
+ * с ownerUid.
+ *
+ * Used by event-types где `caller.uid === ownerUid` не работает потому что
+ * каноничный owner — наш stableId, а Firebase Auth выдаёт другой UID.
+ */
+export async function isOwnerByIdentityLink(
+  callerUid: string,
+  ownerUid: string,
+  env: Env,
+): Promise<boolean> {
+  const accessToken = await acquireServiceAccountToken(env);
+  if (!accessToken) return false;
+
+  const url = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/identity-links/${encodeURIComponent("google_" + callerUid)}`;
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) return false;
+
+  const doc = (await response.json()) as FirestoreDocument;
+  const stableIdField = doc.fields?.["stableId"];
+  if (!stableIdField || !("stringValue" in stableIdField)) return false;
+  return stableIdField.stringValue === ownerUid;
 }

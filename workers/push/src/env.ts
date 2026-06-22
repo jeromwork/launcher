@@ -13,6 +13,7 @@ export interface Env {
   readonly RATE_LIMIT: KVNamespace;
 
   // Secrets (wrangler secret put).
-  readonly FCM_SERVER_KEY?: string;
+  // FIREBASE_SA_JSON — Service Account private-key JSON для OAuth2 (JWT-bearer)
+  // access-token exchange (см. auth/service-account.ts).
   readonly FIREBASE_SA_JSON?: string;
 }

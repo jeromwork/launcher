@@ -236,23 +236,36 @@ internal class GoogleSignInAuthAdapter(
     // ─── Helpers ─────────────────────────────────────────────────────────
 
     /**
-     * T751. Атомарный lookup-or-create в Firestore `identity-links/google/{sub}`.
+     * T751. Lookup-or-create в Firestore identity-link + users.
      *
-     * При первом sign-in нового Google-аккаунта создаёт пару documents:
-     *  - `identity-links/google/{sub}` — `{ schemaVersion: 1, stableId, createdAt }`.
-     *  - `users/{stableId}` — `{ schemaVersion: 1, stableId, createdAt }`.
+     * **Two-step idempotent**, не одна транзакция. Причина:
+     *  • Single transaction нельзя — Firestore Security Rules для `users/{stableId}`
+     *    create требуют `exists(ownerIdentityLink(...))`, а в той же транзакции
+     *    identity-link на момент валидации ещё не существует (Rules смотрят
+     *    pre-transaction state). Single tx падает PERMISSION_DENIED.
+     *  • Two-step с client-side rollback тоже нельзя — Rules заведомо запрещают
+     *    клиентский delete identity-link (`allow delete: if false`, L341); orphan
+     *    не починить.
      *
-     * При повторных sign-in возвращает существующий stableId.
+     * Решение — **идемпотентный self-healing**: оба шага гоняются на КАЖДОМ
+     * sign-in, не только при первом. Если предыдущий sign-in упал между
+     * identity-link и users — следующий sign-in доделает users автоматически
+     * (find identity-link → попробовать создать users → если уже есть, Rules
+     * вернут PERMISSION_DENIED на update [L357 allow update: if false] →
+     * ловим этот частный случай как «уже создан» и идём дальше).
      *
-     * Race-safe: Firestore transaction атомарна — если два устройства
-     * одновременно first-time-sign-in на тот же аккаунт, один выиграет
-     * create, второй прочитает результат.
+     * Шаги:
+     *  1. `runTransaction` для identity-link — race-safe lookup-or-create.
+     *     Если два устройства одновременно first-time-sign-in — выиграет один.
+     *  2. `setDoc` для `users/{stableId}` с попыткой create. При успехе — создали
+     *     впервые. При PERMISSION_DENIED — документ уже есть (норма для повторных
+     *     входов или для recovery после прерванного предыдущего sign-in), идём дальше.
      *
      * Per spec 017 FR-016a, contract `identity-link-v1.md`.
      */
     internal suspend fun lookupOrCreateIdentityLink(sub: String): String {
         val identityLinkRef = firestore.document("identity-links/google_$sub")
-        return firestore.runTransaction<String> { txn ->
+        val stableId = firestore.runTransaction<String> { txn ->
             val snapshot = txn.get(identityLinkRef)
             if (snapshot.exists()) {
                 snapshot.getString("stableId")
@@ -267,17 +280,26 @@ internal class GoogleSignInAuthAdapter(
                         "createdAt" to FieldValue.serverTimestamp(),
                     ),
                 )
-                txn.set(
-                    firestore.document("users/$newUuid"),
-                    mapOf(
-                        "schemaVersion" to 1L,
-                        "stableId" to newUuid,
-                        "createdAt" to FieldValue.serverTimestamp(),
-                    ),
-                )
                 newUuid
             }
         }.await()
+
+        try {
+            firestore.document("users/$stableId").set(
+                mapOf(
+                    "schemaVersion" to 1L,
+                    "stableId" to stableId,
+                    "createdAt" to FieldValue.serverTimestamp(),
+                ),
+            ).await()
+        } catch (e: com.google.firebase.firestore.FirebaseFirestoreException) {
+            // PERMISSION_DENIED на втором шаге = users/{stableId} уже существует
+            // (Rules L357 запрещают update). Норма для повторных sign-in.
+            if (e.code != com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                throw e
+            }
+        }
+        return stableId
     }
 
     /**

@@ -6,6 +6,7 @@ import androidx.work.Configuration
 import com.launcher.adapters.auth.installAuthActivityTracker
 import com.launcher.adapters.lifecycle.ConfigRefreshWorker
 import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
+import com.launcher.app.push.FcmTokenBootstrapPublisher
 import com.launcher.app.di.appAndroidModule
 import com.launcher.app.di.assertNoFakeCryptoInRelease
 import com.launcher.app.di.cryptoModule
@@ -54,6 +55,7 @@ class LauncherApplication : Application(), Configuration.Provider {
     private val workerFactory: ConfigSyncWorkerFactory by inject()
     private val identityProof: IdentityProof by inject()
     private val envelopeBootstrap: EnvelopeBootstrap by inject()
+    private val fcmTokenBootstrapPublisher: FcmTokenBootstrapPublisher by inject()
 
     /**
      * Application-scoped supervisor that hosts the F-5b envelope bootstrap
@@ -85,6 +87,11 @@ class LauncherApplication : Application(), Configuration.Provider {
         startKoin {
             androidLogger(Level.INFO)
             androidContext(this@LauncherApplication)
+            // Debug overlay (spec 018 F-5b round-trip приёмка) — синхронный
+            // AsyncConfigPushQueue вместо WorkManager. Класс существует только
+            // в realBackendDebug source set; lookup через reflection, чтобы
+            // main не зависел compile-time от debug-only классов.
+            val debugOverlays = loadDebugOverlayModules()
             // backendModule is flavor-resolved: Firebase wiring under
             // realBackend, Fake wiring under mockBackend (spec 007 FR-034/FR-035).
             modules(
@@ -104,6 +111,10 @@ class LauncherApplication : Application(), Configuration.Provider {
                 spec014Module, // spec 014 tile-editing — empty в Phase 0, bindings landed в T060
                 spec015Module, // spec 015 (F-3) wizard + localization + senior UI
             )
+            if (debugOverlays.isNotEmpty()) {
+                allowOverride(true)
+                modules(debugOverlays)
+            }
         }
         // Spec 016 (F-CRYPTO) FR-018 / SC-011 — fail-fast if any Fake* crypto adapter
         // is wired in a non-debug build. Defense-in-depth alongside the Detekt rule
@@ -146,10 +157,16 @@ class LauncherApplication : Application(), Configuration.Provider {
     private fun bootstrapEnvelope(identity: AuthIdentity) {
         applicationScope.launch {
             when (val r = envelopeBootstrap.bootstrap()) {
-                is Outcome.Success -> Log.i(
-                    TAG_ENVELOPE,
-                    "envelope bootstrap published for uid=${identity.stableId}"
-                )
+                is Outcome.Success -> {
+                    Log.i(
+                        TAG_ENVELOPE,
+                        "envelope bootstrap published for uid=${identity.stableId}"
+                    )
+                    // T131 (spec 019 FR-027): после успешного envelope bootstrap
+                    // публикуем текущий FCM token, иначе он попадёт в Firestore
+                    // только при ротации (onNewToken) — а первый раз никогда.
+                    fcmTokenBootstrapPublisher.publishCurrent()
+                }
                 is Outcome.Failure -> Log.w(
                     TAG_ENVELOPE,
                     "envelope bootstrap failed for uid=${identity.stableId}: ${formatError(r.error)}"
@@ -183,6 +200,24 @@ class LauncherApplication : Application(), Configuration.Provider {
      * `FirebaseEmulatorWiring.apply()` so the main source set does not
      * compile-depend on Firebase types (mockBackend variant has no Firebase SDK).
      */
+    /**
+     * Reflection lookup of debug-only Koin overlay modules (currently
+     * `DebugOverlayModules.modules()` в realBackendDebug source set). Returns
+     * empty list on release / mockBackend builds where the marker class is
+     * absent.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun loadDebugOverlayModules(): List<org.koin.core.module.Module> = try {
+        val cls = Class.forName("com.launcher.app.debug.di.DebugOverlayModules")
+        val result = cls.getMethod("modules").invoke(null) as? List<org.koin.core.module.Module>
+        result ?: emptyList()
+    } catch (e: ClassNotFoundException) {
+        emptyList()
+    } catch (t: Throwable) {
+        Log.w(TAG_EMULATOR, "Debug overlay modules lookup failed: ${t.message}")
+        emptyList()
+    }
+
     private fun wireFirebaseEmulatorIfRequested() {
         if (!BuildConfig.USE_FIREBASE_EMULATOR) return
         try {

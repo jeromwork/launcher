@@ -18,9 +18,9 @@ package family.push.android
  */
 object WorkerBaseUrl {
     /** Production endpoint URL. */
-    const val URL: String = "https://launcher-push-v2.<account>.workers.dev/push"
+    const val URL: String = "https://launcher-push-v2.gpt1-jeromwork.workers.dev/push"
 
-    // TODO(setup T420): replace `<account>` placeholder с your Cloudflare
-    // account subdomain. Currently a placeholder — DefaultPushTrigger will
-    // return Outcome.Failure(NetworkFailure) until updated.
+    // T420 setup: workers.dev subdomain `gpt1-jeromwork` соответствует аккаунту
+    // gpt1.jeromwork@gmail.com (verified via `wrangler whoami` 2026-06-22).
+    // При смене Cloudflare account — обновить здесь и в wrangler.toml.
 }
