@@ -182,6 +182,13 @@ dependencies {
     // but :app's compilation needs it as direct dep.
     implementation(libs.androidx.work.runtime.ktx)
 
+    // Spec 019 F-5c T131 — FcmTokenBootstrapPublisher (realBackend flavor) дёргает
+    // FirebaseMessaging.getInstance().token. Firebase BOM + messaging-ktx
+    // подключены транзитивно через :core, но :app компилятору нужны direct deps.
+    "realBackendImplementation"(platform(libs.firebase.bom))
+    "realBackendImplementation"(libs.firebase.messaging.ktx)
+    "realBackendImplementation"(libs.firebase.firestore.ktx)
+
     // CameraX + ML Kit barcode — admin-side QR scanner (spec 007 FR-005, T089).
     "realBackendImplementation"(libs.androidx.camera.core)
     "realBackendImplementation"(libs.androidx.camera.camera2)

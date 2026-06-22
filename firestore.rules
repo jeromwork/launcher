@@ -443,8 +443,17 @@ service cloud.firestore {
     //
     // Owner-write of monotonic schemaVersion (defence-in-depth in case the
     // envelope format gains incremental versions later).
+    // F-5b ownership: `uid` в путях /users/{uid}/... это наш stableId UUID,
+    // не Firebase Auth UID. Проверка владения идёт через identity-link join:
+    // request.auth.uid → identity-links/google_{uid}.stableId == path uid.
+    // Согласовано с F-4 дизайном (см. ownerIdentityLink функцию выше и
+    // правила для /users/{stableId} на L344-355). Эта функция была
+    // `request.auth.uid == uid` до 2026-06-22 — это было неверно для F-5b,
+    // потому что F-5b клиент передаёт stableId, а проверка ожидала firebaseUid.
     function isOwner(uid) {
-      return isSignedIn() && request.auth.uid == uid;
+      return isSignedIn()
+          && exists(ownerIdentityLink(request.auth.uid))
+          && get(ownerIdentityLink(request.auth.uid)).data.stableId == uid;
     }
     function hasActiveGrant(ownerUid, helperUid) {
       return exists(/databases/$(database)/documents/users/$(ownerUid)/access-grants/$(helperUid))

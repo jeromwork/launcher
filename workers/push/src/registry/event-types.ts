@@ -11,7 +11,7 @@
 
 import type { Claims } from "@familycare/auth-jwt";
 import type { Env } from "../env.js";
-import { hasActiveWriteGrant } from "../auth/event-authorisation.js";
+import { hasActiveWriteGrant, isOwnerByIdentityLink } from "../auth/event-authorisation.js";
 import type { PushTriggerRequest } from "../contract/wire-format.js";
 
 export interface EventTypeRegistryEntry {
@@ -41,8 +41,12 @@ export interface EventTypeRegistryEntry {
 export const EVENT_TYPES: Record<string, EventTypeRegistryEntry> = {
   // T100 — config-updated entry. Per spec 019 FR-040.
   "config-updated": {
+    // ownerUid в payload — это наш stableId UUID (из F-4 AuthIdentity).
+    // caller.uid из JWT — это Firebase Auth UID. Они НИКОГДА не равны.
+    // Проверка владения идёт через identity-link join (mirror of firestore.rules
+    // isOwner function): /identity-links/google_{firebaseUid}.stableId == ownerUid.
     authorise: async (caller, ownerUid, env) =>
-      caller.uid === ownerUid ||
+      (await isOwnerByIdentityLink(caller.uid, ownerUid, env)) ||
       (await hasActiveWriteGrant(caller.uid, ownerUid, env)),
     rateLimit: { perUid: 60, windowSeconds: 60 },
     collapseKey: (payload) => {

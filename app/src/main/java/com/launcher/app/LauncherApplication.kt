@@ -6,6 +6,7 @@ import androidx.work.Configuration
 import com.launcher.adapters.auth.installAuthActivityTracker
 import com.launcher.adapters.lifecycle.ConfigRefreshWorker
 import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
+import com.launcher.app.push.FcmTokenBootstrapPublisher
 import com.launcher.app.di.appAndroidModule
 import com.launcher.app.di.assertNoFakeCryptoInRelease
 import com.launcher.app.di.cryptoModule
@@ -54,6 +55,7 @@ class LauncherApplication : Application(), Configuration.Provider {
     private val workerFactory: ConfigSyncWorkerFactory by inject()
     private val identityProof: IdentityProof by inject()
     private val envelopeBootstrap: EnvelopeBootstrap by inject()
+    private val fcmTokenBootstrapPublisher: FcmTokenBootstrapPublisher by inject()
 
     /**
      * Application-scoped supervisor that hosts the F-5b envelope bootstrap
@@ -146,10 +148,16 @@ class LauncherApplication : Application(), Configuration.Provider {
     private fun bootstrapEnvelope(identity: AuthIdentity) {
         applicationScope.launch {
             when (val r = envelopeBootstrap.bootstrap()) {
-                is Outcome.Success -> Log.i(
-                    TAG_ENVELOPE,
-                    "envelope bootstrap published for uid=${identity.stableId}"
-                )
+                is Outcome.Success -> {
+                    Log.i(
+                        TAG_ENVELOPE,
+                        "envelope bootstrap published for uid=${identity.stableId}"
+                    )
+                    // T131 (spec 019 FR-027): после успешного envelope bootstrap
+                    // публикуем текущий FCM token, иначе он попадёт в Firestore
+                    // только при ротации (onNewToken) — а первый раз никогда.
+                    fcmTokenBootstrapPublisher.publishCurrent()
+                }
                 is Outcome.Failure -> Log.w(
                     TAG_ENVELOPE,
                     "envelope bootstrap failed for uid=${identity.stableId}: ${formatError(r.error)}"

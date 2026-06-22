@@ -1,5 +1,6 @@
 package com.launcher.app.di
 
+import com.launcher.app.push.FcmTokenBootstrapPublisher
 import family.keys.api.ConfigChangeNotifier
 import family.keys.impl.NoOpConfigChangeNotifier
 import family.push.api.BackgroundDispatcher
@@ -56,4 +57,7 @@ val f019PushBackendModule = module {
     }
 
     single<ConfigChangeNotifier> { NoOpConfigChangeNotifier() }
+
+    // T131 mockBackend — no-op (нет FCM в mock flavor).
+    single<FcmTokenBootstrapPublisher> { FcmTokenBootstrapPublisher { /* no-op */ } }
 }

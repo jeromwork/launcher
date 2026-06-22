@@ -24,27 +24,21 @@ FIREBASE_PROJECT_ID = "launcher-old-dev"
 # verifies these stay in sync.
 MAX_SUPPORTED_SCHEMA_VERSION = "1"
 
-# TODO(setup T004): создать KV namespaces через `wrangler kv:namespace create`
-# и подставить ID + preview_id для каждой пары.
-#
-# wrangler kv:namespace create JWKS_CACHE
-# wrangler kv:namespace create JWKS_CACHE --preview
-# (повторить для IDEMPOTENCY_CACHE, RATE_LIMIT)
-#
-# [[kv_namespaces]]
-# binding = "JWKS_CACHE"
-# id = "<TODO>"
-# preview_id = "<TODO>"
-#
-# [[kv_namespaces]]
-# binding = "IDEMPOTENCY_CACHE"
-# id = "<TODO>"
-# preview_id = "<TODO>"
-#
-# [[kv_namespaces]]
-# binding = "RATE_LIMIT"
-# id = "<TODO>"
-# preview_id = "<TODO>"
+# KV namespaces — созданы 2026-06-22 через `wrangler kv namespace create`.
+# preview_id опущен — мы не используем `wrangler dev` локально для этого Worker'а,
+# тесты гоняем напрямую через `wrangler deploy`.
+
+[[kv_namespaces]]
+binding = "JWKS_CACHE"
+id = "8e23d27757bc49a190471c0091cecc1b"
+
+[[kv_namespaces]]
+binding = "IDEMPOTENCY_CACHE"
+id = "3d4f071d5ae64f15a110e1238a433244"
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "39e310a33eb24e7f9a30b40c2e319769"
 
 # TODO(setup T005): secrets через `wrangler secret put`:
 #   FCM_SERVER_KEY      — service-account JWT signing key (for FCM HTTP v1)

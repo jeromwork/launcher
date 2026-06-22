@@ -49,6 +49,23 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await testEnv.clearFirestore();
+  // 2026-06-22 — после правки firestore.rules `isOwner()` (теперь требует
+  // identity-link join) тестовые UIDs должны иметь identity-link, иначе
+  // проверка владения провалится. В тестах ALICE_UID/BOB_UID/CAROL_UID
+  // используются ОДНОВРЕМЕННО как Firebase Auth UID (authenticatedContext)
+  // и как stableId в paths — заводим тривиальный link "сам в себя"
+  // (google_X → stableId X). В production это разные значения; для тестов
+  // упрощение приемлемо, проверка корректности правила не теряется.
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const fs = ctx.firestore();
+    for (const uid of [ALICE_UID, BOB_UID, CAROL_UID]) {
+      await setDoc(doc(fs, `identity-links/google_${uid}`), {
+        schemaVersion: 1,
+        stableId: uid,
+        createdAt: new Date(),
+      });
+    }
+  });
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────
