@@ -1,4 +1,4 @@
-package com.launcher.app.data.envelope
+package family.keys.impl
 
 import family.keys.api.Outcome
 import family.keys.api.RecipientPubKey
@@ -28,6 +28,14 @@ import family.keys.api.internal.ResolverError
  * later does not auto-include it in past encryptions; recipients are baked
  * into each envelope at write time (revocation-by-future-writes semantics, the
  * accepted residual model — see ecosystem-vision.md group-encryption section).
+ *
+ * Расположен в `core/keys/.../impl/` (а не в `app/src/main/data/envelope/`)
+ * по тем же основаниям, что и [EnvelopeRemoteStorage] / [DefaultEnvelopeBootstrap]:
+ * чистая логика поверх internal port'ов, без зависимости от backend-flavour'а.
+ * Это также удовлетворяет fitness-rule `appCodeOutsideAdaptersMustNotImportKeysApiInternal`
+ * (см. `core/keys/src/jvmTest/kotlin/family/keys/fitness/ImportRestrictionsFitnessTest.kt`):
+ * `app/src/main` не должен импортировать `family.keys.api.internal.*`, а класс
+ * по своей природе оперирует именно этими portами — корректное место — `:core:keys`.
  */
 class PublicKeyDirectoryRecipientResolver(
     private val directory: PublicKeyDirectory

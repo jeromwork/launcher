@@ -3,7 +3,6 @@ package com.launcher.app.di
 import com.google.firebase.firestore.FirebaseFirestore
 import com.launcher.app.data.envelope.FirestoreEnvelopeStorage
 import com.launcher.app.data.envelope.FirestorePublicKeyDirectory
-import com.launcher.app.data.envelope.PublicKeyDirectoryRecipientResolver
 import com.launcher.app.data.recovery.FirestoreRecoveryKeyVault
 import family.crypto.api.AeadCipher
 import family.crypto.api.AsymmetricCrypto
@@ -25,6 +24,7 @@ import family.keys.impl.DefaultEnvelopeBootstrap
 import family.keys.impl.EnvelopeConfigCipherImpl
 import family.keys.impl.EnvelopeRemoteStorage
 import family.keys.impl.LocalFirstConfigSaver
+import family.keys.impl.PublicKeyDirectoryRecipientResolver
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
