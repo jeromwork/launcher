@@ -20,5 +20,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <application tools:targetApi="24" />
+    <application tools:targetApi="24">
+        <!-- Spec 018 (F-5b) round-trip приёмка через ADB broadcast. Receiver
+             только в realBackendDebug — не попадает в release.
+             android:exported="true" — receiver вызывается из adb (uid=shell),
+             что system требует exported. Безопасно: только в debug build. -->
+        <receiver
+            android:name="com.launcher.app.debug.Spec018ConfigRoundtripReceiver"
+            android:exported="true"
+            tools:ignore="ExportedReceiver">
+            <intent-filter>
+                <action android:name="com.launcher.app.DEBUG_F5B_ROUNDTRIP" />
+            </intent-filter>
+        </receiver>
+    </application>
 </manifest>
