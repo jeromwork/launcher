@@ -1,7 +1,7 @@
 ---
 id: TASK-8
 title: Admin App + QR Pairing
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:36'
 updated_date: '2026-06-23 06:13'
@@ -18,7 +18,7 @@ dependencies:
   - TASK-6
   - TASK-7
 priority: high
-ordinal: 7000
+ordinal: 8000
 ---
 
 ## Description

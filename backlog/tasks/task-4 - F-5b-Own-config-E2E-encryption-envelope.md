@@ -30,7 +30,7 @@ ConfigDocument E2E encryption через hybrid envelope (Curve25519 + AEAD). F-
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 ConfigCipher2 envelope-формат с schemaVersion=1
-- [ ] #2 Round-trip byte-equal на Xiaomi 11T
+- [ ] #2 Round-trip byte-equal на physical device #1 (currently Xiaomi 11T)
 - [ ] #3 PublicKeyDirectoryRecipientResolver в core/keys/impl
 - [ ] #4 Backward-compat read test для spec 018 fixture
 <!-- AC:END -->

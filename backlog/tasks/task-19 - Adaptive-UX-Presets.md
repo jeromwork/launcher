@@ -1,7 +1,7 @@
 ---
 id: TASK-19
 title: Adaptive UX Presets
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:38'
 updated_date: '2026-06-23 06:21'
@@ -17,7 +17,7 @@ dependencies:
   - TASK-16
   - TASK-17
 priority: medium
-ordinal: 18000
+ordinal: 19000
 ---
 
 ## Description

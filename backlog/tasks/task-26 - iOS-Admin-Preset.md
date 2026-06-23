@@ -1,7 +1,7 @@
 ---
 id: TASK-26
 title: iOS Admin Preset
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:39'
 updated_date: '2026-06-23 06:27'
@@ -16,7 +16,7 @@ dependencies:
   - TASK-3
   - TASK-8
 priority: medium
-ordinal: 25000
+ordinal: 26000
 ---
 
 ## Description

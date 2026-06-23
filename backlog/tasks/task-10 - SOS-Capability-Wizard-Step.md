@@ -1,7 +1,7 @@
 ---
 id: TASK-10
 title: SOS Capability + Wizard Step
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:36'
 updated_date: '2026-06-23 06:14'
@@ -16,7 +16,7 @@ dependencies:
   - TASK-7
   - TASK-8
 priority: high
-ordinal: 9000
+ordinal: 10000
 ---
 
 ## Description
@@ -78,7 +78,7 @@ SCOPE ВКЛЮЧАЕТ:
 - SOSPush event через FCM (TASK-5) с high-priority.
 - Admin notification handler в TASK-8 Admin App (open map + call action).
 - App update deferral: SOS работает во время install update (foreground service).
-- OEM-quirk testing: Samsung, Xiaomi MIUI, Huawei (background restrict bypass).
+- OEM-quirk testing: Samsung, OEM с custom skin (currently Xiaomi MIUI), Huawei (background restrict bypass).
 
 SCOPE НЕ ВКЛЮЧАЕТ:
 - Hardware SOS power-button (post-MVP).
@@ -98,11 +98,11 @@ ACCEPTANCE CRITERIA:
 - Если разрешение location выдано → к push прикреплена координата.
 - Если location не выдано → push приходит без координаты, без падения.
 - Во время install update SOS работает (foreground service не убит).
-- На Xiaomi MIUI / Samsung Knox push доходит несмотря на background restrict.
+- На OEM с custom skin (currently Xiaomi MIUI) / Samsung Knox push доходит несмотря на background restrict.
 
 LOCAL TEST PATH:
 - Два эмулятора (admin + managed) через skill android-emulator.
-- Manual smoke на Xiaomi 11T (есть в lab) для OEM background restrict.
+- Manual smoke на physical device #1 (currently physical device #1 (currently Xiaomi 11T)) для OEM background restrict.
 - Fake LocationProvider для unit-tests.
 
 CONSTITUTION GATES:
@@ -127,5 +127,5 @@ EFFORT: Medium (~2 weeks).
 - [ ] #9 С разрешением location → к push прикреплена координата
 - [ ] #10 Без location → push без координаты, без падений
 - [ ] #11 Во время install update приложения SOS всё равно работает
-- [ ] #12 На Xiaomi MIUI / Samsung push доходит несмотря на background restrict
+- [ ] #12 На OEM с custom skin (currently Xiaomi MIUI) / Samsung push доходит несмотря на background restrict
 <!-- AC:END -->

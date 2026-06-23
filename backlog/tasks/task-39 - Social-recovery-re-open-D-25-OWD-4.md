@@ -1,7 +1,7 @@
 ---
 id: TASK-39
 title: Social recovery (re-open D-25 OWD-4)
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:44'
 updated_date: '2026-06-23 06:35'
@@ -17,7 +17,7 @@ dependencies:
   - TASK-6
   - TASK-21
 priority: low
-ordinal: 37000
+ordinal: 39000
 ---
 
 ## Description

@@ -1,7 +1,7 @@
 ---
 id: TASK-33
 title: Capability Registry Foundation
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:40'
 updated_date: '2026-06-23 06:33'
@@ -15,7 +15,7 @@ labels:
 milestone: m-3
 dependencies: []
 priority: medium
-ordinal: 32000
+ordinal: 33000
 ---
 
 ## Description

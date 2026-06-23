@@ -1,7 +1,7 @@
 ---
 id: TASK-48
 title: Tamper-resistance escalation L1+L2+L3
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:45'
 updated_date: '2026-06-23 06:36'
@@ -16,7 +16,7 @@ milestone: m-4
 dependencies:
   - TASK-15
 priority: low
-ordinal: 46000
+ordinal: 48000
 ---
 
 ## Description

@@ -31,11 +31,11 @@ Generic push foundation; первый use case = config-updated notification о�
 - [ ] #1 FCM token registered после Sign-In
 - [ ] #2 Push payload содержит configId + senderUid
 - [ ] #3 ADB broadcast приёмка работает (debug-only)
-- [ ] #4 End-to-end push на Xiaomi 11T против launcher-old-dev
+- [ ] #4 End-to-end push на physical device #1 (currently Xiaomi 11T) против launcher-old-dev
 <!-- AC:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Working 2026-06-22 на Xiaomi 11T. Generic push foundation для будущих cloud-фич.
+Working 2026-06-22 на physical device #1 (currently Xiaomi 11T). Generic push foundation для будущих cloud-фич.
 <!-- SECTION:FINAL_SUMMARY:END -->

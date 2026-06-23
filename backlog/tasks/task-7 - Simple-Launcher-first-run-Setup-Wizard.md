@@ -1,7 +1,7 @@
 ---
 id: TASK-7
 title: Simple Launcher first-run + Setup Wizard
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:36'
 updated_date: '2026-06-23 06:54'
@@ -15,7 +15,7 @@ milestone: m-1
 dependencies:
   - TASK-1
 priority: high
-ordinal: 3500
+ordinal: 7000
 ---
 
 ## Description

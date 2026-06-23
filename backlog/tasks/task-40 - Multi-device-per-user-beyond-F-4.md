@@ -1,7 +1,7 @@
 ---
 id: TASK-40
 title: Multi-device per user beyond F-4
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:44'
 updated_date: '2026-06-23 06:35'
@@ -16,7 +16,7 @@ milestone: m-4
 dependencies:
   - TASK-3
 priority: low
-ordinal: 38000
+ordinal: 40000
 ---
 
 ## Description

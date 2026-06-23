@@ -1,7 +1,7 @@
 ---
 id: TASK-24
 title: Device Inventory Sync
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:39'
 updated_date: '2026-06-23 06:25'
@@ -17,7 +17,7 @@ dependencies:
   - TASK-13
   - TASK-23
 priority: medium
-ordinal: 23000
+ordinal: 24000
 ---
 
 ## Description

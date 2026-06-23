@@ -1,7 +1,7 @@
 ---
 id: TASK-20
 title: Config Copy Between Own Devices
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:38'
 updated_date: '2026-06-23 06:22'
@@ -15,7 +15,7 @@ milestone: m-2
 dependencies:
   - TASK-16
 priority: medium
-ordinal: 19000
+ordinal: 20000
 ---
 
 ## Description

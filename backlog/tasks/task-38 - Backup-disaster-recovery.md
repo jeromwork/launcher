@@ -1,7 +1,7 @@
 ---
 id: TASK-38
 title: Backup / disaster recovery
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:43'
 updated_date: '2026-06-23 06:35'
@@ -15,7 +15,7 @@ labels:
 milestone: m-4
 dependencies: []
 priority: low
-ordinal: 36000
+ordinal: 38000
 ---
 
 ## Description

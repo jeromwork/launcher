@@ -1,7 +1,7 @@
 ---
 id: TASK-25
 title: Multi-app Cohabitation + Chain-of-trust Recovery
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:39'
 updated_date: '2026-06-23 06:26'
@@ -20,7 +20,7 @@ dependencies:
   - TASK-6
   - TASK-21
 priority: high
-ordinal: 24000
+ordinal: 25000
 ---
 
 ## Description

@@ -1,7 +1,7 @@
 ---
 id: TASK-27
 title: Elderly-Friendly Messenger (Jitsi-based)
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:40'
 updated_date: '2026-06-23 06:28'
@@ -17,7 +17,7 @@ dependencies:
   - TASK-3
   - TASK-25
 priority: high
-ordinal: 26000
+ordinal: 27000
 ---
 
 ## Description

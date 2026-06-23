@@ -1,7 +1,7 @@
 ---
 id: TASK-12
 title: Account Deletion Flow
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:37'
 updated_date: '2026-06-23 06:16'
@@ -17,7 +17,7 @@ dependencies:
   - TASK-3
   - TASK-4
 priority: high
-ordinal: 11000
+ordinal: 12000
 ---
 
 ## Description

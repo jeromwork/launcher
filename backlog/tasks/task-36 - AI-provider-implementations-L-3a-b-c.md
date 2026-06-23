@@ -1,7 +1,7 @@
 ---
 id: TASK-36
 title: AI provider implementations (L-3a/b/c)
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:43'
 updated_date: '2026-06-23 06:34'
@@ -16,7 +16,7 @@ milestone: m-4
 dependencies:
   - TASK-33
 priority: low
-ordinal: 34000
+ordinal: 36000
 ---
 
 ## Description

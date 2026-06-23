@@ -1,7 +1,7 @@
 ---
 id: TASK-16
 title: Preset Schema v2 + Wizard Engine
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:38'
 updated_date: '2026-06-23 06:19'
@@ -21,7 +21,7 @@ dependencies:
   - TASK-12
   - TASK-13
 priority: high
-ordinal: 15000
+ordinal: 16000
 ---
 
 ## Description

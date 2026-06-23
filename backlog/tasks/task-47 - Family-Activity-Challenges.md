@@ -1,7 +1,7 @@
 ---
 id: TASK-47
 title: Family Activity Challenges
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:45'
 updated_date: '2026-06-23 06:36'
@@ -15,7 +15,7 @@ labels:
 milestone: m-4
 dependencies: []
 priority: low
-ordinal: 45000
+ordinal: 47000
 ---
 
 ## Description

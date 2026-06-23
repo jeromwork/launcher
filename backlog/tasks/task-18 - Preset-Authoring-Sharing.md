@@ -1,7 +1,7 @@
 ---
 id: TASK-18
 title: Preset Authoring + Sharing
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:38'
 updated_date: '2026-06-23 06:20'
@@ -17,7 +17,7 @@ dependencies:
   - TASK-16
   - TASK-17
 priority: high
-ordinal: 17000
+ordinal: 18000
 ---
 
 ## Description

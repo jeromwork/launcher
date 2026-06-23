@@ -1,7 +1,7 @@
 ---
 id: TASK-13
 title: VersionedConfigViewer + Layout Editor
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:37'
 updated_date: '2026-06-23 06:16'
@@ -15,7 +15,7 @@ milestone: m-1
 dependencies:
   - TASK-8
 priority: high
-ordinal: 12000
+ordinal: 13000
 ---
 
 ## Description

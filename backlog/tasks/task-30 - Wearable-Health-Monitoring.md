@@ -1,7 +1,7 @@
 ---
 id: TASK-30
 title: Wearable Health Monitoring
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:40'
 updated_date: '2026-06-23 06:30'
@@ -16,7 +16,7 @@ milestone: m-3
 dependencies:
   - TASK-14
 priority: medium
-ordinal: 29000
+ordinal: 30000
 ---
 
 ## Description

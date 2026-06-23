@@ -1,7 +1,7 @@
 ---
 id: TASK-23
 title: Provider Recipe Catalogue
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:39'
 updated_date: '2026-06-23 06:24'
@@ -17,7 +17,7 @@ milestone: m-2
 dependencies:
   - TASK-16
 priority: high
-ordinal: 22000
+ordinal: 23000
 ---
 
 ## Description

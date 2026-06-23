@@ -1,7 +1,7 @@
 ---
 id: TASK-31
 title: Caregiver Remote Invite + LinkInvitePairingChannel
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:40'
 updated_date: '2026-06-23 06:32'
@@ -17,7 +17,7 @@ dependencies:
   - TASK-8
   - TASK-21
 priority: high
-ordinal: 30000
+ordinal: 31000
 ---
 
 ## Description

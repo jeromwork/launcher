@@ -1,7 +1,7 @@
 ---
 id: TASK-43
 title: Wearable monitoring full
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:44'
 updated_date: '2026-06-23 06:35'
@@ -16,7 +16,7 @@ milestone: m-4
 dependencies:
   - TASK-30
 priority: low
-ordinal: 41000
+ordinal: 43000
 ---
 
 ## Description

@@ -115,7 +115,7 @@ ACCEPTANCE CRITERIA (проверяет пользователь):
 
 LOCAL TEST PATH:
 - Эмулятор pixel_5_api_34 — Setup wizard от первого запуска до восстановления.
-- Xiaomi 11T (physical) — миграция ciphertext из spec 018 byte-equal.
+- physical device #1 (currently Xiaomi 11T) (physical) — миграция ciphertext из spec 018 byte-equal.
 - Fake adapter NoOpRecoveryKeyVault — non-GMS path юнит-тестами.
 
 CONSTITUTION GATES:

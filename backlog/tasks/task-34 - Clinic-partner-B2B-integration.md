@@ -1,7 +1,7 @@
 ---
 id: TASK-34
 title: Clinic / partner B2B integration
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:42'
 updated_date: '2026-06-23 06:54'
@@ -16,7 +16,7 @@ milestone: m-4
 dependencies:
   - TASK-31
 priority: low
-ordinal: 47000
+ordinal: 34000
 ---
 
 ## Description

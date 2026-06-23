@@ -1,7 +1,7 @@
 ---
 id: TASK-9
 title: Contact Tiles + Handoff Calling
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:36'
 updated_date: '2026-06-23 06:13'
@@ -16,7 +16,7 @@ dependencies:
   - TASK-7
   - TASK-8
 priority: high
-ordinal: 8000
+ordinal: 9000
 ---
 
 ## Description

@@ -1,7 +1,7 @@
 ---
 id: TASK-45
 title: Closed messengers integration (LINE/WeChat/Kakao)
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:45'
 updated_date: '2026-06-23 06:36'
@@ -16,7 +16,7 @@ milestone: m-4
 dependencies:
   - TASK-23
 priority: low
-ordinal: 43000
+ordinal: 45000
 ---
 
 ## Description

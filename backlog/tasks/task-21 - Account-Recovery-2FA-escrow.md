@@ -1,7 +1,7 @@
 ---
 id: TASK-21
 title: Account Recovery + 2FA escrow
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:38'
 updated_date: '2026-06-23 06:23'
@@ -18,7 +18,7 @@ dependencies:
   - TASK-6
   - TASK-12
 priority: high
-ordinal: 20000
+ordinal: 21000
 ---
 
 ## Description

@@ -1,7 +1,7 @@
 ---
 id: TASK-14
 title: Phone Health Monitoring
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:37'
 updated_date: '2026-06-23 06:17'
@@ -15,7 +15,7 @@ milestone: m-1
 dependencies:
   - TASK-8
 priority: medium
-ordinal: 13000
+ordinal: 14000
 ---
 
 ## Description
@@ -101,7 +101,7 @@ ACCEPTANCE CRITERIA:
 LOCAL TEST PATH:
 - Эмулятор pixel_5_api_34 — manual battery emulator change + observe WorkManager firing.
 - Unit-tests severity rules с fake HealthSnapshot fixtures.
-- E2E с Xiaomi 11T — реальная battery low simulation.
+- E2E с physical device #1 (currently Xiaomi 11T) — реальная battery low simulation.
 
 CONSTITUTION GATES:
 - Rule 1 (domain isolation): HealthSnapshot — pure domain value.

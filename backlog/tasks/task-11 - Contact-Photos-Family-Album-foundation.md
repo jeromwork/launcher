@@ -1,7 +1,7 @@
 ---
 id: TASK-11
 title: Contact Photos (Family Album foundation)
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:37'
 updated_date: '2026-06-23 06:15'
@@ -16,7 +16,7 @@ milestone: m-1
 dependencies:
   - TASK-9
 priority: high
-ordinal: 10000
+ordinal: 11000
 ---
 
 ## Description

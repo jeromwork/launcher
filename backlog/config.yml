@@ -1,6 +1,6 @@
 project_name: "Launcher"
 default_status: "Draft"
-statuses: ["Draft", "Clarified", "Planned", "In Progress", "In Review", "Done"]
+statuses: ["Draft", "In Progress", "Done"]
 labels: []
 date_format: yyyy-mm-dd
 max_column_width: 20

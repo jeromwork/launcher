@@ -1,7 +1,7 @@
 ---
 id: TASK-15
 title: Subscription Server Timer
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:37'
 updated_date: '2026-06-23 06:18'
@@ -16,7 +16,7 @@ milestone: m-1
 dependencies:
   - TASK-3
 priority: medium
-ordinal: 14000
+ordinal: 15000
 ---
 
 ## Description

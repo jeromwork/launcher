@@ -1,7 +1,7 @@
 ---
 id: TASK-29
 title: Android TV Preset
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:40'
 updated_date: '2026-06-23 06:29'
@@ -18,7 +18,7 @@ dependencies:
   - TASK-9
   - TASK-10
 priority: medium
-ordinal: 28000
+ordinal: 29000
 ---
 
 ## Description

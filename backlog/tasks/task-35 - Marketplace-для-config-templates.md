@@ -1,7 +1,7 @@
 ---
 id: TASK-35
 title: Marketplace для config templates
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:43'
 updated_date: '2026-06-23 06:34'
@@ -16,7 +16,7 @@ milestone: m-4
 dependencies:
   - TASK-18
 priority: low
-ordinal: 33000
+ordinal: 35000
 ---
 
 ## Description

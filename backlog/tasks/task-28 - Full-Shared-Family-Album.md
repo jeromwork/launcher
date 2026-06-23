@@ -1,7 +1,7 @@
 ---
 id: TASK-28
 title: Full Shared Family Album
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:40'
 updated_date: '2026-06-23 06:28'
@@ -16,7 +16,7 @@ milestone: m-3
 dependencies:
   - TASK-11
 priority: medium
-ordinal: 27000
+ordinal: 28000
 ---
 
 ## Description

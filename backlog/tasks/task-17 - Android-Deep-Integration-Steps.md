@@ -1,7 +1,7 @@
 ---
 id: TASK-17
 title: Android Deep Integration Steps
-status: Planned
+status: Draft
 assignee: []
 created_date: '2026-06-23 05:38'
 updated_date: '2026-06-23 06:20'
@@ -16,7 +16,7 @@ milestone: m-2
 dependencies:
   - TASK-16
 priority: high
-ordinal: 16000
+ordinal: 17000
 ---
 
 ## Description
@@ -62,7 +62,7 @@ ordinal: 16000
 - Permissions wizard для Accessibility Service (одно разрешение покрывает большинство шагов).
 - Settings deep-links для OS-level настроек.
 - State reconciliation после OS update (после Android upgrade проверить — не слетели ли настройки).
-- OEM-quirk tests: Samsung One UI / Xiaomi MIUI / Huawei EMUI (у каждого свой странности).
+- OEM-quirk tests: Samsung One UI / OEM с custom skin (currently Xiaomi MIUI) / Huawei EMUI (у каждого свой странности).
 
 ## Состояние
 
@@ -86,7 +86,7 @@ SCOPE ВКЛЮЧАЕТ:
 - Accessibility Service wrapper (одно разрешение для большинства шагов).
 - Settings deep-links для OS-level настроек.
 - State reconciliation после OS update (post-upgrade check).
-- OEM matrix tests: Samsung One UI / Xiaomi MIUI / Huawei EMUI.
+- OEM matrix tests: Samsung One UI / OEM с custom skin (currently Xiaomi MIUI) / Huawei EMUI.
 - Per-OEM workarounds (например, MIUI requires additional autostart permission).
 
 SCOPE НЕ ВКЛЮЧАЕТ:
@@ -106,7 +106,7 @@ ACCEPTANCE CRITERIA:
 
 LOCAL TEST PATH:
 - Эмулятор pixel_5_api_34 для baseline.
-- Manual testing на Xiaomi 11T (есть в lab) для MIUI quirks.
+- Manual testing на physical device #1 (currently physical device #1 (currently Xiaomi 11T)) для MIUI quirks.
 - Unit-tests state reconciliation с fake AccessibilityService states.
 
 CONSTITUTION GATES:
@@ -121,7 +121,7 @@ EFFORT: Large (~3 weeks).
 <!-- AC:BEGIN -->
 - [ ] #1 Permissions wizard + Settings deep-links
 - [ ] #2 State reconciliation после OS update
-- [ ] #3 OEM-specific quirks тесты (Samsung, Xiaomi MIUI)
+- [ ] #3 OEM-specific quirks тесты (Samsung, OEM с custom skin (currently Xiaomi MIUI))
 - [ ] #4 Admin включил 'заблокировать шторку' → wizard запустился → попросил Accessibility-разрешение → шторка отключена
 - [ ] #5 Бабушка свайпает вниз с верху экрана → ничего не происходит (шторка заблокирована)
 - [ ] #6 Admin включил 'скрыть Settings' → Settings недоступны через шторку / launcher, доступны только через 7-tap в углу
