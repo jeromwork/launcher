@@ -1,14 +1,16 @@
 ---
 id: TASK-4
-title: 'F-5b: Own config E2E encryption (envelope)'
+title: Own config E2E encryption (envelope)
 status: Done
 assignee: []
 created_date: '2026-06-23 05:01'
+updated_date: '2026-06-23 05:35'
 labels:
   - phase-1
   - F-feature
   - crypto
   - wire-format
+  - f-5b
 milestone: m-0
 dependencies:
   - TASK-2

@@ -1,15 +1,17 @@
 ---
 id: TASK-6
-title: 'F-5: Root Key Hierarchy + Owner Recovery'
+title: Root Key Hierarchy + Owner Recovery
 status: In Progress
 assignee: []
 created_date: '2026-06-23 05:01'
+updated_date: '2026-06-23 05:35'
 labels:
   - phase-1
   - F-feature
   - crypto
   - recovery
   - one-way-door
+  - f-5
 milestone: m-0
 dependencies:
   - TASK-2

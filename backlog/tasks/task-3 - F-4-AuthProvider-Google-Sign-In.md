@@ -1,14 +1,16 @@
 ---
 id: TASK-3
-title: 'F-4: AuthProvider + Google Sign-In'
+title: AuthProvider + Google Sign-In
 status: Done
 assignee: []
 created_date: '2026-06-23 05:00'
+updated_date: '2026-06-23 05:35'
 labels:
   - phase-1
   - F-feature
   - auth
   - identity
+  - f-4
 milestone: m-0
 dependencies:
   - TASK-2

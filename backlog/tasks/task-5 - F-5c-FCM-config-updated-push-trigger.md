@@ -1,14 +1,16 @@
 ---
 id: TASK-5
-title: 'F-5c: FCM config-updated push trigger'
+title: FCM config-updated push trigger
 status: Done
 assignee: []
 created_date: '2026-06-23 05:01'
+updated_date: '2026-06-23 05:35'
 labels:
   - phase-1
   - F-feature
   - push
   - cloud
+  - f-5c
 milestone: m-0
 dependencies:
   - TASK-4

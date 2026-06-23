@@ -178,7 +178,7 @@ For tests:
 - **Sync вызывается** в конце `speckit-clarify` (Step 5c) и `speckit-tasks` (Step 4c). Руками — после правки `## Success Criteria` мимо speckit-команд.
 - **Создание backlog-task'а для новой спеки** — явное решение владельца (skill не создаёт автоматически). Команда: `backlog task create '<title>' -s Draft --priority high -l 'phase-N,F-feature' -m m-0 --ref specs/NNN-slug/`.
 - **Обновление статуса** task'а (`Draft → Clarified → Planned → In Progress → In Review → Done`) сейчас ручное; автоматизация через speckit-* orchestrators — следующая итерация.
-- **`docs/product/roadmap.md`** остаётся как стратегический «почему» (vision, phase rationale). Tracking статусов перенесён в Backlog. Эмодзи-статусы в roadmap.md больше не правдивый источник.
+- **`docs/product/vision.md`** — стратегический документ (vision, главный фильтр фич, exit ramps, soft launch gate). Старый `docs/product/roadmap.md` удалён 2026-06-23: операционный план перенесён в Backlog, стратегия — в vision.md. Если в исторических документах (decisions/, specs/) встретятся ссылки `docs/product/roadmap.md` — они исторические; используй vision.md + `backlog overview`.
 - **autoCommit выключен**: изменения task-файлов попадают в обычные осмысленные коммиты, не плодят микро-коммиты.
 
 Просмотр: `backlog browser` (http://localhost:6420), `backlog overview` (текстовая сводка), `backlog sequence list --plain` (граф зависимостей).

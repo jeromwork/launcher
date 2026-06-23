@@ -1,14 +1,16 @@
 ---
 id: TASK-1
-title: 'F-3: Wizard onboarding + localization'
+title: Wizard onboarding + localization
 status: Done
 assignee: []
 created_date: '2026-06-23 05:00'
+updated_date: '2026-06-23 05:35'
 labels:
   - phase-1
   - F-feature
   - ui
   - wizard
+  - f-3
 milestone: m-0
 dependencies: []
 references:

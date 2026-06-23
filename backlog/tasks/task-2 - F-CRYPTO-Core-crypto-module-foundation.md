@@ -1,14 +1,16 @@
 ---
 id: TASK-2
-title: 'F-CRYPTO: Core crypto module foundation'
+title: Core crypto module (libsodium-kmp)
 status: Done
 assignee: []
 created_date: '2026-06-23 05:00'
+updated_date: '2026-06-23 05:35'
 labels:
   - phase-1
   - F-feature
   - crypto
   - one-way-door
+  - f-crypto
 milestone: m-0
 dependencies: []
 references:
