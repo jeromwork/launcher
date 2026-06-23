@@ -169,6 +169,93 @@ For tests:
 - Every port has at least a fake-adapter test and a contract test.
 - Every wire format has a roundtrip test (write → read → assert equal) and a backward-compat test (read previous schema-version).
 
+## Portfolio tracker (Backlog.md)
+
+Кросс-спек portfolio состояние («что сделано / что в работе / что следующее») живёт в **папке `backlog/`** (инструмент [Backlog.md](https://github.com/MrLesk/Backlog.md), MCP-сервер `backlog`).
+
+- **Одна фича = один backlog-task.** Поле `references` указывает на `specs/NNN-slug/`. Mini-tasks из `specs/NNN/tasks.md` — территория Spec Kit, в backlog не дублируются.
+- **Источник правды по AC — `spec.md`.** В секции `## Success Criteria` помечать высокоуровневые user-visible критерии маркером `[backlog]`. Skill `procedure-sync-backlog-ac` автоматически (через MCP) переносит их в `## Acceptance Criteria` соответствующего backlog-task'а. Технические SC (тайминги, fitness functions, contract tests) НЕ помечаются — они остаются только в spec.md.
+- **Sync вызывается** в конце `speckit-clarify` (Step 5c) и `speckit-tasks` (Step 4c). Руками — после правки `## Success Criteria` мимо speckit-команд.
+- **Создание backlog-task'а для новой спеки** — явное решение владельца (skill не создаёт автоматически). Команда: `backlog task create '<title>' -s Draft --priority high -l 'phase-N,F-feature' -m m-N --ref specs/NNN-slug/`.
+- **Status workflow (3 статуса, упрощено 2026-06-23):**
+  - `Draft` — task существует как идея / в roadmap'е, но ещё не обсуждалась. Дефолт для новых task'ов.
+  - `In Progress` — task взят в работу. Внутри `In Progress` идёт весь Spec Kit pipeline: `/speckit.specify` → `/speckit.clarify` → `/speckit.scenarios` → `/speckit.plan` → `/speckit.tasks` → `/speckit.analyze` → `/speckit.implement` → review → merge. Промежуточные стадии Spec Kit'а **не выделяются в отдельные backlog-статусы** (владелец работает по одной задаче за раз).
+  - `Done` — merged в `main`.
+- **Автопереход `Draft → In Progress` (HARD RULE для AI):**
+  - **Любая команда `/speckit.*` или начало работы над фичей требует явного указания `task-N`.** AI **обязан** перед запуском убедиться, что у текущего действия есть связанный backlog-task. Если в сообщении владельца task-N **не назван явно** и не определяется однозначно из контекста (нет открытой ветки `NNN-slug` с совпадающим `references:` полем в каком-либо task'е) — AI **STOP, REFUSE to proceed** и задаёт владельцу один вопрос: «Какой `task-N` берём в работу? (или создаём новый?)».
+  - **Когда task-N назван** — AI **первым шагом** (до любых других tool calls) вызывает MCP `editTask task-N -s "In Progress"`. Только после успешного перехода — запускает speckit-команды / делает правки кода.
+  - **Никаких "догадок"**: AI не выбирает task-N сам из похожих, даже если есть очевидный кандидат. Всегда явное подтверждение владельца.
+  - **Множественные task'и одновременно — запрещены** (по решению владельца «работаю только над одной за раз»). Если владелец просит начать работу над task-X пока task-Y уже `In Progress` — AI обязан спросить: «task-Y сейчас In Progress. Закрыть её (Done) / вернуть в Draft / оставить и взять обе?».
+- **Автопереход `In Progress → Done`:** после merge PR в main — владелец или AI вызывает `backlog task edit task-N -s Done` (можно автоматизировать через git hook позже).
+- **Cleanup Done-карточек:** когда колонка Done разрастается (30+ задач) — `backlog cleanup` перемещает старые Done в `backlog/completed/`. Файлы остаются в git, доступны через Read tool / git log / grep. Контекст не теряется никогда.
+- **`docs/product/vision.md`** — стратегический документ (vision, главный фильтр фич, exit ramps, soft launch gate). Старый `docs/product/roadmap.md` удалён 2026-06-23: операционный план перенесён в Backlog, стратегия — в vision.md. Если в исторических документах (decisions/, specs/) встретятся ссылки `docs/product/roadmap.md` — они исторические; используй vision.md + `backlog overview`.
+- **Стиль описания backlog-task'ов (mentor-style, обязательно для всех новых task'ов).** Description пишется на простом русском без жаргона, владелец проекта (не разработчик) должен понимать беглым взглядом. Шаблон:
+  ```
+  ## Что это простыми словами
+  Краткое объяснение + **нумерованные последовательности**:
+  «Что происходит по шагам (нормальный сценарий)», «Что происходит при <edge case>».
+  Все технические термины расшифровываются в скобках при первом упоминании.
+
+  ## Зачем
+  Какую боль закрывает + какой результат пользователь получает.
+
+  ## Что входит технически (для AI-агента)
+  Bullet-list портов / адаптеров / wire-форматов / тестов. Здесь жаргон допустим.
+
+  ## Состояние
+  Текущий статус по существу (в работе / planned / blocked + что сделано / что осталось).
+
+  ---
+
+  ## Готовый промт для `/speckit.specify`
+  Copy-paste блок в ```…``` с секциями: ЧТО СТРОИМ / ЗАЧЕМ /
+  SCOPE ВКЛЮЧАЕТ / SCOPE НЕ ВКЛЮЧАЕТ / DEPENDENCIES / ACCEPTANCE CRITERIA /
+  LOCAL TEST PATH / CONSTITUTION GATES / EFFORT.
+  ```
+  AC (Acceptance Criteria через `--ac`) пишутся как **проверяемые человеком шаги**: «зашёл → увидел → получил», не «KeyRegistry per-identity namespacing работает». Образец — TASK-6 (Root Key Hierarchy).
+- **Personas vs domain roles (ВАЖНО).** Слова «бабушка», «дочка», «admin-родственник», «внук», «семья» — это **иллюстративные персоны** для понимания use-case, **НЕ доменная модель**. Продукт не зацикливается на one семья-пожилой scenario; должен работать для других конфигураций (clinic / nursing-home / корпоративный contract-phone management / self-care). В **доменных формулировках** (Description core fields, technical scope, AC) использовать **обобщённые роли**:
+  - `primary user` (или `end-user` / `device owner`) — основной пользователь устройства, тот кого настраивают (бабушка как example, но также пациент / сотрудник / self-care user).
+  - `remote administrator` (или просто `admin`) — пользователь, имеющий полный remote доступ к настройкам primary user'а (родственник / врач / IT-support / сам primary user в self-managed варианте).
+  - `restricted caregiver` (или просто `caregiver`) — пользователь с ограниченным доступом (сиделка / медсестра / hourly помощник).
+  - `family group` / `care group` / `shared space` — abstract группа (семья / clinic patient circle / company team).
+  Конкретные персонажи допустимы **только** в:
+  - Опциональной секции `## Пример сценария (use-case)` — для иллюстрации того же abstract scenario на конкретных примерах: family / clinic / B2B.
+  - Внутри `Готовый промт для /speckit.specify` — если spec.md явно ориентирован на конкретный сегмент.
+
+### Workflow: как добавлять новые backlog-task'и (для AI-агентов)
+
+Когда владелец говорит «давай добавим N task'ов» / «есть новые идеи, занеси их» — AI должен:
+
+1. **Уточнить параметры** (если не очевидно из контекста):
+   - **Фаза** → milestone (`m-0` Phase-1, `m-1` Phase-2, `m-2` Phase-3, `m-3` Phase-4, `m-4` Phase-5/parking-lot). По умолчанию для новых идей **Phase-5 parking-lot** если не подразумевается срочность.
+   - **Priority** (`high` / `medium` / `low`). Default для draft-идей — `medium`; для parking-lot — `low`.
+   - **Dependencies** (`--dep TASK-X,TASK-Y`) — какие task'и должны быть Done до этого.
+   - **Labels** — phase, feature-area (`crypto`, `ui`, `auth`, `cloud`, ...), и опциональный исторический префикс если есть (`f-N`, `s-N`, `p-N`, `v-N`, `l-N`).
+   - **References** — если уже есть `specs/NNN-slug/` папка, поле `--ref`.
+
+2. **Создать через CLI** (или MCP `createTask`):
+   ```
+   backlog task create '<short imperative title без F/S/P/V/L префиксов>' \
+     -s Draft --priority medium -l 'phase-N,area-1,area-2' -m m-N \
+     [--dep TASK-X,TASK-Y] [--ref specs/NNN-slug/]
+   ```
+
+3. **Заполнить description в mentor-style** (см. шаблон выше). Обязательно:
+   - Если фича пересекает несколько сегментов (family / clinic / B2B) — добавить блок «Про роли в этой задаче».
+   - В техническом разделе использовать обобщённые роли (`primary user`, `remote administrator`, `restricted caregiver`), не персонажей.
+   - **Готовый промт для `/speckit.specify`** обязателен — заполнить блоком ```…``` с разделами ЧТО / ЗАЧЕМ / SCOPE / DEPENDENCIES / ACCEPTANCE / LOCAL TEST PATH / CONSTITUTION GATES / EFFORT.
+
+4. **Заполнить AC через `--ac`** (или после создания через `--ac` в edit). AC = проверяемые человеком шаги, не технические утверждения.
+
+5. **Установить ordinal** через `--ordinal N*1000` чтобы Kanban сортировал по id (например, для TASK-49: `--ordinal 49000`).
+
+6. **Показать результат** через `backlog task view task-N --plain` и спросить подтверждения у владельца.
+
+7. **НЕ коммитить автоматически** — только при явной просьбе. Изменения в `backlog/` попадают в обычные коммиты вместе с другими изменениями (`auto_commit: false` в config.yml).
+- **autoCommit выключен**: изменения task-файлов попадают в обычные осмысленные коммиты, не плодят микро-коммиты.
+
+Просмотр: `backlog browser` (http://localhost:6420), `backlog overview` (текстовая сводка), `backlog sequence list --plain` (граф зависимостей).
+
 ## Conflict resolution
 
 When a user instruction would violate a rule above, surface the conflict in one sentence — for example: *"this would couple a vendor SDK type into the domain — proceed anyway, or wrap as a port?"* — and continue based on the answer.

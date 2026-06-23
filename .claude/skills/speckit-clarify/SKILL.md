@@ -90,6 +90,10 @@ For each checklist returned by `procedure-assess-spec-complexity`:
 
 **Mandatory.** For every artifact this orchestrator touched (updated `spec.md`, `checklists/_overview.md`, individual `checklists/<name>.md` files with open items), invoke `procedure-add-novice-summary` to append a plain-Russian "for newcomers" section at the bottom.
 
+### Step 5c — Sync backlog AC
+
+**Mandatory if backlog-task exists for this spec.** Invoke `procedure-sync-backlog-ac` to propagate Success Criteria marked with `[backlog]` into the Acceptance Criteria of the matching backlog-task (via MCP `backlog`). Если backlog-task'а нет — skill сам сообщит и завершится без ошибки.
+
 ### Step 6 — Report
 
 ```

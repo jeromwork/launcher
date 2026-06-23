@@ -69,6 +69,10 @@ If any FR has no covering task → add task. If any contract has no roundtrip �
 
 **Mandatory.** Invoke `procedure-add-novice-summary` on `tasks.md` to append a plain-Russian "for newcomers" section at the bottom.
 
+### Step 4c — Sync backlog AC
+
+**Mandatory if backlog-task exists for this spec.** If `tasks.md` re-formulation touched `## Success Criteria` markers in `spec.md`, invoke `procedure-sync-backlog-ac` to propagate `[backlog]`-marked SC into the matching backlog-task via MCP. Если backlog-task'а нет — skill сам сообщит и завершится без ошибки.
+
 ### Step 5 — Report
 
 ```

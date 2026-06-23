@@ -6,7 +6,7 @@
 - Operational рекомендации (2FA, key rotation, monitoring setup).
 - Architectural exit ramps (когда мигрировать с Spark→Blaze, workers.dev→свой домен, etc.).
 - Hardening и улучшения, выявленные в `/speckit.analyze` или ревью.
-- Future features из roadmap.md которые ещё не привязаны к конкретному спеку.
+- Future features из Backlog (`backlog overview`) которые ещё не привязаны к конкретному спеку.
 
 **Не добавлять сюда**: бытовые баги (→ GitHub Issues), задачи в рамках активного спека (→ соответствующий `tasks.md`).
 

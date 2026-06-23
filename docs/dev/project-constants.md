@@ -151,7 +151,7 @@ If you (agent or human) are about to ask the user "how should X work?" — first
 - Marketplace-ready: independent capabilities добавляются without app rebuild.
 
 **Где реализуется**:
-- **F-2 Capability Registry Foundation** (roadmap.md Phase 1) — primary home для compositable preset architecture.
+- **F-2 Capability Registry Foundation** (Backlog TASK-33, Phase 4) — primary home для compositable preset architecture.
 - F-014 (Tile Editing) — uses current monolithic enum **как placeholder**; refactor когда F-2 закроется (`selectProfile(presetId)` → `selectProfile(capabilities)`).
 - Future ecosystem apps (messenger, family album) — наследуют capability model.
 
@@ -160,7 +160,7 @@ If you (agent or human) are about to ask the user "how should X work?" — first
 - Не предлагать **больше hardcoded preset enum'ов** — current enum уже placeholder, новые добавлять только если **обязательно** в краткосрочной перспективе.
 - Не предлагать **разрушить** legacy enum — wait until F-2 закроет migration path. Backward-compat обязателен.
 
-**Reference**: roadmap.md §F-2 Capability Registry Foundation, [docs/product/future/ecosystem-vision.md §Compositable presets](../product/future/ecosystem-vision.md).
+**Reference**: Backlog TASK-33 (F-2 Capability Registry Foundation, Phase 4), [docs/product/future/ecosystem-vision.md §Compositable presets](../product/future/ecosystem-vision.md).
 
 ---
 
