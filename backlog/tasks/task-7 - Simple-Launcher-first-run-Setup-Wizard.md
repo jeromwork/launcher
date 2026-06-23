@@ -4,7 +4,7 @@ title: Simple Launcher first-run + Setup Wizard
 status: Planned
 assignee: []
 created_date: '2026-06-23 05:36'
-updated_date: '2026-06-23 06:12'
+updated_date: '2026-06-23 06:54'
 labels:
   - phase-2
   - s-spec
@@ -15,6 +15,7 @@ milestone: m-1
 dependencies:
   - TASK-1
 priority: high
+ordinal: 3500
 ---
 
 ## Description

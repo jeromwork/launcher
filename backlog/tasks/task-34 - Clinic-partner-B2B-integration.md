@@ -4,7 +4,7 @@ title: Clinic / partner B2B integration
 status: Planned
 assignee: []
 created_date: '2026-06-23 05:42'
-updated_date: '2026-06-23 06:34'
+updated_date: '2026-06-23 06:54'
 labels:
   - phase-5
   - l-spec
@@ -16,6 +16,7 @@ milestone: m-4
 dependencies:
   - TASK-31
 priority: low
+ordinal: 47000
 ---
 
 ## Description
