@@ -1,6 +1,6 @@
 ---
 name: "speckit-clarify"
-description: "Identify underspecified areas in the current feature spec by asking up to 5 highly targeted clarification questions and encoding answers back into the spec."
+description: "Identify underspecified areas in the current feature spec by asking as many targeted clarification questions as the grey zones require (organic count per constitution Article XIX, typically 3–7, no hard cap) and encoding answers back into the spec."
 compatibility: "Requires spec-kit project structure with .specify/ directory"
 metadata:
   author: "github-spec-kit"
@@ -114,7 +114,7 @@ Execution steps:
        |--------|-------------|
        | A | <Option A description> |
        | B | <Option B description> |
-       | C | <Option C description> (add D/E as needed up to 5) |
+       | C | <Option C description> (add D/E/F/G as many as the topic genuinely needs) |
        | Short | Provide a different short answer (<=5 words) (Include only if free-form alternative is appropriate) |
 
        - After the table, add: `You can reply with the option letter (e.g., "A"), accept the recommendation by saying "yes" or "recommended", or provide your own short answer.`
@@ -154,7 +154,7 @@ Execution steps:
 
 6. Validation (performed after EACH write plus final pass):
    - Clarifications session contains exactly one bullet per accepted answer (no duplicates).
-   - Total asked (accepted) questions ≤ 5.
+   - Total asked (accepted) questions matches the organic grey-zone count per constitution Article XIX (no numeric cap; do not pad, do not silently trim).
    - Updated sections contain no lingering vague placeholders the new answer was meant to resolve.
    - No contradictory earlier statement remains (scan for now-invalid alternative choices removed).
    - Markdown structure valid; only allowed new headings: `## Clarifications`, `### Session YYYY-MM-DD`.
