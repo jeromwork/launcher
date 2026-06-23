@@ -4,7 +4,7 @@ title: Cloud Feature Inventory + Offline-First Architecture
 status: In Progress
 assignee: []
 created_date: '2026-06-23 09:42'
-updated_date: '2026-06-23 09:44'
+updated_date: '2026-06-23 12:25'
 labels:
   - phase-1
   - architecture
@@ -149,3 +149,15 @@ CONSTITUTION GATES:
 EFFORT: Medium (~1-2 weeks).
 ````
 <!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 Свежее установленное приложение запускается и показывает функциональный главный экран без Google Sign-In за <3 секунды на эмуляторе
+- [ ] #2 SOS открывает dialer с emergency-номером за <1 секунду независимо от cloud-state
+- [ ] #3 В local-mode (без Sign-In) packet capture 5 минут показывает 0 запросов к Firebase / Firestore / FCM
+- [ ] #4 Sign-In success → cloudAvailable=true в DataStore за <500ms (push через AuthProvider)
+- [ ] #5 Sign-Out → cloudAvailable=false за <500ms (push через AuthProvider)
+- [ ] #6 SignInExplanationScreen показывается одинаково из wizard и Settings (визуальное соответствие)
+- [ ] #7 Huawei без GMS — приложение запускается, проходит wizard, локальные features работают, без crashes
+- [ ] #8 Documentation cloud-availability.md читается non-developer владельцем за <10 минут
+<!-- AC:END -->

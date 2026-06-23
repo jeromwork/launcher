@@ -169,6 +169,13 @@ Future feature «push admin'у на SOS» реализует `LocalAlternative`.
   - Из wizard'а (TASK-7) как опциональный шаг.
   - Из Settings cloud-actions.
   - Из любой будущей cloud-фичи.
+- **FR-008a** (accessibility, per Constitution Gate 5 + senior-safe per Article VIII §7):
+  - Кнопки «Войти через Google» и «Отмена» MUST иметь tap target ≥ 56dp.
+  - Контраст текста (заголовок, пункты, кнопки) MUST быть ≥ 4.5:1 (WCAG 2.2 AA).
+  - TalkBack contentDescription MUST быть установлен для заголовка, каждого пункта-преимущества, обеих кнопок.
+  - Focus order: заголовок → пункты по порядку → кнопка «Войти» → кнопка «Отмена».
+  - Screen MUST поддерживать большой шрифт (system font scale до 200%) без обрезания / overlap.
+  - Smoke verification: TalkBack walkthrough на эмуляторе через skill `android-emulator`.
 
 **LocalAlternative interface**:
 
