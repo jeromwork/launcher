@@ -169,6 +169,20 @@ For tests:
 - Every port has at least a fake-adapter test and a contract test.
 - Every wire format has a roundtrip test (write → read → assert equal) and a backward-compat test (read previous schema-version).
 
+## Portfolio tracker (Backlog.md)
+
+Кросс-спек portfolio состояние («что сделано / что в работе / что следующее») живёт в **папке `backlog/`** (инструмент [Backlog.md](https://github.com/MrLesk/Backlog.md), MCP-сервер `backlog`).
+
+- **Одна фича = один backlog-task.** Поле `references` указывает на `specs/NNN-slug/`. Mini-tasks из `specs/NNN/tasks.md` — территория Spec Kit, в backlog не дублируются.
+- **Источник правды по AC — `spec.md`.** В секции `## Success Criteria` помечать высокоуровневые user-visible критерии маркером `[backlog]`. Skill `procedure-sync-backlog-ac` автоматически (через MCP) переносит их в `## Acceptance Criteria` соответствующего backlog-task'а. Технические SC (тайминги, fitness functions, contract tests) НЕ помечаются — они остаются только в spec.md.
+- **Sync вызывается** в конце `speckit-clarify` (Step 5c) и `speckit-tasks` (Step 4c). Руками — после правки `## Success Criteria` мимо speckit-команд.
+- **Создание backlog-task'а для новой спеки** — явное решение владельца (skill не создаёт автоматически). Команда: `backlog task create '<title>' -s Draft --priority high -l 'phase-N,F-feature' -m m-0 --ref specs/NNN-slug/`.
+- **Обновление статуса** task'а (`Draft → Clarified → Planned → In Progress → In Review → Done`) сейчас ручное; автоматизация через speckit-* orchestrators — следующая итерация.
+- **`docs/product/roadmap.md`** остаётся как стратегический «почему» (vision, phase rationale). Tracking статусов перенесён в Backlog. Эмодзи-статусы в roadmap.md больше не правдивый источник.
+- **autoCommit выключен**: изменения task-файлов попадают в обычные осмысленные коммиты, не плодят микро-коммиты.
+
+Просмотр: `backlog browser` (http://localhost:6420), `backlog overview` (текстовая сводка), `backlog sequence list --plain` (граф зависимостей).
+
 ## Conflict resolution
 
 When a user instruction would violate a rule above, surface the conflict in one sentence — for example: *"this would couple a vendor SDK type into the domain — proceed anyway, or wrap as a port?"* — and continue based on the answer.

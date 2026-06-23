@@ -105,14 +105,24 @@
 <!--
   ACTION REQUIRED: Define measurable success criteria.
   These must be technology-agnostic and measurable.
+
+  BACKLOG MARKER `[backlog]`:
+  Пометить маркером `[backlog]` те SC, которые должны попасть в portfolio-tracker
+  (Acceptance Criteria backlog-task'а для этой фичи). Это 4-7 высокоуровневых,
+  user-visible критериев готовности. Технические детали (тайминги, fitness functions,
+  internal contract tests) НЕ помечаются — они остаются только в spec.md.
+
+  Skill `procedure-sync-backlog-ac` автоматически вызывается в конце
+  speckit-specify / speckit-clarify / speckit-tasks и синхронизирует помеченные
+  SC в `backlog/tasks/task-N - <title>.md` через MCP.
 -->
 
 ### Measurable Outcomes
 
-- **SC-001**: [Measurable metric, e.g., "Users can complete account creation in under 2 minutes"]
-- **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
-- **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
-- **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
+- **SC-001 [backlog]**: [Высокоуровневый user-visible критерий — пример: "Recovery работает на втором устройстве за <60с"]
+- **SC-002**: [Технический критерий — пример: "Argon2id timing ≤3s P95 на эмуляторе"]
+- **SC-003 [backlog]**: [User-visible — пример: "90% пользователей успешно завершают setup с первой попытки"]
+- **SC-004**: [Internal contract — пример: "Identity isolation contract test проходит для двух Google UID"]
 
 ## Assumptions
 
