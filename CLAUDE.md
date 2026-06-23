@@ -179,6 +179,38 @@ For tests:
 - **Создание backlog-task'а для новой спеки** — явное решение владельца (skill не создаёт автоматически). Команда: `backlog task create '<title>' -s Draft --priority high -l 'phase-N,F-feature' -m m-0 --ref specs/NNN-slug/`.
 - **Обновление статуса** task'а (`Draft → Clarified → Planned → In Progress → In Review → Done`) сейчас ручное; автоматизация через speckit-* orchestrators — следующая итерация.
 - **`docs/product/vision.md`** — стратегический документ (vision, главный фильтр фич, exit ramps, soft launch gate). Старый `docs/product/roadmap.md` удалён 2026-06-23: операционный план перенесён в Backlog, стратегия — в vision.md. Если в исторических документах (decisions/, specs/) встретятся ссылки `docs/product/roadmap.md` — они исторические; используй vision.md + `backlog overview`.
+- **Стиль описания backlog-task'ов (mentor-style, обязательно для всех новых task'ов).** Description пишется на простом русском без жаргона, владелец проекта (не разработчик) должен понимать беглым взглядом. Шаблон:
+  ```
+  ## Что это простыми словами
+  Краткое объяснение + **нумерованные последовательности**:
+  «Что происходит по шагам (нормальный сценарий)», «Что происходит при <edge case>».
+  Все технические термины расшифровываются в скобках при первом упоминании.
+
+  ## Зачем
+  Какую боль закрывает + какой результат пользователь получает.
+
+  ## Что входит технически (для AI-агента)
+  Bullet-list портов / адаптеров / wire-форматов / тестов. Здесь жаргон допустим.
+
+  ## Состояние
+  Текущий статус по существу (в работе / planned / blocked + что сделано / что осталось).
+
+  ---
+
+  ## Готовый промт для `/speckit.specify`
+  Copy-paste блок в ```…``` с секциями: ЧТО СТРОИМ / ЗАЧЕМ /
+  SCOPE ВКЛЮЧАЕТ / SCOPE НЕ ВКЛЮЧАЕТ / DEPENDENCIES / ACCEPTANCE CRITERIA /
+  LOCAL TEST PATH / CONSTITUTION GATES / EFFORT.
+  ```
+  AC (Acceptance Criteria через `--ac`) пишутся как **проверяемые человеком шаги**: «зашёл → увидел → получил», не «KeyRegistry per-identity namespacing работает». Образец — TASK-6 (Root Key Hierarchy).
+- **Personas vs domain roles (ВАЖНО).** Слова «бабушка», «дочка», «admin-родственник», «внук», «семья» — это **иллюстративные персоны** для понимания use-case, **НЕ доменная модель**. Продукт не зацикливается на one семья-пожилой scenario; должен работать для других конфигураций (clinic / nursing-home / корпоративный contract-phone management / self-care). В **доменных формулировках** (Description core fields, technical scope, AC) использовать **обобщённые роли**:
+  - `primary user` (или `end-user` / `device owner`) — основной пользователь устройства, тот кого настраивают (бабушка как example, но также пациент / сотрудник / self-care user).
+  - `remote administrator` (или просто `admin`) — пользователь, имеющий полный remote доступ к настройкам primary user'а (родственник / врач / IT-support / сам primary user в self-managed варианте).
+  - `restricted caregiver` (или просто `caregiver`) — пользователь с ограниченным доступом (сиделка / медсестра / hourly помощник).
+  - `family group` / `care group` / `shared space` — abstract группа (семья / clinic patient circle / company team).
+  Конкретные персонажи допустимы **только** в:
+  - Опциональной секции `## Пример сценария (use-case)` — для иллюстрации того же abstract scenario на конкретных примерах: family / clinic / B2B.
+  - Внутри `Готовый промт для /speckit.specify` — если spec.md явно ориентирован на конкретный сегмент.
 - **autoCommit выключен**: изменения task-файлов попадают в обычные осмысленные коммиты, не плодят микро-коммиты.
 
 Просмотр: `backlog browser` (http://localhost:6420), `backlog overview` (текстовая сводка), `backlog sequence list --plain` (граф зависимостей).

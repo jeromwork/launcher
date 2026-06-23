@@ -4,6 +4,7 @@ title: Shared admin contact book
 status: Planned
 assignee: []
 created_date: '2026-06-23 05:45'
+updated_date: '2026-06-23 06:36'
 labels:
   - phase-5
   - l-spec
@@ -21,5 +22,41 @@ ordinal: 44000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-FUTURE-SPEC-004. N admin'ов одного family group могут шарить контакт-list через envelope encryption. Conflict resolution при concurrent edits.
+## Что это простыми словами
+
+Когда у одного primary user есть N admin'ов (например, family group из 3 родственников) — они могут шарить общий contact-list через envelope encryption + conflict resolution при concurrent edits.
+
+## Зачем
+
+Сейчас (TASK-9 S-3) каждый admin редактирует свой view контактов. При множественных admin'ах возникает рассинхрон. L-13 даёт shared единый contact-list.
+
+## Состояние
+
+**Parking lot.** FUTURE-SPEC-004. Зависит от TASK-9 (S-3 contact foundation).
+
+---
+
+## Готовый промт для `/speckit.specify` (когда придёт время)
+
+```
+Реализуй L-13: Shared admin contact book.
+
+ЧТО СТРОИМ:
+Multi-admin shared contact-list для одного primary user. Envelope encryption (каждый admin видит свою copy декрипчена своим ключом, server видит blob). Conflict resolution при concurrent edits (last-write-wins / CRDT / explicit merge UI).
+
+ЗАЧЕМ:
+N admin'ов одной family group работают над общим contact-list без рассинхрона.
+
+SCOPE ВКЛЮЧАЕТ:
+- Multi-recipient envelope encryption (extends TASK-4 F-5b).
+- Conflict resolution algorithm (ADR с выбором: LWW / CRDT / explicit merge).
+- Sync protocol через TASK-5 F-5c push.
+- UI: «who's editing now» indicator.
+
+DEPENDENCIES:
+- TASK-9 (S-3 contact foundation).
+- TASK-4 (F-5b envelope).
+
+EFFORT: TBD.
+```
 <!-- SECTION:DESCRIPTION:END -->

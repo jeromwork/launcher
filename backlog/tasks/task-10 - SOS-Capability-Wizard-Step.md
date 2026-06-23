@@ -4,6 +4,7 @@ title: SOS Capability + Wizard Step
 status: Planned
 assignee: []
 created_date: '2026-06-23 05:36'
+updated_date: '2026-06-23 06:14'
 labels:
   - phase-2
   - s-spec
@@ -21,14 +22,110 @@ ordinal: 9000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Phase 2 шаг 3. SOS button capability — large persistent button на home screen, при нажатии notifies всех paired admins через FCM push (F-5c). Включает confirm UI (anti-misclick), location attach, app update deferral (delays SOS during in-progress update). Effort: ~2 weeks.
+> **Про роли в этой задаче.** Сценарий ниже описан на примере **family-варианта** (бабушка как `primary user`, дочка-родственник как `remote administrator`, сиделка как `restricted caregiver`). Это — **иллюстрация для понятности**. В реальной модели роли называются `primary user` / `remote administrator` / `restricted caregiver` (см. CLAUDE.md «Personas vs domain roles»). Те же flow работают и для других сегментов: clinic (пациент / доктор / медсестра), B2B (сотрудник / HR / IT-support), self-care (один user во всех ролях).
+
+## Что это простыми словами
+
+Большая, всегда видимая кнопка SOS на главном экране. При нажатии — уведомление всем родственникам через push (со звуком), с подтверждением, что нажатие не случайное.
+
+**Что происходит по шагам:**
+1. Бабушка плохо себя чувствует, тапает большую красную кнопку SOS.
+2. Появляется экран подтверждения: «Точно отправить SOS?» с большой кнопкой «Да» и маленькой «Нет, случайно».
+3. Если бабушка не отвечает 5 секунд — SOS отправляется автоматически (на случай, если плохо настолько, что нет сил подтвердить).
+4. Если успела нажать «Нет, случайно» — отмена.
+5. Если «Да» (или авто-таймаут) — на все paired-устройства родственников (admin) приходит push «SOS от бабушки» со звуком, даже если телефон в Silent mode (через высокий severity FCM).
+6. Опционально (если разрешение location): к SOS прикладывается координата бабушки.
+7. Родственник тапает push → открывается Admin App → видит карту с бабушкой и кнопку «Позвонить».
+
+**Защита от случайных нажатий:**
+- Confirm-screen (см. шаг 2) защищает от случайного тапа в кармане.
+- Во время установки обновления приложения SOS работает (не блокируется update install).
+
+## Зачем
+
+Это **критическая safety-функция**. Один из главных reasons почему семья поставит это приложение бабушке. Без неё продукт — просто красивый launcher.
+
+## Что входит технически (для AI-агента)
+
+- `SOSButton` capability как mandatory step в Wizard preset (TASK-7).
+- `SOSPush` event через FCM (TASK-5 F-5c) с severity = actionable + time-sensitive + relevant per CLAUDE.md rule 10.
+- Confirm UI с timeout (3 sec — отмена; 5 sec без ответа — auto-send).
+- Location attach (если permission granted, async fetch с timeout 5 сек — не блокирует SOS).
+- App update deferral: SOS блокирует install update пока не отменён.
+- Admin notification handler в TASK-8 Admin App: open map + call action.
+
+## Состояние
+
+**Planned.** Зависит от TASK-7 (Simple Launcher как UI host), TASK-8 (Admin App для recipient), TASK-5 (FCM push transport).
+
+---
+
+## Готовый промт для `/speckit.specify`
+
+```
+Реализуй S-4: SOS Capability + Wizard Step.
+
+ЧТО СТРОИМ:
+SOS button capability — большая persistent кнопка на home screen Simple Launcher. Нажатие → confirm UI (anti-misclick с auto-send fallback при no-response) → push к всем paired admins через TASK-5 FCM (severity = actionable + time-sensitive + relevant per rule 10). Опциональный location attach. App update deferral — SOS не блокируется в-процессе обновления.
+
+ЗАЧЕМ:
+Критическая safety-функция. Один из главных reasons установки приложения семьёй для бабушки.
+
+SCOPE ВКЛЮЧАЕТ:
+- SOSButton capability в Wizard preset (mandatory step в TASK-7 Simple Launcher).
+- Confirm UI: 3 сек cancel window, 5 сек auto-send window.
+- Location attach (async, не блокирует, timeout 5 сек).
+- SOSPush event через FCM (TASK-5) с high-priority.
+- Admin notification handler в TASK-8 Admin App (open map + call action).
+- App update deferral: SOS работает во время install update (foreground service).
+- OEM-quirk testing: Samsung, Xiaomi MIUI, Huawei (background restrict bypass).
+
+SCOPE НЕ ВКЛЮЧАЕТ:
+- Hardware SOS power-button (post-MVP).
+- Caregiver SOS receivers (TASK-31 V-6).
+- SOS via Bluetooth wearable (TASK-30 V-5).
+
+DEPENDENCIES:
+- TASK-7 (S-1 Simple Launcher как UI host).
+- TASK-8 (S-2 Admin App как recipient).
+- TASK-5 (F-5c FCM push transport).
+
+ACCEPTANCE CRITERIA:
+- Бабушка тапнула SOS → появился экран подтверждения с большой «Да» и маленькой «Отмена».
+- Не нажала ничего 5 секунд → SOS отправился автоматически.
+- Тапнула «Отмена» в 3 секунды → ничего не отправилось.
+- Push пришёл admin'у в течение 5 секунд со звуком, даже когда телефон admin'а в Silent.
+- Если разрешение location выдано → к push прикреплена координата.
+- Если location не выдано → push приходит без координаты, без падения.
+- Во время install update SOS работает (foreground service не убит).
+- На Xiaomi MIUI / Samsung Knox push доходит несмотря на background restrict.
+
+LOCAL TEST PATH:
+- Два эмулятора (admin + managed) через skill android-emulator.
+- Manual smoke на Xiaomi 11T (есть в lab) для OEM background restrict.
+- Fake LocationProvider для unit-tests.
+
+CONSTITUTION GATES:
+- Rule 1 (domain isolation): SOSEvent — pure domain.
+- Rule 10 (notification minimization): SOS push justified explicitly (actionable + time-sensitive + relevant).
+- Rule 14 (security): location attach opt-in, не отправляется без permission.
+
+EFFORT: Medium (~2 weeks).
+```
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 SOS button capability в Wizard preset
-- [ ] #2 Push к admins через F-5c (severity: actionable + time-sensitive + relevant)
-- [ ] #3 Confirm UI с timeout (anti-misclick для случайных нажатий)
-- [ ] #4 Location attach (если permission granted, async с timeout)
-- [ ] #5 App update deferral: SOS блокирует update install до confirm
+- [ ] #1 Push к admins через F-5c (severity: actionable + time-sensitive + relevant)
+- [ ] #2 Confirm UI с timeout (anti-misclick для случайных нажатий)
+- [ ] #3 Location attach (если permission granted, async с timeout)
+- [ ] #4 App update deferral: SOS блокирует update install до confirm
+- [ ] #5 Бабушка тапнула SOS → появился экран подтверждения с большой 'Да' и маленькой 'Отмена'
+- [ ] #6 Не нажала ничего 5 секунд → SOS отправился автоматически
+- [ ] #7 Тапнула 'Отмена' в 3 секунды → ничего не отправилось
+- [ ] #8 Push пришёл admin'у за <5 секунд со звуком, даже когда телефон admin'а в Silent
+- [ ] #9 С разрешением location → к push прикреплена координата
+- [ ] #10 Без location → push без координаты, без падений
+- [ ] #11 Во время install update приложения SOS всё равно работает
+- [ ] #12 На Xiaomi MIUI / Samsung push доходит несмотря на background restrict
 <!-- AC:END -->
