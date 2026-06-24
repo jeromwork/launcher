@@ -105,6 +105,14 @@ This constitution intentionally separates:
 5. "Nice to have", "might need later", and speculative extensibility are prohibited unless explicitly justified.
 6. The default engineering posture SHOULD be **simple now, extensible only when evidence exists**.
 7. Every new module, abstraction, event type, or configuration layer MUST have an explicit reason.
+8. **MVP definition.** The MVP delivers all *base functional blocks* working end-to-end — encryption, push, server integration, auth, recovery, remote management, screen rendering, settings — but is NOT yet polished for end-user experience. UX refinement, visual smoothness, and per-profile tuning happen *after* MVP through **configuration changes** (JSON wire-format documents per Article VII §10), not through new code branches or new modules.
+
+   Specifically post-MVP work consists of:
+   - Tuning bundled JSON pool entries and profiles based on usability observations (which sequences of steps work best for which target populations).
+   - Visual / animation polish through Compose theming changes.
+   - Adding new bundled documents (additional `tile.set`s, `screen.layout`s, adaptive-UX presets) without code changes — pure JSON content authoring.
+
+   The MVP is "shippable as functional product" but not "delightful as user experience". Targeting delight at MVP stage is explicit anti-pattern: it slows base-block delivery and embeds early UX guesses into code where they're expensive to revise. Article VII §13 reinforces this — new profiles ship as JSON, not as code.
 
 ---
 
@@ -118,6 +126,16 @@ The following are non-negotiable product and engineering invariants:
 4. Invalid configuration MUST fail safely with deterministic fallback.
 5. Optional capabilities MUST NOT compromise base application stability or launcher-mode stability.
 6. Security, privacy, and permission scope MUST remain proportionate to approved product requirements.
+7. **Stability over system-level changes.** The application MUST treat each applied configuration setting as *persistent user intent*. After a setting is explicitly applied through wizard or settings UI, the application MUST NOT silently follow a conflicting system-level change (locale, theme, font scale, accessibility settings). The user-applied value takes precedence until explicitly changed through the application's own settings.
+
+   Rationale: primary user (elderly, low cognitive capability per Article VIII) relies on stable, predictable behaviour. Surprise UI shifts triggered by system-level changes the user did not initiate (sometimes by accident) are a top-tier defect — they break the foundational trust relationship. This applies to locale (Article VII §12 already reflects per-profile manifest semantics), theme, font scale, grid size, and any future user-applied configuration value.
+
+   Concrete enforcement examples:
+   - Locale: after wizard saves `languageOverride`, the application MUST call `AppCompatDelegate.setApplicationLocales()` (or platform equivalent) so the application override persists across system locale changes.
+   - Theme: after wizard saves `ThemeChoice`, the application MUST honour the saved value regardless of `Configuration.uiMode` system shifts.
+   - Font scale: similar persistence vs system font scale changes.
+
+   Exception: device-level safety changes (emergency calls, accessibility services explicitly mandated by Android) MAY override application preferences when required by platform.
 
 ---
 
@@ -231,6 +249,31 @@ Additional defaults:
     The split is declared **per-entry in the relevant pool document** (`system-settings.pool` / `ui-customization.pool`) through `criticality` and `canSkip` fields, and MAY be overridden **per-profile** by the `wizard.manifest` (`StepEntry.canSkip`, `StepEntry.criticality`). Pool-level defaults represent reasonable defaults across profiles; per-profile overrides express the choices a specific product variant has made (for example: `android.role.home` is `canSkip: true` in `android-pool.json` so other profiles MAY skip it, but the `simple-launcher` profile MAY override to `canSkip: false` because without ROLE_HOME the simple-launcher experience is meaningless).
 
 13. **No per-profile code module.** A new profile MUST NOT be introduced as a new Gradle module of code dedicated to that profile, and MUST NOT add a code branch keyed on `appFamilyId`. New profiles ship as new bundled JSON documents — a new `wizard.manifest` plus, where the existing bundled `screen.layout`s, `tile.set`s, and pool entries are insufficient, new bundled documents and / or new pool entries. Where a new profile genuinely requires a capability the existing `ConfigKind` set cannot express, a new kind MAY be added under §10, but the proposal MUST justify why the existing kinds were insufficient and MUST follow the schema evolution rules in [`CLAUDE.md`](../../CLAUDE.md) rule 5.
+
+14. **Configuration lifecycle is independent of application lifecycle.** An application update (new APK version) and a configuration update (new bundled JSON in pool / new `wizard.manifest` / new `screen.layout` / etc.) are *independent events*. An application MUST be able to:
+    - Update its bundled configurations through a new APK version (current path).
+    - Update its configurations from a non-bundled source (file import, network, AI-agent-generated, marketplace) through a `ConfigSource` adapter pattern *without* requiring a new application version (future path; current implementation: `BundledConfigSource`. Future adapters: `FileConfigSource`, `NetworkConfigSource`, `McpConfigSource`, `MarketplaceConfigSource`).
+    
+    **Config-check master pattern.** When the application launches (or after a configuration update is applied), the engine MUST:
+    - Load the current profile manifest (e.g., `simple-launcher.wizard.manifest.json`) via `ConfigSource`.
+    - For each step entry, check the *actual current state* on the device — NOT a stored snapshot of which steps were previously completed:
+      - For `SystemSetting` steps: query `SystemSettingPort.status(refId)`. Setting may have been applied through wizard, through Android system settings directly, through an admin remote push, or through an MCP agent — engine treats them identically.
+      - For `UIChoice` steps: query `UserPreferencesStore.current()` for a valid value matching the current pool's allowed choices.
+    - Skip steps whose actual state is already in the desired configuration.
+    - Include in the pending list only steps whose state is `NotApplied` or `Indeterminate` or whose stored value is invalid against current pool definition.
+    
+    If the pending list is empty → no wizard runs. If the pending list is non-empty → the wizard runs as a **donastroika view** showing only the pending steps. Application updates MUST NOT silently re-trigger the full wizard. The user-applied state (per Article III §7) is preserved across application updates; only genuinely new settings require user input.
+    
+    **Why state-of-device, not snapshot-of-manifest.** A primary-user (or an assisting administrator, or an external Android system change) MAY apply settings through paths other than the wizard — Android Settings directly, admin remote push, AI agent capability invocation, future file import. The engine MUST detect that a setting *is* in the desired state regardless of *how* it got there. A snapshot of "what steps the wizard completed last time" would diverge from device reality whenever any non-wizard path is used.
+
+15. **Multi-platform adapter seam.** The wire-format kinds in §10 are platform-agnostic; the *implementations* that detect, apply, and validate settings are platform-specific. The architecture MUST keep this seam strict:
+    - All `ConfigKind` documents, all data classes, all sealed type hierarchies (including `CheckSpec`, `ApplySpec`, and similar declarative dispatch types) live in `commonMain`. They MUST be serializable cross-platform.
+    - The engine and ports (`WizardEngine`, `SystemSettingPort`, `ConfigSource`, `UserPreferencesStore`, etc.) live in `commonMain`. Engine logic does not know which platform is running.
+    - Platform adapter modules (`androidMain`, `iosMain`, `androidTvMain`, etc.) implement the ports and register handlers for the relevant `CheckSpec` / `ApplySpec` variants.
+    - Pool documents are platform-keyed (`platform: "android" | "ios" | "android-tv" | "*"`). A profile's manifest MAY reference pool entries from any platform whose adapters are active in the build.
+    - If a step references a `CheckSpec` variant whose handler is not registered in the current build (e.g., an iOS-only check in an Android-only build), `SystemSettingPort.status()` MUST return `Indeterminate` and the engine MUST treat the step as pending (graceful degradation, not crash).
+    
+    A new platform MUST ship as: (a) a new adapter module with its own `<Platform>SystemSettingAdapter` and handlers, (b) a new platform-keyed pool document with platform-specific `CheckSpec` variants, (c) DI wiring registering the platform's handlers. The engine, ports, and existing platform adapters MUST NOT change.
 
 ---
 
@@ -623,6 +666,14 @@ These sources informed the constitution and are recommended reference material w
 
 ## Amendment History
 
+### 1.8 — 2026-06-24 (later same day)
+
+- **Article II §8 added** — MVP definition: base functional blocks end-to-end working, polish through JSON configuration not code, anti-pattern to target UX delight at MVP stage.
+- **Article III §7 added** — Stability over system-level changes: applied settings are persistent user intent; system-level shifts (locale, theme, font scale) MUST NOT silently override user-applied values. Locale enforcement via `AppCompatDelegate.setApplicationLocales()` explicitly required.
+- **Article VII §14 added** — Configuration lifecycle independent of application lifecycle. Engine reconciles current device state against current config spec at each launch through *config-check master* pattern: query `SystemSettingPort.status()` per step, skip applied, show only pending. Replaces snapshot-of-manifest approach. Applies to all paths through which a setting may have been applied (wizard, Android Settings directly, admin remote push, AI agent capability invocation, file import).
+- **Article VII §15 added** — Multi-platform adapter seam. Declarative dispatch types (`CheckSpec`, `ApplySpec`) in `commonMain`; handlers in platform-specific adapter modules. Graceful degradation: unregistered `CheckSpec` variants return `Indeterminate`. New platforms ship as new adapter + new platform-keyed pool; engine and ports unchanged.
+- **Rationale**: triggered by TASK-7 clarify pass 2026-06-24 (continuation of amendment 1.7 session). Owner explicitly surfaced that (a) MVP definition was implicit — risking AI scope creep through "let's polish this now" patches; (b) locale / theme silent shifts on system-level changes break the trust relationship with elderly primary users; (c) F-3 engine implementation traverses manifest linearly without checking current device state, causing wizard to re-show steps already applied by other paths; (d) future platforms (iOS, Android TV) and future sources (AI agent, file import, marketplace) require strict separation between commonMain data + ports and platform/source-specific implementations.
+
 ### 1.7 — 2026-06-24
 
 - **Article VII** — added §9 (profile composition), §10 (current generation of wire format kinds + explicit evolution policy), §11 (wizard = view of profile, not source of truth), §12 (mandatory / optional with skip-banner / optional silent semantics, pool-level defaults + per-profile override), §13 (no per-profile code module, no `if (appFamilyId == "x")` branches).
@@ -682,4 +733,4 @@ Initial project constitution created for Launcher based on:
 
 ---
 
-**Version**: 1.7.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-06-24
+**Version**: 1.8.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-06-24
