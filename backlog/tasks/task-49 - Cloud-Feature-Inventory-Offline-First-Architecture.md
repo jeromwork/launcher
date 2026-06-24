@@ -1,10 +1,10 @@
 ---
 id: TASK-49
 title: Cloud Feature Inventory + Offline-First Architecture
-status: Done
+status: Paused
 assignee: []
 created_date: '2026-06-23 09:42'
-updated_date: '2026-06-24 13:45'
+updated_date: '2026-06-24 14:00'
 labels:
   - phase-1
   - architecture
@@ -152,18 +152,38 @@ EFFORT: Medium (~1-2 weeks).
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 Свежее установленное приложение запускается и показывает функциональный главный экран без Google Sign-In за <3 секунды на эмуляторе
-- [x] #2 SOS открывает dialer с emergency-номером за <1 секунду независимо от cloud-state
-- [x] #3 В local-mode (без Sign-In) packet capture 5 минут показывает 0 запросов к Firebase / Firestore / FCM
-- [x] #4 Sign-In success → cloudAvailable=true в DataStore за <500ms (push через AuthProvider)
-- [x] #5 Sign-Out → cloudAvailable=false за <500ms (push через AuthProvider)
-- [x] #6 SignInExplanationScreen показывается одинаково из wizard и Settings (визуальное соответствие)
-- [x] #7 Huawei без GMS — приложение запускается, проходит wizard, локальные features работают, без crashes
-- [x] #8 Documentation cloud-availability.md читается non-developer владельцем за <10 минут
+Code-level gates (verifiable through grep / test run):
+- [x] #1 CloudAvailability port + Android adapter (CloudAvailabilityImpl) реализованы; 16/16 CHK в checklists/domain-isolation.md [x]
+- [x] #2 FcmTokenRegistrationGuard откладывает FCM token registration до cloudAvailable=true (regression fix для spec 019)
+- [x] #3 CloudAvailabilityContractTest invariant INV-7 (persistence survives recreate) зелёный
+- [x] #4 13/13 CHK в checklists/meta-minimization.md [x]; wire-format checklist N/A (нет wire format)
+- [x] #5 docs/dev/cloud-availability.md существует (AC #8 из ORIGINAL — переименован)
+
+Verification gates (BLOCKED — deferred markers в tasks.md):
+- [ ] #6 Emulator smoke pixel_5_api_34 (T043): fresh install → wizard без Sign-In → main screen → SOS dialer → cloud-action → SignInExplanationScreen → mock Sign-In → cloudAvailable=true. **`[deferred-local-emulator]`** — нужен AVD ≤ API 34 (composeUiTest 1.7.x не работает на API 35+, см. memory `reference_compose_ui_test_api_mismatch.md`)
+- [ ] #7 Instrumented integration tests T031–T036 на эмуляторе passed (CloudAvailabilityImplTest, SignInExplanationScreenE2ETest, regression на spec 019 FCM smoke). **`[deferred-local-emulator]`**
+- [ ] #8 Physical device verification на Xiaomi 11T (T041): fresh install → packet capture 5 мин в local mode → 0 запросов к Firebase / Firestore / FCM. **`[deferred-physical-device]`** — пользователь прогоняет вручную, AI session не имеет доступа к устройству (см. memory `reference_testing_environment.md`)
+- [ ] #9 Documentation `docs/dev/offline-online-architecture.md` создан (упомянут в spec.md «Что входит технически», файл сейчас отсутствует)
+
+Pseudo-gates (написаны в ORIGINAL AC, но не верифицируемы — переписать или удалить):
+- [ ] #10 ~~Huawei без GMS — приложение запускается~~ → реально проверяется через **DI override test** (CloudAvailabilityImpl с GMS=unavailable возвращает Disabled). На реальном Huawei устройстве не верифицируем (нет железа, не закупаем). Переформулировать в SC-009 формате (test через DI override + inline TODO physical-device).
 <!-- AC:END -->
 
-## Final Summary
+## Pause Reason
+<!-- SECTION:PAUSE_REASON:BEGIN -->
+Retroactive correction 2026-06-24: предыдущий статус Done (8/8) был ошибочно проставлен. Перепроверка по tasks.md / checklists/* выявила:
 
-<!-- SECTION:FINAL_SUMMARY:BEGIN -->
-All 8 AC closed (confirmed by owner 2026-06-24). Status → Done.
-<!-- SECTION:FINAL_SUMMARY:END -->
+- 33/45 tasks.md tasks закрыты `[x]`; **12 deferred** (включая ВСЕ instrumented emulator tests T031–T036, T043, и T041 physical-device).
+- Original AC ни разу не упоминали emulator smoke и physical device — критический пробел.
+- AC «Huawei без GMS» — pseudo-gate; реально проверяется только через DI override, не на железе.
+
+Blocked AC:
+- **#6, #7**: ждут AVD ≤ API 34 на машине разработчика (composeUiTest 1.7.x blocker).
+- **#8**: ждут manual прогон владельца на Xiaomi 11T.
+- **#9**: документ не создан.
+- **#10**: AC требует переформулировки.
+
+Снять Paused → закрыть #6, #7 (поставить AVD API 34 + прогнать тесты), закрыть #8 (manual), создать #9 doc, переписать #10 → повторно вызвать `pre-pr-backlog-sync`.
+
+**Lesson logged in memory**: при retroactive sync не верить «всё выполнено» на слово; обязательно grep'ить tasks.md на `[deferred-*]` маркеры и сверять checklists/.
+<!-- SECTION:PAUSE_REASON:END -->

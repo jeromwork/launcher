@@ -82,7 +82,20 @@ description: ОБЯЗАТЕЛЬНО вызывать перед `gh pr create` /
 
 ### Шаг 4 — Собрать «текущее состояние реальности»
 
-Для каждой AC попытаться **автоматически** определить, закрыт ли он:
+**4a. Обязательная проверка `[deferred-*]` маркеров в tasks.md** (lesson learned 2026-06-24 после TASK-49 incident):
+- `grep -nE "\[deferred-(local-emulator|physical-device|firebase-emulator|external)\]" specs/<NNN>/tasks.md`
+- Каждый найденный deferred маркер → **обязательно** соответствующий `[ ]` AC в backlog. Не игнорировать, даже если пользователь говорит «всё выполнено».
+- Типы deferred-маркеров:
+  - `[deferred-local-emulator]` — нужен AVD ≤ API 34 / другая конфигурация эмулятора
+  - `[deferred-physical-device]` — нужен реальный девайс (Xiaomi 11T, Huawei, и т.д.)
+  - `[deferred-firebase-emulator]` — нужен Firebase emulator suite running
+  - `[deferred-external]` — ждём third-party (provisioning, hardware delivery, owner approval)
+
+**4b. Обязательная проверка checklists/*.md** (если spec проходила через speckit-* orchestrator'ы):
+- `grep -cE "^- \[x\]" specs/<NNN>/checklists/*.md` vs `grep -cE "^- \[" specs/<NNN>/checklists/*.md` — каждый checklist должен быть полностью `[x]` (или явно `[N/A]`).
+- Не-полностью-зелёный checklist → соответствующий AC в backlog: «`<checklist-name>` complete: X/Y CHK [x]».
+
+**4c. Авто-верификация code-related AC:**
 
 | Подсказка в AC                              | Проверка                                         |
 |---------------------------------------------|--------------------------------------------------|
@@ -91,24 +104,35 @@ description: ОБЯЗАТЕЛЬНО вызывать перед `gh pr create` /
 | «Round-trip byte-equal на physical device»  | **манульная проверка** — спросить пользователя   |
 | «Privacy Policy section добавлен»           | `grep -l "Privacy Policy" docs/`                 |
 | «Detekt rule X passes»                      | спросить «CI зелёный?» или `gradlew detekt`      |
+| «doc <name>.md существует»                  | `Glob "docs/**/<name>.md"`                       |
 
 Автоматические подсказки помечаются `✓ verified` / `✗ not found`. Не-автоматические — `? manual` с пояснением что проверить.
 
+**4d. Pseudo-gates** (написано в AC, но физически не проверяемо): пометить явно «pseudo — переформулировать или удалить». Пример: «Huawei без GMS работает» без Huawei устройства = pseudo; реальная проверка — DI override test, надо переписать AC.
+
 ### Шаг 5 — Спросить пользователя
 
-Показать таблицу:
+Показать таблицу. **ВАЖНО**: deferred-маркированные AC показывать с DEFAULT `[ ]`, даже если пользователь говорит «всё выполнено». Override требует явного подтверждения с указанием как именно проверено (smoke прогнан / реальное устройство использовано).
 
 ```
-TASK-3 (AuthProvider + Google Sign-In)
+TASK-49 (Cloud Feature Inventory)
 Current status: In Progress  →  proposed: ?
 
-AC #1: AuthProvider port в core/auth/...           [✓ verified — file exists]
-AC #2: Sign-In при первом cloud action            [? manual — был ли smoke test?]
-AC #3: Identity isolation: per-UID Keystore       [✓ verified — KeystoreNamespacing.kt]
-AC #4: Sign-out preserves Keystore                [✗ not found — есть unit test?]
+Code-level (✓ verified):
+  AC #1: CloudAvailability port            [✓ verified]
+  AC #2: FcmTokenRegistrationGuard         [✓ verified]
+  AC #3: docs/dev/cloud-availability.md    [✓ verified — exists]
 
-Mark which AC are closed by this PR (default: only ✓ verified):
-[1, 3] OK? (or override "1,2,3,4" / "1,3,4")
+Deferred gates (auto-blocked — DO NOT auto-check):
+  AC #6: Emulator smoke pixel_5_api_34     [✗ deferred-local-emulator T043]
+  AC #7: Instrumented tests T031-T036      [✗ deferred-local-emulator]
+  AC #8: Physical device Xiaomi 11T (T041) [✗ deferred-physical-device]
+
+Pseudo-gates (rewrite or remove):
+  AC #10: «Huawei без GMS»                 [✗ pseudo — нет железа; DI override only]
+
+Recommended status: Paused (b) — 3 deferred + 1 pseudo blocked.
+Override default? (y/N for status; or list AC# to manually flip):
 ```
 
 После ответа → формируется новый AC блок.
