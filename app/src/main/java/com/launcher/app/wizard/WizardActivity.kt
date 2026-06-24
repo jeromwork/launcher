@@ -80,7 +80,12 @@ class WizardActivity : ComponentActivity() {
                             }
                             val manifest = WizardManifest(doc.header, doc.body)
                             scope.launch {
-                                engine.run(manifest)
+                                val walkThrough = intent?.getBooleanExtra(EXTRA_WALK_THROUGH, false) == true
+                                if (walkThrough) {
+                                    engine.runWalkThrough(manifest)
+                                } else {
+                                    engine.run(manifest)
+                                }
                                 // TASK-7 / FR-017 — once the wizard captures a
                                 // language choice, persist it as the app-level
                                 // locale override so subsequent system-locale
@@ -129,6 +134,17 @@ class WizardActivity : ComponentActivity() {
         val override = userPreferencesStore.current().languageOverride ?: return
         val locales = LocaleListCompat.forLanguageTags(override)
         AppCompatDelegate.setApplicationLocales(locales)
+    }
+
+    companion object {
+        /**
+         * Intent extra (`Boolean`) — if true, [WizardActivity] runs the
+         * wizard via [WizardEngine.runWalkThrough] (skips computePending
+         * pre-flight) rather than the normal first-run [WizardEngine.run].
+         * Set by [com.launcher.app.settings.SettingsActivity] Walk-through
+         * button (TASK-7 / FR-014a / Сценарий 5).
+         */
+        const val EXTRA_WALK_THROUGH: String = "com.launcher.app.wizard.EXTRA_WALK_THROUGH"
     }
 
     private fun routeToFallback() {

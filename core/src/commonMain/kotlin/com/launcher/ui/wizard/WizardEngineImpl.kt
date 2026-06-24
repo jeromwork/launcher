@@ -60,6 +60,18 @@ class WizardEngineImpl(
 
     override fun currentState(): StateFlow<WizardState> = _state.asStateFlow()
 
+    override suspend fun runWalkThrough(manifest: WizardManifest): WizardOutcome {
+        // Walk-through entry: identical traversal to [run], but **no**
+        // computePending short-circuit. The user explicitly opted in to
+        // reviewing every step (Сценарий 5 / FR-014a).
+        diagnostics.emit(DiagnosticEvent.WizardStarted(manifest.id))
+        val ordered = orderedSteps(manifest)
+        if (ordered.isEmpty()) {
+            return finishCompleted(manifest, emptyMap())
+        }
+        return traverseSteps(manifest, ordered, resumed = null)
+    }
+
     override suspend fun computePending(manifest: WizardManifest): List<StepEntry> {
         val ordered = orderedSteps(manifest)
         if (ordered.isEmpty()) return emptyList()
@@ -91,6 +103,14 @@ class WizardEngineImpl(
             return finishCompleted(manifest, emptyMap())
         }
 
+        return traverseSteps(manifest, ordered, resumed)
+    }
+
+    private suspend fun traverseSteps(
+        manifest: WizardManifest,
+        ordered: List<StepEntry>,
+        resumed: WizardCheckpoint?,
+    ): WizardOutcome {
         val startIndex = resumed
             ?.takeIf { it.schemaVersion == 1 && it.currentStepIndex in ordered.indices }
             ?.currentStepIndex

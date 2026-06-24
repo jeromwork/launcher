@@ -183,6 +183,17 @@
             android:label="Spec 014 Smoke" />
 
         <!--
+          TASK-7 Phase 6 (FR-014 / FR-014a / FR-017a) — minimal Settings host.
+          Bundles PendingChecklist + WalkThrough button + LocaleDivergence
+          indicator. exported=false: only launched from inside the app
+          (post-TASK-7 menu wiring will add the entry from HomeActivity).
+        -->
+        <activity
+            android:name=".settings.SettingsActivity"
+            android:exported="false"
+            android:label="Settings" />
+
+        <!--
           Spec 007 pairing host (Managed-side flow). Launched from Settings
           via explicit intent. Stays adb-launchable for QA via
           `am start -n com.launcher.app/.ui.pairing.PairingActivity` —

@@ -129,6 +129,21 @@ val spec015Module = module {
 
     single { TutorialHintManager(get(), get(), get()) }
 
+    // TASK-7 Phase 6 — Settings VMs (FR-014, FR-014a, FR-017a).
+    factory {
+        com.launcher.app.settings.PendingChecklistViewModel(
+            engine = get(),
+            configSource = get(),
+            stringResolver = get(),
+        )
+    }
+    factory {
+        com.launcher.app.settings.LocaleDivergenceViewModel(
+            localeProvider = get(),
+            userPreferencesStore = get(),
+        )
+    }
+
     // TASK-7 Phase 5 — Custom-step dispatch (FR-027, FR-028).
     single<Map<String, CustomStepHandler>> {
         mapOf(

@@ -9,6 +9,25 @@ interface WizardEngine {
     fun currentState(): StateFlow<WizardState>
 
     /**
+     * Mode flag (TASK-7 Phase 6). `WalkThrough` skips the
+     * [computePending] pre-flight so the user sees every step with its
+     * current value (Сценарий 5 in spec.md).
+     */
+    enum class Mode { Wizard, WalkThrough }
+
+    /**
+     * "Walk through all settings step-by-step" entry point (FR-014a /
+     * Сценарий 5). Equivalent to [run] but never short-circuits, even
+     * when every step's target state is already met — the user wants
+     * to review and optionally re-confirm each one.
+     *
+     * UI hint for callers: render `Текущее: <value>. [Оставить] [Изменить]`
+     * once per step. The actual Compose layer wiring lands when Settings
+     * gels in Phase 6+; engine-level traversal is correct already.
+     */
+    suspend fun runWalkThrough(manifest: WizardManifest): WizardOutcome
+
+    /**
      * State-of-device pre-flight: returns the manifest's [StepEntry] list
      * filtered to entries whose target state is **not yet applied** on this
      * device. Per data-model.md §2.1 + plan.md Phase 1 (config-check master
