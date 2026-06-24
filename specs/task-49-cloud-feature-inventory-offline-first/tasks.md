@@ -106,7 +106,7 @@
 - [x] **T022** Создать `app/src/main/kotlin/com/launcher/app/onboarding/SignInExplanationScreen.kt` — Composable function с параметрами `onSignInClicked: () -> Unit`, `onCancelClicked: () -> Unit`. Layout: Column с Title + 3-4 BulletPoint элементов + Spacer + Row с двумя кнопками. Все строки из string resources. Tap target кнопок ≥56dp. (FR-005, FR-006, FR-008, FR-008a). **Acceptance**: compile + manual preview в Android Studio.
 - [x] **T023** Добавить string resources для `SignInExplanationScreen`: в `app/src/main/res/values/strings.xml` (или KMP resources directory согласно existing pattern) — keys `cloud.signin.explanation.title`, `cloud.signin.explanation.bullet1..bullet4`, `cloud.signin.explanation.button_signin`, `cloud.signin.explanation.button_cancel`. EN base + RU manually. (FR-007). **Acceptance**: strings present.
 - [ ] **T024** Запустить `procedure-translate-spec-strings` (existing skill) для генерации остальных 9 locales (ES/ZH/AR/HI/PT/DE/FR/JA/KK-Latn). (FR-007). **Acceptance**: 11 locale-файлов содержат соответствующие keys.
-- [x] **T025** Создать `app/src/androidTest/kotlin/com/launcher/app/onboarding/SignInExplanationScreenE2ETest.kt` через Compose UI testing framework. Tests:
+- [ ] **T025** [deferred-local-emulator: composeUiTest 1.7.x vs API 35+ InputManager — needs AVD ≤ API 34. File written + compile зелёный, run deferred.] Создать `app/src/androidTest/kotlin/com/launcher/app/onboarding/SignInExplanationScreenE2ETest.kt` через Compose UI testing framework. Tests:
   - Composable рендерится без ошибок.
   - Title + 3-4 bullets visible.
   - Кнопки visible, tap target ≥56dp (через `onNode...assertHeightIsAtLeast(56.dp)`).
@@ -145,6 +145,8 @@
 **Purpose**: Instrumented E2E tests, fitness functions, documentation, regression checks.
 
 ### Instrumented integration tests (emulator)
+
+> **[deferred-local-emulator]** T031–T036 + T043 откладываются до AVD API ≤34 на домашнем компьютере пользователя (composeUiTest 1.7.x не работает на API 35+; см. memory `reference_compose_ui_test_api_mismatch.md`). Code-only tasks (T037–T040, T042) идут в этой сессии.
 
 - [ ] **T031** Создать `app/src/androidTest/kotlin/com/launcher/app/cloud/OfflineFirstE2ETest.kt`. Fresh install scenario:
   - Clear app data → launch app → проверить main screen появляется без Sign-In prompt.
@@ -194,6 +196,8 @@
 - [ ] **T040** [P] Применить `procedure-add-novice-summary` skill к `docs/dev/cloud-availability.md` — добавить TL;DR в конец. (Convention). **Acceptance**: summary секция в конце файла.
 
 ### Physical device verification
+
+> **[deferred-physical-device]** T041 откладывается — per memory `reference_testing_environment.md` реальное устройство не используется в AI-сессии. Inline-TODO `physical-device` оставляем; пользователь прогоняет вручную на Xiaomi 11T.
 
 - [ ] **T041** Manual verification на physical device #1 (currently Xiaomi 11T):
   - Install upgrade APK поверх existing spec 019 install.
