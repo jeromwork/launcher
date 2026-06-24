@@ -117,7 +117,7 @@
 
 ### DI wiring
 
-- [ ] **T026** Создать `app/src/main/kotlin/com/launcher/app/di/CloudModule.kt` (Koin module или существующая DI convention). Bind:
+- [x] **T026** Создать `app/src/main/kotlin/com/launcher/app/di/CloudModule.kt` (Koin module или существующая DI convention). Bind:
   - `DataStore<Preferences>` — singleton, file `cloud_settings.preferences_pb`.
   - `CloudAvailability` → `CloudAvailabilityImpl` (singleton, передаёт DataStore + injected AuthProvider + applicationScope).
   - `EmergencyNumberResolver` → `EmergencyNumberResolverImpl` (singleton, передаёт TelephonyManager from system services).

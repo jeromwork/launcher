@@ -146,6 +146,8 @@ dependencies {
     implementation(project(":core:keys"))
     // Spec 019 (F-5c) — generic push-trigger foundation.
     implementation(project(":core:push"))
+    // TASK-49 — CloudAvailability + LocalAlternative + EmergencyNumberResolver.
+    implementation(project(":core:cloud"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
