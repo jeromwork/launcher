@@ -156,6 +156,12 @@ For each: surface the issue in one sentence, propose the corrected shape, then c
 - Push after each significant step, not after several piled up.
 - Never use hook-bypassing flags (no-verify, no-gpg-sign, etc.) without explicit user approval.
 - Never commit secrets, signing keys, service-account credentials, or machine-local configuration.
+- **Tasks.md tick-sync (HARD RULE)**: каждый implementation commit, закрывающий один или несколько `Tnnn` из spec-kit `tasks.md`, ОБЯЗАН в том же diff'е проставить `- [x]` напротив этих task'ов. Refuse to commit без этого.
+  - **Один commit может покрывать несколько `Tnnn`** (`phase-N: Tnnn-Tmmm`) — все они должны быть `[x]` в этом же diff'е.
+  - **Запрещено**: «потом догонит», «в конце фазы», «ticks отдельным commit'ом». Это создаёт desync, наблюдавшийся на TASK-49 phase 1-4.
+  - **Self-check перед commit'ом**: `git diff --cached -- specs/**/tasks.md` должен содержать `[x]` строки, если в diff'е есть код, реализующий task. Иначе stop и проставить tick'и.
+  - **Частично сделанный task** — `[ ]` остаётся, в commit message описать что не закрыто. Не ставить `[x]` авансом.
+  - **Why**: tasks.md — единственный machine-readable источник правды о прогрессе для `/speckit.analyze`, для будущих сессий Claude и для onboarding. Drift = потеря контекста.
 
 ## Branching
 

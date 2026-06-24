@@ -25,10 +25,10 @@
 
 **Purpose**: Создать пустой module `:core:cloud` с правильным KMP setup, без бизнес-логики.
 
-- [ ] **T001** Создать Gradle module `core/cloud/` (`build.gradle.kts` с KMP plugin, target Android + JVM, dependencies: `kotlin-stdlib`, `kotlinx-coroutines-core`, для androidMain — `androidx.datastore:datastore-preferences`). (Plan §Project Structure). **Acceptance**: `./gradlew :core:cloud:assemble` зелёный.
-- [ ] **T002** Зарегистрировать module `:core:cloud` в `settings.gradle.kts`. **Acceptance**: `./gradlew projects` показывает `:core:cloud`.
-- [ ] **T003** [P] Добавить dependency `:core` (existing module) в `:core:cloud` (для доступа к `AuthProvider` port). **Acceptance**: `./gradlew :core:cloud:dependencies` показывает `:core` в compileClasspath.
-- [ ] **T004** [P] Создать пакетную структуру `core/cloud/src/{commonMain,commonTest,androidMain}/kotlin/com/launcher/cloud/{api,fake,impl,contracts}/` (пустые placeholder .gitkeep файлы где надо).
+- [x] **T001** Создать Gradle module `core/cloud/` (`build.gradle.kts` с KMP plugin, target Android + JVM, dependencies: `kotlin-stdlib`, `kotlinx-coroutines-core`, для androidMain — `androidx.datastore:datastore-preferences`). (Plan §Project Structure). **Acceptance**: `./gradlew :core:cloud:assemble` зелёный.
+- [x] **T002** Зарегистрировать module `:core:cloud` в `settings.gradle.kts`. **Acceptance**: `./gradlew projects` показывает `:core:cloud`.
+- [x] **T003** [P] Добавить dependency `:core` (existing module) в `:core:cloud` (для доступа к `AuthProvider` port). **Acceptance**: `./gradlew :core:cloud:dependencies` показывает `:core` в compileClasspath.
+- [x] **T004** [P] Создать пакетную структуру `core/cloud/src/{commonMain,commonTest,androidMain}/kotlin/com/launcher/cloud/{api,fake,impl,contracts}/` (пустые placeholder .gitkeep файлы где надо).
 
 ---
 
@@ -36,11 +36,11 @@
 
 **Purpose**: Pure-Kotlin port interfaces + data types без implementations.
 
-- [ ] **T005** Создать `core/cloud/src/commonMain/kotlin/com/launcher/cloud/api/CloudAvailability.kt` — interface с `suspend fun isCloudAvailable(): Boolean` + `val isCloudAvailableFlow: Flow<Boolean>`. KDoc описывает invariants INV-1..INV-7 из contract. (FR-001, contracts/cloud-availability-port.md). **Acceptance**: compile без ошибок.
-- [ ] **T006** [P] Создать `core/cloud/src/commonMain/kotlin/com/launcher/cloud/api/LocalAlternative.kt` — interface с `suspend fun executeLocally(context: ActionContext): ActionResult`. KDoc описывает opt-in pattern + invariants INV-1..INV-4. (FR-009, contracts/local-alternative-port.md). **Acceptance**: compile.
-- [ ] **T007** [P] Создать `core/cloud/src/commonMain/kotlin/com/launcher/cloud/api/EmergencyNumberResolver.kt` — interface с `suspend fun getEmergencyNumber(): String`. KDoc invariants INV-1..INV-7. (FR-011, contracts/emergency-number-resolver-port.md). **Acceptance**: compile.
-- [ ] **T008** [P] Создать `core/cloud/src/commonMain/kotlin/com/launcher/cloud/api/ActionContext.kt` — `data class ActionContext(callerId: String, parameters: Map<String, String> = emptyMap())`. (Key Entities). **Acceptance**: compile.
-- [ ] **T009** [P] Создать `core/cloud/src/commonMain/kotlin/com/launcher/cloud/api/ActionResult.kt` — `sealed class` с `Success(message: String?)` и `Failure(reason: String)`. (Key Entities). **Acceptance**: compile.
+- [x] **T005** Создать `core/cloud/src/commonMain/kotlin/com/launcher/cloud/api/CloudAvailability.kt` — interface с `suspend fun isCloudAvailable(): Boolean` + `val isCloudAvailableFlow: Flow<Boolean>`. KDoc описывает invariants INV-1..INV-7 из contract. (FR-001, contracts/cloud-availability-port.md). **Acceptance**: compile без ошибок.
+- [x] **T006** [P] Создать `core/cloud/src/commonMain/kotlin/com/launcher/cloud/api/LocalAlternative.kt` — interface с `suspend fun executeLocally(context: ActionContext): ActionResult`. KDoc описывает opt-in pattern + invariants INV-1..INV-4. (FR-009, contracts/local-alternative-port.md). **Acceptance**: compile.
+- [x] **T007** [P] Создать `core/cloud/src/commonMain/kotlin/com/launcher/cloud/api/EmergencyNumberResolver.kt` — interface с `suspend fun getEmergencyNumber(): String`. KDoc invariants INV-1..INV-7. (FR-011, contracts/emergency-number-resolver-port.md). **Acceptance**: compile.
+- [x] **T008** [P] Создать `core/cloud/src/commonMain/kotlin/com/launcher/cloud/api/ActionContext.kt` — `data class ActionContext(callerId: String, parameters: Map<String, String> = emptyMap())`. (Key Entities). **Acceptance**: compile.
+- [x] **T009** [P] Создать `core/cloud/src/commonMain/kotlin/com/launcher/cloud/api/ActionResult.kt` — `sealed class` с `Success(message: String?)` и `Failure(reason: String)`. (Key Entities). **Acceptance**: compile.
 
 ---
 
@@ -50,15 +50,15 @@
 
 ### Fakes
 
-- [ ] **T010** Создать `core/cloud/src/commonMain/kotlin/com/launcher/cloud/fake/FakeCloudAvailability.kt` — in-memory `MutableStateFlow<Boolean>`, manual `set(value: Boolean)` API для тестов. (Plan §Test Strategy). **Acceptance**: compile + `set(true) → isCloudAvailable() returns true`.
-- [ ] **T011** [P] Создать `core/cloud/src/commonMain/kotlin/com/launcher/cloud/fake/FakeEmergencyNumberResolver.kt` — конструктор принимает fixed number, `getEmergencyNumber()` возвращает его. **Acceptance**: compile.
-- [ ] **T012** [P] Создать `core/cloud/src/commonMain/kotlin/com/launcher/cloud/fake/FakeLocalAlternative.kt` — конструктор принимает predefined `ActionResult`, `executeLocally()` возвращает его. **Acceptance**: compile.
+- [x] **T010** Создать `core/cloud/src/commonMain/kotlin/com/launcher/cloud/fake/FakeCloudAvailability.kt` — in-memory `MutableStateFlow<Boolean>`, manual `set(value: Boolean)` API для тестов. (Plan §Test Strategy). **Acceptance**: compile + `set(true) → isCloudAvailable() returns true`.
+- [x] **T011** [P] Создать `core/cloud/src/commonMain/kotlin/com/launcher/cloud/fake/FakeEmergencyNumberResolver.kt` — конструктор принимает fixed number, `getEmergencyNumber()` возвращает его. **Acceptance**: compile.
+- [x] **T012** [P] Создать `core/cloud/src/commonMain/kotlin/com/launcher/cloud/fake/FakeLocalAlternative.kt` — конструктор принимает predefined `ActionResult`, `executeLocally()` возвращает его. **Acceptance**: compile.
 
 ### Contract tests
 
-- [ ] **T013** Создать `core/cloud/src/commonTest/kotlin/com/launcher/cloud/contracts/CloudAvailabilityContractTest.kt`. Test cases: INV-1 (read returns current), INV-3 (flow emits initial), INV-4 (flow emits on change), INV-5 (distinctUntilChanged), INV-6 (default false), INV-7 (persistence survives recreate — для FakeCloudAvailability проверяется через external state). (contracts/cloud-availability-port.md). **Acceptance**: 6 unit-test'ов зелёные.
-- [ ] **T014** [P] Создать `core/cloud/src/commonTest/kotlin/com/launcher/cloud/contracts/LocalAlternativeContractTest.kt`. Test cases: INV-1 (no cloud dependency — проверяется через FakeLocalAlternative + null CloudAvailability), INV-3 (no exceptions). (contracts/local-alternative-port.md). **Acceptance**: tests зелёные.
-- [ ] **T015** [P] Создать `core/cloud/src/commonTest/kotlin/com/launcher/cloud/contracts/EmergencyNumberResolverContractTest.kt`. Test cases: INV-1 (non-empty), INV-2 (valid phone format). (contracts/emergency-number-resolver-port.md). **Acceptance**: tests зелёные.
+- [x] **T013** Создать `core/cloud/src/commonTest/kotlin/com/launcher/cloud/contracts/CloudAvailabilityContractTest.kt`. Test cases: INV-1 (read returns current), INV-3 (flow emits initial), INV-4 (flow emits on change), INV-5 (distinctUntilChanged), INV-6 (default false), INV-7 (persistence survives recreate — для FakeCloudAvailability проверяется через external state). (contracts/cloud-availability-port.md). **Acceptance**: 6 unit-test'ов зелёные.
+- [x] **T014** [P] Создать `core/cloud/src/commonTest/kotlin/com/launcher/cloud/contracts/LocalAlternativeContractTest.kt`. Test cases: INV-1 (no cloud dependency — проверяется через FakeLocalAlternative + null CloudAvailability), INV-3 (no exceptions). (contracts/local-alternative-port.md). **Acceptance**: tests зелёные.
+- [x] **T015** [P] Создать `core/cloud/src/commonTest/kotlin/com/launcher/cloud/contracts/EmergencyNumberResolverContractTest.kt`. Test cases: INV-1 (non-empty), INV-2 (valid phone format). (contracts/emergency-number-resolver-port.md). **Acceptance**: tests зелёные.
 
 ---
 
@@ -68,8 +68,8 @@
 
 ### CloudAvailabilityImpl
 
-- [ ] **T016** Создать `core/cloud/src/androidMain/kotlin/com/launcher/cloud/impl/CloudAvailabilityImpl.kt` per pseudocode из plan.md §Architecture. Конструктор принимает `DataStore<Preferences>` + `AuthProvider` + `CoroutineScope`. Internal key `cloud.availability.is_available` (namespaced per wire-format checklist CHK013). (FR-001, FR-002, FR-003, FR-004, FR-005). **Acceptance**: compile.
-- [ ] **T017** Создать `core/cloud/src/androidUnitTest/kotlin/com/launcher/cloud/impl/CloudAvailabilityImplTest.kt`. Использует `FakeAuthProvider` (existing in `core/commonTest`) + test DataStore (in-memory или temp file). Tests:
+- [x] **T016** Создать `core/cloud/src/androidMain/kotlin/com/launcher/cloud/impl/CloudAvailabilityImpl.kt` per pseudocode из plan.md §Architecture. Конструктор принимает `DataStore<Preferences>` + `AuthProvider` + `CoroutineScope`. Internal key `cloud.availability.is_available` (namespaced per wire-format checklist CHK013). (FR-001, FR-002, FR-003, FR-004, FR-005). **Acceptance**: compile.
+- [x] **T017** Создать `core/cloud/src/androidUnitTest/kotlin/com/launcher/cloud/impl/CloudAvailabilityImplTest.kt`. Использует `FakeAuthProvider` (existing in `core/commonTest`) + test DataStore (in-memory или temp file). Tests:
   - `auth provider emit identity → cloudAvailable=true в DataStore` за <500ms (SC-005).
   - `auth provider emit null → cloudAvailable=false` за <500ms (SC-006).
   - `recreate impl instance → последнее значение читается из DataStore` (INV-7 / SC-004).
@@ -78,8 +78,8 @@
 
 ### EmergencyNumberResolverImpl
 
-- [ ] **T018** [P] Создать `core/cloud/src/androidMain/kotlin/com/launcher/cloud/impl/EmergencyNumberResolverImpl.kt`. Конструктор принимает `TelephonyManager` + locale provider lambda (`() -> Locale`). API 29+ путь: `TelephonyManager.getCurrentEmergencyNumberList()` → first item. Fallback: hardcoded map (RU/BY/KZ=102, US/CA=911, GB/EU/IN=112, JP=110, AU=000, CN=110, default=112) — per contract emergency-number-resolver-port.md. (FR-011). **Acceptance**: compile.
-- [ ] **T019** Создать `core/cloud/src/androidUnitTest/kotlin/com/launcher/cloud/impl/EmergencyNumberResolverImplTest.kt`. Mock TelephonyManager. Tests:
+- [x] **T018** [P] Создать `core/cloud/src/androidMain/kotlin/com/launcher/cloud/impl/EmergencyNumberResolverImpl.kt`. Конструктор принимает `TelephonyManager` + locale provider lambda (`() -> Locale`). API 29+ путь: `TelephonyManager.getCurrentEmergencyNumberList()` → first item. Fallback: hardcoded map (RU/BY/KZ=102, US/CA=911, GB/EU/IN=112, JP=110, AU=000, CN=110, default=112) — per contract emergency-number-resolver-port.md. (FR-011). **Acceptance**: compile.
+- [x] **T019** Создать `core/cloud/src/androidUnitTest/kotlin/com/launcher/cloud/impl/EmergencyNumberResolverImplTest.kt`. Mock TelephonyManager. Tests:
   - `RU locale + API < 29 (TelephonyManager returns null) → returns "102"` (INV-3).
   - `US locale + API < 29 → returns "911"` (INV-4).
   - `EU locale (DE) + API < 29 → returns "112"` (INV-5).
@@ -88,8 +88,8 @@
 
 ### SOSDialerAlternative
 
-- [ ] **T020** [P] Создать `core/cloud/src/androidMain/kotlin/com/launcher/cloud/impl/SOSDialerAlternative.kt`. Реализует `LocalAlternative`. Конструктор принимает `EmergencyNumberResolver` + `Context` (для startActivity). `executeLocally()` строит `Intent(ACTION_DIAL, Uri.parse("tel:$number"))` с `FLAG_ACTIVITY_NEW_TASK`, вызывает `context.startActivity(intent)`, возвращает `ActionResult.Success`. (FR-010, FR-012). **Acceptance**: compile.
-- [ ] **T021** Создать `core/cloud/src/androidUnitTest/kotlin/com/launcher/cloud/impl/SOSDialerAlternativeTest.kt`. Mock Context + FakeEmergencyNumberResolver. Tests:
+- [x] **T020** [P] Создать `core/cloud/src/androidMain/kotlin/com/launcher/cloud/impl/SOSDialerAlternative.kt`. Реализует `LocalAlternative`. Конструктор принимает `EmergencyNumberResolver` + `Context` (для startActivity). `executeLocally()` строит `Intent(ACTION_DIAL, Uri.parse("tel:$number"))` с `FLAG_ACTIVITY_NEW_TASK`, вызывает `context.startActivity(intent)`, возвращает `ActionResult.Success`. (FR-010, FR-012). **Acceptance**: compile.
+- [x] **T021** Создать `core/cloud/src/androidUnitTest/kotlin/com/launcher/cloud/impl/SOSDialerAlternativeTest.kt`. Mock Context + FakeEmergencyNumberResolver. Tests:
   - `executeLocally(callerId="sos") → builds Intent.ACTION_DIAL с tel:112 URI`.
   - `Returns ActionResult.Success`.
   - `Не делает cloud-проверок` (INV-1 — нет вызовов на CloudAvailability).
