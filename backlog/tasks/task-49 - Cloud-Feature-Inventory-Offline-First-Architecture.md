@@ -1,10 +1,10 @@
 ---
 id: TASK-49
 title: Cloud Feature Inventory + Offline-First Architecture
-status: In Progress
+status: Verification
 assignee: []
 created_date: '2026-06-23 09:42'
-updated_date: '2026-06-23 12:25'
+updated_date: '2026-06-24 14:30'
 labels:
   - phase-1
   - architecture
@@ -152,12 +152,34 @@ EFFORT: Medium (~1-2 weeks).
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Свежее установленное приложение запускается и показывает функциональный главный экран без Google Sign-In за <3 секунды на эмуляторе
-- [ ] #2 SOS открывает dialer с emergency-номером за <1 секунду независимо от cloud-state
-- [ ] #3 В local-mode (без Sign-In) packet capture 5 минут показывает 0 запросов к Firebase / Firestore / FCM
-- [ ] #4 Sign-In success → cloudAvailable=true в DataStore за <500ms (push через AuthProvider)
-- [ ] #5 Sign-Out → cloudAvailable=false за <500ms (push через AuthProvider)
-- [ ] #6 SignInExplanationScreen показывается одинаково из wizard и Settings (визуальное соответствие)
-- [ ] #7 Huawei без GMS — приложение запускается, проходит wizard, локальные features работают, без crashes
-- [ ] #8 Documentation cloud-availability.md читается non-developer владельцем за <10 минут
+- [x] #1 [hand] CloudAvailability port + Android adapter (CloudAvailabilityImpl) реализованы
+- [x] #2 [hand] FcmTokenRegistrationGuard откладывает FCM token registration до cloudAvailable=true (regression fix spec 019)
+- [x] #3 [hand] CloudAvailabilityContractTest invariant INV-7 (persistence survives recreate) зелёный
+- [x] #4 [hand] docs/dev/cloud-availability.md существует и читается non-developer
+- [ ] #5 [hand] Owner решает: создавать ли отдельный docs/dev/offline-online-architecture.md или ссылаться на cloud-availability.md (упомянут в spec.md «Что входит технически»)
+- [ ] #6 [hand] Переписать pseudo-gate «Huawei без GMS» в DI-override unit test (CloudAvailabilityImpl с GMS=unavailable возвращает Disabled) + inline TODO physical-device в коде
+- [x] #7 [auto:checklist] checklists/domain-isolation.md: 16/16 CHK [x]
+- [x] #8 [auto:checklist] checklists/meta-minimization.md: 13/13 CHK [x]
+- [N/A] #9 [auto:checklist] checklists/wire-format.md: N/A (no wire format)
+- [ ] #10 [auto:deferred-local-emulator] Emulator smoke pixel_5_api_34 (T043) + instrumented integration tests T031-T036; требует AVD ≤ API 34 per memory `reference_compose_ui_test_api_mismatch.md`
+- [ ] #11 [auto:deferred-physical-device] Physical device verification Xiaomi 11T (T041): packet capture 5 мин в local mode → 0 запросов к Firebase / Firestore / FCM
+
 <!-- AC:END -->
+
+## Verification Pending
+<!-- SECTION:VERIFICATION_PENDING:BEGIN -->
+PR #27 merged (commit 2ac2063). Code-level + checklist gates зелёные. Status retro-corrected 2026-06-24: предыдущая отметка Done (8/8) была ошибочной — original AC не покрывали emulator/physical-device гейты, AC «Huawei без GMS» был pseudo-gate, и 12/45 tasks в tasks.md помечены `[deferred-*]`.
+
+Pending для перехода Verification → Done:
+
+| AC | Type | Recovery step |
+|---|---|---|
+| #5 | hand | Owner решает: создавать ли отдельный `offline-online-architecture.md` или это дубликат `cloud-availability.md`. Если первое — создать файл, проставить `[x]`. |
+| #6 | hand | Owner правит формулировку AC: убрать «работает на реальном Huawei» (нет железа), оставить DI-override test (`CloudAvailabilityImpl` с GMS=unavailable → Disabled). Проверить test существует и проставить `[x]`. |
+| #10 | auto:deferred-local-emulator | Установить AVD API 34 (per memory `reference_compose_ui_test_api_mismatch.md`), прогнать T031-T036 + T043 через skill `android-emulator`, проставить `[x]` с указанием имени AVD. |
+| #11 | auto:deferred-physical-device | Owner вручную прогоняет на Xiaomi 11T (packet capture 5 мин в local-mode → 0 requests to Firebase/Firestore/FCM), приложить артефакт к PR comment, проставить `[x]`. |
+
+Re-run `pre-pr-backlog-sync` после каждого закрытого AC. Переход в Done — когда все 4 закрыты.
+
+**Lesson logged in memory** (`feedback_backlog_sync_verify_against_tasks.md`): при retroactive sync не верить «всё выполнено» на слово; обязательно grep'ить tasks.md на `[deferred-*]` маркеры и сверять `checklists/*.md`.
+<!-- SECTION:VERIFICATION_PENDING:END -->

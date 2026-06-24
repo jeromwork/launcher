@@ -59,6 +59,40 @@ These tasks MUST appear or the spec ships incomplete:
 - For UI features: a screenshot / smoke-checkpoint task (`android-emulator` skill).
 - For perf-sensitive features: a `perf-checkpoint.md` measurement task.
 
+### Step 3b — `[deferred-*]` markers (mandatory for AI-session tasks)
+
+Per CLAUDE.md Portfolio tracker §AC hybrid model: any task that **cannot be closed in the AI session** must carry an explicit `[deferred-<type>]` marker so that `pre-pr-backlog-sync` can pick it up as a separate `[auto:deferred-*]` backlog AC. Without the marker the backlog Kanban silently drifts (incident 2026-06-24 TASK-49).
+
+| Marker | When to use |
+|---|---|
+| `[deferred-local-emulator]` | Task requires AVD that the AI session can't spin up reliably (e.g. composeUiTest 1.7.x needs API ≤34 per memory `reference_compose_ui_test_api_mismatch`; instrumented test that fails on current local AVD; smoke test the AI can't visually verify). |
+| `[deferred-physical-device]` | Task requires a real phone (Xiaomi 11T, Huawei, OEM-specific verification) per memory `reference_testing_environment.md`. |
+| `[deferred-firebase-emulator]` | Task requires Firebase emulator suite running locally and the session can't start it. |
+| `[deferred-external]` | Task waits on third party (Play Console review, provider provisioning, hardware delivery, owner manual approval). |
+
+Format inside `tasks.md`:
+
+```markdown
+- [ ] **T041** [deferred-physical-device] Manual verification on Xiaomi 11T:
+       fresh install → packet capture 5 min → 0 requests to Firebase / Firestore / FCM.
+       Owner runs manually; AI session does not have access. (SC-007)
+```
+
+Group deferred tasks under an explicit section header to make grep cheap:
+
+```markdown
+### Instrumented integration tests (emulator)
+
+> **[deferred-local-emulator]** T031–T036 + T043 deferred until AVD API ≤34 is available
+> on the owner's machine (see memory `reference_compose_ui_test_api_mismatch.md`).
+
+- [ ] **T031** [deferred-local-emulator] ...
+```
+
+`pre-pr-backlog-sync` greps for these markers and emits a `[auto:deferred-<type>]` AC into the backlog task. The backlog task stays in `Verification` (or `In Progress`, if PR is not merged yet) until the deferred AC are closed.
+
+**Anti-pattern**: writing «Acceptance: passes on emulator» without marker. The AI session marks it as `[x]` because the code compiles — but the smoke was never run. Same for physical-device tasks.
+
 ### Step 4 — Run cross-artifact trace
 
 Invoke `procedure-cross-artifact-trace`. Report findings.
