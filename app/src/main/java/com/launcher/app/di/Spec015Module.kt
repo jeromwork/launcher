@@ -5,6 +5,22 @@ import com.launcher.adapters.wizard.AndroidLocaleProvider
 import com.launcher.adapters.wizard.AndroidStringResolver
 import com.launcher.adapters.wizard.AndroidSystemSettingAdapter
 import com.launcher.adapters.wizard.BundledConfigSource
+import com.launcher.adapters.wizard.CacheInvalidatingLifecycleObserver
+import com.launcher.adapters.wizard.SettingStatusCache
+import com.launcher.adapters.wizard.handlers.AndroidAccessibilityServiceCheckHandler
+import com.launcher.adapters.wizard.handlers.AndroidInAppOnlyApplyHandler
+import com.launcher.adapters.wizard.handlers.AndroidPackageHomeCheckHandler
+import com.launcher.adapters.wizard.handlers.AndroidPermissionCheckHandler
+import com.launcher.adapters.wizard.handlers.AndroidRoleApplyHandler
+import com.launcher.adapters.wizard.handlers.AndroidRoleCheckHandler
+import com.launcher.adapters.wizard.handlers.AndroidSettingsDeepLinkApplyHandler
+import com.launcher.adapters.wizard.handlers.AndroidSpecialPermissionCheckHandler
+import com.launcher.adapters.wizard.handlers.AndroidStandardPermissionApplyHandler
+import com.launcher.api.wizard.data.ApplySpec
+import com.launcher.api.wizard.data.CheckSpec
+import com.launcher.api.wizard.handlers.ApplyHandler
+import com.launcher.api.wizard.handlers.CheckHandler
+import kotlin.reflect.KClass
 import com.launcher.adapters.wizard.PersistentCheckpointStore
 import com.launcher.adapters.wizard.PersistentDismissedHintsStore
 import com.launcher.adapters.wizard.PersistentUserPreferencesStore
@@ -69,12 +85,36 @@ val spec015Module = module {
     single<DiagnosticEmitter> { NoopDiagnosticEmitter() }
     single<PermissionRequestPort> { NoopPermissionRequestPort() }
 
+    // TASK-7 Phase 2 — handler registries + cache (FR-009, FR-021, FR-022).
+    single<Map<KClass<out CheckSpec>, CheckHandler>> {
+        mapOf(
+            CheckSpec.AndroidRole::class to AndroidRoleCheckHandler(androidContext()),
+            CheckSpec.AndroidPermission::class to AndroidPermissionCheckHandler(get()),
+            CheckSpec.AndroidSpecialPermission::class to AndroidSpecialPermissionCheckHandler(androidContext()),
+            CheckSpec.AndroidAccessibilityService::class to AndroidAccessibilityServiceCheckHandler(),
+            CheckSpec.AndroidPackageHome::class to AndroidPackageHomeCheckHandler(androidContext()),
+        )
+    }
+    single<Map<KClass<out ApplySpec>, ApplyHandler>> {
+        mapOf(
+            ApplySpec.StandardPermissionRequest::class to AndroidStandardPermissionApplyHandler(get()),
+            ApplySpec.AndroidRoleRequest::class to AndroidRoleApplyHandler(androidContext()),
+            ApplySpec.SettingsDeepLink::class to AndroidSettingsDeepLinkApplyHandler(androidContext()),
+            ApplySpec.InAppOnly::class to AndroidInAppOnlyApplyHandler(),
+        )
+    }
+    single { SettingStatusCache(clock = get()) }
+    factory { CacheInvalidatingLifecycleObserver(cache = get()) }
+
     single<SystemSettingPort> {
         AndroidSystemSettingAdapter(
             context = androidContext(),
             configSource = get(),
             permissionRequestPort = get(),
             userPreferencesStore = get(),
+            checkHandlers = get(),
+            applyHandlers = get(),
+            cache = get(),
         )
     }
 
