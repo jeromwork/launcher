@@ -209,7 +209,7 @@
 
 ### Backlog sync (final)
 
-- [ ] **T042** После всех implementation tasks — проверить `[backlog]`-marked SC всё ещё актуальны после possible изменений в spec.md. Если изменились — запустить `procedure-sync-backlog-ac` для синхронизации TASK-49 AC. (Convention из speckit-tasks Step 4c). **Acceptance**: TASK-49 AC отражают current SC.
+- [x] **T042** После всех implementation tasks — проверить `[backlog]`-marked SC всё ещё актуальны после possible изменений в spec.md. Если изменились — запустить `procedure-sync-backlog-ac` для синхронизации TASK-49 AC. (Convention из speckit-tasks Step 4c). **Acceptance**: TASK-49 AC отражают current SC.
 
 ### Smoke + completion
 
