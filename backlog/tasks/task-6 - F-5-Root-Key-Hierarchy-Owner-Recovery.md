@@ -1,10 +1,10 @@
 ---
 id: TASK-6
 title: Root Key Hierarchy + Owner Recovery
-status: In Progress
+status: Paused
 assignee: []
 created_date: '2026-06-23 05:01'
-updated_date: '2026-06-23 06:09'
+updated_date: '2026-06-23 09:44'
 labels:
   - phase-1
   - F-feature
@@ -18,6 +18,7 @@ dependencies:
   - TASK-3
   - TASK-4
   - TASK-5
+  - TASK-49
 references:
   - specs/020-f5-root-key-hierarchy-recovery/
 priority: high
@@ -61,7 +62,7 @@ ordinal: 6000
 - Миграция `ConfigCipher2` (шифрование конфига из TASK-4) на `KeyRegistry` без изменения уже зашифрованных данных (byte-equal preserved).
 - Recovery flow: 3 Compose-экрана (Setup при первом запуске / Entry при восстановлении / Fallback при забытом пароле).
 - Интеграция с Android Autofill (Google Password Manager автоматически предлагает сохранить/подставить пароль).
-- `NoOpRecoveryKeyVault` adapter для устройств без GMS (Huawei) + автоматическое определение в DI.
+- `NoOpRecoveryKeyBackup` adapter для устройств без GMS (Huawei) + автоматическое определение в DI.
 - Identity isolation cascade wipe — при logout вытираются все ключи этого Google UID.
 
 ## Состояние
@@ -89,7 +90,7 @@ SCOPE ВКЛЮЧАЕТ:
 - Migration ConfigCipher2 (из TASK-4 / spec 018) на KeyRegistry без break-changes в ciphertext.
 - Recovery Compose screens: Setup / Entry / Fallback.
 - Android Autofill интеграция (newPassword + password autofill hints).
-- NoOpRecoveryKeyVault adapter для non-GMS (Huawei) + GMS detection в DI.
+- NoOpRecoveryKeyBackup adapter для non-GMS (Huawei) + GMS detection в DI.
 - Identity isolation cascade wipe при logout.
 - Документация recovery-flow.md + key-hierarchy.md на простом русском.
 
@@ -116,14 +117,14 @@ ACCEPTANCE CRITERIA (проверяет пользователь):
 LOCAL TEST PATH:
 - Эмулятор pixel_5_api_34 — Setup wizard от первого запуска до восстановления.
 - physical device #1 (currently Xiaomi 11T) (physical) — миграция ciphertext из spec 018 byte-equal.
-- Fake adapter NoOpRecoveryKeyVault — non-GMS path юнит-тестами.
+- Fake adapter NoOpRecoveryKeyBackup — non-GMS path юнит-тестами.
 
 CONSTITUTION GATES:
 - Rule 1 (domain isolation): KeyRegistry — port в core/keys/, adapter в android/.
 - Rule 2 (ACL): Android Keystore не вытекает в domain.
 - Rule 3 (one-way door): иерархия ключей — фиксируется навсегда; exit ramp — key rotation TASK-41.
-- Rule 5 (wire format): RecoveryVaultBlob schemaVersion=1, roundtrip + backward-compat test.
-- Rule 6 (mock-first): FakeKeyRegistry + FakeRecoveryKeyVault для тестов.
+- Rule 5 (wire format): RecoveryKeyBackupBlob schemaVersion=1, roundtrip + backward-compat test.
+- Rule 6 (mock-first): FakeKeyRegistry + FakeRecoveryKeyBackup для тестов.
 
 EFFORT: Large (~2-3 weeks).
 ```
@@ -142,5 +143,5 @@ EFFORT: Large (~2-3 weeks).
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Spec 020 написана 2026-06-22, в работе на ветке 020-f5-root-key-hierarchy-recovery. Закрывает Phase 1.
+On Paused: spec 020 написана и лежит в untracked файлах ветки 020-f5-root-key-hierarchy-recovery (stash при switch ветки). Ждёт закрытия TASK-49 (Cloud Feature Inventory + Offline-First Architecture), потому что TASK-49 определяет 'что считать первым cloud-action' для FR-008 setup trigger. Vault → RecoveryKeyBackup переименование уже применено в spec 020. После закрытия TASK-49: возврат на ветку 020, git stash pop, продолжить с /speckit.clarify.
 <!-- SECTION:NOTES:END -->

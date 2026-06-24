@@ -1,6 +1,6 @@
 ---
 name: speckit-clarify
-description: Spec-kit clarification orchestrator — runs after a draft spec.md is written, before plan.md exists. Identifies grey areas, asks the user ≤5 targeted questions, writes answers into a Clarifications section of spec.md, then runs the always-on quality checklists (requirements-quality + meta-minimization) and any triggered by procedure-assess-spec-complexity. Invoke this whenever a new or significantly changed spec.md exists.
+description: Spec-kit clarification orchestrator — runs after a draft spec.md is written, before plan.md exists. Identifies grey areas, asks the user **as many targeted questions as needed to close the actual grey zones (organic count per constitution Article XIX — typically 3–7, no hard cap)**, writes answers into a Clarifications section of spec.md, then runs the always-on quality checklists (requirements-quality + meta-minimization) and any triggered by procedure-assess-spec-complexity. Invoke this whenever a new or significantly changed spec.md exists.
 ---
 
 # Orchestrator: speckit-clarify
@@ -45,14 +45,14 @@ Read spec.md. Look for:
 | Wire-format without schema-version | New JSON in spec without `schemaVersion` | Ask: "What schemaVersion does this start at?" |
 | One-way door without exit ramp | Decision that's hard to reverse, no §"alternatives considered" | Ask: "If we wanted to leave this choice, what would it cost?" |
 
-### Step 3 — Ask ≤ 5 questions
+### Step 3 — Ask as many questions as the grey zones require
 
-**Question budget is organic, not numeric.** Per constitution Article XIX (Organic Question Budgets), do NOT pad to a target count and do NOT trim below what the spec actually needs:
+**Question budget is organic, not numeric — there is NO hard cap.** Per constitution Article XIX (Organic Question Budgets), do NOT pad to a target count and do NOT trim below what the spec actually needs:
 
-- Typical range: **3–7** questions per pass.
+- Typical range: **3–7** questions per pass. **This is observation, not a limit.**
 - < 3 — fine if spec is genuinely simple; don't invent grey zones to hit a floor.
-- > 8 — propose splitting into two passes with the user: «У меня N серьёзных вопросов с большим blast radius. Хочешь все сразу или разбить на два прохода?» Let user decide.
-- Pick ones with the **highest blast radius** if wrong (ones that would invalidate plan.md). If five grey zones tie at high blast radius and a sixth is medium — ask five. If all seven are high blast — ask seven, not «top-5».
+- > 8 — propose splitting into two passes with the user: «У меня N серьёзных вопросов с большим blast radius. Хочешь все сразу или разбить на два прохода?» Let user decide. **Do NOT silently drop questions to fit a number.**
+- Pick ones with the **highest blast radius** if wrong (ones that would invalidate plan.md). Ask **all** of them. If seven grey zones tie at high blast radius and there's an eighth — ask all eight, not «top-7».
 
 **Padding to a target = bug.** Trimming below organic count leaks architectural risk past clarify. Both fail the user.
 

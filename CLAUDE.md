@@ -156,6 +156,12 @@ For each: surface the issue in one sentence, propose the corrected shape, then c
 - Push after each significant step, not after several piled up.
 - Never use hook-bypassing flags (no-verify, no-gpg-sign, etc.) without explicit user approval.
 - Never commit secrets, signing keys, service-account credentials, or machine-local configuration.
+- **Tasks.md tick-sync (HARD RULE)**: каждый implementation commit, закрывающий один или несколько `Tnnn` из spec-kit `tasks.md`, ОБЯЗАН в том же diff'е проставить `- [x]` напротив этих task'ов. Refuse to commit без этого.
+  - **Один commit может покрывать несколько `Tnnn`** (`phase-N: Tnnn-Tmmm`) — все они должны быть `[x]` в этом же diff'е.
+  - **Запрещено**: «потом догонит», «в конце фазы», «ticks отдельным commit'ом». Это создаёт desync, наблюдавшийся на TASK-49 phase 1-4.
+  - **Self-check перед commit'ом**: `git diff --cached -- specs/**/tasks.md` должен содержать `[x]` строки, если в diff'е есть код, реализующий task. Иначе stop и проставить tick'и.
+  - **Частично сделанный task** — `[ ]` остаётся, в commit message описать что не закрыто. Не ставить `[x]` авансом.
+  - **Why**: tasks.md — единственный machine-readable источник правды о прогрессе для `/speckit.analyze`, для будущих сессий Claude и для onboarding. Drift = потеря контекста.
 
 ## Branching
 
@@ -177,17 +183,38 @@ For tests:
 - **Источник правды по AC — `spec.md`.** В секции `## Success Criteria` помечать высокоуровневые user-visible критерии маркером `[backlog]`. Skill `procedure-sync-backlog-ac` автоматически (через MCP) переносит их в `## Acceptance Criteria` соответствующего backlog-task'а. Технические SC (тайминги, fitness functions, contract tests) НЕ помечаются — они остаются только в spec.md.
 - **Sync вызывается** в конце `speckit-clarify` (Step 5c) и `speckit-tasks` (Step 4c). Руками — после правки `## Success Criteria` мимо speckit-команд.
 - **Создание backlog-task'а для новой спеки** — явное решение владельца (skill не создаёт автоматически). Команда: `backlog task create '<title>' -s Draft --priority high -l 'phase-N,F-feature' -m m-N --ref specs/NNN-slug/`.
-- **Status workflow (3 статуса, упрощено 2026-06-23):**
-  - `Draft` — task существует как идея / в roadmap'е, но ещё не обсуждалась. Дефолт для новых task'ов.
-  - `In Progress` — task взят в работу. Внутри `In Progress` идёт весь Spec Kit pipeline: `/speckit.specify` → `/speckit.clarify` → `/speckit.scenarios` → `/speckit.plan` → `/speckit.tasks` → `/speckit.analyze` → `/speckit.implement` → review → merge. Промежуточные стадии Spec Kit'а **не выделяются в отдельные backlog-статусы** (владелец работает по одной задаче за раз).
+- **Status workflow (4 статуса, обновлено 2026-06-23):**
+  - `Draft` — task существует как идея / в roadmap'е, но ещё не обсуждалась. Дефолт для новых task'ов. Ничего не написано (нет spec.md, нет частичного кода).
+  - `In Progress` — task взят в работу прямо сейчас. Внутри `In Progress` идёт весь Spec Kit pipeline: `/speckit.specify` → `/speckit.clarify` → `/speckit.scenarios` → `/speckit.plan` → `/speckit.tasks` → `/speckit.analyze` → `/speckit.implement` → review → merge. Промежуточные стадии Spec Kit'а **не выделяются в отдельные backlog-статусы** (владелец работает по одной задаче за раз).
+  - `Paused` — работа была начата (есть spec.md / частичный код в untracked / в stash / в ветке), но временно отложена в пользу другой задачи. Отличается от `Draft` тем, что **что-то уже написано**. В description task'а обязательна note: «причина паузы», «куда положили частичную работу» (имя stash / ветки / spec-папки). Возврат в `In Progress` подразумевает recovery этой работы.
   - `Done` — merged в `main`.
 - **Автопереход `Draft → In Progress` (HARD RULE для AI):**
   - **Любая команда `/speckit.*` или начало работы над фичей требует явного указания `task-N`.** AI **обязан** перед запуском убедиться, что у текущего действия есть связанный backlog-task. Если в сообщении владельца task-N **не назван явно** и не определяется однозначно из контекста (нет открытой ветки `NNN-slug` с совпадающим `references:` полем в каком-либо task'е) — AI **STOP, REFUSE to proceed** и задаёт владельцу один вопрос: «Какой `task-N` берём в работу? (или создаём новый?)».
   - **Когда task-N назван** — AI **первым шагом** (до любых других tool calls) вызывает MCP `editTask task-N -s "In Progress"`. Только после успешного перехода — запускает speckit-команды / делает правки кода.
   - **Никаких "догадок"**: AI не выбирает task-N сам из похожих, даже если есть очевидный кандидат. Всегда явное подтверждение владельца.
-  - **Множественные task'и одновременно — запрещены** (по решению владельца «работаю только над одной за раз»). Если владелец просит начать работу над task-X пока task-Y уже `In Progress` — AI обязан спросить: «task-Y сейчас In Progress. Закрыть её (Done) / вернуть в Draft / оставить и взять обе?».
+  - **Множественные task'и одновременно — запрещены** (по решению владельца «работаю только над одной за раз»). Если владелец просит начать работу над task-X пока task-Y уже `In Progress` — AI обязан спросить: «task-Y сейчас In Progress. Закрыть её (Done) / поставить на `Paused` (с записью где лежит частичная работа) / оставить и взять обе?».
 - **Автопереход `In Progress → Done`:** после merge PR в main — владелец или AI вызывает `backlog task edit task-N -s Done` (можно автоматизировать через git hook позже).
 - **Cleanup Done-карточек:** когда колонка Done разрастается (30+ задач) — `backlog cleanup` перемещает старые Done в `backlog/completed/`. Файлы остаются в git, доступны через Read tool / git log / grep. Контекст не теряется никогда.
+
+### Spec naming convention (обновлено 2026-06-23)
+
+- **Старые спеки `001..020`** — исторические артефакты предыдущей нумерации; не трогать, не переименовывать. Их связь с backlog-task'ом — через поле `references:` в task'е.
+- **Все новые спеки** (начиная с TASK-49 и далее) используют конвенцию `specs/task-N-slug/`, где `N` — id соответствующего backlog-task'а. Это **жёсткая конвенция**: имя папки явно содержит task-N, чтобы spec ↔ task связь была видна сразу в файловой структуре.
+- **Пример:** TASK-49 → `specs/task-49-cloud-feature-inventory-offline-first/`.
+- **При создании новой спеки** AI обязан: (а) сначала убедиться что backlog-task существует и в `In Progress`; (б) создать папку с правильным именем; (в) в backlog-task поле `references:` поставить путь к этой папке.
+- **При смене slug** (если фича переформулировалась через clarify) — переименовать папку через `git mv`, обновить `references:` в backlog-task.
+
+### Как AI-агент восстанавливает порядок разработки (navigation through history)
+
+Backlog хранит **три измерения порядка**, и AI-агент должен уметь читать каждое:
+
+1. **Snapshot (что сейчас):** `backlog overview` или `backlog task list --plain`. Показывает текущее состояние всех task'ов.
+2. **Logical order (что можно делать дальше):** `backlog sequence list --plain`. Вычисляется из графа `dependencies:` — показывает «волны» (Sequence 1 = не блокированы, Sequence 2 = разблокированы после Sequence 1, и т.д.).
+3. **Historical order (как реально было):** `git log --oneline -20 -- backlog/tasks/`. Показывает хронологию изменений task'ов.
+4. **Полная история конкретного task'а:** `git log -p backlog/tasks/task-N*` — каждое изменение этого task'а с diff.
+5. **Когда task реально закрылся (status → Done):** `git log --diff-filter=M -- backlog/tasks/task-N*` + grep'нуть commit с переходом на `status: Done`. Альтернативно — поле `updated_date` в frontmatter (но оно сдвигается при любом edit).
+
+**Принцип**: **TASK-N — стабильный identifier** (не меняется никогда), spec — артефакт под task'ом (через конвенцию `task-N-slug`). Если порядок исполнения «6 → 49 → 6 → 7» (с паузами / возвратами) — это **нормальная история**, а не рассинхрон. Git log + статусы дают полную картину.
 - **`docs/product/vision.md`** — стратегический документ (vision, главный фильтр фич, exit ramps, soft launch gate). Старый `docs/product/roadmap.md` удалён 2026-06-23: операционный план перенесён в Backlog, стратегия — в vision.md. Если в исторических документах (decisions/, specs/) встретятся ссылки `docs/product/roadmap.md` — они исторические; используй vision.md + `backlog overview`.
 - **Стиль описания backlog-task'ов (mentor-style, обязательно для всех новых task'ов).** Description пишется на простом русском без жаргона, владелец проекта (не разработчик) должен понимать беглым взглядом. Шаблон:
   ```

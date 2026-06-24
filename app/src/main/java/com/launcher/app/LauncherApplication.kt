@@ -9,6 +9,7 @@ import com.launcher.adapters.lifecycle.ConfigSyncWorkerFactory
 import com.launcher.app.push.FcmTokenBootstrapPublisher
 import com.launcher.app.di.appAndroidModule
 import com.launcher.app.di.assertNoFakeCryptoInRelease
+import com.launcher.app.di.cloudModule
 import com.launcher.app.di.cryptoModule
 import com.launcher.app.di.f016CryptoModule
 import com.launcher.app.di.f018KeysBackendModule
@@ -107,6 +108,7 @@ class LauncherApplication : Application(), Configuration.Provider {
                 f018KeysBackendModule, // spec 018 RecoveryKeyVault (flavor-resolved)
                 f019PushCommonModule,  // spec 019 (F-5c) PushHandlerRegistry + ConfigUpdatedHandler
                 f019PushBackendModule, // spec 019 PushTrigger / FcmTokenPublisher / ConfigChangeNotifier (flavor-resolved)
+                cloudModule,   // TASK-49 CloudAvailability + EmergencyNumberResolver + SOSDialerAlternative
                 setupModule,   // spec 010 GmsAvailabilityPort + List<SetupCheck>
                 spec014Module, // spec 014 tile-editing — empty в Phase 0, bindings landed в T060
                 spec015Module, // spec 015 (F-3) wizard + localization + senior UI
