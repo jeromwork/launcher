@@ -197,7 +197,7 @@ Additional defaults:
    - defaults,
    - migration policy.
 4. Configuration SHOULD be declarative where practical.
-5. Profiles MAY enable or disable modules, features, layouts, accessibility presets, or integration policies only through documented contracts.
+5. Profiles MAY enable or disable modules, features, layouts, **adaptive-UX presets** (see Project-Specific Direction §5), or integration policies only through documented contracts. Note: an **adaptive-UX preset** (variant for tremor, low vision, reduced dexterity, or cognitive load) is a sub-feature *inside* a profile — it is not itself a profile and is not at the same abstraction level as `simple-launcher`, `admin-app`, etc.
 6. Runtime-loaded or downloadable modules MUST remain optional enhancements, never assumptions for base application or launcher-mode stability.
 7. AI-generated changes MUST NOT silently widen config schema without updating:
    - schema docs,
@@ -209,6 +209,28 @@ Additional defaults:
    - `requiredModules`: modules without which the profile cannot be activated; the runtime MUST refuse activation and surface a clear reason if any are absent.
    - `optionalModules`: modules that enhance the profile but whose absence MUST degrade gracefully without breaking the base application or any active launcher-mode surface.
    The profile schema MUST treat these fields as part of the wire format (versioned, validated, backward-compatible per Article VII §3). End-user-facing prompts about module installation are not required: the project's primary persona (elderly user) does not configure devices — module acquisition is performed by an administrator/caregiver on the user's behalf, so the installation UX MAY be admin-facing only.
+
+9. **Profile composition.** The application's behaviour for a given product variant is expressed as a **profile** — a named composition of configuration documents that together determine the wizard flow, the main-surface composition, the in-cell content, the platform-level settings the variant uses, and the in-app UI options. Examples: `simple-launcher` (the elderly-friendly handheld variant), `admin-app` (remote-administrator variant), `clinic-patient-app` (B2B clinic variant). A profile is identified in wire format by the field `appFamilyId` (this field name is retained for backward compatibility per Article VII §3 and CLAUDE.md rule 5; the conceptual term used in specs and discussion is **"profile id"**). Behaviour of one APK across profiles MUST come from different bundled / loaded configurations, not from code branches keyed on the profile id.
+
+10. **Wire format kinds (current generation).** As of the current schema generation, a profile is composed by reference to documents of these kinds (`ConfigKind` enum, declared in `core/src/commonMain/kotlin/com/launcher/api/wizard/ConfigSource.kt`):
+    - `wizard.manifest` — first-run walkthrough scenario (StepEntry sequence referencing pool entries).
+    - `screen.layout` — main-surface composition: grid dimensions, toolbars, tabs, and — as the format evolves — status-bar configuration, app-shortcut intents, and multi-screen navigation. The current minimal schema (grid + bottom toolbar + top tabs) is expected to grow.
+    - `tile.set` — concrete content occupying screen.layout cells (position, action type, label, icon).
+    - `system-settings.pool` — catalogue of platform-level settings the profile uses; each entry declares mechanism (StandardPermission / SpecialPermission / DeepLink / AccessibilityService / InAppOnly), criticality, `canSkip`, deep-link target, detection strategy.
+    - `ui-customization.pool` — catalogue of in-app UI options (language, theme, font scale, grid dimensions, picker references to bundled `screen.layout` and `tile.set`).
+    
+    This division reflects the **current schema generation** and is **expected to evolve**. Kinds MAY split (for example, `screen.layout` separating into `screen.shell` / `screen.grid` / `screen.intents`), merge, or be added. Any change MUST follow [`CLAUDE.md`](../../CLAUDE.md) rule 5: explicit `schemaVersion` bump on every affected wire format, backward-compatible reads possible for at least one major release, versioned migration written **before** the breaking change ships. Specs and code MUST treat the set of kinds as data (operating on the `ConfigKind` enum) rather than hardcoded N-way branches over fixed kind names. Adding or removing a kind is a one-way door per CLAUDE.md rule 3 and requires explicit exit-ramp documentation.
+
+11. **Wizard as profile view.** A first-run wizard is the same set of settings that constitute the profile, exposed as a sequential walkthrough. Every setting visible in the wizard MUST also be reachable through the in-app Settings surface after first run, so that users (or, more commonly, their administrators or assisting family members) can change choices later without re-running the wizard. The wizard is one **view** of the profile, not the source of truth — the source of truth is the applied set of configuration documents.
+
+12. **Mandatory / optional / skip semantics.** Within a profile's wizard each setting falls into one of three categories:
+    - **Mandatory** — the user (or assisting administrator) MUST apply the setting; the wizard cannot proceed past it without an applied value or, where the profile allows, an explicit opt-out with a recorded reason. The profile remains visibly incomplete until this is resolved.
+    - **Optional with skip-banner** — MAY be skipped during the wizard; the in-app Settings surface MUST display a reminder banner that the entry was skipped and offer a direct path to set it.
+    - **Optional silent** — does not trigger a reminder banner; users can find the setting in the Settings surface but the profile does not actively prompt for it.
+    
+    The split is declared **per-entry in the relevant pool document** (`system-settings.pool` / `ui-customization.pool`) through `criticality` and `canSkip` fields, and MAY be overridden **per-profile** by the `wizard.manifest` (`StepEntry.canSkip`, `StepEntry.criticality`). Pool-level defaults represent reasonable defaults across profiles; per-profile overrides express the choices a specific product variant has made (for example: `android.role.home` is `canSkip: true` in `android-pool.json` so other profiles MAY skip it, but the `simple-launcher` profile MAY override to `canSkip: false` because without ROLE_HOME the simple-launcher experience is meaningless).
+
+13. **No per-profile code module.** A new profile MUST NOT be introduced as a new Gradle module of code dedicated to that profile, and MUST NOT add a code branch keyed on `appFamilyId`. New profiles ship as new bundled JSON documents — a new `wizard.manifest` plus, where the existing bundled `screen.layout`s, `tile.set`s, and pool entries are insufficient, new bundled documents and / or new pool entries. Where a new profile genuinely requires a capability the existing `ConfigKind` set cannot express, a new kind MAY be added under §10, but the proposal MUST justify why the existing kinds were insufficient and MUST follow the schema evolution rules in [`CLAUDE.md`](../../CLAUDE.md) rule 5.
 
 ---
 
@@ -513,15 +535,15 @@ Features implement user-facing capabilities or isolated business logic. Features
 
 ### 3. Profiles and Configurations
 
-Profiles define curated application variants, launcher-mode variants, or user-focused operating modes. Examples may include elderly-friendly presets, simplified navigation variants, OEM-specific packaging constraints, communication-focused experiences, or optional feature bundles. Profiles are data, not forks.
+Profiles define curated application variants, launcher-mode variants, or user-focused operating modes. A profile is a **composition** of multiple configuration documents per Article VII §9–10 (current generation: `wizard.manifest` + `screen.layout` + `tile.set` + `system-settings.pool` + `ui-customization.pool`); the set of document kinds is itself versioned and expected to evolve. Examples: `simple-launcher` (elderly-friendly handheld), `admin-app` (remote administrator), `clinic-patient-app` (B2B clinic), `self-care` (single-user self-managed). Profiles are **data, not forks**: a new profile MUST NOT ship as new code dedicated to that profile (Article VII §13), and MUST NOT add an `if (appFamilyId == "x")` branch in business logic.
 
 ### 4. Optional Modules
 
 Optional or downloadable components must fail gracefully when absent. The base application and any enabled launcher-mode surface must remain coherent without them.
 
-### 5. Accessibility Presets
+### 5. Adaptive-UX Presets (accessibility variants)
 
-Accessibility-related presets are treated as product features backed by configuration, validation, and acceptance tests—not as ad hoc UI overrides.
+**Adaptive-UX presets** — variants for tremor, low vision, reduced dexterity, or cognitive load — are **sub-features within a profile** (Article VII §5, §9), not profiles themselves. A profile (e.g., `simple-launcher`) MAY enable one or more adaptive-UX presets; the same profile with a different adaptive-UX preset is still the same profile. Adaptive-UX presets are backed by configuration, validation, and acceptance tests — not by ad hoc UI overrides. Earlier wording in this constitution called these "accessibility presets"; the renamed term "adaptive-UX preset" is used to avoid confusion with the top-level "profile" concept.
 
 ### 6. Form-Factor Variants
 
@@ -601,6 +623,14 @@ These sources informed the constitution and are recommended reference material w
 
 ## Amendment History
 
+### 1.7 — 2026-06-24
+
+- **Article VII** — added §9 (profile composition), §10 (current generation of wire format kinds + explicit evolution policy), §11 (wizard = view of profile, not source of truth), §12 (mandatory / optional with skip-banner / optional silent semantics, pool-level defaults + per-profile override), §13 (no per-profile code module, no `if (appFamilyId == "x")` branches).
+- **Article VII §5** — clarified that "adaptive-UX presets" are sub-features within a profile, not parallel concepts to profiles.
+- **Project-Specific Direction §3** — expanded definition of "profile" to reference the composition model and the current 5-kind division; added the concrete sample profile names (`simple-launcher`, `admin-app`, `clinic-patient-app`, `self-care`).
+- **Project-Specific Direction §5** — renamed "Accessibility Presets" to "Adaptive-UX Presets (accessibility variants)" and clarified the sub-feature relationship to profiles.
+- **Rationale**: prior wording left ambiguous whether `simple-launcher` was a Kotlin class, a JSON file, or a logical product variant. AI agents repeatedly wrote specs that hardcoded behaviour into code instead of treating profiles as composed configuration. Owner surfaced this during TASK-7 clarify pass 2026-06-24 («нет заранее запрограммированного лаунчера, всё строится из json»). The amendment captures the architectural model so future AI sessions cannot drift.
+
 ### 1.6 — 2026-06-17
 
 - Added **Article XIX. Organic Question Budgets in Clarification Passes** — overrides any prior numeric question caps in `speckit-clarify`, `mentor`, and analogous skills. Question count is organic, derived from spec's actual grey zones; typical range 3–7 but no hard cap. Padding to a target and trimming below organic count are both bugs.
@@ -652,4 +682,4 @@ Initial project constitution created for Launcher based on:
 
 ---
 
-**Version**: 1.5.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-04-25
+**Version**: 1.7.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-06-24
