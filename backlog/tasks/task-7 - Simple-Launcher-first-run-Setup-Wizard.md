@@ -4,7 +4,7 @@ title: Simple Launcher first-run + Setup Wizard
 status: In Progress
 assignee: []
 created_date: '2026-06-23 05:36'
-updated_date: '2026-06-24 15:00'
+updated_date: '2026-06-24 16:00'
 labels:
   - phase-2
   - s-spec
@@ -23,75 +23,135 @@ references:
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-> **Про роли в этой задаче.** В сценариях ниже используются обобщённые роли (CLAUDE.md «Personas vs domain roles»): `primary user` (тот, кто будет пользоваться телефоном — обычно пожилой), `remote administrator` или `assisting family member` (тот, кто настраивает — родственник в гостях / помощник). Реальная модель: **wizard проходит не primary user, а помощник** (либо родственник во время визита, либо платный помощник, либо в перспективе IT-support / медсестра / HR). Те же flow работают для clinic-варианта (пациент / медсестра), B2B (сотрудник / IT-support), self-care (primary user сам себе assisting).
+> **Версии описания.** Это описание sync'нуто 2026-06-24 после полного цикла speckit (specify → clarify → scenarios → plan → tasks → analyze). Источник правды: [`specs/task-7-simple-launcher-first-run/`](../../specs/task-7-simple-launcher-first-run/). Это описание — projection финального scope'а для backlog Kanban читателя; за полным контекстом — в spec.md / plan.md / tasks.md / analyze-report.md.
+
+> **Про роли в этой задаче.** Wizard проходит **assisting** — родственник в гостях / платный помощник / IT-support в clinic'е / HR в B2B. Aspirational secondary path: primary user (пожилой, со слабыми когнитивными способностями) проходит wizard сам (CLAUDE.md «Personas vs domain roles»). Те же flow для clinic / B2B / self-care сегментов.
 
 ## Что это простыми словами
 
-**Терминология (constitution Article VII §9–13).** Приложение — это generic shell, поведение задаётся **профилями** (`profile` = композиция bundled JSON-конфигов). Каждый профиль определяет своё первое впечатление, главный экран, ассортимент плиток, набор используемых Android-настроек.
+**TASK-7 = ship `simple-launcher` профиль + закрыть 3 архитектурные дыры в F-3.** Профиль `simple-launcher` (per constitution Article VII §9–13) = композиция bundled JSON-конфигов = elderly-friendly handheld variant с большими плитками, тёплыми цветами, минимум choices.
 
-**TASK-7 = ship `simple-launcher` профиля.** Профиль `simple-launcher` — это elderly-friendly handheld variant: большие плитки, тёплые цвета, минимум choices. Wizard этого профиля проводит assisting'а через настройку телефона за один раз.
+**Финальный scope wizard'а (после clarify pass'а)** — **3 mandatory + 1 optional = 4 шага**:
 
-**Что входит в `simple-launcher` профиль (как композиция JSON-конфигов):**
+1. ★ ROLE_HOME (`canSkip: false` override от pool default `true`) — без этого launcher не launcher.
+2. ★ tileSet — выбор раскладки плиток (currently only one bundled: `classic-6`).
+3. ★ POST_NOTIFICATIONS (`canSkip: true` override от pool default `false`, auto-skip на Android < 13).
+4. ☆ pair-admin (Custom step, optional silent) — соединение с admin-устройством по QR через spec 007 PairingActivity.
 
-1. `wizard.manifest` (`simple-launcher.wizard.manifest.json`) — **сценарий первого запуска**: какие шаги и в каком порядке. Шаги ссылаются на записи в `system-settings.pool` (ROLE_HOME, POST_NOTIFICATIONS, ...) и `ui-customization.pool` (язык, тема, размер сетки, выбор tile.set'а). Per-step `canSkip` override'ит pool default где это нужно для simple-launcher (например, ROLE_HOME в pool по умолчанию `canSkip: true`, для simple-launcher это `canSkip: false`).
-2. Ссылки на bundled `screen.layout` (composition экрана — grid + toolbars + tabs + будущие status bar / app shortcuts) и `tile.set` (содержимое ячеек).
-3. Локализованные strings (en + ru минимум) под все используемые ключи.
+Language auto-detect (нет wizard step). Theme default warm light (нет wizard step). Все остальные настройки (CALL_PHONE, accessibility-service, battery-optimization, hide-status-bar, fontScale, grid, screenLayout) — Optional Silent (доступны в Settings, нет step в wizard, нет banner'а).
+
+**3 архитектурные дыры в F-3, которые TASK-7 закрывает:**
+
+1. **`WizardEngine.computePending(manifest)` pre-flight** — заменяет linear traversal в `WizardEngineImpl.run()`. Engine при старте проверяет фактическое состояние per step через `SystemSettingPort.status()` и `UserPreferencesStore.current()`; pending показываются только если действительно нужны. **Replaces snapshot-of-manifest approach** (Article VII §14 config-check master pattern).
+2. **`AppCompatDelegate.setApplicationLocales()` integration** — без этого `UserPreferences.languageOverride` сохранялся в DataStore, но реально не применялся. Сейчас applied после wizard exit + на cold-start (Article III §7 stability).
+3. **Pool schema v1 → v2 bump** — declarative `CheckSpec` / `ApplySpec` sealed классы с `@JsonClassDiscriminator("kind")` replacing hardcoded `when(settingId)` dispatch в `AndroidSystemSettingAdapter`. Handler registry через Koin DI. v1 backward-compat read через legacy fallback.
 
 **Что происходит при первом запуске** (на примере family-варианта):
+
 1. Помощник устанавливает APK на бабушкин телефон, открывает.
-2. Wizard engine читает `simple-launcher.wizard.manifest.json` через `ConfigSource` (всё уже сделано в TASK-1 / F-3).
-3. Engine последовательно проходит шаги, рендеря каждый через подходящий `WizardStep` (UIChoice / SystemSetting / TutorialHint).
-4. Mandatory шаги — без skip'а, optional — со skip'ом и баннером в Settings.
-5. По завершении wizard'а: applied configuration → home screen рендерится из выбранных `screen.layout` + `tile.set`.
-6. Опционально (optional silent step или отдельная entry в Settings): pairing с устройством admin'а по QR — но в TASK-7 минимальный stub или вообще отсутствует, реальная интеграция — другая задача.
+2. Wizard engine читает `simple-launcher.wizard.manifest.json` через `ConfigSource` (TASK-1 / F-3 Done).
+3. Engine вызывает `computePending(manifest)` → для каждого step проверяет фактическое состояние → возвращает pending. Если все настройки уже применены (например, ROLE_HOME granted вручную через Android Settings ранее) — wizard не запускается.
+4. Wizard показывает только pending steps. Mandatory — без skip'а или с retry на отказе; optional — со skip'ом и баннером в Settings.
+5. По завершении wizard'а: `AppCompatDelegate.setApplicationLocales()` применяет languageOverride; applied configuration → home screen рендерится из `classic-6` tile.set поверх `3x4-classic` screen.layout.
 
 **Что НЕ происходит в этой задаче:**
+
 - Никакого Google Sign-In (LOCAL mode per decision 2026-06-15-deferred-cloud/01).
-- Контакты-плитки — заглушки (`actionType: "phone.call"` без реального contactId). Реальные contact tiles — TASK-9 / S-3.
+- Контакты-плитки — placeholder тайлы (реальные contact tiles — TASK-9 / S-3).
 - Кнопка SOS — TASK-10 / S-4.
 - Photo upload / display — TASK-11 / S-5.
 - Caregiver remote invite — TASK-31 / V-6.
+- Adaptive-UX presets (тремор / низкое зрение / reduced dexterity) — TASK-19 / P-4.
+- MCP / AI agent capability registry implementation — TASK-33 + TASK-36 (TASK-7 architecturally ready через CheckSpec/ApplySpec sealed hierarchies, не implements).
+- Cloud sync «pending setup state» для admin visibility — TASK-8+ (inline TODO в коде TASK-7).
 
 ## Зачем
 
-**Первый видимый MVP-демо**: `git clone → install → open → wizard → working home screen`. Без этого нет демонстрируемого продукта — есть только инфраструктура (engine, ports, pools). Закрывает «empty top-level screen at launch».
+**Первый видимый MVP-демо**: `install → wizard → working home screen`. Без этого продукта нет, только инфраструктура (engine, ports, pools).
 
-Это также **первый concrete profile**, валидирующий универсальную модель из constitution Article VII §9–13: проверяем, что профиль действительно ship'ается как композиция bundled JSON-конфигов без нового Gradle-модуля кода и без `if (appFamilyId == "simple-launcher")` ветвей.
+Это также **первый concrete profile**, валидирующий универсальную модель из constitution Article VII §9–15: профиль ship'ается как композиция bundled JSON-конфигов без нового Gradle-модуля кода и без `if (appFamilyId == "x")` ветвей; pool schema v2 с declarative dispatch types (`CheckSpec` / `ApplySpec`) sealed в commonMain → multi-platform ready (Article VII §15 seam preserved для будущих iOS / Android TV адаптеров).
 
 ## Что входит технически (для AI-агента)
 
-**Важно**: TASK-7 — это **content authoring + integration**, не infrastructure. Engine + ports + базовые pool'ы — всё сделано в TASK-1 (F-3 Done).
+**TASK-7 — это infrastructure (3 архитектурные правки) + content authoring + UI work.** Engine + ports + базовые pool'ы — всё сделано в TASK-1 (F-3 Done). TASK-7 делает следующие конкретные изменения (см. [plan.md](../../specs/task-7-simple-launcher-first-run/plan.md) для детальной 8-phase rollout):
 
-**Что нужно сделать в TASK-7:**
+**Code changes (Phase 0-3, 5-6):**
 
-1. **Заполнить `simple-launcher.wizard.manifest.json` явными steps** — сейчас в коде `steps: null, autoOrder: true`. Указать порядок шагов и per-step `canSkip` override'ы где нужно. Примерный порядок (уточняется в clarify): language → ROLE_HOME (override `canSkip: false`) → POST_NOTIFICATIONS → theme → grid → tileSet → screenLayout.
-2. **Добавить недостающие bundled `screen.layout` JSON'ы** если нужны варианты под grid choices 2×3 / 3×3 (сейчас один `3x4-classic.json` для 3×4). Альтернатива — один параметризованный layout + grid pool option решает всё; решение в clarify.
-3. **Добавить недостающие bundled `tile.set` JSON'ы** под разные сегменты / размеры. Сейчас `classic-6.json` — 6 плиток (phone, messages, camera, gallery, contacts, settings). Возможно: `classic-9`, `classic-12`, или другие наборы с placeholder тайлами.
-4. **Локализованные strings** (en + ru минимум) под все ключи которые `simple-launcher` flow задействует. Большая часть уже сделана в TASK-1, проверить дыры.
-5. **Home renderer integration** — после wizard exit'а applied configuration → home screen рендерит выбранные `screen.layout` + `tile.set`. Renderer для этого уже существует (исторический spec 003 + spec 010 закрыли `/config/current` rendering); TASK-7 проверяет end-to-end.
-6. **Тесты**:
-   - Roundtrip JSON tests для всех новых bundled документов (per CLAUDE.md rule 5).
-   - Backward-compat read test (`schemaVersion: 1`).
-   - Integration test «fresh install → simple-launcher manifest → wizard runs → home screen renders chosen config» (через `FakeConfigSource` + `FakeSystemSettingPort` для unit-level + emulator smoke для system-level).
-   - Senior-safe walkthrough на эмуляторе через skill `android-emulator` (`[hand]` AC).
-7. **Skip-with-banner end-to-end check** — если в `simple-launcher` manifest какой-то step с `canSkip: true` пропущен, banner в Settings виден. Механизм уже сделан в spec 010 (`SetupCheckRegistry`); TASK-7 проверяет интеграцию для simple-launcher специфично.
+- `CheckSpec` + `ApplySpec` sealed классы в `core/commonMain/api/wizard/data/` (5 + 4 = 9 variants).
+- `CheckHandler` + `ApplyHandler` ports в `core/commonMain/api/wizard/handlers/`.
+- 9 Android handlers (`AndroidRoleCheckHandler`, `AndroidPermissionCheckHandler`, etc.) + Koin DI registries в `core/androidMain/`.
+- `WizardEngine.computePending(manifest)` + `runWalkThrough(manifest)` methods.
+- `WizardEngineImpl.run()` rewires через computePending pre-flight (заменяет линейный traversal).
+- `UserPreferences.hasValueFor(refId)` helper.
+- `SettingStatusCache` + `CacheInvalidatingLifecycleObserver` (TTL 30s + invalidate-on-resume).
+- `AndroidSystemSettingAdapter` модификация: handler registry dispatch + cache integration + v1 fallback.
+- `WizardActivity` + `LauncherApplication` модификации: `AppCompatDelegate.setApplicationLocales()` calls.
+- `CustomStep` + `PairAdminCustomStepHandler` (launches spec 007 `PairingActivity`).
+- Settings UI: `PendingChecklistScreen`, `WalkThroughButton`, `LocaleDivergenceIndicator` (Compose composables + ViewModels).
 
-**Что НЕ входит** (delegated / already done):
-- `WizardEngine`, `WizardManifest`, `ConfigSource`, `SystemSettingPort`, `BundledConfigSource` — все ports + AndroidSystemSettingAdapter + AndroidStringResolverAdapter — **TASK-1 (F-3) Done**.
-- `SetupCheckRegistry` + soft-checks badges + skip-with-banner infrastructure — **исторический spec 010 (orphan по backlog'у, код в репозитории)**.
-- `ConfigEditor.appliedConfig` + home renderer reading from `/config/current` — **spec 010 Done**.
+**Content changes (Phase 4):**
+
+- `simple-launcher.wizard.manifest.json`: `autoOrder: true` → explicit `steps: [...]` (4 entries с per-profile canSkip overrides).
+- `android-pool.json`: schemaVersion 1 → 2; добавить `check` + `apply` блоки для всех 6 entries.
+- String resources (en + ru) для новых ключей (pair-admin, walk-through, locale divergence, ROLE_HOME retry message).
+
+**No new external dependencies.** Existing stack: kotlinx-serialization, Koin, AndroidX AppCompat, Compose Multiplatform.
+
+**Tests (Phase 0, 2, 6, 7):**
+
+- Roundtrip + backward-compat tests для pool v2 (per CLAUDE.md rule 5).
+- Per-handler unit tests + cache invalidation test.
+- `ComputePendingTest` с FakeSystemSettingPort scenarios.
+- `RunWalkThroughTest`.
+- Konsist fitness functions T7-001..T7-006 в `Task7ArchitectureTest.kt`.
+- 6 `[deferred-local-emulator]` tasks + 3 `[deferred-physical-device]` tasks (требуют emulator / real device от owner'а).
+
+**Что НЕ входит** (already done / delegated):
+
+- `WizardEngine`, `WizardManifest`, `ConfigSource`, `SystemSettingPort`, `BundledConfigSource`, ports + base AndroidSystemSettingAdapter + StringResolver — **TASK-1 (F-3) Done**.
+- `SetupCheckRegistry` + soft-checks badges + `PlayStoreFallbackActivity` — **spec 010 (orphan по backlog, код в репозитории verified)**.
+- `ConfigBackedFlowRepository` (renders `/config/current`) + `HomeActivity` + `RootComponent` — **spec 010 + spec 003 (код verified)**.
 - Senior UI primitives (`SeniorButton`, `SeniorBodyText`, warm themes) — **F-3 Done**.
-- Theme как enum / adapter — **TASK-7 не вводит**; тема уже `ui-customization.pool` entry со `choices: [light, dark, auto]`.
+- `PairingActivity` + `ConsentScreen` + `QrDisplayScreen` + `LinkRegistry` UI — **spec 007 (код verified)**.
 
 ## Состояние
 
-**In Progress** (взято в работу 2026-06-24). Зависит от TASK-1 (Done). Не блокируется TASK-6 (Paused, F-5 Root Key) — TASK-7 LOCAL mode, без cloud / identity.
+**In Progress** (взято в работу 2026-06-24). Speckit cycle complete (verdict READY per [analyze-report.md](../../specs/task-7-simple-launcher-first-run/analyze-report.md)). Готов к implementation.
 
-**Корректировка модели 2026-06-24**: исходное описание этой задачи (написанное до constitution amendment 1.7) рассматривало `simple-launcher` как hardcoded Kotlin manifest с 5 шагами + 3 bundled ConfigTemplate под 6/9/12 плиток. Это было неправильно. Правильная модель — `simple-launcher` это **профиль** = композиция bundled JSON-конфигов; engine и манифест-схема уже сделаны в TASK-1; TASK-7 = content + integration. Описание выше отражает обновлённую модель.
+**Зависимости**: TASK-1 Done. Не блокируется TASK-6 (Paused, F-5 Root Key) — TASK-7 LOCAL mode, без cloud / identity. Опирается на orphan-спеки 010 / 007 / 003 (код в репозитории verified 2026-06-24 через grep / file inspection).
+
+**Артефакты в `specs/task-7-simple-launcher-first-run/`** (9 коммитов на ветке):
+
+- `spec.md` — 6 US (P1×3, P2×2, P3×1), 35 FR в 8 частях, 11 SC (7 c `[backlog]`), 6 scenarios, OEM matrix.
+- `plan.md` — 8-phase rollout, Constitution Check 8/8 PASS inlined.
+- `research.md` — 8 architectural decisions R-001..R-008 c alternatives + exit ramps.
+- `data-model.md` — new types + F-3 modifications + relationship diagram.
+- `tasks.md` — 68 tasks с trace matrix.
+- `analyze-report.md` — 18 checklists inline assessed + verdict READY.
+- `contracts/system-settings-pool-v2.md` — wire format schemaVersion 2 spec.
+- `contracts/simple-launcher-manifest.md` — content spec для bundled manifest.
+
+**Constitution amendments произведены в процессе** TASK-7 clarify pass'а (отдельные коммиты на этой ветке):
+
+- **1.7** — Article VII §9-13: profile composition model + 5 wire-format kinds evolution policy + wizard as view of profile + mandatory/optional/skip semantics + no per-profile code module.
+- **1.8** — Article II §8 (MVP definition), Article III §7 (stability over system-level changes), Article VII §14 (configuration lifecycle independent + config-check master), Article VII §15 (multi-platform adapter seam).
+- **1.9** — Article XV §14 (cite UX precedent before original proposals).
+
+**Effort revised**: исходный estimate Large (~3 weeks) → после clarify Medium (~1-2w) → после plan / tasks Medium+ (~2-3 weeks). 68 tasks; критический путь Phase 0+1+2+4+7 = MVP-shippable; Phase 3/5/6 = incremental delivery.
+
+**MVP-первый critical path**: T001 → T002 → T003 → T004 → T010 → T012 → T013 → T016/T017 → T030 → T040/T041 → T059.
+
+**Корректировки модели в процессе** (для контекста):
+
+- 2026-06-24 утро: исходное описание рассматривало `simple-launcher` как hardcoded Kotlin manifest с 5 шагами + 3 bundled ConfigTemplate (6/9/12 плиток). **Это было неправильно**, поправлено в clarify.
+- 2026-06-24 день (после clarify): scope расширился — обнаружены 3 архитектурные дыры в F-3 (engine traversal, locale persistence, hardcoded dispatch), которые TASK-7 закрывает. Это изменило характер задачи с pure-content на infrastructure + content.
+- 2026-06-24 вечер (после scenarios): уточнён UX pattern для post-update donastroika — checklist + banner в Settings (UX precedent: GitHub / Slack / Stripe / Notion), а не auto wizard re-run. Walk-through wizard добавлен как отдельная Settings entry (precedent: Apple Setup Assistant / Windows OOBE / TurboTax).
 
 ---
 
-## Готовый промт для `/speckit.specify`
+## Готовый промт для `/speckit.specify` (historical, kept for archival)
+
+> **Эта секция устарела после полного speckit-цикла 2026-06-24.** Промт ниже был использован для запуска `/speckit.specify`; финальная спека прошла существенный clarify + scenarios refinement и не совпадает с тем, что в промте. **Не использовать как стартовую точку повторного запуска** — для этого читай `specs/task-7-simple-launcher-first-run/spec.md` напрямую. Промт оставлен для истории / debugging речи / понимания «как изначально формулировалась задача vs что вышло».
 
 ```
 Реализуй S-1: Simple Launcher profile (first MVP-demo).
