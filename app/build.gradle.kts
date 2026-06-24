@@ -233,4 +233,9 @@ dependencies {
     androidTestImplementation("androidx.test:rules:1.6.1")
     androidTestImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
+
+    // TASK-49 T025 — Compose UI instrumented tests.
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
