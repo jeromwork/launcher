@@ -2,6 +2,7 @@ package com.launcher.ui.wizard.steps
 
 import com.launcher.api.wizard.StepParams
 import com.launcher.api.wizard.StepResult
+import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CompletableDeferred
 
 /**
