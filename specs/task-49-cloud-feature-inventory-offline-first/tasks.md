@@ -126,12 +126,12 @@
 
 ### FCM regression fix (TASK-5)
 
-- [ ] **T027** Найти site регистрации FCM token в Firestore (search `FirebaseMessaging` / `setMessagingToken` / spec 019 fcm-related классы). Document file path в этой task. **Acceptance**: file path identified.
-- [ ] **T028** Создать `app/src/main/kotlin/com/launcher/app/auth/FcmTokenRegistrationGuard.kt`. Wraps existing FCM Firestore registration site. Метод `suspend fun registerIfAllowed(token: String)`:
+- [x] **T027** Найти site регистрации FCM token в Firestore (search `FirebaseMessaging` / `setMessagingToken` / spec 019 fcm-related классы). Document file path в этой task. **Acceptance**: file path identified.
+- [x] **T028** Создать `app/src/main/kotlin/com/launcher/app/auth/FcmTokenRegistrationGuard.kt`. Wraps existing FCM Firestore registration site. Метод `suspend fun registerIfAllowed(token: String)`:
   - Проверяет `cloudAvailability.isCloudAvailable()` — если `false`, return без действий.
   - Если `true` — вызывает existing FCM registrar (через injected dependency).
   Также: observer на `isCloudAvailableFlow` — при transition `false → true` → trigger registration текущего FCM token. (FR-013, FR-014). **Acceptance**: compile.
-- [ ] **T029** Модифицировать FCM token registration call site (identified в T027) — заменить direct call на вызов через `FcmTokenRegistrationGuard`. Existing tokens NOT touched per FR-014. **Acceptance**: existing code refactored, tests старые проходят.
+- [x] **T029** Модифицировать FCM token registration call site (identified в T027) — заменить direct call на вызов через `FcmTokenRegistrationGuard`. Existing tokens NOT touched per FR-014. **Acceptance**: existing code refactored, tests старые проходят.
 - [ ] **T030** Создать `app/src/androidUnitTest/kotlin/com/launcher/app/auth/FcmTokenRegistrationGuardTest.kt`. Tests:
   - `cloudAvailable=false → registerIfAllowed(token) → no Firestore call`.
   - `cloudAvailable=true → registerIfAllowed(token) → Firestore registration invoked`.
