@@ -183,7 +183,7 @@
 
 ### Documentation
 
-- [ ] **T039** Создать `docs/dev/cloud-availability.md` на простом русском (per FR-015, SC-010):
+- [x] **T039** Создать `docs/dev/cloud-availability.md` на простом русском (per FR-015, SC-010):
   - Что такое `cloudAvailable` булев флаг.
   - Как меняется (только через `AuthProvider` events).
   - Что считать «первым cloud-action».
@@ -193,7 +193,7 @@
   - **Явно**: «эта architecture — текущий snapshot. Через 6-12 месяцев может смениться без переписывания core».
   - Inline TODO про SRV-AUTH-001 (server-roadmap migration).
   (FR-015, FR-018, SC-010). **Acceptance**: file читается non-developer за <10 минут.
-- [ ] **T040** [P] Применить `procedure-add-novice-summary` skill к `docs/dev/cloud-availability.md` — добавить TL;DR в конец. (Convention). **Acceptance**: summary секция в конце файла.
+- [x] **T040** [P] Применить `procedure-add-novice-summary` skill к `docs/dev/cloud-availability.md` — добавить TL;DR в конец. (Convention). **Acceptance**: summary секция в конце файла.
 
 ### Physical device verification
 
