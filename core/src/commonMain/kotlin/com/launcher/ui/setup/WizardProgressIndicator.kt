@@ -51,7 +51,9 @@ fun WizardProgressIndicator(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = progressLabelTemplate.format(currentStep, totalSteps),
+            text = progressLabelTemplate
+                .replace("%1\$d", currentStep.toString())
+                .replace("%2\$d", totalSteps.toString()),
             style = MaterialTheme.typography.titleMedium,
         )
         Spacer(modifier = Modifier.height(8.dp))
