@@ -84,4 +84,17 @@
     <string name="play_store_fallback_body">This config was made for a newer version. Update from the Play Store and try again.</string>
     <string name="play_store_fallback_open_store">Open Play Store</string>
 
+    <!-- TASK-7 — retry message for ROLE_HOME (shown after user refuses in system dialog) -->
+    <string name="system_setting_role_home_retry_message">To finish setup, choose this app as the default launcher. You can change it later in Android Settings.</string>
+
+    <!-- TASK-7 — Custom "pair-admin" wizard step -->
+    <string name="pair_admin_step_label">Connect a helper (optional)</string>
+    <string name="pair_admin_step_desc">A family member or caregiver can scan a QR code now to help you remotely. You can skip and add them later.</string>
+    <string name="pair_admin_step_skip_button">Not now</string>
+
+    <!-- TASK-7 — Settings screen wiring -->
+    <string name="settings_walk_through_all_label">Walk through all settings step-by-step</string>
+    <string name="settings_pending_indicator_label">Needs your attention</string>
+    <string name="settings_locale_divergence_label_format">App language: %1$s (system Android: %2$s)</string>
+
 </resources>

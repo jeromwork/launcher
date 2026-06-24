@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "system-settings.android-pool",
   "name": "system_settings_android_pool.name",
   "description": "system_settings_android_pool.desc",
@@ -17,7 +17,10 @@
         "dependsOn": [],
         "detectionStrategy": "Programmatic",
         "labelKey": "system_setting_role_home_label",
-        "descriptionKey": "system_setting_role_home_desc"
+        "descriptionKey": "system_setting_role_home_desc",
+        "extendedInstructionKey": "system_setting_role_home_retry_message",
+        "check": { "kind": "android-package-home" },
+        "apply": { "kind": "android-role-request", "role": "HOME" }
       },
       {
         "id": "android.permission.POST_NOTIFICATIONS",
@@ -29,7 +32,9 @@
         "dependsOn": [],
         "detectionStrategy": "Programmatic",
         "labelKey": "system_setting_post_notifications_label",
-        "descriptionKey": "system_setting_post_notifications_desc"
+        "descriptionKey": "system_setting_post_notifications_desc",
+        "check": { "kind": "android-permission", "permission": "android.permission.POST_NOTIFICATIONS" },
+        "apply": { "kind": "standard-permission-request", "permission": "android.permission.POST_NOTIFICATIONS" }
       },
       {
         "id": "android.permission.CALL_PHONE",
@@ -41,7 +46,9 @@
         "dependsOn": [],
         "detectionStrategy": "Programmatic",
         "labelKey": "system_setting_call_phone_label",
-        "descriptionKey": "system_setting_call_phone_desc"
+        "descriptionKey": "system_setting_call_phone_desc",
+        "check": { "kind": "android-permission", "permission": "android.permission.CALL_PHONE" },
+        "apply": { "kind": "standard-permission-request", "permission": "android.permission.CALL_PHONE" }
       },
       {
         "id": "android.accessibility.our-service",
@@ -53,7 +60,9 @@
         "dependsOn": [],
         "detectionStrategy": "Programmatic",
         "labelKey": "system_setting_accessibility_label",
-        "descriptionKey": "system_setting_accessibility_desc"
+        "descriptionKey": "system_setting_accessibility_desc",
+        "check": { "kind": "android-accessibility-service" },
+        "apply": { "kind": "settings-deep-link", "action": "android.settings.ACCESSIBILITY_SETTINGS" }
       },
       {
         "id": "android.battery.ignore_optimizations",
@@ -65,7 +74,9 @@
         "dependsOn": [],
         "detectionStrategy": "Programmatic",
         "labelKey": "system_setting_battery_label",
-        "descriptionKey": "system_setting_battery_desc"
+        "descriptionKey": "system_setting_battery_desc",
+        "check": { "kind": "android-special-permission", "variant": "ignore_battery_optimizations" },
+        "apply": { "kind": "settings-deep-link", "action": "android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS", "packageScoped": true }
       },
       {
         "id": "android.hide_status_bar",
@@ -77,7 +88,9 @@
         "dependsOn": [],
         "detectionStrategy": "Indeterminate",
         "labelKey": "system_setting_hide_status_bar_label",
-        "descriptionKey": "system_setting_hide_status_bar_desc"
+        "descriptionKey": "system_setting_hide_status_bar_desc",
+        "check": { "kind": "android-accessibility-service" },
+        "apply": { "kind": "in-app-only" }
       }
     ]
   }
