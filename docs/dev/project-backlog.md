@@ -1362,3 +1362,40 @@ Code in main is complete; these only need *running* against a build.
 - **When**: Phase 4 (per spec.md Effort estimate). Не блокирует F-3 ship.
 - **Status**: 🟢 OPEN
 - **Origin**: spec 015 OUT-005a.
+
+
+### TODO-TASK7-001: cloud sync of pending-setup state for admin visibility 🟢
+
+- **What**: TASK-7's PendingChecklistViewModel currently reads `engine.computePending()` on the local device only. Admin (remote caregiver) cannot see which settings the primary user still hasn't applied.
+- **Why**: Сценарий 4 today shows the primary user the gaps; admin needs the same visibility once they're paired (TASK-8+).
+- **How**: emit `PendingSettingsSnapshot` through the F-5b envelope channel after every `computePending` call; admin's app subscribes and renders the same checklist.
+- **When**: gated by TASK-8 admin pairing flow completion.
+- **Status**: 🟢 OPEN
+- **Origin**: TASK-7 Phase 6 implementation 2026-06-24.
+
+### TODO-TASK7-002: schema-v3 — remove legacy SystemSettingEntry fields 🟢
+
+- **What**: `SystemSettingEntry` retains `mechanism`, `deepLink`, `detectionStrategy` for v1 backward-compat. Once every bundled pool entry has been re-emitted with the v2 `check`/`apply` blocks AND we no longer need to read v1-shaped documents from any device in the wild, bump to schemaVersion 3 and remove the legacy trio.
+- **Why**: clarity (one source of truth per entry); fewer code paths in `AndroidSystemSettingAdapter.legacyStatus()` / `legacyApply()`.
+- **How**: write a migration test that confirms zero `mechanism != null && check == null` entries across all bundled assets; ship schemaVersion 3 reader that rejects v1; remove legacy fields + the fallback methods.
+- **When**: after all bundled pools are migrated AND a min-version policy clears v1-shaped persisted documents.
+- **Status**: 🟢 OPEN
+- **Origin**: TASK-7 Phase 0/2 implementation 2026-06-24.
+
+### TODO-TASK7-003: theme value migration policy when ui-pool choices change 🟢
+
+- **What**: `UserPreferences.theme` is `ThemeChoice.{Light, Dark, Auto}`. If the ui-customization pool ever ships an additional theme option (e.g., `HighContrast`), persisted prefs with the old enum value need a clear upgrade story.
+- **Why**: silent enum addition risks deserialization failure for users who upgrade with stored prefs.
+- **How**: dedicated backlog task — wire-format roundtrip + backward-compat tests parallel to the system-settings pool migration. Same skill (Article VII §15 multi-platform seam) applies.
+- **When**: at first non-trivial ui-customization pool extension.
+- **Status**: 🟢 OPEN
+- **Origin**: TASK-7 Phase 1 implementation 2026-06-24.
+
+### TODO-TASK7-004: T055 walk-through step-host UI ("Оставить / Изменить") 🟢
+
+- **What**: T054 wired `WizardEngine.runWalkThrough` (no computePending short-circuit). T055 requires `UIChoiceStep` / `SystemSettingStep` to render `Текущее: <value>. [Оставить] [Изменить]` instead of the standard picker when the engine is in walk-through mode.
+- **Why**: walk-through is Сценарий 5 — user knows their current settings, wants to review one-by-one and optionally change.
+- **How**: extend `StepHost` / `WizardHostScreen` Compose surfaces to honour `WizardEngine.Mode.WalkThrough` carried in `WizardState.Running` (engine flag already exists). Smoke-test on emulator (paired with T058).
+- **When**: emulator iteration session for TASK-7 polish.
+- **Status**: 🟢 OPEN
+- **Origin**: TASK-7 Phase 6 deferral 2026-06-24.

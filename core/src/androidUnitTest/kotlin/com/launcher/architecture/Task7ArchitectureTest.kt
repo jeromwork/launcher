@@ -42,6 +42,108 @@ class Task7ArchitectureTest {
             ?: error("commonMain root not found from ${File(".").absolutePath}")
     }
 
+    private val projectRoot: File by lazy {
+        val candidates = listOf(
+            File("."),
+            File(".."),
+        )
+        candidates.firstOrNull { File(it, "core/src/commonMain").exists() || File(it, "settings.gradle.kts").exists() }
+            ?: error("project root not found from ${File(".").absolutePath}")
+    }
+
+    @Test
+    fun t7_001_noGradleModuleNamedAfterProfile() {
+        // T7-001 — profiles ship as bundled JSON, NEVER as Gradle modules
+        // (Article VII §13). If we ever spot a `core/simple-launcher/` or
+        // `feature-simple-launcher/` directory, the architecture is being
+        // bent the wrong way.
+        val offenders = mutableListOf<String>()
+        listOf(File(projectRoot, "core"), File(projectRoot, "app"), projectRoot)
+            .filter { it.isDirectory }
+            .flatMap { it.listFiles()?.toList().orEmpty() }
+            .filter { it.isDirectory && it.name.contains("simple-launcher", ignoreCase = true) }
+            .forEach { offenders += it.absolutePath }
+        assertFalse(
+            "no module / directory name may contain 'simple-launcher'; found: $offenders",
+            offenders.isNotEmpty(),
+        )
+    }
+
+    @Test
+    fun t7_002_noProfileBranchingInBusinessLogic() {
+        // T7-002 — never gate behaviour on `appFamilyId == "simple-launcher"`.
+        // The profile is selected by which manifest the device loaded; the
+        // engine, the adapters, and the UI must stay profile-agnostic.
+        // Scope: kotlin files under core/src/{commonMain,androidMain} and
+        // app/src/main. Tests / fixtures / mocks are skipped.
+        val offenders = mutableListOf<String>()
+        val scanRoots = listOf(
+            File(projectRoot, "core/src/commonMain/kotlin"),
+            File(projectRoot, "core/src/androidMain/kotlin"),
+            File(projectRoot, "app/src/main"),
+        ).filter { it.isDirectory }
+        val regex = Regex("""(appFamilyId\s*==\s*"simple-launcher"|when\s*\(\s*appFamilyId\s*\))""")
+        scanRoots.forEach { root ->
+            root.walkTopDown()
+                .filter { it.isFile && (it.name.endsWith(".kt") || it.name.endsWith(".kts")) }
+                .forEach { file ->
+                    val text = file.readText()
+                    if (regex.containsMatchIn(text)) {
+                        offenders += "${file.absolutePath}: " + regex.find(text)?.value
+                    }
+                }
+        }
+        assertFalse(
+            "profile-id branching is forbidden in business logic; found:\n  " + offenders.joinToString("\n  "),
+            offenders.isNotEmpty(),
+        )
+    }
+
+    @Test
+    fun t7_003_configKindHasExactlyFiveValues() {
+        // T7-003 — Article VII §10. Adding a sixth wire format here is a
+        // schema-version change; bumping ConfigKind silently is forbidden.
+        val configKind = com.launcher.api.wizard.ConfigKind::class.java
+        val expected = setOf(
+            "WizardManifest",
+            "ScreenLayout",
+            "TileSet",
+            "SystemSettingsPool",
+            "UICustomizationPool",
+        )
+        val actual = configKind.enumConstants.map { (it as Enum<*>).name }.toSet()
+        org.junit.Assert.assertEquals(
+            "ConfigKind must declare exactly the 5 documented wire formats",
+            expected,
+            actual,
+        )
+    }
+
+    @Test
+    fun t7_006_bundledJsonsHaveSchemaVersion() {
+        // T7-006 — every bundled JSON in core/src/androidMain/assets/wizard/
+        // declares `schemaVersion >= 1` (CLAUDE.md rule 5). Missing field
+        // means the file is unversioned and any future read against a
+        // bumped reader corrupts state.
+        val assetsRoot = File(projectRoot, "core/src/androidMain/assets/wizard")
+        assertTrue("assets dir missing", assetsRoot.isDirectory)
+        val missing = mutableListOf<String>()
+        assetsRoot.walkTopDown()
+            .filter { it.isFile && it.name.endsWith(".json") }
+            .forEach { file ->
+                val text = file.readText()
+                val match = Regex(""""schemaVersion"\s*:\s*(\d+)""").find(text)
+                val v = match?.groupValues?.getOrNull(1)?.toIntOrNull()
+                if (v == null || v < 1) {
+                    missing += "${file.absolutePath} (schemaVersion=$v)"
+                }
+            }
+        assertFalse(
+            "every bundled JSON must declare schemaVersion >= 1; offenders: $missing",
+            missing.isNotEmpty(),
+        )
+    }
+
     @Test
     fun t7_004_checkSpec_hasNoAndroidImports() {
         val file = File(commonMainDir, "CheckSpec.kt")

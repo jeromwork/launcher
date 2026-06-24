@@ -182,14 +182,14 @@ Per `speckit-tasks` Step 3:
 
 **Independent test**: `./gradlew :core:test --tests *Task7ArchitectureTest*` all green; manual `[hand]` verifications passing.
 
-- [ ] **T059** [multi] Aggregate Konsist fitness functions in `core/src/androidUnitTest/kotlin/com/launcher/architecture/Task7ArchitectureTest.kt`:
+- [x] **T059** [multi] Aggregate Konsist fitness functions in `core/src/androidUnitTest/kotlin/com/launcher/architecture/Task7ArchitectureTest.kt`:
   - **T7-001**: no Gradle module containing "simple-launcher" name (Article VII §13).
   - **T7-002**: no `if (appFamilyId == "simple-launcher")` OR `when (appFamilyId)` branches in business-logic files (Article VII §13).
   - **T7-003**: `ConfigKind` enum has exactly the 5 existing values (Article VII §10).
   - **T7-004**: already in T009 — `CheckSpec.kt` / `ApplySpec.kt` no Android imports.
   - **T7-005**: already in T039 — `AppCompatDelegate.setApplicationLocales` not called from commonMain.
   - **T7-006**: all bundled JSONs in `core/src/androidMain/assets/wizard/` have `schemaVersion >= 1` (CLAUDE.md rule 5).
-  Requires: T009, T039. (FR-022, FR-023, FR-024, FR-025, FR-030, FR-034, SC-010, Plan Phase 7)
+  Requires: T009, T039. (FR-022, FR-023, FR-024, FR-025, FR-030, FR-034, SC-010, Plan Phase 7) — *7/7 green in `:core:testMockBackendDebugUnitTest` (T7-004 split into CheckSpec + ApplySpec checks).*
 
 ### Deferred verifications
 
@@ -208,8 +208,8 @@ Per `speckit-tasks` Step 3:
 
 ### Documentation + cleanup
 
-- [ ] **T067** [P] [multi] Update `docs/dev/project-backlog.md`: append TODOs surfaced by TASK-7 implementation: (a) `TODO(TASK-8+): cloud sync of pending setup state for admin visibility`; (b) `TODO(schema-v3): once all bundled pool entries migrated to v2 with check/apply blocks, remove legacy mechanism/deepLink/detectionStrategy fields from SystemSettingEntry`; (c) `TODO(pool-migration): theme value migration policy when ui-pool choices change (separate backlog task)`. (Plan §Required Context Review, Plan Phase 7)
-- [ ] **T068** [P] [multi] APK size delta measurement: build release APK before and after TASK-7 (or via `:app:bundleRelease` analysis); assert delta ≤ +150 KB per SC-011; record result in `perf-checkpoint.md`. (SC-011, Plan Phase 7)
+- [x] **T067** [P] [multi] Update `docs/dev/project-backlog.md`: append TODOs surfaced by TASK-7 implementation: (a) `TODO(TASK-8+): cloud sync of pending setup state for admin visibility`; (b) `TODO(schema-v3): once all bundled pool entries migrated to v2 with check/apply blocks, remove legacy mechanism/deepLink/detectionStrategy fields from SystemSettingEntry`; (c) `TODO(pool-migration): theme value migration policy when ui-pool choices change (separate backlog task)`. (Plan §Required Context Review, Plan Phase 7) — *appended TODO-TASK7-001..004 (added 004 for T055 deferral).*
+- [ ] **T068** [P] [multi] APK size delta measurement: build release APK before and after TASK-7 (or via `:app:bundleRelease` analysis); assert delta ≤ +150 KB per SC-011; record result in `perf-checkpoint.md`. (SC-011, Plan Phase 7) — *deferred: requires release-flavor build (~ several minutes per pass, OEM signing, R8); plan for emulator-iteration session bundled with T058/T060-T063.*
 
 **Checkpoint Phase 7**: all Konsist fitness PASS; deferred AC tracked for owner verification; docs updated.
 
