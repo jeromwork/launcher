@@ -32,6 +32,16 @@ class Task7ArchitectureTest {
             ?: error("commonMain data dir not found from ${File(".").absolutePath}")
     }
 
+    private val commonMainRoot: File by lazy {
+        val candidates = listOf(
+            File("core/src/commonMain/kotlin"),
+            File("src/commonMain/kotlin"),
+            File("../core/src/commonMain/kotlin"),
+        )
+        candidates.firstOrNull { it.exists() }
+            ?: error("commonMain root not found from ${File(".").absolutePath}")
+    }
+
     @Test
     fun t7_004_checkSpec_hasNoAndroidImports() {
         val file = File(commonMainDir, "CheckSpec.kt")
@@ -41,6 +51,29 @@ class Task7ArchitectureTest {
         assertFalse(
             "CheckSpec.kt MUST NOT import Android / vendor types; found: $forbiddenImports",
             forbiddenImports.isNotEmpty(),
+        )
+    }
+
+    @Test
+    fun t7_005_appCompatDelegate_notReferencedFromCommonMain() {
+        // T7-005 — AppCompatDelegate.setApplicationLocales is the Android
+        // shim for per-app locale. It belongs in `app/` (Activity / Application)
+        // or in `core/androidMain/` adapter modules, NEVER in commonMain
+        // (FR-020, FR-030). Future iOS adapter has its own locale-override path.
+        val offenders = mutableListOf<String>()
+        commonMainRoot.walkTopDown()
+            .filter { it.isFile && (it.name.endsWith(".kt") || it.name.endsWith(".kts")) }
+            .forEach { file ->
+                val text = file.readText()
+                if (text.contains("AppCompatDelegate") ||
+                    text.contains("androidx.appcompat.app.AppCompatDelegate")
+                ) {
+                    offenders += file.absolutePath
+                }
+            }
+        assertFalse(
+            "AppCompatDelegate MUST NOT be referenced from commonMain; found in: $offenders",
+            offenders.isNotEmpty(),
         )
     }
 
