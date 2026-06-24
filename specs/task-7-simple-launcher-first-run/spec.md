@@ -59,7 +59,126 @@ After mentor-mode dialog, owner provided product-level direction. Below are reso
 | Pool entry `check.kind` callback ref | ❌ Missing | `AndroidSystemSettingAdapter` dispatches via hardcoded `when(settingId)` blocks |
 | `SystemSettingPort.status()` cache | ❌ Missing | Every call is a fresh Android API query |
 
-**LOCAL mode**: без Google Sign-In, без cloud. Cloud features deferred per decision 2026-06-15-deferred-cloud/01. Cloud config push (admin → primary user) арrivates with TASK-8.
+**LOCAL mode**: без Google Sign-In, без cloud. Cloud features deferred per decision 2026-06-15-deferred-cloud/01. Cloud config push (admin → primary user) активируется с TASK-8.
+
+---
+
+## Сценарии использования
+
+> Эти сценарии — концентрированный взгляд «как это будет работать в реальной жизни». Читая их, можно проверить, движется ли спека в правильном направлении, без необходимости погружаться в FRs. Каждый сценарий соответствует одному или нескольким FRs (помечено в конце сценария).
+>
+> **Терминология**: «настройка» = запись в pool (например, ROLE_HOME, theme, tileSet) — содержит свои texts (labelKey / descriptionKey / extendedInstructionKey). «Шаг wizard'а» = StepEntry в manifest, который **ссылается** на настройку через `refId` и задаёт per-profile policy (`canSkip`, `criticality`). Texts всегда в настройке; policy — в манифесте. Wizard — это view конфига профиля.
+
+### Сценарий 1 — Чистая установка: помощник проводит бабушку через wizard
+
+**Контекст**: дочка-помощник приехала к бабушке в гости, ставит ей наш лончер первый раз.
+
+1. Помощник тапает иконку приложения. Через 1-2 секунды появляется первый экран wizard'а. Wizard рендерится по конфигу профиля `simple-launcher` — крупные кнопки, тёплая палитра, читаемый текст. Styling baked в конфиг профиля, одинаково для всех кто будет проходить.
+2. ★ Wizard показывает настройку «Сделать наш лончер главным». Заголовок и описание берутся из настройки (pool entry для ROLE_HOME) — текст хранится там, не в wizard'е. Помощник нажимает кнопку «Подтвердить» → системный диалог Android → выбирает наш лончер.
+3. ★ Wizard показывает настройку «Выбери раскладку плиток». Доступна одна bundled раскладка — 6 плиток (`classic-6`). Помощник подтверждает.
+4. ★ На Android 13+: wizard показывает настройку «Разрешить уведомления». На Android < 13 эта настройка не существует в pool для соответствующего API → wizard её не показывает.
+5. ☆ Wizard показывает необязательную настройку «Соединиться с админом по QR-коду». Помощник нажимает «Пропустить, настрою позже». (Реальный QR-flow — ответственность spec 007; TASK-7 либо использует существующую функциональность, либо ship'ает stub-кнопку — решается во время implementation.)
+6. Wizard завершается. Через 1 секунду открывается главный экран — 6 плиток с базовыми action'ами.
+
+**Что закрывает**: US-1, FR-001, FR-002, FR-014, SC-001, SC-002.
+
+**Trouble case 1.b — Помощник убил приложение посреди wizard'а**: на шаге выбора раскладки помощник свайпнул приложение из списка недавних. Через 5 минут открывает заново → wizard продолжается с того же шага.
+
+**Trouble case 1.c — Помощник отказался от ROLE_HOME в системном диалоге**: wizard остаётся на той же настройке, показывает текст из настройки (`extendedInstructionKey` в pool entry для ROLE_HOME): «Без этого Home button не откроет приложение — попробуй ещё раз». Текст хранится в pool entry, не в wizard'е. Помощник нажимает «Повторить».
+
+**Trouble case 1.d — Перезагрузка устройства после wizard'а**: бабушка перезагрузила телефон. После reboot Home button открывает наш лончер, плитки те же, wizard не повторяется.
+
+---
+
+### Сценарий 2 — Wizard пропускает уже применённые настройки (config-check master)
+
+**Контекст**: помощник в прошлый раз начал настройку, потом зашёл в Android Settings вручную и сделал наш лончер главным. Через неделю открывает приложение.
+
+1. Помощник тапает иконку. Приложение при старте загружает **конфиг профиля** (или его кэш) из store. Конфиг — first-class entity: список того, какие настройки в этом профиле задействованы, какие mandatory, какие optional, как их проверять. Wizard это лишь отображение того подмножества настроек, что pending.
+2. Приложение для каждой настройки из конфига проверяет фактическое состояние **на устройстве**: «применена ли эта настройка сейчас?», не «прошёл ли я её в wizard'е».
+3. Видит: ROLE_HOME уже выставлен (помощник сделал это вручную через Android Settings) → настройка считается применённой → wizard её не показывает. Раскладка ещё не выбрана → pending. POST_NOTIFICATIONS ещё не выдан → pending.
+4. Wizard открывается **сразу на pending настройке** — выбор раскладки. Без повторного запроса ROLE_HOME.
+5. Помощник проходит оставшиеся pending. Wizard завершается.
+
+**Что закрывает**: US-2, FR-013, FR-014, SC-003.
+
+**Trouble case 2.b — Все настройки конфига уже применены**: помощник в прошлый раз прошёл всё. Тапает иконку — wizard не показывается, приложение сразу открывает главный экран.
+
+**Trouble case 2.c — Bundled конфиг повреждён или версия выше известной**: приложение получает ошибку при чтении. Открывается специальный экран «Установи обновление приложения» (уже сделан, наследуется из существующей инфраструктуры — spec 010 `PlayStoreFallbackActivity`).
+
+---
+
+### Сценарий 3 — Язык стабилен при изменении системного, indicator в Settings
+
+**Контекст**: телефон бабушки на русском (системная локаль). Через 2 месяца кто-то меняет системный язык Android на английский.
+
+1. При первом запуске приложение определило системную локаль (русский) и **запомнило как свой собственный язык** через `AppCompatDelegate.setApplicationLocales()`. Это сохранено отдельно от системной локали.
+2. Wizard завершён, бабушка пользуется приложением на русском.
+3. Через 2 месяца бабушка случайно сменила в Android Settings → Languages → English. Системная локаль теперь — английский.
+4. Бабушка вернулась на главный экран нашего лончера. **Лончер остался на русском.** Никакого surprise.
+5. **В нашем Settings есть indicator** «Язык приложения: Русский (системный Android: English)» — чтобы помощник, заглянувший в Settings когда-то позже, понял почему есть расхождение и мог осмысленно решить, что с этим делать.
+6. Если помощник хочет переключить app на английский — заходит в наш Settings → Language → выбирает English. Override снимается, app начинает следовать системной локали.
+
+**Что закрывает**: US-3, FR-017, FR-017a, FR-018, SC-004, Article III §7 stability.
+
+**Trouble case 3.b — Android < 13**: AppCompat shim handle'ит persistence иначе, но visible UX тот же.
+
+---
+
+### Сценарий 4 — Новая настройка после обновления приложения → тихий banner + checklist в Settings
+
+**Контекст**: помощник три месяца назад настроил телефон бабушке. Сегодня вышла обновлённая версия приложения, в bundled конфиге profile'а появилась новая настройка — например, разрешение «Не беспокоить».
+
+**UX precedent** (per Article XV §14): checklist + banner pattern — GitHub onboarding «Setup your repo», Slack «Get started», Stripe «Activate your account», Notion onboarding. Каждый item — independent row, status indicator, tap → settings.
+
+1. Бабушкин телефон автоматически обновился через Google Play.
+2. Бабушка пользуется лончером как обычно. **Wizard не запускается заново**. Главный экран как был.
+3. **В нашем Settings — иконка «есть что донастроить» с числом** (например `[!] 1`). Это означает, что в конфиге profile'а есть pending настройка.
+4. Когда помощник или admin зайдёт в Settings — увидит **checklist** с pending настройками: каждая строка с label из настройки + кнопкой «Настроить сейчас». Тап → открывается стандартный flow для одной настройки (тот же UI, что был бы в wizard'е, но как standalone screen).
+5. **Бабушке не показывается ничего навязчивого** — она не зайдёт в Settings, индикатор её не отвлекает. Lifecycle: app продолжает работать как есть, только в Settings виден pending.
+
+**Что закрывает**: FR-013, FR-014, Article VII §14 config-check master.
+
+**Trouble case 4.b — Pending настройка optional**: иконка `[?] 1` другого цвета (рекомендуется, не критично), всё остальное так же.
+
+**Trouble case 4.c — Pending должна быть видна и админу удалённо**: admin заходит в свой UI «настройки удалённого телефона бабушки» → видит точно тот же `[!] 1` индикатор и список pending. Это требует **синхронизации pending setup state в облако** (зашифрованным). В TASK-7 (LOCAL mode) — отображается только локально на бабушкином Settings. **Inline TODO**: `// TODO(TASK-8+): cloud sync of pending setup state для admin visibility`.
+
+**Trouble case 4.d — Изменилась структура pool (schemaVersion bump)**: приложение читает new-version JSON. Если несовместимо — экран «Установи обновление приложения» (см. trouble case 2.c).
+
+---
+
+### Сценарий 5 — «Пройти все настройки заново пошагово» из Settings
+
+**Контекст**: помощник заметил `[!] 1` индикатор в Settings бабушки, но хочет не просто закрыть pending, а пересмотреть **все** настройки сразу (например, посмотреть, что не подкорректировать и где).
+
+**UX precedent** (per Article XV §14): sequential walk-through с current value as default — **Apple Setup Assistant on factory reset** (показывает все настройки, current value preserved, helper жмёт «Оставить» или «Изменить»), **Windows OOBE on rerun** (аналогично), **TurboTax sections walk**. Альтернативные patterns (skip-by-default через 30 шагов) отвергнуты как cognitive-load-overload.
+
+1. Помощник в нашем Settings нажимает кнопку «Пройти все настройки пошагово».
+2. Запускается тот же самый wizard UI, но **показываются все настройки конфига профиля**, не только pending. Для каждой настройки **default = current value** (что выбрано сейчас).
+3. На каждом шаге — две большие кнопки: «Оставить» (продвигает на следующий шаг без изменений) и «Изменить» (открывает picker / system dialog для изменения).
+4. Помощник пробегает все 6-8 настроек simple-launcher, оставляя большинство как есть, меняя одну-две.
+5. По завершении wizard'а — главный экран обновляется с новой композицией если были изменения.
+
+**Что закрывает**: FR-014a, Article VII §11 (wizard is view of profile, this is alternate view).
+
+**Trouble case 5.b — Помощник нажал «Выход» в середине walk-through**: настройки, изменённые до выхода, **сохранены** (не транзакция). Те, что не пройдены — остаются как были.
+
+---
+
+### Сценарий 6 — Wizard uniform для всех (verification senior-safe из конфига профиля)
+
+**Контекст**: simple-launcher профиль конфигурирован с senior-safe styling — крупные кнопки, большой шрифт, тёплая палитра. **Wizard выглядит и ведёт себя одинаково независимо от того, кто его проходит** — помощник, бабушка, IT-support, AI agent через MCP. Это not condition-ная логика, а конфиг.
+
+1. Любой actor открывает приложение в первый раз. Wizard рендерится по конфигу profile'а: senior-safe styling задан в `simple-launcher` config (не определяется runtime'ом «кто это»).
+2. Шаги одинаковые. Кнопки одинаково крупные. Текст одинаково крупный. Tap targets одинаково большие.
+3. Если помощник предложил бабушке самой пройти — wizard такой же, как был бы у помощника. Бабушка может, потому что **уже** senior-safe (профилем задано), не потому что приложение «решило в runtime, что это бабушка».
+4. **Verification (manual, `[hand]` AC)**: tester или AI открывает wizard на эмуляторе через skill `android-emulator`, walk through, confirms — wizard соответствует senior-safe baseline (Article VIII §7: ≥ 56dp tap targets, ≥ 24sp text, ≥ 4.5:1 contrast). Это check'ает не реализацию wizard engine, а **конфиг profile'а** — он properly задаёт senior-safe styling.
+
+**Что закрывает**: US-6, SC-007 (`[hand]` AC), Article VII §13 (no condition logic per actor), Article VIII §7.
+
+**Trouble case 6.b — TalkBack включён**: actionable elements озвучиваются, focus order осмыслен. Это **в конфиге профиля** (semantics descriptors), не в условной логике.
+
+**Trouble case 6.c — Системный font scale 150%**: все строки помещаются (тестируется в senior-safe verification).
 
 ---
 
@@ -147,9 +266,9 @@ After mentor-mode dialog, owner provided product-level direction. Below are reso
 
 ---
 
-### User Story 6 — Senior-safe walkthrough verification (Priority: P3)
+### User Story 6 — Wizard uniform per profile config (senior-safe baked into simple-launcher) (Priority: P3)
 
-`Assisting` проходит wizard без подсказок на эмуляторе через skill `android-emulator`. Verification — manual gate `[hand]`. Per constitution Article VIII §7 senior-safe baseline (≥ 56dp tap targets, ≥ 24sp text, ≥ 4.5:1 contrast). Wizard designed для assisting, но senior-safe держится — primary user может сам взаимодействовать в edge cases (per US-2 aspirational secondary path).
+Wizard выглядит и ведёт себя **одинаково** независимо от того, кто его проходит — помощник, бабушка, IT-support, AI agent через MCP. Различий по actor нет (constitution Article VII §13: no condition logic per actor). Senior-safe styling (большие кнопки, крупный шрифт, тёплая палитра) **запечён в конфиге** profile'а `simple-launcher` — не в условной runtime-логике. Verification — tester или AI walk through wizard на эмуляторе через skill `android-emulator`, confirms что конфиг profile'а produces senior-safe baseline per Article VIII §7 (≥ 56dp tap targets, ≥ 24sp text, ≥ 4.5:1 contrast).
 
 **Acceptance Scenarios**:
 
@@ -252,12 +371,14 @@ After mentor-mode dialog, owner provided product-level direction. Below are reso
   - `TutorialHint` → `dismissedHintsStore.isDismissed(entry.refId)` — if dismissed → exclude.
   - `Custom` → always include (no generic state check; Custom step handler decides).
 - **FR-014**: `WizardEngine.run(manifest)` MUST call `computePending(manifest)` as **pre-flight**. If returned list is empty → return `WizardOutcome.Completed` immediately without traversal. If non-empty → traverse only pending steps. **Replaces** the existing linear traversal of all manifest steps in `WizardEngineImpl.run()`.
+- **FR-014a**: Settings UI MUST include a button «Пройти все настройки пошагово» (label key `settings_walk_through_all_label`) that re-launches wizard UI in **walk-through mode**: traverses **all** manifest steps (not filtered by `computePending`), with each step pre-populated with current value as default and offering «Оставить» / «Изменить» actions. Walk-through mode requires a new `WizardEngine` parameter or sibling method (e.g., `engine.runWalkThrough(manifest)`). Visible state changes per step are saved immediately (not transactional) per Trouble case 5.b. **UX precedent**: Apple Setup Assistant on factory reset, Windows OOBE on rerun, TurboTax sections walk (per Article XV §14).
 - **FR-015**: `WizardActivity` SHOULD also expose `computePending(manifest)` ahead of `engine.run(...)` to **decide** whether to launch wizard at all vs route directly to `HomeActivity`. This complements `UserPreferencesStore.isWizardCompleted(appFamilyId)` boolean: even if `isWizardCompleted == true`, if a profile/pool update added new pending steps, wizard runs as donastroika.
 - **FR-016**: `diffPending(savedCompletedManifest, currentManifest)` method on `WizardEngine` is **deprecated** by FR-013 (snapshot-based approach not used). Kept for backward compat; documented as deprecated; remove in TASK-22 (Optional Step Reminder System) or sooner.
 
 #### Part D — App-level locale override
 
 - **FR-017**: When wizard's language step completes (auto-detected or user-chosen via Settings — even though language is not a wizard step in TASK-7 per FR-002, this FR applies whenever `UserPreferences.languageOverride` is updated through any path), `WizardActivity` (or post-engine.run integration glue) MUST call `AppCompatDelegate.setApplicationLocales(LocaleListCompat.create(Locale.forLanguageTag(languageOverride)))`.
+- **FR-017a**: Settings UI MUST display a locale indicator when app-level locale override diverges from system locale: «Язык приложения: Русский (системный Android: English)» (or equivalent localized format). When override matches system locale OR no override is set → indicator hidden. Helper opening Settings later understands the divergence without confusion.
 - **FR-018**: At app cold-start (in `Application.onCreate()` or `FirstLaunchActivity` pre-route logic), the same call MUST apply persisted `UserPreferences.languageOverride` if present. This ensures restart-after-system-locale-change preserves app-level choice.
 - **FR-019**: `AppCompatDelegate.setApplicationLocales` is API 33+ semantically distinct. On API < 33, the platform persists the override differently but the call is still valid (AppCompat shim handles). No special branching needed in domain code per CLAUDE.md rule 1; AppCompat fallback handled by AndroidX.
 - **FR-020**: Konsist fitness function MUST verify `AppCompatDelegate` is **not** called from `commonMain` — only from `androidMain` adapter or `app/` integration glue (constitution Article VII §15 multi-platform seam).
