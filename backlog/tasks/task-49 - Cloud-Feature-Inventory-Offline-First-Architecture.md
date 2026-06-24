@@ -1,10 +1,10 @@
 ---
 id: TASK-49
 title: Cloud Feature Inventory + Offline-First Architecture
-status: Paused
+status: Verification
 assignee: []
 created_date: '2026-06-23 09:42'
-updated_date: '2026-06-24 14:00'
+updated_date: '2026-06-24 14:30'
 labels:
   - phase-1
   - architecture
@@ -152,38 +152,34 @@ EFFORT: Medium (~1-2 weeks).
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-Code-level gates (verifiable through grep / test run):
-- [x] #1 CloudAvailability port + Android adapter (CloudAvailabilityImpl) реализованы; 16/16 CHK в checklists/domain-isolation.md [x]
-- [x] #2 FcmTokenRegistrationGuard откладывает FCM token registration до cloudAvailable=true (regression fix для spec 019)
-- [x] #3 CloudAvailabilityContractTest invariant INV-7 (persistence survives recreate) зелёный
-- [x] #4 13/13 CHK в checklists/meta-minimization.md [x]; wire-format checklist N/A (нет wire format)
-- [x] #5 docs/dev/cloud-availability.md существует (AC #8 из ORIGINAL — переименован)
+- [x] #1 [hand] CloudAvailability port + Android adapter (CloudAvailabilityImpl) реализованы
+- [x] #2 [hand] FcmTokenRegistrationGuard откладывает FCM token registration до cloudAvailable=true (regression fix spec 019)
+- [x] #3 [hand] CloudAvailabilityContractTest invariant INV-7 (persistence survives recreate) зелёный
+- [x] #4 [hand] docs/dev/cloud-availability.md существует и читается non-developer
+- [ ] #5 [hand] Owner решает: создавать ли отдельный docs/dev/offline-online-architecture.md или ссылаться на cloud-availability.md (упомянут в spec.md «Что входит технически»)
+- [ ] #6 [hand] Переписать pseudo-gate «Huawei без GMS» в DI-override unit test (CloudAvailabilityImpl с GMS=unavailable возвращает Disabled) + inline TODO physical-device в коде
+- [x] #7 [auto:checklist] checklists/domain-isolation.md: 16/16 CHK [x]
+- [x] #8 [auto:checklist] checklists/meta-minimization.md: 13/13 CHK [x]
+- [N/A] #9 [auto:checklist] checklists/wire-format.md: N/A (no wire format)
+- [ ] #10 [auto:deferred-local-emulator] Emulator smoke pixel_5_api_34 (T043) + instrumented integration tests T031-T036; требует AVD ≤ API 34 per memory `reference_compose_ui_test_api_mismatch.md`
+- [ ] #11 [auto:deferred-physical-device] Physical device verification Xiaomi 11T (T041): packet capture 5 мин в local mode → 0 запросов к Firebase / Firestore / FCM
 
-Verification gates (BLOCKED — deferred markers в tasks.md):
-- [ ] #6 Emulator smoke pixel_5_api_34 (T043): fresh install → wizard без Sign-In → main screen → SOS dialer → cloud-action → SignInExplanationScreen → mock Sign-In → cloudAvailable=true. **`[deferred-local-emulator]`** — нужен AVD ≤ API 34 (composeUiTest 1.7.x не работает на API 35+, см. memory `reference_compose_ui_test_api_mismatch.md`)
-- [ ] #7 Instrumented integration tests T031–T036 на эмуляторе passed (CloudAvailabilityImplTest, SignInExplanationScreenE2ETest, regression на spec 019 FCM smoke). **`[deferred-local-emulator]`**
-- [ ] #8 Physical device verification на Xiaomi 11T (T041): fresh install → packet capture 5 мин в local mode → 0 запросов к Firebase / Firestore / FCM. **`[deferred-physical-device]`** — пользователь прогоняет вручную, AI session не имеет доступа к устройству (см. memory `reference_testing_environment.md`)
-- [ ] #9 Documentation `docs/dev/offline-online-architecture.md` создан (упомянут в spec.md «Что входит технически», файл сейчас отсутствует)
-
-Pseudo-gates (написаны в ORIGINAL AC, но не верифицируемы — переписать или удалить):
-- [ ] #10 ~~Huawei без GMS — приложение запускается~~ → реально проверяется через **DI override test** (CloudAvailabilityImpl с GMS=unavailable возвращает Disabled). На реальном Huawei устройстве не верифицируем (нет железа, не закупаем). Переформулировать в SC-009 формате (test через DI override + inline TODO physical-device).
 <!-- AC:END -->
 
-## Pause Reason
-<!-- SECTION:PAUSE_REASON:BEGIN -->
-Retroactive correction 2026-06-24: предыдущий статус Done (8/8) был ошибочно проставлен. Перепроверка по tasks.md / checklists/* выявила:
+## Verification Pending
+<!-- SECTION:VERIFICATION_PENDING:BEGIN -->
+PR #27 merged (commit 2ac2063). Code-level + checklist gates зелёные. Status retro-corrected 2026-06-24: предыдущая отметка Done (8/8) была ошибочной — original AC не покрывали emulator/physical-device гейты, AC «Huawei без GMS» был pseudo-gate, и 12/45 tasks в tasks.md помечены `[deferred-*]`.
 
-- 33/45 tasks.md tasks закрыты `[x]`; **12 deferred** (включая ВСЕ instrumented emulator tests T031–T036, T043, и T041 physical-device).
-- Original AC ни разу не упоминали emulator smoke и physical device — критический пробел.
-- AC «Huawei без GMS» — pseudo-gate; реально проверяется только через DI override, не на железе.
+Pending для перехода Verification → Done:
 
-Blocked AC:
-- **#6, #7**: ждут AVD ≤ API 34 на машине разработчика (composeUiTest 1.7.x blocker).
-- **#8**: ждут manual прогон владельца на Xiaomi 11T.
-- **#9**: документ не создан.
-- **#10**: AC требует переформулировки.
+| AC | Type | Recovery step |
+|---|---|---|
+| #5 | hand | Owner решает: создавать ли отдельный `offline-online-architecture.md` или это дубликат `cloud-availability.md`. Если первое — создать файл, проставить `[x]`. |
+| #6 | hand | Owner правит формулировку AC: убрать «работает на реальном Huawei» (нет железа), оставить DI-override test (`CloudAvailabilityImpl` с GMS=unavailable → Disabled). Проверить test существует и проставить `[x]`. |
+| #10 | auto:deferred-local-emulator | Установить AVD API 34 (per memory `reference_compose_ui_test_api_mismatch.md`), прогнать T031-T036 + T043 через skill `android-emulator`, проставить `[x]` с указанием имени AVD. |
+| #11 | auto:deferred-physical-device | Owner вручную прогоняет на Xiaomi 11T (packet capture 5 мин в local-mode → 0 requests to Firebase/Firestore/FCM), приложить артефакт к PR comment, проставить `[x]`. |
 
-Снять Paused → закрыть #6, #7 (поставить AVD API 34 + прогнать тесты), закрыть #8 (manual), создать #9 doc, переписать #10 → повторно вызвать `pre-pr-backlog-sync`.
+Re-run `pre-pr-backlog-sync` после каждого закрытого AC. Переход в Done — когда все 4 закрыты.
 
-**Lesson logged in memory**: при retroactive sync не верить «всё выполнено» на слово; обязательно grep'ить tasks.md на `[deferred-*]` маркеры и сверять checklists/.
-<!-- SECTION:PAUSE_REASON:END -->
+**Lesson logged in memory** (`feedback_backlog_sync_verify_against_tasks.md`): при retroactive sync не верить «всё выполнено» на слово; обязательно grep'ить tasks.md на `[deferred-*]` маркеры и сверять `checklists/*.md`.
+<!-- SECTION:VERIFICATION_PENDING:END -->
