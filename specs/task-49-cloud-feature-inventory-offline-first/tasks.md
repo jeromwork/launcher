@@ -132,7 +132,7 @@
   - Если `true` — вызывает existing FCM registrar (через injected dependency).
   Также: observer на `isCloudAvailableFlow` — при transition `false → true` → trigger registration текущего FCM token. (FR-013, FR-014). **Acceptance**: compile.
 - [x] **T029** Модифицировать FCM token registration call site (identified в T027) — заменить direct call на вызов через `FcmTokenRegistrationGuard`. Existing tokens NOT touched per FR-014. **Acceptance**: existing code refactored, tests старые проходят.
-- [ ] **T030** Создать `app/src/androidUnitTest/kotlin/com/launcher/app/auth/FcmTokenRegistrationGuardTest.kt`. Tests:
+- [x] **T030** Создать `app/src/androidUnitTest/kotlin/com/launcher/app/auth/FcmTokenRegistrationGuardTest.kt`. Tests:
   - `cloudAvailable=false → registerIfAllowed(token) → no Firestore call`.
   - `cloudAvailable=true → registerIfAllowed(token) → Firestore registration invoked`.
   - `cloudAvailable transitions false→true с existing token → automatic registration triggered`.
