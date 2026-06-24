@@ -4,7 +4,7 @@ title: Simple Launcher first-run + Setup Wizard
 status: In Progress
 assignee: []
 created_date: '2026-06-23 05:36'
-updated_date: '2026-06-24 14:00'
+updated_date: '2026-06-24 15:00'
 labels:
   - phase-2
   - s-spec
@@ -161,11 +161,11 @@ EFFORT: Medium (~1-2 weeks). Значительно меньше чем каза
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 [hand] Помощник установил APK на эмулятор → wizard первый экран виден ≤ 2 сек после tap'а на иконку
-- [ ] #2 [hand] Помощник прошёл все mandatory шаги → HomeActivity рендерит выбранную композицию (screen.layout + tile.set) ≤ 1 сек после wizard exit'а
-- [ ] #3 [hand] Перезагрузил устройство → wizard не повторяется; HomeActivity открывается с применённой композицией
-- [ ] #4 [hand] Пропустил optional шаг (theme при canSkip=true) → в Settings висит баннер; tap → standalone step → выбор сохраняется → баннер исчезает
-- [ ] #5 [hand] Отказал в ROLE_HOME (canSkip=false override) → wizard остаётся на шаге с retry, не падает
-- [ ] #6 [hand] Изменил системную локаль Android → strings wizard'а сменились (детали поведения зависят от clarify Q про locale override)
+- [ ] #1 [hand] Assisting установил APK на эмулятор → wizard первый pending step виден ≤ 2 сек после tap'а на иконку
+- [ ] #2 [hand] Assisting прошёл 3 mandatory + 1 optional → HomeActivity рендерит выбранную композицию (classic-6 поверх 3x4-classic) ≤ 1 сек после wizard exit'а
+- [ ] #3 [hand] ROLE_HOME уже granted через Android Settings до wizard'а → wizard не показывает ROLE_HOME step (config-check master в действии)
+- [ ] #4 [hand] System locale change (Android Settings → Languages → English) после wizard'а с languageOverride: ru → app остаётся на русском после restart'а (Article III §7 stability)
+- [ ] #5 [hand] Pairing с admin device в wizard'е завершился успешно → LinkRegistry.activate() записал link → home screen рендерится с paired state
+- [ ] #6 [hand] Перезагрузил устройство → wizard не повторяется; HomeActivity открывается с применённой композицией
 - [ ] #7 [hand] Senior-safe walkthrough на эмуляторе через skill android-emulator — assisting проходит wizard без подсказок (manual [hand] AC)
 <!-- AC:END -->

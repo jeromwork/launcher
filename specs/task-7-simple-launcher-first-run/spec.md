@@ -1,34 +1,65 @@
 # Feature Specification: Simple Launcher Profile (first MVP-demo)
 
 **Feature Branch**: `task-7-simple-launcher-first-run`
-**Created**: 2026-06-24 (rewritten after architecture clarification + constitution amendment 1.7)
-**Status**: Draft
-**Input**: User description: backlog [TASK-7](../../backlog/tasks/task-7%20-%20Simple-Launcher-first-run-Setup-Wizard.md) S-1. Ship `simple-launcher` profile as composition of bundled JSON documents on top of the existing wizard engine (TASK-1 / F-3 Done). Constitution Article VII §9–13 (profile = composition, не код). LOCAL mode, без cloud.
+**Created**: 2026-06-24 (rewritten after architecture clarification, verification, and constitution amendments 1.7 / 1.8)
+**Status**: Draft post-clarify
+**Input**: User description: backlog [TASK-7](../../backlog/tasks/task-7%20-%20Simple-Launcher-first-run-Setup-Wizard.md) S-1. Ship `simple-launcher` profile as composition of bundled JSON documents on top of the existing wizard engine (TASK-1 / F-3 Done). LOCAL mode, без cloud. Constitution Article VII §9-15 + Article II §8 + Article III §7.
+
+---
+
+## Clarifications
+
+### 2026-06-24 — Pre-plan clarification pass
+
+After mentor-mode dialog, owner provided product-level direction. Below are resolutions woven into FRs / scope / Constitution amendments:
+
+| # | Question | Resolution |
+|---|----------|------------|
+| 1 | MVP definition | All base functional blocks built end-to-end; polish via JSON config, not code. Codified as Article II §8 (constitution amendment 1.8). |
+| 2 | Wizard actor | Primarily `assisting` (родственник / помощник / IT-support / медсестра). Aspiration: проходимый и `primary user`'ом самостоятельно. Senior-safe baseline (Article VIII §7) holds for both paths. |
+| 3 | Orphan dependencies (spec 010/007/003) | Verified 2026-06-24: spec 010 ARCH-016 closure landed in code (`ConfigBackedFlowRepository` reads `/config/current`, `RoleHomeCheckAdapter` + 5 others, `GmsHardBlockActivity`); spec 007 pairing UI substantial (PairingActivity, ConsentScreen, QrDisplayScreen, FirestoreLinkRegistry, ManagedDevicesRegistry); spec 003 ui-skeleton — HomeActivity + RootComponent + ConfigBackedFlowRepository. **All dependencies functional in code.** TASK-7 can build on them without prerequisite fix-up. |
+| 4 | Wizard step count and content | **3 mandatory + 0 silent + 1 optional = 4 visible steps**. Order: (1) `android.role.home` Required canSkip:false, (2) `tileSet` Required canSkip:false default classic-6, (3) `android.permission.POST_NOTIFICATIONS` Required canSkip:true (auto-skip API < 33), (4) PairAdmin Optional canSkip:true. Language → auto-detect (no wizard step). Theme → default warm light + post-wizard banner if user wants to change. Other settings (CALL_PHONE, accessibility-service, battery-optimization, hide-status-bar) → Optional Silent (available in Settings, no wizard step, no banner). |
+| 5 | Bundled documents count | One `tile.set` (existing `classic-6`), one `screen.layout` (existing `3x4-classic`). No new bundled documents in TASK-7. Additional sizes / variants → post-MVP polish through JSON authoring (Article II §8). |
+| 6 | Pairing in wizard | YES — `Custom("PairAdmin")` optional step. Real QR-scanner (spec 007 verified working). Cloud config push deferred to TASK-8; in TASK-7 pair handshake demonstrates trust establishment only. Inline TODO at PairAdmin step site: `// TODO(TASK-8): admin config push activates here when TASK-8 lands`. |
+| 7 | Locale: app override or system follow | App-level override **persists** through `AppCompatDelegate.setApplicationLocales()`. System locale changes do NOT silently override the user's wizard-time choice. Codified as Article III §7 (constitution amendment 1.8). |
+| 8 | Theme editing post-wizard | OUT of TASK-7. Theme defaults to warm light. Editing through future Settings entry (separate task) or via banner if wizard step is added later in pool. |
+| 9 | Tutorial hints in MVP | None. `TutorialHintManager` port stays as seam (F-3); no concrete hints in TASK-7. |
+| 10 | Bundled JSON corruption UX | Spec 010 `PlayStoreFallbackActivity` already handles `IncompatibleVersion` / `ParseError` from `ConfigSource`. TASK-7 inherits, does NOT duplicate. |
+| 11 | Pool schema v2 (`check.kind` callback decoupling) | YES — TASK-7 ships schema v1 → v2 bump. Sealed `CheckSpec` in `commonMain` with `@JsonClassDiscriminator("kind")`. Handler registry in `AndroidSystemSettingAdapter` via Koin DI. Backward-compat read: v1 entries (no `check` block) fall through to legacy hardcoded `when(settingId)` dispatch (deprecated path, removed after migration). |
+| 12 | Theme value migration when pool choices change | OUT of TASK-7. New backlog task created: "Pool choice migration policy". |
+| 13 | Cache for `SystemSettingPort.status()` | YES — simple TTL cache (30s) in `AndroidSystemSettingAdapter` invalidated on Activity Lifecycle.RESUMED. Pattern follows spec 010 FR-020a re-check semantics. |
+| 14 | Diagnostic events for MVP | Wizard engine continues to call `DiagnosticEmitter.emit()`. Real adapter remains no-op (per F-3 A-17). No analytics backend in MVP. |
+| 15 | GMS-less device handling | OUT of TASK-7. Spec 010 FR-042 `GmsHardBlockActivity` already handles. Hard-block path inherited unchanged. |
+| 16 | MCP / AI agent config authoring | OUT of TASK-7. Architecturally compatible: `ConfigSource` adapter pattern supports future `McpConfigSource`; `CheckSpec` sealed class doubles as capability surface. TASK-33 (Capability Registry Foundation) + TASK-36 (AI provider implementations) carry implementation. |
+| 17 | Donastroika wizard when config updates | YES — engine's `computePending(manifest)` filter (new in TASK-7) returns only pending steps. If pool entries added in updated bundled JSON or in non-bundled `ConfigSource` adapter (future), engine includes them as pending on next launch. Codified as Article VII §14. |
 
 ---
 
 ## Контекст и цель
 
-**Архитектурная модель** (constitution Article VII §9–13, glossary §2).
+**Архитектурная модель** (constitution Article VII §9–15, glossary §2).
 
 Приложение — generic shell. Его поведение для конкретного product variant'а определяется **профилем** (`profile`) — именованной композицией bundled JSON-документов. `simple-launcher` — это **первый concrete profile**, валидирующий модель: elderly-friendly handheld variant с большими плитками, тёплыми цветами, минимумом choices.
 
-**Что уже есть в коде** (TASK-1 / F-3 Done):
-- `WizardEngine`, `WizardManifest`, `ConfigSource`, `SystemSettingPort`, `StringResolver`, `TutorialHintManager`, `UserPreferencesStore`, `WizardCheckpointStore` — все ports + adapters.
-- Bundled pools: [`system-settings/android-pool.json`](../../core/src/androidMain/assets/wizard/system-settings/android-pool.json) (6 entries: ROLE_HOME, POST_NOTIFICATIONS, CALL_PHONE, accessibility-service, battery-optimization, hide-status-bar) и [`ui-customization/ui-pool.json`](../../core/src/androidMain/assets/wizard/ui-customization/ui-pool.json) (6 options: language, theme, fontScale, grid, screenLayout, tileSet).
-- Bundled documents: один `screen.layout` ([`3x4-classic.json`](../../core/src/androidMain/assets/wizard/screen-layouts/3x4-classic.json)) и один `tile.set` ([`classic-6.json`](../../core/src/androidMain/assets/wizard/tile-sets/classic-6.json)).
-- Wizard manifest [`wizard-manifests/simple-launcher.json`](../../core/src/androidMain/assets/wizard/wizard-manifests/simple-launcher.json) **существует, но почти пустой**: `steps: null`, `autoOrder: true`.
+**Personas vs domain roles** (CLAUDE.md). Wizard проходит **assisting** — родственник в гостях, платный помощник, IT-support в clinic'е, HR в B2B. Aspirational secondary path — `primary user` (пожилой пользователь) проходит wizard самостоятельно. Senior-safe baseline (Article VIII §7) держится для обоих путей.
 
-**Что TASK-7 делает** (delta scope):
-1. Заполнить `simple-launcher.wizard.manifest.json` явными `steps` (вместо `autoOrder: true`), с per-step `canSkip` override'ами специфичными для этого профиля.
-2. Добавить недостающие bundled `screen.layout` и `tile.set` JSON'ы (если требуется варианты под grid choices).
-3. Локализованные strings (en + ru минимум) под все ключи которые simple-launcher flow задействует.
-4. Integration tests + senior-safe walkthrough verification.
-5. End-to-end проверка skip-with-banner для simple-launcher специфично (механизм инфраструктурный делегирован spec 010 / `SetupCheckRegistry`).
+**Что уже есть в коде** (verified 2026-06-24):
 
-**Actor wizard'а**: не primary user (пожилой человек). Wizard проходит **помощник / assisting family member** — родственник во время визита, платный помощник, IT-support, медсестра, или в self-care варианте сам primary user. Per CLAUDE.md «Personas vs domain roles».
+| Slice | Status | Evidence |
+|---|---|---|
+| F-3 Wizard engine (TASK-1 Done) | ✅ Working | `WizardEngineImpl.kt`, `AndroidSystemSettingAdapter.kt`, `BundledConfigSource.kt`, `WizardActivity.kt` |
+| Bundled pools | ✅ Working | `android-pool.json` (6 entries), `ui-pool.json` (6 options) |
+| Bundled documents | ✅ Working | One `screen.layout` (`3x4-classic`), one `tile.set` (`classic-6`) |
+| `simple-launcher.json` manifest | ⚠️ Stub | `autoOrder: true, steps: null` — wizard works via auto-order but no per-profile overrides applied |
+| Spec 010 setup-assistant (orphan) | ✅ Working | `RoleHomeCheckAdapter`, `ConfigBackedFlowRepository` (ARCH-016 closed), `GmsHardBlockActivity` (FR-042), `PlayStoreFallbackActivity` |
+| Spec 007 pairing (orphan) | ✅ Working | `PairingActivity`, `ConsentScreen`, `QrDisplayScreen`, `FirestoreLinkRegistry`, `ManagedDevicesRegistry` |
+| Spec 003 ui-skeleton (orphan) | ✅ Working | `HomeActivity`, `RootComponent` (Decompose), `FlowRepository`, `PresetRepository` |
+| Locale persistence via `AppCompatDelegate` | ❌ Missing | Engine saves `UserPreferences.languageOverride` but never calls `AppCompatDelegate.setApplicationLocales()` |
+| Engine `computePending` (state-of-device check) | ❌ Missing | `WizardEngineImpl.run()` traverses linearly without `SystemSettingPort.status()` per-step pre-flight |
+| Pool entry `check.kind` callback ref | ❌ Missing | `AndroidSystemSettingAdapter` dispatches via hardcoded `when(settingId)` blocks |
+| `SystemSettingPort.status()` cache | ❌ Missing | Every call is a fresh Android API query |
 
-**LOCAL mode**: без Google Sign-In, без cloud. Cloud features deferred per decision 2026-06-15-deferred-cloud/01.
+**LOCAL mode**: без Google Sign-In, без cloud. Cloud features deferred per decision 2026-06-15-deferred-cloud/01. Cloud config push (admin → primary user) арrivates with TASK-8.
 
 ---
 
@@ -36,88 +67,89 @@
 
 ### User Story 1 — Fresh install → wizard → working home screen (Priority: P1)
 
-`Assisting family member` устанавливает APK на телефон `primary user`'а. Открывает приложение. Cold-start ≤ 2 сек до первого экрана wizard'а. Engine читает `simple-launcher.wizard.manifest.json` через `ConfigSource`. Помощник последовательно проходит mandatory шаги (язык, ROLE_HOME, POST_NOTIFICATIONS, выбор сетки, выбор tile.set), опционально настраивает optional (тема, fontScale, theme, остальные системные настройки). По завершении wizard'а ≤ 1 сек — `HomeActivity` показывает **реальные плитки** из выбранного tile.set + screen.layout композиции.
+`Assisting` устанавливает APK на телефон `primary user`'а. Открывает приложение. Cold-start ≤ 2 сек до первого экрана wizard'а. Engine читает `simple-launcher.wizard.manifest.json` через `ConfigSource`, вычисляет pending steps через **config-check master** (`computePending`) — проверяет `SystemSettingPort.status()` per SystemSetting step + `UserPreferencesStore.current()` per UIChoice step, исключает уже applied. Assisting проходит pending steps. По завершении wizard'а ≤ 1 сек — `HomeActivity` показывает реальные плитки из выбранного tile.set + screen.layout композиции.
 
-**Why this priority**: главный demo-критерий продукта. Без US-1 продукта не существует — есть только инфраструктура.
+**Why this priority**: главный demo-критерий MVP. Без US-1 продукта не существует.
 
-**Independent Test**: эмулятор `pixel_5_api_34`, fresh install APK, открыть → wizard → пройти mandatory → home screen с плитками виден.
-
-**Acceptance Scenarios**:
-
-1. **Given** свежеустановленный APK на эмуляторе, никакого state в DataStore, **When** помощник открывает app первый раз, **Then** wizard launcher активность открывается ≤ 2 сек после tap'а на иконку; первый экран wizard'а — language step (или другой первый шаг по manifest order'у).
-2. **Given** помощник прошёл все mandatory шаги без skip'ов, **When** последний mandatory шаг confirmed, **Then** wizard завершается → `HomeActivity` открывается ≤ 1 сек, рендерит выбранный `tile.set` поверх выбранного `screen.layout`. Плитки реально содержат `actionType` записей из tile.set (placeholder без contactId — реальные контакты в TASK-9).
-3. **Given** помощник на одном из шагов, **When** swipes app из recents (kill), **Then** при повторном open wizard продолжается с того же step'а (`WizardCheckpoint` persistence — уже сделано в TASK-1).
-4. **Given** wizard завершён, ROLE_HOME granted, **When** помощник нажимает Home button на устройстве, **Then** наш `HomeActivity` открывается, плитки отрисованы из применённого config'а.
-
----
-
-### User Story 2 — Mandatory vs optional + skip-with-banner (Priority: P1)
-
-`simple-launcher` манифест объявляет какие шаги mandatory (нельзя пройти дальше без apply'а), какие optional with skip-banner (skip'ается кнопкой «Позже», в Settings висит баннер «настрой это»), какие optional silent (не trigger'ит banner). Mandatory/optional/skip semantics per constitution Article VII §12 — pool defaults + per-profile override через manifest.
-
-**Why this priority**: skip-with-banner — это **the** UX механика wizard'а; без неё помощник вынужден либо проходить всё либо ничего. Соответствие constitution требованию.
-
-**Independent Test**: пройти wizard, на theme шаге (по умолчанию canSkip=true в ui-pool) нажать «Позже» → wizard продолжается → exit → home screen рендерит с дефолтной темой; в Settings виден баннер «Тема не настроена», тап → standalone theme picker открывается → выбор сохраняется → баннер исчезает.
+**Independent Test**: эмулятор `pixel_5_api_34`, fresh install APK, открыть → wizard → пройти 3 mandatory + 1 optional → home screen с плитками виден.
 
 **Acceptance Scenarios**:
 
-1. **Given** wizard на mandatory шаге (например, language — `criticality: Required, canSkip: false` в ui-pool), **When** помощник пытается нажать «Назад» или закрыть, **Then** UI **не позволяет skip** — нет кнопки «Позже»; для system-setting шагов где Android отказал — wizard остаётся на том же шаге с retry.
-2. **Given** wizard на optional шаге с canSkip=true (например, theme), **When** помощник нажимает «Позже», **Then** wizard переходит к следующему шагу; engine записывает skip в `WizardOutcome.Completed.userPreferences` (TASK-1 path) или через `SetupCheckRegistry` (spec 010); банер в Settings виден после wizard exit'а.
-3. **Given** в `simple-launcher.wizard.manifest.json` для шага ROLE_HOME `canSkip` override'ит pool default `true` на `false`, **When** помощник на шаге ROLE_HOME отказывается в системном диалоге, **Then** wizard **не позволяет proceed** — остаётся на том же шаге с inline retry button (через `SystemSettingPort.applyOrPrompt()`).
-4. **Given** помощник скипнул theme шаг через кнопку «Позже», **When** позже открывает Settings (через 7-tap или прямой entry per profile), **Then** баннер «Тема не выбрана — настроить?» виден; tap «Настроить» → открывается **тот же** UIChoiceStep (theme picker) standalone, не reset wizard'а с шага 1.
-5. **Given** ни одного `[NEEDS CLARIFICATION: per-step canSkip override list для simple-launcher — какие конкретно шаги должны быть overridden vs принимают pool default?]`. Нужно зафиксировать конкретный список override'ов в manifest'е.
+1. **Given** свежеустановленный APK на эмуляторе, никакого state в DataStore, **When** assisting открывает app первый раз, **Then** wizard launcher активность открывается ≤ 2 сек после tap'а на иконку; первый pending step показан (ROLE_HOME).
+2. **Given** assisting прошёл все 3 mandatory шага без skip'а, optional PairAdmin skipped, **When** wizard завершается, **Then** `HomeActivity` открывается ≤ 1 сек, рендерит `classic-6` tile.set поверх `3x4-classic` screen.layout. Плитки реально содержат `actionType` записи из tile.set (placeholder без contactId — реальные контакты в TASK-9).
+3. **Given** assisting на шаге ROLE_HOME, **When** swipes app из recents (kill), **Then** при повторном open wizard продолжается с того же шага (через `WizardCheckpoint`, F-3 path).
+4. **Given** wizard завершён, ROLE_HOME granted, **When** assisting нажимает Home button на устройстве, **Then** наш `HomeActivity` открывается, плитки отрисованы из применённой композиции.
 
 ---
 
-### User Story 3 — Permission denial → graceful retry (Priority: P2)
+### User Story 2 — Config-check master skips applied steps (Priority: P1)
 
-`Assisting family member` на шаге ROLE_HOME (или POST_NOTIFICATIONS, или любого SystemSettingStep с Required + canSkip=false) **отказывает** в системном диалоге Android. Wizard не падает, не выбрасывает на главный экран — вежливо просит повторно через `SystemSettingPort.applyOrPrompt()` (открывает системный Settings deep-link для ROLE_HOME, либо `Settings.ACTION_APP_NOTIFICATION_SETTINGS` для POST_NOTIFICATIONS).
+`Assisting` вручную выдал ROLE_HOME через системные Android Settings **до** запуска wizard'а (например, во время предыдущей сессии). Открывает app. Engine на startup'е вызывает `computePending(manifest)`, который вызывает `SystemSettingPort.status("android.role.home")` → возвращает `Applied`. Step ROLE_HOME исключается из pending. Wizard показывает только оставшиеся pending steps (tileSet + POST_NOTIFICATIONS + optional PairAdmin).
 
-**Why this priority**: real-world сценарий — помощник может промахнуться, может не понять диалог. P2 потому что mandatory шаги все равно блокируют exit, но UX надо не frustrировать.
+**Why this priority**: validates Article VII §14 config-check master pattern. Без US-2 wizard стал бы показывать уже-применённые настройки, ломая trust (Article III §7 stability).
 
-**Independent Test**: на эмуляторе с TalkBack off, дойти до ROLE_HOME шага → в системном диалоге выбрать «отменить» → проверить что wizard остался на том же шаге с retry button → tap retry → диалог снова открыт.
+**Independent Test**: emulator, manually grant ROLE_HOME через `adb shell cmd role add-role-holder android.app.role.HOME com.launcher.app` → fresh launch app → wizard does NOT show ROLE_HOME step, переходит сразу к tileSet.
 
 **Acceptance Scenarios**:
 
-1. **Given** wizard на ROLE_HOME шаге, ROLE_HOME pool entry с `canSkip: false` override'ом для simple-launcher, **When** помощник в системном `RoleManager` диалоге отказался, **Then** wizard остаётся на ROLE_HOME шаге, показывает rationale «Без этого Home button работать не будет — попробуй ещё раз» + retry button.
-2. **Given** wizard на POST_NOTIFICATIONS шаге, Android 13+, помощник `permanently denied` (отметил «не спрашивать больше»), **When** wizard пытается re-prompt, **Then** вместо системного диалога — deep-link на `Settings.ACTION_APP_NOTIFICATION_SETTINGS`; помощник вручную включает → возвращается → `SystemSettingPort.status()` detect Applied → wizard переходит к следующему шагу.
-3. **Given** Android < 13, **When** wizard на POST_NOTIFICATIONS шаге, **Then** шаг **автоматически пропускается** (per `androidMinApi: 33` в pool entry); engine это уже умеет.
+1. **Given** ROLE_HOME уже granted на устройстве, остальные настройки в дефолте, **When** app launches и engine computes pending, **Then** wizard показывает только tileSet + POST_NOTIFICATIONS + optional PairAdmin, без шага ROLE_HOME.
+2. **Given** все mandatory settings applied (включая через non-wizard paths), POST_NOTIFICATIONS granted через runtime ask из другой части app, tileSet выбран ранее, **When** app launches, **Then** wizard не показывается вообще — engine routes directly to HomeActivity.
+3. **Given** новая версия bundled JSON ships с новой записью в `android-pool.json` (например, `android.permission.READ_PHONE_STATE`) и `simple-launcher.json` обновлён с этим step'ом, **When** app launches после update, **Then** wizard показывается как donastroika — только новый step (existing settings still detected as applied).
+4. **Given** `SystemSettingPort.status()` для какого-то setting'а возвращает `Indeterminate` (нет Programmatic detection), **When** engine computes pending, **Then** step **включён** в pending (graceful — лучше переспросить чем silently skip).
 
 ---
 
-### User Story 4 — Locale change → strings switch after restart (Priority: P2)
+### User Story 3 — App-level locale override holds against system locale change (Priority: P1)
 
-`Assisting family member` выбрал русский в language шаге wizard'а. Прошёл wizard. Позже кто-то изменил системную локаль Android на английский. После app restart strings приложения переключаются на английский (default behavior через resource resolution), **либо** остаются русскими если app сохранил locale override `[NEEDS CLARIFICATION: persist user locale choice via AppCompatDelegate.setApplicationLocales() — yes / no?]`.
+`Assisting` в wizard'е выбирает русский для `primary user`'а — бабушки (auto-detected было English, override to Russian). Wizard завершён. Через месяц `primary user` случайно меняет system locale Android на English (зашла в Settings → Languages, тыкнула не туда). **Наш launcher остаётся на русском** — application-level locale override через `AppCompatDelegate.setApplicationLocales()` имеет приоритет (Article III §7).
 
-**Why this priority**: i18n MUST per ADR-004 и constitution Article VII §3 (validation). P2 потому что edge case для primary user'а пожилого, но MUST для multi-locale устройств.
+**Why this priority**: stability для elderly. Без US-3 пользователь получает «surprise English UI» которое не понимает.
 
-**Independent Test**: эмулятор с системной локалью `en-US`, fresh install → wizard → язык auto-detect English → switch на Русский → strings переключаются live → wizard завершён → kill app → системная локаль `en-US` всё ещё → open app → проверить language.
+**Independent Test**: эмулятор с system locale `en-US`, fresh install → wizard → выбрать `ru` на language step (или auto-detect и потом switch) → finish wizard → home screen на русском → `adb shell setprop persist.sys.locale en-US` (или Android Settings → Languages → English) → kill app → reopen → home screen **всё ещё на русском**.
 
 **Acceptance Scenarios**:
 
-1. **Given** эмулятор с системной локалью `en-US`, **When** wizard открывается на language шаге, **Then** auto-detected default — `en` (per `defaultValue: "en"` в ui-pool); все strings — на английском.
-2. **Given** wizard на language шаге, **When** помощник выбирает `ru` из choices, **Then** strings всего wizard'а переключаются на русский немедленно через `StringResolver` (уже сделано в TASK-1).
-3. **Given** wizard завершён с `languageOverride: "ru"`, системная локаль `en-US`, **When** kill + open app, **Then** UI — на русском (если AppCompatDelegate override applied) или на английском (если только wizard-time choice, нет persistent override) — поведение зависит от clarify Q4.
-4. **Given** unsupported локаль (`zh-CN` но в ui-pool choices только en/ru/es/zh/ar/hi/pt/de/fr/ja/kk-Latn — `zh` есть), **Then** fallback на ближайший supported choice или на default per `defaultValue`.
+1. **Given** system locale `en-US`, **When** wizard runs на первом launch'е, **Then** language auto-detected `en`; engine saves `UserPreferences.languageOverride = "en"` AND calls `AppCompatDelegate.setApplicationLocales(LocaleListCompat.create(Locale.forLanguageTag("en")))`.
+2. **Given** wizard завершён, `UserPreferences.languageOverride = "ru"`, **When** assisting / primary user меняет system locale на `en-US` в Android Settings, **Then** наш launcher остаётся на русском после restart'а.
+3. **Given** wizard завершён с `languageOverride = "ru"`, **When** primary user открывает наш Settings (через future entry) и сбрасывает override, **Then** app начинает follow system locale.
+4. **Given** Android < 13 (API < 33), где `AppCompatDelegate.setApplicationLocales` имеет ограничения, **When** locale override applied, **Then** **fallback** на restart-time locale switching через config change (стандартный pre-API-33 path); app не падает.
 
 ---
 
-### User Story 5 — Reboot persistence (Priority: P3)
+### User Story 4 — Pairing handshake в wizard (Priority: P2)
 
-После wizard'а: `wizardCompletedManifest` сохранён persistent (per F-3 architecture). Reboot устройства → wizard не повторяется; `HomeActivity` открывается с применённой композицией.
+`Assisting` на optional шаге `PairAdmin` нажимает «Соединиться с админом». Запускается QR-сканер (через spec 007 `PairingActivity`). Admin device показывает QR с своего устройства. `Assisting` сканирует с primary user device. Trust handshake завершён (через `LinkRegistry.activate()` + spec 007 ConsentScreen). Wizard продолжается → home screen.
 
-**Why this priority**: edge case robustness; механизм уже инфраструктурно сделан в TASK-1.
+**Why this priority**: pairing = killer feature продукта. P2 потому что (а) optional шаг (skip без последствий — нет банера), (б) cloud config push deferred до TASK-8 — pairing demonstrate'ит только trust establishment.
+
+**Independent Test**: two эмулятора (или эмулятор + физическое устройство), на одном — admin profile (TASK-8 stub в будущем; в TASK-7 — manual QR generation utility), на другом — primary user в wizard'е → tap PairAdmin → сканер открывается → QR отсканирован → ConsentScreen → consent.allow → `LinkRegistry.activate()` → wizard продолжается.
+
+**Acceptance Scenarios**:
+
+1. **Given** wizard на шаге PairAdmin, **When** assisting нажимает «Соединиться», **Then** `PairingActivity` (spec 007) запускается через explicit intent.
+2. **Given** PairingActivity успешно отсканировала QR и user'у показан ConsentScreen, **When** assisting нажимает «Allow», **Then** `LinkRegistry.activate(linkId)` отрабатывает, wizard возвращается в managed-side flow и переходит к финальному шагу «Готово».
+3. **Given** assisting нажимает «Пропустить» на PairAdmin шаге, **When** wizard продолжается, **Then** нет banner в Settings (Optional Silent semantics per Article VII §12); pairing доступен через Settings entry позже.
+4. **Given** spec 007 `FirestoreLinkRegistry` не может достучаться до сервера (offline emulator), **When** assisting нажимает «Соединиться», **Then** wizard показывает «Нет интернета — попробуй позже» сообщение; step остаётся skippable.
+
+---
+
+### User Story 5 — Reboot persistence (Priority: P2)
+
+После wizard'а: `UserPreferences.wizardCompletedAppFamilies` содержит `"simple-launcher"` (per F-3 spec 015 FR-007). Reboot устройства → wizard не повторяется; FirstLaunchActivity routes directly to HomeActivity.
+
+**Why this priority**: edge case robustness; механизм уже инфраструктурно сделан в F-3 и spec 010.
 
 **Acceptance Scenarios**:
 
 1. **Given** wizard завершён, applied configuration в `/config/current`, **When** `adb reboot`, **Then** после reboot Home button → наш `HomeActivity` (если ROLE_HOME granted), плитки те же.
-2. **Given** wizard незавершён (kill в середине), **When** open app, **Then** wizard продолжается с того же step'а через `WizardCheckpoint`.
+2. **Given** wizard незавершён (kill в середине), **When** open app, **Then** wizard продолжается с того же шага через `WizardCheckpoint`.
+3. **Given** factory reset устройства, **When** install и open app снова, **Then** wizard re-runs from start (DataStore wiped, UserPreferences reset).
 
 ---
 
 ### User Story 6 — Senior-safe walkthrough verification (Priority: P3)
 
-`Assisting family member` проходит wizard без подсказок на эмуляторе через skill `android-emulator`. Verification — manual gate `[hand]`. Per constitution Article VIII §7 senior-safe baseline (≥ 56dp tap targets, ≥ 24sp text, ≥ 4.5:1 contrast). Wizard sized для assisting (не для elderly directly), но senior-safe baseline MUST держится поскольку primary user может тоже навигировать.
+`Assisting` проходит wizard без подсказок на эмуляторе через skill `android-emulator`. Verification — manual gate `[hand]`. Per constitution Article VIII §7 senior-safe baseline (≥ 56dp tap targets, ≥ 24sp text, ≥ 4.5:1 contrast). Wizard designed для assisting, но senior-safe держится — primary user может сам взаимодействовать в edge cases (per US-2 aspirational secondary path).
 
 **Acceptance Scenarios**:
 
@@ -129,12 +161,13 @@
 
 ### Edge Cases
 
-- **GMS-less устройство** (Huawei post-2019): spec 010 FR-042 hard-block screen **до** wizard'а. TASK-7 wizard не запускается. Regression test, не дублирует.
-- **Concurrency wizard ↔ admin push**: в LOCAL mode админских push'ей нет. Edge case не возникает.
-- **Bundled JSON corruption на disk**: если malformed → `ConfigSourceResult.ParseError`. UI показывает error screen «не могу прочитать профиль» с кнопкой «Попробовать снова» (re-load) `[NEEDS CLARIFICATION: точный UX error path — restart app, retry, fallback на minimal layout?]`.
-- **`schemaVersion` mismatch**: если bundled JSON имеет `schemaVersion > known` — `IncompatibleVersion` result; engine treats as invalid, starts wizard from step 0 (F-3 behavior).
-- **Wizard kill во время системного диалога Android**: после restart engine restores `WizardCheckpoint`, retry того же шага. F-3 уже это делает.
-- **OEM-specific системный диалог ROLE_HOME** (Samsung One UI добавляет confirm dialog): wizard ждёт результата через `SystemSettingPort.status()` после возврата фокуса — Android lifecycle обрабатывает.
+- **GMS-less устройство** (Huawei post-2019): spec 010 FR-042 hard-block screen **до** wizard'а через `GmsHardBlockActivity`. TASK-7 wizard не запускается. Regression test, не дублирует.
+- **Bundled JSON corruption на disk**: `ConfigSourceResult.ParseError` или `IncompatibleVersion` → spec 010 / F-3 `PlayStoreFallbackActivity` шанс на recovery. TASK-7 inherits.
+- **`SystemSettingPort.status()` exception** (Xiaomi MIUI quirks, etc.): adapter catches и возвращает `SettingStatus.CheckFailed(reason)`. Engine treats CheckFailed как `Indeterminate` → step pending (graceful).
+- **Wizard kill во время системного диалога Android**: после restart engine restores `WizardCheckpoint`, retry того же шага. F-3 already handles.
+- **OEM-specific системный диалог ROLE_HOME** (Samsung One UI confirm dialog): wizard ждёт результата через `SystemSettingPort.status()` после возврата фокуса — Android lifecycle обрабатывает.
+- **Concurrent state change** (system app uninstall while wizard running): engine `computePending` re-checked on Activity RESUMED через cache invalidation.
+- **`AppCompatDelegate.setApplicationLocales` not supported on API < 33**: fallback to `Configuration` change + Activity recreate path. inline TODO `// TODO(api-floor): when minSdk reaches 33, simplify locale path`.
 
 ---
 
@@ -144,67 +177,137 @@
 
 #### Part A — `simple-launcher.wizard.manifest.json` content authoring
 
-- **FR-001**: System MUST содержать [`simple-launcher.wizard.manifest.json`](../../core/src/androidMain/assets/wizard/wizard-manifests/simple-launcher.json) с **явным** `steps` массивом (вместо `autoOrder: true`). Engine читает manifest через `ConfigSource` (уже сделано).
-- **FR-002**: Manifest MUST содержать следующие steps в этом order'е `[NEEDS CLARIFICATION: финальный список + порядок — нужно зафиксировать в clarify]`:
-  1. `UIChoice` → `refId: "language"` (Required, canSkip: false — pool default).
-  2. `SystemSetting` → `refId: "android.role.home"` (canSkip: **false** — override pool default `true`).
-  3. `SystemSetting` → `refId: "android.permission.POST_NOTIFICATIONS"` (auto-skip on Android < 13 per pool `androidMinApi: 33`).
-  4. `UIChoice` → `refId: "grid"` (или `screenLayout` — нужно решить в clarify).
-  5. `UIChoice` → `refId: "tileSet"` (Required, canSkip: false — pool default).
-  6. `UIChoice` → `refId: "theme"` (Optional, canSkip: true — pool default).
-- **FR-003**: Per-step `canSkip` override'ы в manifest'е MUST использовать pool entry default если override не нужен. Для `simple-launcher` минимум один override: `android.role.home` с `canSkip: false` (pool default `true`).
-- **FR-004**: Если pool entry имеет `androidMinApi: N`, engine MUST auto-skip step на устройствах с `Build.VERSION.SDK_INT < N` (уже сделано в F-3). simple-launcher manifest полагается на это — POST_NOTIFICATIONS auto-skip на API < 33.
+- **FR-001**: System MUST update [`simple-launcher.wizard.manifest.json`](../../core/src/androidMain/assets/wizard/wizard-manifests/simple-launcher.json) с **явным** `steps` массивом, `autoOrder: false`. Engine читает manifest через существующий `ConfigSource` path (no change).
+- **FR-002**: Manifest MUST содержать exactly these steps in this order:
+  1. `SystemSetting` → `refId: "android.role.home"` — Required, `canSkip: false` (override pool default `true`).
+  2. `UIChoice` → `refId: "tileSet"` — Required, `canSkip: false` (matches pool default).
+  3. `SystemSetting` → `refId: "android.permission.POST_NOTIFICATIONS"` — Required, `canSkip: true` (per-profile override от pool default `false` чтобы primary user или helper мог пропустить и настроить позже). Auto-skip on API < 33 per existing pool `androidMinApi: 33`.
+  4. `Custom` → `refId: "pair-admin"` — Optional Silent (`canSkip: true`, no banner после skip).
+- **FR-003**: Per-step `canSkip` overrides per FR-002 #1 (ROLE_HOME false) and #3 (POST_NOTIFICATIONS true). Other pool defaults take precedence where no override.
+- **FR-004**: Manifest MUST NOT include other pool entries (CALL_PHONE, accessibility-service, battery-optimization, hide-status-bar, language, theme, fontScale, grid, screenLayout). Those remain Optional Silent — available in Settings, not promoted in wizard.
 
-#### Part B — Bundled `screen.layout` and `tile.set` documents
+#### Part B — Pool schema v1 → v2: declarative `check` + `apply` dispatch
 
-- **FR-005**: System MUST содержать `screen.layout` документы покрывающие grid choices в `ui-pool` (`2x3`, `3x4`, `4x5`). `[NEEDS CLARIFICATION: один параметризованный screen.layout где gridRows/Cols берутся из user choice, OR три отдельных bundled документа (`2x3-classic`, `3x4-classic`, `4x5-classic`)? Сейчас один — 3x4-classic.]`
-- **FR-006**: System MUST содержать `tile.set` документы покрывающие разумные начальные раскладки. Сейчас один — `classic-6` с 6 плитками (phone, messages, camera, gallery, contacts, settings). `[NEEDS CLARIFICATION: нужны ли additional tile.set'ы — например, `classic-9`, `classic-12`, или семейные / клиник варианты — в TASK-7 scope?]`
-- **FR-007**: Все bundled `tile.set` документы MUST содержать только **placeholder** entries: `actionType` строки (типа `"phone.call"`, `"messages.open"`), без real `contactId` или identity-bound данных (CLAUDE.md rule 9). Real contacts — TASK-9.
-- **FR-008**: Все bundled документы MUST соответствовать wire-format header (per glossary §4.1): `schemaVersion: 1`, `id: "<kind>.<slug>"`, `name: "<localization_key>"`, `description: "<localization_key>"`, `deviceClass: ["android-phone"]` (или `["*"]`).
-- **FR-009**: Roundtrip test MUST cover каждый новый bundled документ (read JSON → deserialize → serialize → assert equal) per CLAUDE.md rule 5.
-- **FR-010**: Backward-compat test MUST cover `schemaVersion: 1` чтение через future-version reader (CLAUDE.md rule 5).
+- **FR-005**: System MUST bump `system-settings.pool` wire format `schemaVersion: 1` → `2`. Backward-compatible read: v1 entries (no `check` block) fall through to legacy hardcoded dispatch (deprecated; kept until all bundled v1 entries migrated to v2 then removed).
+- **FR-006**: v2 `SystemSettingEntry` MUST contain optional `check: CheckSpec?` and `apply: ApplySpec?` blocks. Existing `mechanism + deepLink + detectionStrategy` fields remain for v1 compat.
+- **FR-007**: `CheckSpec` sealed class в `core/commonMain/api/wizard/data/` with `@JsonClassDiscriminator("kind")`:
+  ```kotlin
+  @JsonClassDiscriminator("kind")
+  @Serializable
+  sealed class CheckSpec {
+    @Serializable @SerialName("android-role")
+    data class AndroidRole(val role: String) : CheckSpec()
+    @Serializable @SerialName("android-permission")
+    data class AndroidPermission(val permission: String) : CheckSpec()
+    @Serializable @SerialName("android-special-permission")
+    data class AndroidSpecialPermission(val kind: String) : CheckSpec()  // ignore_battery_optimizations, etc.
+    @Serializable @SerialName("android-accessibility-service")
+    data class AndroidAccessibilityService(val componentName: String? = null) : CheckSpec()
+    @Serializable @SerialName("android-package-home")
+    data class AndroidPackageHome(val packageName: String? = null) : CheckSpec()  // null = self
+  }
+  ```
+  Variants для других платформ (iOS, Android TV) — TODO inline, добавляются когда соответствующие adapter модули материализуются.
+- **FR-008**: `ApplySpec` sealed class analogous to `CheckSpec`:
+  ```kotlin
+  @JsonClassDiscriminator("kind")
+  @Serializable
+  sealed class ApplySpec {
+    @Serializable @SerialName("standard-permission-request")
+    data class StandardPermissionRequest(val permission: String) : ApplySpec()
+    @Serializable @SerialName("android-role-request")
+    data class AndroidRoleRequest(val role: String) : ApplySpec()
+    @Serializable @SerialName("settings-deep-link")
+    data class SettingsDeepLink(val action: String, val packageScoped: Boolean = false) : ApplySpec()
+    @Serializable @SerialName("in-app-only")
+    data object InAppOnly : ApplySpec()
+  }
+  ```
+- **FR-009**: `AndroidSystemSettingAdapter` MUST register handler registry as `Map<KClass<out CheckSpec>, CheckHandler>` and `Map<KClass<out ApplySpec>, ApplyHandler>` через Koin DI (`coreModule`). Each handler — small class в `core/androidMain/adapters/wizard/handlers/`.
+- **FR-010**: When `SystemSettingPort.status(settingId)` called, adapter looks up entry from pool, if `entry.check != null` → dispatch to handler matching `CheckSpec` variant class; else fall back to legacy `mechanism`-based dispatch (v1 compat).
+- **FR-011**: `android-pool.json` MUST migrate all 6 existing entries to v2 format with `check` and `apply` blocks. Example for ROLE_HOME:
+  ```json
+  {
+    "id": "android.role.home",
+    "criticality": "Required",
+    "canSkip": true,
+    "androidMinApi": 29,
+    "check": { "kind": "android-package-home" },
+    "apply": { "kind": "android-role-request", "role": "HOME" },
+    "labelKey": "system_setting_role_home_label",
+    "descriptionKey": "system_setting_role_home_desc"
+  }
+  ```
+- **FR-012**: Konsist fitness function MUST verify `core/commonMain/api/wizard/data/CheckSpec.kt` does NOT import Android types (commonMain isolation per CLAUDE.md rule 1 + constitution Article VII §15).
 
-#### Part C — Localization
+#### Part C — Engine `computePending` (config-check master)
 
-- **FR-011**: All localization keys referenced в `simple-launcher.wizard.manifest.json`, в pool entries которые simple-launcher задействует, и в bundled `screen.layout` / `tile.set` MUST иметь records в `strings.xml` (или Moko Resources) для en + ru минимум.
-- **FR-012**: Конкретные keys которые simple-launcher вводит: `wizard_manifest_simple_launcher_name`, `wizard_manifest_simple_launcher_desc`, плюс labelKey/descriptionKey/questionKey всех задействованных pool entries (уже частично есть от TASK-1).
-- **FR-013**: Missing key → fallback на EN per ADR-004; никакого hardcoded русского текста в Kotlin-коде / JSON-литералах.
+- **FR-013**: `WizardEngine` interface MUST gain method:
+  ```kotlin
+  suspend fun computePending(manifest: WizardManifest): List<StepEntry>
+  ```
+  Implementation in `WizardEngineImpl`: for each `StepEntry` in manifest's ordered steps, query state per stepType:
+  - `SystemSetting` → `systemSettingPort.status(entry.refId)` — if `Applied` → exclude; else include.
+  - `UIChoice` → `userPreferencesStore.current()` — check if value present and valid against current pool's choices; if valid → exclude; else include.
+  - `TutorialHint` → `dismissedHintsStore.isDismissed(entry.refId)` — if dismissed → exclude.
+  - `Custom` → always include (no generic state check; Custom step handler decides).
+- **FR-014**: `WizardEngine.run(manifest)` MUST call `computePending(manifest)` as **pre-flight**. If returned list is empty → return `WizardOutcome.Completed` immediately without traversal. If non-empty → traverse only pending steps. **Replaces** the existing linear traversal of all manifest steps in `WizardEngineImpl.run()`.
+- **FR-015**: `WizardActivity` SHOULD also expose `computePending(manifest)` ahead of `engine.run(...)` to **decide** whether to launch wizard at all vs route directly to `HomeActivity`. This complements `UserPreferencesStore.isWizardCompleted(appFamilyId)` boolean: even if `isWizardCompleted == true`, if a profile/pool update added new pending steps, wizard runs as donastroika.
+- **FR-016**: `diffPending(savedCompletedManifest, currentManifest)` method on `WizardEngine` is **deprecated** by FR-013 (snapshot-based approach not used). Kept for backward compat; documented as deprecated; remove in TASK-22 (Optional Step Reminder System) or sooner.
 
-#### Part D — Integration with existing infrastructure
+#### Part D — App-level locale override
 
-- **FR-014**: Wizard exit MUST trigger applied configuration (через `ConfigEditor.apply()` или эквивалент). Home renderer (existing) MUST подхватывать применённый `tile.set` + `screen.layout` композицию.
-- **FR-015**: Skip mandatory step с canSkip=true MUST регистрироваться в `SetupCheckRegistry` (spec 010 / orphan но код есть) → banner в Settings виден после wizard exit'а. TASK-7 валидирует end-to-end интеграцию для simple-launcher specifically.
-- **FR-016**: Wizard MUST использовать `WizardCheckpoint` для persistence promezhutochnogo state'а (F-3 path). Kill app в середине wizard'а → reopen → continue from same step.
-- **FR-017**: Wizard MUST использовать `UserPreferencesStore` для persistent user choices (theme, fontScale, languageOverride) per F-3 data model (`UserPreferences` data class).
+- **FR-017**: When wizard's language step completes (auto-detected or user-chosen via Settings — even though language is not a wizard step in TASK-7 per FR-002, this FR applies whenever `UserPreferences.languageOverride` is updated through any path), `WizardActivity` (or post-engine.run integration glue) MUST call `AppCompatDelegate.setApplicationLocales(LocaleListCompat.create(Locale.forLanguageTag(languageOverride)))`.
+- **FR-018**: At app cold-start (in `Application.onCreate()` or `FirstLaunchActivity` pre-route logic), the same call MUST apply persisted `UserPreferences.languageOverride` if present. This ensures restart-after-system-locale-change preserves app-level choice.
+- **FR-019**: `AppCompatDelegate.setApplicationLocales` is API 33+ semantically distinct. On API < 33, the platform persists the override differently but the call is still valid (AppCompat shim handles). No special branching needed in domain code per CLAUDE.md rule 1; AppCompat fallback handled by AndroidX.
+- **FR-020**: Konsist fitness function MUST verify `AppCompatDelegate` is **not** called from `commonMain` — only from `androidMain` adapter or `app/` integration glue (constitution Article VII §15 multi-platform seam).
 
-#### Part E — Senior-safe + accessibility
+#### Part E — Cache for `SystemSettingPort.status()`
 
-- **FR-018**: Wizard UI MUST использовать Senior UI primitives (`SeniorButton`, `SeniorBodyText`, `SeniorTitleText`, `SeniorWarmTheme`) из TASK-1. Все actionable elements ≥ 56dp tap target (constitution Article VIII §7 senior-safe baseline).
-- **FR-019**: Все strings ≥ 18sp body / ≥ 24sp title; line-height 1.5×.
-- **FR-020**: Contrast ratio ≥ 7:1 для critical text (Article VIII senior-safe override).
-- **FR-021**: TalkBack semantics: каждый actionable element имеет `contentDescription`; focus order top-to-bottom; нет focus traps.
+- **FR-021**: `AndroidSystemSettingAdapter` MUST implement TTL cache for `status()` results: `Map<settingId, Pair<SettingStatus, Instant>>` with TTL 30 seconds.
+- **FR-022**: Cache MUST be invalidated on `Lifecycle.RESUMED` of any Activity that uses `SystemSettingPort` (WizardActivity, future Settings activity, etc.). Pattern follows spec 010 FR-020a.
+- **FR-023**: Cache invalidation MUST also occur when `applyOrPrompt()` returns `ApplyResult.Applied` (we just changed state, refresh).
+- **FR-024**: Inline TODO at cache site: `// TODO(perf): if pool grows beyond ~30 entries, move to background-refresh coroutine`.
+
+#### Part F — Localization
+
+- **FR-025**: All localization keys referenced in updated `simple-launcher.wizard.manifest.json`, in v2-migrated pool entries, and в bundled `screen.layout` / `tile.set` MUST have records in `strings.xml` for en + ru. Existing F-3 strings reused; new keys for `Custom("pair-admin")` step added.
+- **FR-026**: Missing key → fallback to EN per ADR-004; никакого hardcoded русского текста в Kotlin-коде / JSON-литералах.
+
+#### Part G — Pairing integration as Custom step
+
+- **FR-027**: `WizardEngineImpl` MUST register `Custom("pair-admin")` step handler via Koin DI. Handler launches `PairingActivity` (spec 007) through explicit intent and waits for result.
+- **FR-028**: `PairAdmin` step result mapping: pairing successful → `StepResult.AnswerCaptured(JsonPrimitive("paired"))`; user cancelled / skipped → `StepResult.Skipped`; pairing error → `StepResult.Skipped` with toast notification (offline / server error).
+- **FR-029**: Inline TODO at pair-admin step site: `// TODO(TASK-8): admin config push activates here when TASK-8 lands; currently demonstrates trust handshake only`.
+
+#### Part H — Multi-platform seam preservation
+
+- **FR-030**: All work in TASK-7 MUST preserve the constitution Article VII §15 multi-platform seam:
+  - `CheckSpec`, `ApplySpec`, `WizardManifest`, `StepEntry`, all pool data classes — `core/commonMain`.
+  - `SystemSettingPort`, `UserPreferencesStore`, `ConfigSource`, `WizardEngine` — `core/commonMain`.
+  - Handlers + adapter + AppCompatDelegate calls + Android-specific UI — `core/androidMain` or `app/`.
+- **FR-031**: Inline TODO at adapter site: `// TODO(multiplatform): IosSystemSettingAdapter — TASK-26 / TASK-29 — both ship as new adapters in iosMain / androidTvMain without changing engine, ports, or commonMain CheckSpec sealed class`.
 
 #### Cross-cutting
 
-- **FR-022**: TASK-7 MUST NOT добавлять новых Gradle-модулей кода dedicated для simple-launcher (constitution Article VII §13).
-- **FR-023**: TASK-7 MUST NOT добавлять code branches keyed on `appFamilyId == "simple-launcher"` в business logic (constitution Article VII §13).
-- **FR-024**: TASK-7 MUST NOT вводить новые `ConfigKind` enum entries (constitution Article VII §10) — задействует существующие пять.
-- **FR-025**: TASK-7 MUST NOT добавлять новых ports / domain types в `core/commonMain/api/wizard/` (CLAUDE.md rule 4 MVA + Article XI Simplicity). Если выяснится в plan, что без нового port'а не обойтись — это **поднимется в clarify как exception** с обоснованием.
+- **FR-032**: TASK-7 MUST NOT add new Gradle modules dedicated to simple-launcher (constitution Article VII §13).
+- **FR-033**: TASK-7 MUST NOT add code branches keyed on `appFamilyId == "simple-launcher"` в business logic (constitution Article VII §13).
+- **FR-034**: TASK-7 MUST NOT introduce new `ConfigKind` enum entries (constitution Article VII §10) — uses existing five.
+- **FR-035**: TASK-7 MAY add new ports (`CheckHandler`, `ApplyHandler`) where this clearly reduces handler-dispatch complexity (rule 4 MVA exception justified because handler-per-CheckSpec-variant is the Capability Registry seam — pre-replacing for future Article VII §10 evolution + MCP integration).
 
 ### Key Entities
 
-**TASK-7 не вводит новых сущностей в коде** — это content authoring + integration. Сущности задействованные:
+**Updated by TASK-7** (Kotlin code changes):
+- `WizardEngine.computePending(manifest): List<StepEntry>` — new method.
+- `CheckSpec` — new sealed class в `core/commonMain/api/wizard/data/`.
+- `ApplySpec` — new sealed class в `core/commonMain/api/wizard/data/`.
+- `CheckHandler` — new port в `core/commonMain/api/wizard/`.
+- `ApplyHandler` — new port в `core/commonMain/api/wizard/`.
+- `SystemSettingEntry` (v2 wire format) — gains `check`, `apply` optional fields.
 
-- **`WizardManifest`** (F-3 data model) — заполняется simple-launcher.wizard.manifest.json.
-- **`StepEntry`** (F-3) — каждая запись `steps[]` в manifest'е.
-- **`ConfigKind`** enum (F-3) — references на pool entries / bundled documents.
-- **`SystemSettingEntry`** (F-3) — записи в android-pool которые simple-launcher задействует.
-- **`UIOptionEntry`** (F-3) — записи в ui-pool которые simple-launcher задействует.
-- **`ScreenLayout`** (F-3 data model) — bundled documents.
-- **`TileSet`** (F-3 data model) — bundled documents.
-- **`UserPreferences`** (F-3 data model) — produced by wizard outcome.
-
-Где сущность кажется новой — это **локализация key** (string resource), не Kotlin entity.
+**Existing** (not modified):
+- `WizardManifest`, `StepEntry`, `ConfigKind`, `ScreenLayout`, `TileSet`, `UserPreferences`, `SystemSettingPool`, `UICustomizationPool` — F-3 data model.
+- `WizardEngine`, `SystemSettingPort`, `ConfigSource`, `UserPreferencesStore` — F-3 ports (with `computePending` addition to `WizardEngine`).
 
 ---
 
@@ -212,31 +315,37 @@
 
 ### Measurable Outcomes
 
-- **SC-001 [backlog]**: Помощник установил APK на эмулятор → wizard первый экран виден ≤ 2 сек после tap'а на иконку.
-- **SC-002 [backlog]**: Помощник прошёл все mandatory шаги → `HomeActivity` рендерит выбранную композицию (screen.layout + tile.set) ≤ 1 сек после wizard exit'а.
-- **SC-003 [backlog]**: Перезагрузил устройство → wizard не повторяется; HomeActivity открывается с применённой композицией.
-- **SC-004 [backlog]**: Пропустил optional шаг (theme при canSkip=true) → в Settings висит баннер; tap → standalone step → выбор сохраняется → баннер исчезает.
-- **SC-005 [backlog]**: Отказал в ROLE_HOME (canSkip=false override) → wizard остаётся на шаге с retry, не падает.
-- **SC-006 [backlog]**: Изменил системную локаль Android → strings wizard'а сменились (детали поведения зависят от clarify Q про locale override).
+- **SC-001 [backlog]**: Assisting установил APK на эмулятор → wizard первый pending step виден ≤ 2 сек после tap'а на иконку.
+- **SC-002 [backlog]**: Assisting прошёл 3 mandatory + 1 optional шага → `HomeActivity` рендерит выбранную композицию (classic-6 поверх 3x4-classic) ≤ 1 сек после wizard exit'а.
+- **SC-003 [backlog]**: ROLE_HOME уже granted через Android Settings до wizard'а → wizard не показывает ROLE_HOME step (config-check master в действии).
+- **SC-004 [backlog]**: System locale change (Android Settings → Languages → English) после wizard'а с `languageOverride: ru` → app остаётся на русском после restart'а (Article III §7 stability).
+- **SC-005 [backlog]**: Pairing с admin device в wizard'е завершился успешно → `LinkRegistry.activate()` записал link → home screen рендерится с paired state.
+- **SC-006 [backlog]**: Перезагрузил устройство → wizard не повторяется; HomeActivity открывается с применённой композицией.
 - **SC-007 [backlog]**: Senior-safe walkthrough на эмуляторе через skill `android-emulator` — assisting проходит wizard без подсказок (manual `[hand]` AC).
-- **SC-008**: Roundtrip test проходит для каждого нового bundled JSON (CLAUDE.md rule 5).
-- **SC-009**: Backward-compat test проходит — `schemaVersion: 1` JSON читается через future-version reader без потери fields.
-- **SC-010**: Fitness function / Konsist test проходит: нет новых Gradle модулей dedicated для simple-launcher; нет `if (appFamilyId == "simple-launcher")` branches в business logic; нет новых `ConfigKind` enum entries.
-- **SC-011**: APK size delta ≤ +50 KB (только JSON + strings, без нового кода).
+- **SC-008**: Roundtrip test проходит для pool v2 JSON (CLAUDE.md rule 5).
+- **SC-009**: Backward-compat test проходит — v1 pool entries (no `check` block) читаются через v2 reader без потери fields.
+- **SC-010**: Fitness function tests проходят: (a) нет новых Gradle модулей dedicated для simple-launcher; (b) нет `if (appFamilyId == "simple-launcher")` branches в business logic; (c) нет новых `ConfigKind` enum entries; (d) `CheckSpec` / `ApplySpec` sealed classes не импортируют Android types; (e) `AppCompatDelegate` не called from commonMain.
+- **SC-011**: APK size delta ≤ +150 KB (JSON schema v2 + handlers + Koin wiring + strings; no new bundled documents).
+- **SC-012**: Engine integration test: simulate ROLE_HOME pre-applied + tileSet pre-set → `computePending` returns only POST_NOTIFICATIONS + PairAdmin → engine.run shows only these two steps.
 
 ### Out of Scope
 
-- **OUT-001**: Admin App profile (TASK-8 / S-2).
+- **OUT-001**: Admin App profile (TASK-8 / S-2). Cloud config push зарождается в TASK-8.
 - **OUT-002**: Contact tiles content (TASK-9 / S-3 — placeholder tiles в TASK-7).
 - **OUT-003**: SOS configuration (TASK-10 / S-4).
 - **OUT-004**: Photo upload / display (TASK-11 / S-5).
 - **OUT-005**: Caregiver remote invite (TASK-31 / V-6).
-- **OUT-006**: Adaptive-UX presets (TASK-19 / P-4) — sub-feature внутри профиля per Project-Specific Direction §5; в TASK-7 не enabled.
+- **OUT-006**: Adaptive-UX presets (TASK-19 / P-4) — sub-feature внутри профиля per Project-Specific Direction §5.
 - **OUT-007**: Google Sign-In step (deferred per decision 2026-06-15-deferred-cloud/01).
-- **OUT-008**: Real QR pairing integration в wizard. spec 007 / TASK-? зависимость не подтверждена. В TASK-7: либо отсутствует, либо minimal stub (button → external Settings entry).
-- **OUT-009**: Theme editing post-wizard через separate Settings entry — `[NEEDS CLARIFICATION: в TASK-7 scope или отдельная задача?]`. Default — out: theme settable только через wizard / banner.
-- **OUT-010**: Tutorial overlays / hints — TutorialHintManager port есть, но конкретные hints в TASK-7 scope не входят (`[NEEDS CLARIFICATION: какие hints, если есть, нужны в simple-launcher MVP?]`).
-- **OUT-011**: Theme как отдельный bundled JSON kind — пока ui-pool entry со choices (`light`, `dark`, `auto`). Marketplace тем — отдельная задача (TASK-35).
+- **OUT-008**: Theme editing post-wizard через separate Settings entry. Default warm light applied; banner для re-prompt — future.
+- **OUT-009**: Tutorial overlays / hints. TutorialHintManager port есть, конкретные hints в MVP не нужны.
+- **OUT-010**: Pool choice migration policy when pool choices change (new backlog task).
+- **OUT-011**: Analytics / diagnostic events real implementation. F-3 `DiagnosticEmitter` no-op stays.
+- **OUT-012**: GMS-less Huawei special path — spec 010 FR-042 inherits.
+- **OUT-013**: MCP / AI agent config authoring — TASK-33 + TASK-36.
+- **OUT-014**: `WizardEngine.diffPending(savedCompletedManifest, currentManifest)` — deprecated by FR-013; removal planned for TASK-22 or sooner.
+- **OUT-015**: Per-platform pool documents (iOS, Android TV) — added when adapter modules ship (TASK-26 / TASK-29).
+- **OUT-016**: V1 → V2 pool entry migration tool (CLI / script). Migration done by hand in TASK-7 для 6 existing entries; future entries authored directly in v2.
 
 ---
 
@@ -244,132 +353,119 @@
 
 ### Зависимости от других задач
 
-- **A-1**: TASK-1 (F-3 Wizard Module + Localization) — **Done**. Все ports, engine, pool'ы, Senior UI primitives, локализация infrastructure доступны.
-- **A-2**: Исторический spec 010 (setup-assistant) — orphan по backlog'у, но **код в репозитории есть**: `SetupCheck.kt`, `SetupCheckEngine.kt`, `RoleHomeCheckAdapter.kt`, `ConfigEditor.kt`, `SetupChecksBadge.kt`. TASK-7 опирается на эту инфраструктуру для skip-with-banner.
-- **A-3**: Исторический spec 003 (UI skeleton) — orphan по backlog'у, код частично есть (`HomeActivity` через app/). TASK-7 проверяет что renderer работает с применённой композицией.
-- **A-4**: Spec 007 (pairing-and-firebase-channel) — `LinkRegistry.kt` в коде. Pairing UI — `[NEEDS CLARIFICATION: status — Done or partial? если partial, optional QR step в simple-launcher manifest — stub или отсутствует]`.
+- **A-1**: TASK-1 (F-3 Wizard Module + Localization) — Done. Verified 2026-06-24 — все ports, engine, pool'ы, Senior UI primitives, локализация infrastructure доступны.
+- **A-2**: Spec 010 setup-assistant (historical / orphan по backlog'у) — code verified working in repo. `RoleHomeCheckAdapter`, `ConfigBackedFlowRepository` (ARCH-016 closure), `GmsHardBlockActivity`, `PlayStoreFallbackActivity`. TASK-7 opira'ется без prerequisite fix-up.
+- **A-3**: Spec 007 pairing-and-firebase-channel (historical / orphan) — code verified working. `PairingActivity`, `LinkRegistry`, `FirestoreLinkRegistry`, `ManagedDevicesRegistry`. TASK-7's PairAdmin step launches existing UI.
+- **A-4**: Spec 003 ui-skeleton (historical / orphan) — code verified working. `HomeActivity`, `RootComponent`, `FlowRepository`, `PresetRepository`. TASK-7 wizard exit routes to existing HomeActivity unchanged.
 
 ### Архитектурные принципы
 
-- **A-5**: Profile-as-composition per constitution Article VII §9–13. TASK-7 — первая валидация модели на concrete profile'е.
-- **A-6**: LOCAL mode device self-sufficiency per decision 2026-06-15-deferred-cloud. Wizard работает без сети.
-- **A-7**: Personas — assisting (родственник / помощник / IT-support), not primary user. Senior-safe baseline всё равно держится для primary user'а кто будет потом устройством пользоваться.
-- **A-8**: Wire-format kinds текущего поколения зафиксированы в Article VII §10. Любое изменение — schemaVersion bump per CLAUDE.md rule 5.
+- **A-5**: Profile-as-composition per constitution Article VII §9–15. TASK-7 — первая концентрированная валидация модели + первое внедрение config-check master pattern (Article VII §14).
+- **A-6**: LOCAL mode device self-sufficiency per decision 2026-06-15-deferred-cloud. Wizard работает без сети (pairing требует сети, но это **optional** step с graceful skip).
+- **A-7**: Personas — assisting led, aspirational secondary path = primary user. Senior-safe baseline always.
+- **A-8**: Wire-format kinds текущего поколения per Article VII §10 + schemaVersion v1→v2 для pool documents.
+- **A-9**: Stability over system-level changes per Article III §7. Locale, theme, font scale — applied values persist.
+- **A-10**: MVP delivers base blocks (Article II §8), polish through JSON config later.
 
 ### Технические допущения
 
-- **A-9**: Эмулятор `pixel_5_api_34` через skill `android-emulator` — primary local test path (избегаем compose UI test API 35+ blocker).
-- **A-10**: `BundledConfigSource` (в `:app`) уже умеет читать assets — TASK-7 не модифицирует.
-- **A-11**: `AndroidSystemSettingAdapter` уже handles ROLE_HOME / POST_NOTIFICATIONS / accessibility / battery / hide-status-bar mechanisms — TASK-7 не модифицирует.
-- **A-12**: `StringResolver` + `LocaleProvider` уже работают per ADR-004 — TASK-7 только добавляет string entries.
+- **A-11**: Эмулятор `pixel_5_api_34` через skill `android-emulator` — primary local test path (memory `reference_compose_ui_test_api_mismatch.md` — избегаем API 35+).
+- **A-12**: Koin DI module wiring — handlers registered as `factory<CheckHandler>(named("android-role")) { AndroidRoleCheckHandler() }` etc. Discovered through registry map injected into adapter.
+- **A-13**: `AppCompatDelegate.setApplicationLocales()` works on all API levels we support (API 26+ per project), AppCompat shim handles pre-API-33 path.
+- **A-14**: `Lifecycle.RESUMED` cache invalidation reuses existing spec 010 FR-020a hook — no new lifecycle observer infrastructure.
 
 ---
 
 ## Local Test Path *(mandatory)*
 
-- **Emulator / device**: `pixel_5_api_34` через skill `android-emulator` (memory `reference_compose_ui_test_api_mismatch.md` — избегаем API 35+).
+- **Emulator / device**: `pixel_5_api_34` через skill `android-emulator`. Fresh install verification flow.
 - **Fake adapters used**:
-  - `FakeConfigSource` (F-3 commonTest) — заменяет `BundledConfigSource` для unit tests; конструируется in-memory с simple-launcher manifest + assets.
-  - `FakeSystemSettingAdapter` (F-3 commonTest) — заменяет AndroidSystemSettingAdapter; tests manifest replay через симулированный пермишн grant/deny.
-  - `RecordingDiagnosticEmitter` (F-3) — записывает события для assertions.
-  - `FakeLocaleProvider` (F-3) — override locale для locale-switching tests.
+  - `FakeConfigSource` (F-3 commonTest) — заменяет `BundledConfigSource` для unit tests.
+  - `FakeSystemSettingPort` (F-3 commonTest) — конструируется с `Map<settingId, SettingStatus>` для symbol replay.
   - `InMemoryCheckpointStore` (F-3) — wizard checkpoint persistence без DataStore.
+  - `RecordingDiagnosticEmitter` (F-3) — captures events для assertions.
+  - `FakeLocaleProvider` (F-3) — override locale для locale-switching tests.
+  - `FakeLinkRegistry` (spec 007 commonTest) — для PairAdmin step без реального Firestore.
 - **Fixtures / seed data**:
-  - Bundled JSON в `core/src/androidMain/assets/wizard/`: `wizard-manifests/simple-launcher.json` (заполненный), `screen-layouts/*.json`, `tile-sets/*.json`. Production-ready.
-  - `core/src/commonTest/resources/fixtures/simple-launcher-v1-fixture.json` — golden fixture для roundtrip / backward-compat тестов.
+  - Bundled JSON в `core/src/androidMain/assets/wizard/`: updated `simple-launcher.json` (explicit steps), v2-migrated `android-pool.json`, existing `ui-pool.json` / `3x4-classic.json` / `classic-6.json`. Production-ready.
+  - `core/src/commonTest/resources/fixtures/pool-v1-fixture.json` — golden fixture для backward-compat read tests.
+  - `core/src/commonTest/resources/fixtures/pool-v2-fixture.json` — golden fixture для roundtrip tests.
 - **Verification command**:
-  - Unit / contract: `./gradlew :core:test --tests *SimpleLauncher*` + `./gradlew :core:test --tests *RoundtripTest*` + `./gradlew :core:test --tests *BackwardCompatTest*`.
-  - Fitness functions (Konsist): `./gradlew :core:test --tests *Task7ArchitectureTest*` — verify no new modules, no `appFamilyId == "simple-launcher"` branches, no new ConfigKind entries.
+  - Unit / contract: `./gradlew :core:test --tests *CheckSpec*` + `./gradlew :core:test --tests *RoundtripTest*` + `./gradlew :core:test --tests *BackwardCompatTest*` + `./gradlew :core:test --tests *ComputePendingTest*`.
+  - Fitness function (Konsist): `./gradlew :core:test --tests *Task7ArchitectureTest*`.
   - Android instrumented: `./gradlew :app:connectedDebugAndroidTest --tests *SimpleLauncherE2ETest*`.
   - Emulator smoke (через skill `android-emulator`): `./gradlew :app:installDebug` → launch via adb → manual walkthrough.
 - **Cannot-test-locally gaps**:
-  - **Real ROLE_HOME OEM-specific dialogs** (Samsung One UI confirm, Xiaomi MIUI quirks) — inline TODO(physical-device); fake adapter покрывает только baseline AOSP.
-  - **Real elderly walkthrough** (low vision, reduced dexterity, no tech literacy) — `[hand]` AC через skill android-emulator + senior-safe checklist; не automated.
-  - **System locale change persistence** через OEM Settings UX — baseline тестируется на эмуляторе, edge cases inline TODO(physical-device).
+  - **Real ROLE_HOME OEM-specific dialogs** (Samsung One UI confirm, Xiaomi MIUI quirks) — inline TODO(physical-device).
+  - **Real elderly walkthrough** verification — `[hand]` AC через skill `android-emulator` + senior-safe checklist; не automated.
+  - **System locale change persistence on physical device** — baseline на эмуляторе, edge cases inline TODO(physical-device).
+  - **Real pairing flow with two physical devices** — pair'нья spec 007 в TASK-7 demos через FakeLinkRegistry; реальный Firestore round-trip — TODO(physical-device).
 
 ---
 
 ## AI Affordance *(mandatory)*
 
-Wizard сам по себе не содержит AI-specific surfaces в TASK-7 scope. Capability Registry forward-pointer:
+Wizard сам по себе не содержит AI-specific surfaces в TASK-7 scope, но **архитектурно ready** для будущей MCP integration (per constitution Article VII §14):
 
-- **Exposable capabilities** (future, через Capability Registry, TASK-33 deferred): `runWizardStep(stepId)` (re-run specific step через voice / AI assistant), `applyTileSet(tileSetId)`, `setTheme(themeId)`, `setLocale(localeTag)`. Все — domain verbs.
-- **Required affordances on data**: read-only access to `UserPreferences`, `WizardOutcome.Completed`. Никакой PII не leaves device.
+- **Exposable capabilities** (future, через Capability Registry, TASK-33 deferred): `runWizardStep(stepId)`, `applyTileSet(tileSetId)`, `setTheme(themeId)`, `setLocale(localeTag)`, `applySystemSetting(settingId)`, `checkSystemSetting(settingId)`. Все — domain verbs.
+- **`CheckSpec` and `ApplySpec` sealed hierarchies** — **doubles as capability surface schema**. Future MCP agent reads `CheckSpec` variants, knows что для каждой настройки можно вызвать соответствующий check/apply. Same JSON schema, same dispatch.
 - **Provider-agnostic shape**: capabilities expressed через existing F-3 domain ports, без Gemini/OpenAI/Claude/MCP types (CLAUDE.md rule 1).
-- **Out of scope for this spec**: AI provider implementation, LLM prompt design, telemetry — TASK-36 / FUTURE-SPEC-AI.
-- **Inline TODO**: `// TODO(capability-registry): wizard capabilities expose via Capability Registry adapter — F-2 deferred to end of Phase 2 per roadmap reorder 2026-06-15`.
+- **Out of scope for this spec**: AI provider implementation, LLM prompt design, MCP server — TASK-36 / FUTURE-SPEC-AI.
+- **Inline TODO**: `// TODO(capability-registry): wizard CheckSpec/ApplySpec hierarchies double as MCP capability surface — TASK-33 (Capability Registry Foundation) + TASK-36 (AI provider implementations)`.
 
 ---
 
 ## OEM Matrix *(mandatory if feature touches device behavior)*
 
-Wizard touches: `ROLE_HOME` request (RoleManager), `POST_NOTIFICATIONS` permission (Android 13+), system locale read, DataStore persistence, Settings deep-links.
-
 | OEM / surface | Known divergence | Mitigation in this spec | Verification source |
 |---|---|---|---|
 | Stock Android (Pixel) | baseline | — | emulator `pixel_5_api_34` через skill `android-emulator` |
-| Samsung One UI | ROLE_HOME picker может добавлять confirm dialog после нашего request'а | `SystemSettingPort.status()` re-check после возврата фокуса; inline TODO(physical-device) | TODO(physical-device) — Samsung Galaxy newer |
-| Xiaomi MIUI | autostart manager + battery optimization (но FCM / background out-of-scope для TASK-7); ROLE_HOME baseline | inline TODO(physical-device) для autostart; ROLE_HOME проверяется baseline | TODO(physical-device) — Xiaomi 11T |
-| Huawei EMUI (GMS-less) | spec 010 FR-042 hard-block **до** wizard'а — TASK-7 wizard не запускается | Delegation to spec 010 hard-block path | spec 010 FR-042 + код `GmsAvailabilityPort` |
+| Samsung One UI | ROLE_HOME picker может добавлять confirm dialog после нашего request'а | `SystemSettingPort.status()` re-check после возврата фокуса через Lifecycle.RESUMED cache invalidation; inline TODO(physical-device) | TODO(physical-device) — Samsung Galaxy newer |
+| Xiaomi MIUI | autostart manager + battery optimization (но FCM out-of-scope для TASK-7); ROLE_HOME baseline | inline TODO(physical-device); `PowerManager.isIgnoringBatteryOptimizations()` может бросать SecurityException — `CheckHandler` catches и возвращает `Indeterminate` | TODO(physical-device) — Xiaomi 11T |
+| Huawei EMUI (GMS-less) | spec 010 FR-042 hard-block **до** wizard'а — TASK-7 wizard не запускается | Delegation to spec 010 FR-042 + `GmsHardBlockActivity` | spec 010 FR-042 |
 | Stock Android API < 13 | `POST_NOTIFICATIONS` не существует — auto-skip step через `androidMinApi: 33` в pool | F-3 engine handles | emulator `pixel_5_api_31` regression test |
+| Stock Android API < 33 | `AppCompatDelegate.setApplicationLocales` имеет ограничения | AppCompat shim handles persistence через alternate path; same API call | emulator `pixel_5_api_31` |
 
 ---
 
-## Cross-cutting concerns surfaced from architectural model
+## Cross-cutting concerns surfaced from clarify
 
-1. **Constitution amendment 1.7 alignment**: TASK-7 — первая spec'а написанная **после** amendment'а 1.7 (Article VII §9–13). Валидирует модель «profile = composition, not code» на concrete profile'е.
-2. **Wire-format kinds эволюция (Article VII §10)**: TASK-7 задействует существующие пять (wizard.manifest, screen.layout, tile.set, system-settings.pool, ui-customization.pool), не вводит новые. Если в plan'е выяснится что для simple-launcher не хватает kind'а — это поднимается как exception с обоснованием.
-3. **Per-profile override (Article VII §12)**: TASK-7 валидирует mechanism per-step `canSkip` / `criticality` override в manifest'е поверх pool defaults. Минимум один override (ROLE_HOME canSkip=false для simple-launcher).
-4. **No per-profile code module (Article VII §13)**: фитнесс-функция проверяет что TASK-7 не добавляет dedicated Gradle module + не добавляет `if appFamilyId == "simple-launcher"` branches.
-5. **Skip-with-banner integration**: TASK-7 опирается на `SetupCheckRegistry` (spec 010 orphan но код есть). Не дублирует механизм.
-6. **Senior-safe baseline (Article VIII §7)** держится несмотря на то что actor — assisting; primary user может потом сам взаимодействовать.
+1. **Config-check master (Article VII §14)**: ключевая architectural innovation в TASK-7. Заменяет F-3 linear traversal pattern на state-of-device check per step. Validates что settings applied through any path (wizard, Android Settings direct, admin push, AI agent) are equally honoured.
+2. **Pool schema v2 + sealed CheckSpec/ApplySpec**: declarative dispatch reduces hardcoded `when(settingId)` to handler registry. Pre-aligned с future MCP capability surface (TASK-33).
+3. **Article III §7 stability**: locale override через `AppCompatDelegate.setApplicationLocales()` — first concrete enforcement of user-applied-state-over-system-shifts principle.
+4. **Multi-platform seam (Article VII §15)**: TASK-7 architecturally preserves seam — sealed CheckSpec/ApplySpec in commonMain, handlers per platform module. iOS / Android TV adapters ship later without engine changes.
+5. **Pairing as Custom step**: validates что Custom step type из F-3 sealed StepType расширяемо через DI. Spec 007 UI re-used unchanged.
+6. **MVP definition (Article II §8)**: TASK-7 ships base blocks (wizard, profile, config-check, locale persistence) end-to-end working. Polish (theme picker UI, multiple tileSets, additional adaptive-UX presets) — post-MVP through JSON.
 
 ---
 
 ## Затрагиваемые внешние артефакты
 
-- **TASK-1 (F-3) bundled assets** — `core/src/androidMain/assets/wizard/wizard-manifests/simple-launcher.json` MUST быть заполнен явными steps. Это **модификация существующего файла**, а не создание нового.
-- **`core/src/androidMain/assets/wizard/screen-layouts/`** — могут быть добавлены новые JSON'ы (`2x3-classic.json`, `4x5-classic.json`) если параметризованный layout недостаточен (clarify Q).
-- **`core/src/androidMain/assets/wizard/tile-sets/`** — могут быть добавлены новые tile.set'ы (clarify Q).
-- **String resources** (`core/src/commonMain/composeResources/values/strings.xml` + `values-ru/strings.xml`) — новые entries для simple-launcher specific keys.
-- **`docs/dev/server-roadmap.md`** — inline TODO про future NetworkConfigSource (уже есть от F-3).
-- **TASK-1 backlog file** — потенциально mark related: «TASK-7 confirmed F-3 contract works for first concrete profile».
-
----
-
-## Открытые вопросы для `/speckit.clarify`
-
-Сводка `[NEEDS CLARIFICATION]` маркеров (для удобства следующего шага). **Заметно меньше чем в первой версии** — архитектурные вопросы закрыты constitution amendment 1.7.
-
-1. **Финальный список steps + порядок в simple-launcher.wizard.manifest.json** (FR-002). Минимум: language, ROLE_HOME, POST_NOTIFICATIONS, theme/grid/tileSet. Точный порядок + какие optional vs mandatory — фиксируется.
-2. **Per-step `canSkip` override list** (US-2 #5, FR-003). Минимум ROLE_HOME override. Что ещё?
-3. **screen.layout — один параметризованный или несколько bundled под каждый grid choice?** (FR-005). Сейчас один 3x4-classic; нужны ли 2x3 / 4x5 как отдельные документы или достаточно `grid` UI option на параметризованном layout'е?
-4. **Tile.set variants** (FR-006). Сейчас один classic-6. Нужны ли additional (classic-9, classic-12, или сегмент-specific) в TASK-7 scope, или этого достаточно для MVP?
-5. **App-level locale override vs системная локаль Android** (US-4, edge case): persist user locale choice через `AppCompatDelegate.setApplicationLocales()` (override) или follow system locale (no override)?
-6. **Theme editing post-wizard** (OUT-009): отдельный Settings entry в TASK-7 scope, или только через wizard / banner re-run?
-7. **Tutorial hints для simple-launcher MVP** (OUT-010): какие конкретные hints через `TutorialHintManager` (если вообще)?
-8. **Bundled JSON corruption на disk UX path** (Edge cases): UI error «не могу прочитать профиль» с retry, или fallback на minimal layout?
-9. **QR pairing optional step в manifest** (OUT-008, A-4): stub button с deep-link на Settings, отсутствует совсем, или реальная интеграция?
-10. **`simple-launcher` profile id vs `appFamilyId` field name confusion** — manifest сейчас имеет `appFamilyId: "simple-launcher"` (wire-format field name), а в спеках / docs мы говорим «profile id `simple-launcher`». Подтвердить что field name retain'ится для backward compat (per Article VII §9, glossary §2) — это **не** open question, это decision, но нужно явно зафиксировать в plan.md.
+- **TASK-1 (F-3) bundled assets** — `core/src/androidMain/assets/wizard/wizard-manifests/simple-launcher.json` modified (autoOrder=true → explicit steps); `core/src/androidMain/assets/wizard/system-settings/android-pool.json` migrated to schemaVersion 2.
+- **TASK-1 (F-3) code** — `WizardEngineImpl.run()` modified to call `computePending()` pre-flight; `WizardEngine` interface gains `computePending` method; `AndroidSystemSettingAdapter` adds handler registry; `WizardActivity` adds AppCompatDelegate.setApplicationLocales call.
+- **Spec 007 PairingActivity** — no modification; launched as explicit intent from new `PairAdminStepHandler` in TASK-7.
+- **`app/src/main/AndroidManifest.xml`** — no new Activities (PairingActivity already registered).
+- **`docs/dev/server-roadmap.md`** — no new entries (existing TODOs sufficient).
+- **`docs/product/glossary.md`** — version note may be added on §3 noting pool schema v2 evolution.
 
 ---
 
 ## TL;DR (по-русски, для новичка и для будущего AI)
 
-**Суть.** TASK-7 = ship `simple-launcher` профиль (constitution Article VII §9–13) как композицию bundled JSON-документов поверх существующего wizard engine из TASK-1 (Done). Это **content authoring + integration**, не infrastructure. Spec реализует Article VII §10 fixed wire-format kinds и Article VII §12 mandatory/optional/skip semantics через pool defaults + per-profile override на конкретном профиле.
+**Суть.** TASK-7 = ship `simple-launcher` профиль как композицию bundled JSON-документов поверх существующего F-3 engine (TASK-1 Done), + закрыть две архитектурные дыры в F-3, которые мешают полноценной модели profile=композиция: (а) добавить config-check master pattern (engine на startup'е проверяет current device state per step, skip applied — replaces linear traversal); (б) добавить app-level locale override через `AppCompatDelegate.setApplicationLocales()` (без этого Article III §7 stability не работает); + schema bump pool v1→v2 с declarative `check` / `apply` блоками вместо hardcoded `when(settingId)`.
 
 **Конкретика, которую стоит запомнить:**
-- **TASK-7 не вводит новый Kotlin-код** (FR-022–025): нет новых Gradle модулей dedicated for simple-launcher, нет `if (appFamilyId == "simple-launcher")` branches, нет новых `ConfigKind` enum entries, нет новых ports.
-- **Deliverables**: (a) заполненный [`simple-launcher.wizard.manifest.json`](../../core/src/androidMain/assets/wizard/wizard-manifests/simple-launcher.json) с явными `steps[]` вместо `autoOrder: true`; (b) возможные новые bundled `screen.layout` / `tile.set` JSON'ы; (c) en + ru локализация под все ключи; (d) integration tests + senior-safe walkthrough.
-- **Минимум один per-step override**: `android.role.home` с `canSkip: false` (pool default `true`) — для simple-launcher без ROLE_HOME продукт бессмыслен.
-- **Existing pool entries задействованные**: `language` (Required), `theme` (Optional), `grid` / `screenLayout` / `tileSet` (mix), `android.role.home`, `android.permission.POST_NOTIFICATIONS`. Возможно `android.permission.CALL_PHONE` (Optional).
-- **Actor wizard'а**: `assisting family member / помощник / IT-support`, не primary user. Но senior-safe baseline (Article VIII §7: ≥ 56dp tap targets, ≥ 24sp text, ≥ 7:1 contrast) держится поскольку primary user может позже сам взаимодействовать.
-- **Объём scope**: 6 US (P1×2 / P2×2 / P3×2), 25 FR в 5 частях (A-E), 11 SC (7 c `[backlog]`), 11 OUT-OF-SCOPE, **9 open `NEEDS CLARIFICATION`** для `/speckit.clarify` (значительно меньше чем в первой неправильной версии — архитектурные вопросы закрыты Article VII §9-13).
-- **Effort**: Medium (~1-2 weeks), не Large (~3 weeks как в исходной task description). Infrastructure уже есть.
+- **3 mandatory + 1 optional steps**: (1) ROLE_HOME canSkip:false override, (2) tileSet Required, (3) POST_NOTIFICATIONS canSkip:true override, (4) PairAdmin optional silent. Language → auto-detect (no wizard step). Theme → default warm light. Other settings → Optional Silent (Settings only).
+- **Pool schema v1 → v2**: добавляется `check: CheckSpec?` и `apply: ApplySpec?` блоки. Sealed `CheckSpec` в commonMain с `@JsonClassDiscriminator("kind")`. Handlers в Koin DI registry. v1 entries backward-compat читаются через legacy dispatch path.
+- **Engine `computePending(manifest)` — новый метод**. Заменяет linear traversal: за каждый step queries SystemSettingPort.status() / UserPreferences / DismissedHintsStore, исключает applied. Wizard показывает только pending. Donastroika при config update — автоматически через тот же mechanism.
+- **`diffPending(savedCompletedManifest, currentManifest)` — deprecated**. Snapshot-of-manifest approach отвергнут; state-of-device — единственный источник правды (constitution Article VII §14).
+- **Verified 2026-06-24**: spec 010 / 007 / 003 orphan-зависимости фактически работают в коде. TASK-7 строится поверх existing functional foundation без prerequisite fix-up.
+- **17 NEEDS CLARIFICATION → все resolved** в `## Clarifications` table. Plan ready.
+- **Effort**: Medium+ (~2-3 weeks) — pool schema v2 + computePending + locale override + cache + pairing wiring + tests. Pairing UI уже сделана (spec 007); просто wire через DI.
 
 **На что смотреть с осторожностью:**
-- **`appFamilyId` wire-format field name** retain'ится как deprecated synonym для «profile id» (glossary §2, Article VII §9). В новом коде / docs использовать «profile id»; в JSON / pre-existing wire format — `appFamilyId` без изменений. Не путать.
-- **Зависимости spec 010 / spec 007 / spec 003 orphan**: код есть, но статус задач не подтверждён в backlog'е (нет ссылок). Если в plan'е выяснится что какая-то orphan-функциональность не работает или partial — TASK-7 может задеплоить broken assumption. Mitigation: integration tests на every dependent path.
-- **`SetupCheckRegistry` skip-with-banner integration**: spec 010 orphan; если код выпрямлен или несовместим — TASK-7 FR-015 может потребовать workaround / fix.
-- **Constitution amendment 1.7 alignment fitness function**: SC-010 требует Konsist test verify'ущий что нет regressions в model (нет dedicated module / branch / new kind). Это новая automation, не сложная, но требует написания.
-- **Senior-safe walkthrough — `[hand]` AC**: SC-007 не автоматизируется. После merged PR может остаться `[ ]` → backlog в Verification, не Done.
+- **Pool schema v1→v2 — wire-format one-way door**: backward-compat read должен работать минимум один major release. Migration test mandatory.
+- **Engine `computePending` замещает linear traversal в `WizardEngineImpl.run()`** — поведение wizard'а меняется существенно: пользователь не видит уже-применённые шаги. Если SystemSettingPort.status() даёт false positive (например, OEM quirk) — wizard может silently skip step. Mitigation: `Indeterminate` treated as pending (graceful).
+- **`AppCompatDelegate.setApplicationLocales()` API < 33 path** — AppCompat shim handles, но физическое поведение на разных OEM может отличаться. inline TODO(physical-device).
+- **Spec 007 pairing depends on Firestore** (cloud); TASK-7 LOCAL mode policy. PairAdmin step — optional silent skip if no network. Cloud config push не работает до TASK-8 — pairing demonstrate'ит только handshake.
+- **«MCP / AI agent capability» — architectural ready, not implemented**. TASK-33 / TASK-36 carry implementation. Inline TODO at CheckSpec/ApplySpec sites.
