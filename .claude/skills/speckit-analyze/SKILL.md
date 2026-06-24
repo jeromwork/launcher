@@ -57,6 +57,14 @@ For each checklist returned by Step 1 (always-on + triggered):
 
 **Mandatory.** Invoke `procedure-add-novice-summary` on the `analyze-report.md` artifact to append a plain-Russian "for newcomers" section at the bottom.
 
+### Step 5c — Sync backlog AC
+
+**Mandatory if backlog-task exists for this spec.** If the analyze pass surfaced changes to `[backlog]`-marked Success Criteria in `spec.md`, invoke `procedure-sync-backlog-ac` to propagate updates to the matching backlog-task. If no SC changes since `speckit-tasks` Step 4c — no-op.
+
+### Step 5d — Sync backlog description
+
+**Mandatory if verdict is PASS / READY-WITH-CAVEATS** (skip for NOT-READY since artifacts aren't final). Invoke `procedure-sync-backlog-description` to project финальный scope `spec.md` + `plan.md` + `tasks.md` + `analyze-report.md` обратно в backlog-task description. **Reason**: backlog description застывает в момент создания task'а; за full speckit cycle scope / архитектура / effort часто substantially evolves. Без этого sync'а Kanban-читатель видит устаревшую модель и принимает решения на основе stale info. See [procedure-sync-backlog-description SKILL.md](../procedure-sync-backlog-description/SKILL.md) for details.
+
 ### Step 6 — Verdict
 
 ```
