@@ -81,7 +81,8 @@ class WizardEngineIntegrationTest {
         val emitter = RecordingDiagnosticEmitter()
         val clock = FixedClock()
         val resolver: StringResolver = NoopStringResolver()
-        val hintManager = TutorialHintManager(InMemoryDismissedHints(), resolver, clock)
+        val dismissedHintsStore = InMemoryDismissedHints()
+        val hintManager = TutorialHintManager(dismissedHintsStore, resolver, clock)
 
         val permissionPort = AlwaysGrantedPermissionPort()
         // System setting port: all settings already Applied → no UI tap needed.
@@ -108,6 +109,8 @@ class WizardEngineIntegrationTest {
             configSource = configSource,
             clock = clock,
             diagnostics = emitter,
+            systemSettingPort = systemSettingPort,
+            dismissedHintsStore = dismissedHintsStore,
         )
 
         val manifest = loadManifest(configSource)

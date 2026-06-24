@@ -110,6 +110,8 @@ val spec015Module = module {
             configSource = get(),
             clock = get(),
             diagnostics = get(),
+            systemSettingPort = get(),
+            dismissedHintsStore = get(),
         )
     }
 }

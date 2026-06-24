@@ -27,7 +27,9 @@ import com.launcher.api.wizard.data.WizardManifest
 import com.launcher.api.wizard.data.WizardManifestBody
 import com.launcher.api.wizard.fakes.FakeClock
 import com.launcher.api.wizard.fakes.FakeConfigSource
+import com.launcher.api.wizard.fakes.FakeSystemSettingAdapter
 import com.launcher.api.wizard.fakes.InMemoryCheckpointStore
+import com.launcher.api.wizard.fakes.InMemoryDismissedHintsStore
 import com.launcher.api.wizard.fakes.InMemoryUserPreferencesStore
 import com.launcher.api.wizard.fakes.RecordingDiagnosticEmitter
 import kotlinx.coroutines.test.runTest
@@ -87,6 +89,8 @@ class WizardEngineTest {
             configSource = source,
             clock = FakeClock(),
             diagnostics = emitter,
+            systemSettingPort = FakeSystemSettingAdapter(),
+            dismissedHintsStore = InMemoryDismissedHintsStore(),
         )
 
         val manifest = fixtureManifest(
@@ -141,6 +145,8 @@ class WizardEngineTest {
             configSource = source,
             clock = FakeClock(),
             diagnostics = emitter,
+            systemSettingPort = FakeSystemSettingAdapter(),
+            dismissedHintsStore = InMemoryDismissedHintsStore(),
         )
         val manifest = fixtureManifest(
             steps = listOf(
@@ -178,6 +184,8 @@ class WizardEngineTest {
             configSource = source,
             clock = FakeClock(),
             diagnostics = RecordingDiagnosticEmitter(),
+            systemSettingPort = FakeSystemSettingAdapter(),
+            dismissedHintsStore = InMemoryDismissedHintsStore(),
         )
         engine.run(fixtureManifest(steps = listOf(StepEntry(WireStepType.UIChoice, "language"))))
         assertEquals(1, uiStep.invocations.size)
@@ -194,6 +202,8 @@ class WizardEngineTest {
             configSource = source,
             clock = FakeClock(),
             diagnostics = RecordingDiagnosticEmitter(),
+            systemSettingPort = FakeSystemSettingAdapter(),
+            dismissedHintsStore = InMemoryDismissedHintsStore(),
         )
         val saved = fixtureManifest(
             steps = listOf(
@@ -287,6 +297,8 @@ class WizardEngineTest {
             configSource = source,
             clock = FakeClock(),
             diagnostics = RecordingDiagnosticEmitter(),
+            systemSettingPort = FakeSystemSettingAdapter(),
+            dismissedHintsStore = InMemoryDismissedHintsStore(),
         )
         val autoManifest = WizardManifest(
             header = ConfigDocumentHeader(1, "auto", "n", "d", listOf("android-phone")),

@@ -7,11 +7,14 @@ import com.launcher.api.wizard.ConfigSourceResult
 import com.launcher.api.wizard.Criticality
 import com.launcher.api.wizard.DiagnosticEmitter
 import com.launcher.api.wizard.DiagnosticEvent
+import com.launcher.api.wizard.DismissedHintsStore
 import com.launcher.api.wizard.PendingStep
+import com.launcher.api.wizard.SettingStatus
 import com.launcher.api.wizard.StepId
 import com.launcher.api.wizard.StepParams
 import com.launcher.api.wizard.StepResult
 import com.launcher.api.wizard.StepType
+import com.launcher.api.wizard.SystemSettingPort
 import com.launcher.api.wizard.UserPreferences
 import com.launcher.api.wizard.UserPreferencesStore
 import com.launcher.api.wizard.WizardCheckpoint
@@ -49,21 +52,45 @@ class WizardEngineImpl(
     private val configSource: ConfigSource,
     private val clock: Clock,
     private val diagnostics: DiagnosticEmitter,
+    private val systemSettingPort: SystemSettingPort,
+    private val dismissedHintsStore: DismissedHintsStore,
 ) : WizardEngine {
 
     private val _state = MutableStateFlow<WizardState>(WizardState.Idle)
 
     override fun currentState(): StateFlow<WizardState> = _state.asStateFlow()
 
+    override suspend fun computePending(manifest: WizardManifest): List<StepEntry> {
+        val ordered = orderedSteps(manifest)
+        if (ordered.isEmpty()) return emptyList()
+        val prefs = userPreferencesStore.current()
+        return ordered.filter { entry ->
+            when (entry.stepType.toDomain()) {
+                StepType.SystemSetting -> systemSettingPort.status(entry.refId) != SettingStatus.Applied
+                StepType.UIChoice -> !prefs.hasValueFor(entry.refId)
+                StepType.TutorialHint -> !dismissedHintsStore.isDismissed(entry.refId)
+                is StepType.Custom -> true
+            }
+        }
+    }
+
     override suspend fun run(manifest: WizardManifest): WizardOutcome {
         diagnostics.emit(DiagnosticEvent.WizardStarted(manifest.id))
+
+        // Config-check master pre-flight: when nothing is pending, finish
+        // immediately without traversal (Article VII §14, FR-014, SC-003).
+        // Skipped when resuming from a checkpoint — partial answers must
+        // still be replayed even if downstream state has since converged.
+        val resumed = checkpointStore.load(manifest.id)
+        if (resumed == null && computePending(manifest).isEmpty()) {
+            return finishCompleted(manifest, emptyMap())
+        }
 
         val ordered = orderedSteps(manifest)
         if (ordered.isEmpty()) {
             return finishCompleted(manifest, emptyMap())
         }
 
-        val resumed = checkpointStore.load(manifest.id)
         val startIndex = resumed
             ?.takeIf { it.schemaVersion == 1 && it.currentStepIndex in ordered.indices }
             ?.currentStepIndex
