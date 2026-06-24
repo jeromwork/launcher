@@ -21,7 +21,7 @@ import kotlinx.serialization.json.jsonPrimitive
  */
 object ConfigParser {
 
-    const val KNOWN_VERSION: Int = 1
+    const val KNOWN_VERSION: Int = 2
 
     @Suppress("OPT_IN_USAGE")
     val json: Json = Json {

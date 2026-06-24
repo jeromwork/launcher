@@ -22,6 +22,12 @@ data class SystemSettingEntry(
     val labelKey: String,
     val descriptionKey: String,
     val extendedInstructionKey: String? = null,
+    // New in schemaVersion 2 (TASK-7). v1 entries deserialize with null;
+    // adapter falls back to legacy `mechanism + id` dispatch when null.
+    // TODO(schema-v3): once all bundled entries migrated, remove
+    // mechanism/deepLink/detectionStrategy and require check/apply non-null.
+    val check: CheckSpec? = null,
+    val apply: ApplySpec? = null,
 )
 
 @Serializable
