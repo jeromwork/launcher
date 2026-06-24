@@ -174,12 +174,12 @@
 
 ### Fitness functions
 
-- [ ] **T037** Добавить Gradle task `verifyCloudIsolation` в `core/cloud/build.gradle.kts`. Проверяет:
+- [x] **T037** Добавить Gradle task `verifyCloudIsolation` в `core/cloud/build.gradle.kts`. Проверяет:
   - `:core:cloud:commonMain` dependencies = только `kotlin-stdlib` + `kotlinx-coroutines-core` + `:core` (для AuthProvider).
   - `:core:cloud:androidMain` дополнительно может иметь `androidx.datastore:datastore-preferences`.
   - Никаких Firebase / Google Play Services / Android UI dependencies в `commonMain`.
   (Plan §Test Strategy, CLAUDE.md rule 7). **Acceptance**: `./gradlew :core:cloud:verifyCloudIsolation` зелёный.
-- [ ] **T038** [P] Verify через Detekt: `:core:cloud:commonMain` files passes `NoVendorImportsInDomain` rule (existing). **Acceptance**: `./gradlew :core:cloud:detekt` зелёный.
+- [x] **T038** [P] Verify через Detekt: `:core:cloud:commonMain` files passes `NoVendorImportsInDomain` rule (existing). **Acceptance**: `./gradlew :core:cloud:detekt` зелёный.
 
 ### Documentation
 
