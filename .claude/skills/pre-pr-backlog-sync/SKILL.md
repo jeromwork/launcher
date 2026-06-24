@@ -1,11 +1,11 @@
 ---
 name: pre-pr-backlog-sync
-description: ОБЯЗАТЕЛЬНО вызывать перед `gh pr create` / любым другим открытием PR на feature-ветке, которая ссылается на spec (`specs/NNN-slug/`) или на backlog-task (`task-N - ...md`). Синхронизирует Acceptance Criteria в `backlog/tasks/`, проставляет `[x]` по фактически закрытым критериям из ветки, и сдвигает статус задачи: **Done** только если ВСЕ AC зелёные; иначе **Paused** — PR открывается, но задача не считается завершённой. Также подхватывает «оставшиеся блоки» (real-device tests, manual checks) — оставляет их как `[ ]` AC, чтобы они блокировали Done и поднимались позже отдельно. Без вызова этого skill'а — backlog рассинхронизирован с реальностью (что и случилось с TASK-3/TASK-4 в PR #21/#22).
+description: ОБЯЗАТЕЛЬНО вызывать перед `gh pr create` / любым другим открытием PR на feature-ветке, которая ссылается на spec (`specs/NNN-slug/`) или на backlog-task (`task-N - ...md`). Синхронизирует Acceptance Criteria в `backlog/tasks/` по hybrid-модели: `[hand]` AC (author-written, project-specific behaviour) проставляются по grep/owner-confirm; `[auto:checklist]` AC регенерируются из `specs/<NNN>/checklists/*.md`; `[auto:deferred-*]` AC регенерируются из `[deferred-*]` маркеров в `tasks.md`. Решает статус: все [x] → Done; есть [ ] среди deferred → Verification (PR merged, ждём железа); есть [ ] среди hand/checklist → In Progress (фича не закончена, PR open нельзя). Без вызова этого skill'а — backlog рассинхронизирован с реальностью (incident PR #21/#22 → TASK-3/TASK-4 ушли в Done с 0/N AC; incident 2026-06-24 TASK-49 → 8/8 проставлено на слово при 12/45 deferred tasks).
 ---
 
 # Orchestrator: pre-pr-backlog-sync
 
-Точка между «работа на ветке закончена» и `gh pr create`. Обновляет [`backlog/tasks/`](../../../backlog/tasks/) так, чтобы Kanban-доска отражала реальность, а не намерения.
+Точка между «работа на ветке закончена» и `gh pr create`. Обновляет [`backlog/tasks/`](../../../backlog/tasks/) так, чтобы Kanban-доска отражала реальность по 5-статусной модели (`Draft` → `In Progress` → `Verification` → `Done`; `Paused` — orthogonal).
 
 ## Когда вызывать
 
@@ -16,195 +16,196 @@ description: ОБЯЗАТЕЛЬНО вызывать перед `gh pr create` /
 
 **Также** вызывать:
 - При первом коммите в feature-ветку (статус: Draft → **In Progress**).
-- После merge PR (статус: Paused → Done **только если** все AC зелёные; иначе остаётся Paused).
+- После merge PR (статус: In Progress → **Verification** если deferred гейты остались; иначе → Done).
+- При закрытии deferred гейта (Verification → Done) — повторный sync.
 - Руками после ручной правки spec.md `## Success Criteria` секции с маркером `[backlog]`.
 
 **НЕ вызывать** для:
 - repo-chore PR (CLAUDE.md, .gitignore, скрипты) — не привязаны к backlog-task'у.
 - Hotfix-ов в `main` без spec'а — backlog не покрывает.
 
-## Принципы
+## Hybrid AC модель
 
-### 1. Backlog AC ≠ Spec SC
+`<!-- AC:BEGIN -->...<!-- AC:END -->` блок содержит flat-список AC, каждый с inline-маркером источника:
 
-`backlog/tasks/<task>.md` `## Acceptance Criteria` — это **5±2 сигнальных пункта** для portfolio Kanban, **не** копия всех SC из spec.md. Пишутся высокоуровневыми мазками («Round-trip byte-equal на physical device #1»), а не техническими деталями («Argon2id ≤ 1500ms P95 на Pixel 5»).
+```markdown
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 [hand] CloudAvailability port + Android adapter
+- [x] #2 [hand] FcmTokenRegistrationGuard откладывает FCM до cloudAvailable=true
+- [x] #3 [auto:checklist] checklists/domain-isolation.md: 16/16 CHK [x]
+- [x] #4 [auto:checklist] checklists/meta-minimization.md: 13/13 CHK [x]
+- [N/A] #5 [auto:checklist] checklists/wire-format.md: N/A (no wire format)
+- [ ] #6 [auto:deferred-local-emulator] Emulator smoke pixel_5_api_34 (T043, T031-T036)
+- [ ] #7 [auto:deferred-physical-device] Physical device Xiaomi 11T (T041)
+<!-- AC:END -->
+```
 
-Что сюда попадает (выделено блоками):
-- **User-visible behavior** («wizard за <3 сек открывает главный экран без Sign-In»).
-- **Architectural invariants, проверяемые на ревью** («ConfigCipher не импортирует `com.google.*`»).
-- **Real-device / manual gates** («Round-trip OK на Xiaomi 11T», «two-emulator pairing smoke»).
-- **Doc / release gates** («Privacy Policy section добавлен»).
+### Marker semantics
 
-Что НЕ попадает:
-- Детальные timing budgets (Argon2id <1.5s) — это SC в spec.md, не backlog.
-- Каждый T0NN из tasks.md — это implementation, не сигнал.
-- Внутренние имплементационные детали (имена приватных классов).
+| Marker | Источник | Регенерируется | Проверка `[x]` |
+|---|---|---|---|
+| `[hand]` | Автор задачи (5±2 user-visible criteria) | Нет — `[hand]` AC сохраняются как есть, только меняется checkbox | grep кода/тестов + owner-confirm |
+| `[auto:checklist]` | `specs/<NNN>/checklists/*.md` (по одному на файл) | Да — полностью пересчитывается count `[x]` vs total | `[x]` если все CHK `[x]` или `[N/A]`; иначе `[ ]` |
+| `[auto:deferred-local-emulator]` | `tasks.md` grep `\[deferred-local-emulator\]` | Да — список затронутых Tnnn в тексте | `[x]` только если все Tnnn deferred-local-emulator выполнены (требует owner-confirm + указание AVD) |
+| `[auto:deferred-physical-device]` | `tasks.md` grep `\[deferred-physical-device\]` | Да | `[x]` только при owner-confirm с указанием устройства + commit hash |
+| `[auto:deferred-firebase-emulator]` | `tasks.md` grep `\[deferred-firebase-emulator\]` | Да | `[x]` только при owner-confirm |
+| `[auto:deferred-external]` | `tasks.md` grep `\[deferred-external\]` | Да | `[x]` только при owner-confirm |
 
-### 2. Статус ≡ доля зелёных AC
+AC **без маркера** — legacy формат; при первом sync классифицируется как `[hand]` (если не очевидно из текста что это checklist/deferred).
 
-| Состояние AC                          | Статус       |
-|---------------------------------------|--------------|
-| 0 AC закрыто (только начали)          | In Progress  |
-| ≥1 AC закрыто, но не все              | In Progress  |
-| Все code-related AC ✅, real-device / manual ❌ | **Paused** ← PR можно открыть |
-| Все AC ✅                              | Done         |
+## Status decision matrix
 
-**Правило железное**: если хоть один `[ ]` AC остался — статус **НЕ** Done. PR открыть можно (code merge ≠ feature complete), но в Kanban задача стоит на Paused с явным указанием что блокирует.
-
-### 3. Невыполненные блоки переживают PR
-
-Если после PR остаются «висящие» гейты (тесты на реальном телефоне, OEM verification, доки), они остаются как `[ ]` AC в **той же** backlog-таске. Не выносятся в follow-up таску автоматически. Когда гейт закрывается — приходит человек, отмечает `[x]`, запускает этот skill снова → Paused → Done.
-
-Исключение: если оставшийся блок — это **существенный отдельный scope** (не «дотест», а «другая фича»), создаётся явная follow-up таска через [Backlog.md CLI](https://github.com/MrLesk/Backlog.md) или прямой edit, и текущая таска получает строку «↪ See task-N for X».
+| Состояние AC | Статус |
+|---|---|
+| Все `[hand]` + `[auto:checklist]` + `[auto:deferred-*]` зелёные (`[x]` или `[N/A]`) | **Done** |
+| Все `[hand]` + `[auto:checklist]` зелёные; есть `[ ]` среди `[auto:deferred-*]` | **Verification** (PR merged) |
+| Есть `[ ]` среди `[hand]` или `[auto:checklist]` | **In Progress** (PR open нельзя — фича не закончена) |
+| Owner явно сказал «переключаюсь на task-Y» | **Paused** (orthogonal) |
 
 ## Алгоритм
 
-### Шаг 1 — Идентифицировать taргет
+### Шаг 1 — Идентифицировать target
 
 1. Текущая ветка: `git branch --show-current`. Если совпадает с `main` → отказаться («pre-PR sync только на feature-ветках»).
-2. Извлечь spec-слаг из имени ветки (regex `^(\d{3})-.*$`) → `specs/<NNN>-*/`.
-3. Если spec'а нет — найти backlog task через явное упоминание в commit'ах ветки (`git log main..HEAD --grep "task-N\|TASK-N"`) или спросить пользователя.
+2. Извлечь spec-слаг из имени ветки (regex `^(\d{3}|task-\d+)-.*$`) → `specs/<NNN>-*/`.
+3. Если spec'а нет — найти backlog task через явное упоминание в commit'ах (`git log main..HEAD --grep "task-N\|TASK-N"`) или спросить пользователя.
 
 ### Шаг 2 — Найти backlog task
 
-1. Прочитать все `backlog/tasks/*.md` (там сейчас ~50 файлов — приемлемо).
-2. Отфильтровать по frontmatter `references:` содержащему путь spec'а.
-3. Если несколько — спросить пользователя.
-4. Если ноль — спросить: «создать task для этого spec'а?» (default Yes, ordinal = max+1000, status=In Progress).
+1. `Glob "backlog/tasks/*.md"` + `Grep` по frontmatter `references:` содержащему путь spec'а.
+2. Если несколько — спросить пользователя.
+3. Если ноль — спросить: «создать task для этого spec'а?».
 
 ### Шаг 3 — Прочитать текущие AC
 
-Парсить блок между `<!-- AC:BEGIN -->` и `<!-- AC:END -->`. Формат строки:
+Парсить блок между `<!-- AC:BEGIN -->` и `<!-- AC:END -->`. Сохранить статусы `[x]` / `[N/A]` для всех AC по нормализованному тексту (для последующего merge).
+
+### Шаг 4 — Регенерировать auto-секции
+
+**4a. `[auto:checklist]` — по одной строке на каждый `specs/<NNN>/checklists/*.md`:**
+
+```bash
+for f in specs/<NNN>/checklists/*.md; do
+  total=$(grep -cE "^- \[" "$f")
+  done=$(grep -cE "^- \[x\]|^- \[N/A\]" "$f")
+  if [ "$total" -eq "$done" ]; then
+    # all [x] or [N/A] — emit [x]
+  fi
+done
 ```
-- [ ] #N описание
-- [x] #N описание
+
+Формат строки: `[auto:checklist] checklists/<name>.md: X/Y CHK [x]` (или `: N/A` если все N/A).
+
+**4b. `[auto:deferred-*]` — grep `tasks.md` по маркерам:**
+
+```bash
+grep -oE "\[deferred-(local-emulator|physical-device|firebase-emulator|external)\]" specs/<NNN>/tasks.md | sort -u
 ```
 
-### Шаг 4 — Собрать «текущее состояние реальности»
+Для каждого уникального маркера — одна строка AC. В тексте перечислить **затронутые Tnnn** через короткую сводку:
 
-**4a. Обязательная проверка `[deferred-*]` маркеров в tasks.md** (lesson learned 2026-06-24 после TASK-49 incident):
-- `grep -nE "\[deferred-(local-emulator|physical-device|firebase-emulator|external)\]" specs/<NNN>/tasks.md`
-- Каждый найденный deferred маркер → **обязательно** соответствующий `[ ]` AC в backlog. Не игнорировать, даже если пользователь говорит «всё выполнено».
-- Типы deferred-маркеров:
-  - `[deferred-local-emulator]` — нужен AVD ≤ API 34 / другая конфигурация эмулятора
-  - `[deferred-physical-device]` — нужен реальный девайс (Xiaomi 11T, Huawei, и т.д.)
-  - `[deferred-firebase-emulator]` — нужен Firebase emulator suite running
-  - `[deferred-external]` — ждём third-party (provisioning, hardware delivery, owner approval)
+```bash
+grep -nE "T0?\d+.*\[deferred-physical-device\]" specs/<NNN>/tasks.md
+# → T041 → текст: «Physical device verification (T041)»
+```
 
-**4b. Обязательная проверка checklists/*.md** (если spec проходила через speckit-* orchestrator'ы):
-- `grep -cE "^- \[x\]" specs/<NNN>/checklists/*.md` vs `grep -cE "^- \[" specs/<NNN>/checklists/*.md` — каждый checklist должен быть полностью `[x]` (или явно `[N/A]`).
-- Не-полностью-зелёный checklist → соответствующий AC в backlog: «`<checklist-name>` complete: X/Y CHK [x]».
+Default checkbox: `[ ]`. Поднять в `[x]` можно **только** при явном owner-confirm с указанием:
+- для `local-emulator`: какой AVD использован (имя + API level), какой smoke-test прогнан;
+- для `physical-device`: имя устройства + commit hash / скриншот / артефакт;
+- для `firebase-emulator`: какой emulator suite, какие тесты прогнаны;
+- для `external`: что именно завершено (provisioning approved, hardware delivered, и т.д.).
 
-**4c. Авто-верификация code-related AC:**
+**4c. Hand AC: верификация по grep + owner-confirm.**
 
-| Подсказка в AC                              | Проверка                                         |
-|---------------------------------------------|--------------------------------------------------|
-| «X в core/Y/Z» / «класс Foo»                | `grep -r "class Foo" <module>` → есть/нет        |
-| «test Bar проходит» / имя теста             | `grep -r "fun Bar\\|@Test.*Bar"` → есть          |
-| «Round-trip byte-equal на physical device»  | **манульная проверка** — спросить пользователя   |
-| «Privacy Policy section добавлен»           | `grep -l "Privacy Policy" docs/`                 |
-| «Detekt rule X passes»                      | спросить «CI зелёный?» или `gradlew detekt`      |
-| «doc <name>.md существует»                  | `Glob "docs/**/<name>.md"`                       |
+Для каждой `[hand]` строки — попытка grep кода/тестов. Если кандидат найден → пометить `✓ verified`. Иначе → `? manual` (требует owner-confirm).
 
-Автоматические подсказки помечаются `✓ verified` / `✗ not found`. Не-автоматические — `? manual` с пояснением что проверить.
+**4d. Pseudo-gate detection.** Если `[hand]` AC содержит фразу, не верифицируемую в текущем окружении (no-GMS Huawei, AOSP-only, конкретный неизвестный девайс) — **REFUSE auto-checkmark**, требовать рефактора AC в `[hand]` DI-override + inline-TODO `physical-device`.
 
-**4d. Pseudo-gates** (написано в AC, но физически не проверяемо): пометить явно «pseudo — переформулировать или удалить». Пример: «Huawei без GMS работает» без Huawei устройства = pseudo; реальная проверка — DI override test, надо переписать AC.
+### Шаг 5 — Спросить owner'а
 
-### Шаг 5 — Спросить пользователя
-
-Показать таблицу. **ВАЖНО**: deferred-маркированные AC показывать с DEFAULT `[ ]`, даже если пользователь говорит «всё выполнено». Override требует явного подтверждения с указанием как именно проверено (smoke прогнан / реальное устройство использовано).
+Показать таблицу:
 
 ```
 TASK-49 (Cloud Feature Inventory)
-Current status: In Progress  →  proposed: ?
+Current status: In Progress  →  proposed: Verification
 
-Code-level (✓ verified):
+[hand] AC (verify or rewrite):
   AC #1: CloudAvailability port            [✓ verified]
   AC #2: FcmTokenRegistrationGuard         [✓ verified]
   AC #3: docs/dev/cloud-availability.md    [✓ verified — exists]
+  AC #4: docs/dev/offline-online-architecture.md [✗ not found]
+  AC #5: «Huawei без GMS работает»         [✗ pseudo — rewrite as [hand] DI-override]
 
-Deferred gates (auto-blocked — DO NOT auto-check):
-  AC #6: Emulator smoke pixel_5_api_34     [✗ deferred-local-emulator T043]
-  AC #7: Instrumented tests T031-T036      [✗ deferred-local-emulator]
-  AC #8: Physical device Xiaomi 11T (T041) [✗ deferred-physical-device]
+[auto:checklist] AC (regenerated):
+  AC #6: domain-isolation.md: 16/16        [x] auto
+  AC #7: meta-minimization.md: 13/13       [x] auto
+  AC #8: wire-format.md: 11/11 N/A         [N/A] auto
 
-Pseudo-gates (rewrite or remove):
-  AC #10: «Huawei без GMS»                 [✗ pseudo — нет железа; DI override only]
+[auto:deferred-*] AC (regenerated from tasks.md):
+  AC #9:  [deferred-local-emulator]  T031-T036, T043     [ ] blocked
+  AC #10: [deferred-physical-device] T041               [ ] blocked
 
-Recommended status: Paused (b) — 3 deferred + 1 pseudo blocked.
-Override default? (y/N for status; or list AC# to manually flip):
+Recommended status: Verification (2 deferred gates blocked).
+Override status / mark [hand] AC closed? (default: keep blocked):
 ```
 
-После ответа → формируется новый AC блок.
-
-### Шаг 6 — Решить статус
-
-```
-if all_ac_checked: status = Done; добавить Final Summary с reference на PR
-elif any_ac_checked: status = Paused; добавить комментарий «blocked by AC #N, #M»
-else: status = In Progress  (sanity check — почему открываем PR без единого закрытого AC?)
-```
-
-### Шаг 7 — Записать изменения
+### Шаг 6 — Записать изменения
 
 - Edit `backlog/tasks/task-N - *.md`:
   - frontmatter `status:` → новый
   - frontmatter `updated_date:` → today
-  - AC блок → новый
-  - При status=Done — заполнить `<!-- SECTION:FINAL_SUMMARY:BEGIN -->` с «Merged PR #X (YYYY-MM-DD). <one-line summary>»
-  - При status=Paused — добавить под AC блоком комментарий:
-    ```
-    ## Pause Reason
-    <!-- SECTION:PAUSE_REASON:BEGIN -->
-    PR #X merged YYYY-MM-DD. Blocked AC: #2 (manual smoke), #4 (physical-device test).
-    Re-run pre-pr-backlog-sync when AC are closed.
-    <!-- SECTION:PAUSE_REASON:END -->
-    ```
+  - AC блок → новый flat-список с маркерами
+  - `<!-- SECTION:VERIFICATION_PENDING:BEGIN -->...<!-- :END -->` — для Verification, список pending AC + recovery steps.
+  - `<!-- SECTION:PAUSE_REASON:BEGIN -->...<!-- :END -->` — только для Paused (orthogonal).
+  - `<!-- SECTION:FINAL_SUMMARY:BEGIN -->...<!-- :END -->` — для Done.
 
-### Шаг 8 — Commit & continue
+### Шаг 7 — Commit & continue
 
 - `git add backlog/tasks/task-N - *.md`
 - `git commit -m "backlog: sync task-N AC (status → <new>)"` — отдельный commit, **не** amend.
 - Сообщить владельцу: «backlog sync committed. Proceed with `gh pr create`».
+- В PR description добавить `Backlog: task-N → <new status>` + список pending AC (если Verification).
 
-## Выход в обычный PR flow
+## Edge cases
 
-После завершения skill'а возвращаем control orchestrator'у (или пользователю) для:
-1. `gh pr create` с обычным title/body.
-2. В PR description **добавить строку** «Backlog: task-N → \<new status\>».
-
-## Обработка ошибок
-
-- **MCP backlog недоступен** → ОК, работаем через прямой file-edit (`<!-- AC:BEGIN -->`/`<!-- AC:END -->` маркеры). MCP — оптимизация, не обязательное.
-- **Несколько tasks для одного spec'а** → спросить.
-- **AC блок отсутствует в task'е** → создать пустой блок + сообщить, что AC надо заполнить руками перед sync'ом.
-- **Пользователь отказывается от sync'а («skip backlog»)** → залогировать решение в PR description (`Backlog: skipped sync — reason: <X>`), не блокировать PR.
+- **Spec без checklists/** → `[auto:checklist]` секция пустая, это OK.
+- **Spec без tasks.md** → `[auto:deferred-*]` секция пустая, это OK.
+- **Spec без AC блока в task'е** → создать пустой блок + сообщить, что `[hand]` AC надо заполнить руками.
+- **Owner отказывается от sync** → залогировать решение в PR description (`Backlog: skipped sync — reason: <X>`), не блокировать PR.
+- **Несколько specs ссылаются на один task** → sync все, mergeить AC.
 
 ## Что НЕ делает
 
 - ❌ НЕ переписывает spec.md.
 - ❌ НЕ создаёт follow-up tasks автоматически — только при явном «split this» от владельца.
-- ❌ НЕ удаляет уже отмеченные `[x]` AC — даже если их формулировка изменилась, downgrade требует явного override.
+- ❌ НЕ удаляет `[x]` `[hand]` AC — даже если grep не нашёл артефакта, требует owner-confirm на downgrade.
 - ❌ НЕ запускает `gh pr create` — это всё ещё ответственность пользователя/orchestrator'а.
+- ❌ НЕ ставит `[x]` на `[auto:deferred-*]` без явного указания AVD / устройства / суита / commit hash.
 
 ## Связанные skills
 
-- [`procedure-sync-backlog-ac`](../procedure-sync-backlog-ac/SKILL.md) — initial population AC из spec.md при создании task'а (file-based mode).
-- [`speckit-tasks`](../speckit-tasks/SKILL.md) — после генерации tasks.md тоже зовёт `procedure-sync-backlog-ac` для свежесозданного task'а.
-- [`review`](https://docs.claude.com/en/docs/claude-code) (built-in `/review`) — независимо от backlog проверяет код PR'а; не конфликтует.
+- [`procedure-sync-backlog-ac`](../procedure-sync-backlog-ac/SKILL.md) — initial population `[hand]` AC из spec.md `[backlog]`-маркированных SC при создании task'а.
+- [`speckit-tasks`](../speckit-tasks/SKILL.md) — обязан помечать emulator/physical-device/firebase-emulator/external tasks `[deferred-<type>]` маркерами, чтобы pre-PR sync их подхватывал.
 
 ## Output (success)
 
 ```
-✅ pre-pr-backlog-sync: TASK-3 (AuthProvider + Google Sign-In)
-   Status: In Progress  →  Paused
-   AC: 3/4 closed (1 manual smoke remaining)
-   Committed: backlog: sync TASK-3 AC (status → Paused)
-   PR description hint: «Backlog: task-3 → Paused (1 AC pending: smoke test)»
+✅ pre-pr-backlog-sync: TASK-49 (Cloud Feature Inventory)
+   Status: In Progress  →  Verification
+
+   AC summary (10 total):
+     [hand]    : 3/4 verified, 1 rewrite needed (#5 pseudo-gate)
+     [auto:checklist] : 3/3 green (16+13+11=40 CHK)
+     [auto:deferred-*]: 0/2 closed (local-emulator + physical-device)
+
+   Committed: backlog: sync TASK-49 AC (status → Verification)
+   PR description hint:
+     «Backlog: task-49 → Verification (pending: #5 rewrite, #9 deferred-local-emulator, #10 deferred-physical-device)»
 
 → Proceed with `gh pr create`.
 ```
 
 ## Краткое summary для не-разработчика
 
-Этот скилл — **последний шаг перед открытием pull request'а**. Он смотрит на доску задач (`backlog/`) и говорит: «Эта задача закрыта на 3 из 4 пунктов, поэтому я ставлю её на паузу, а не на готово, пока 4-й пункт не закроется». Если пропустить этот шаг — на доске будут «зелёные» задачи, которые на самом деле не доделаны (что случилось с TASK-3 и TASK-4 в июне 2026).
+Этот скилл — **последний шаг перед открытием pull request'а**. Он смотрит на доску задач (`backlog/`) и говорит: «Эта задача готова в коде, но 2 проверки требуют железа — ставлю в Verification, не в Done. Когда прогонишь — сдвинется». Если пропустить этот шаг — на доске будут «зелёные» задачи, которые на самом деле не доделаны. AC берутся из трёх источников: руками-написанные (`[hand]`), checklists/ (`[auto:checklist]`), отложенные tasks из tasks.md (`[auto:deferred-*]`).
