@@ -428,6 +428,13 @@ When an AI agent works inside this repository through Spec Kit, it MUST behave a
     - propose a compliant alternative, or
     - flag that the constitution must be amended or an exception must be approved.
 13. Align **Git** practice with **Article XVIII**: after each **significant** step, **commit** and **push** to the remote (see Article XVIII for what counts as significant and for exceptions).
+14. **Cite UX precedent before original proposals.** When proposing a user-facing UX pattern (interaction flow, layout, control type, terminology, naming, navigation pattern), AI agents MUST first research how established products / industry leaders solve the same problem. Surface 2–3 references with brief descriptions of their approach. Only after presenting precedent — propose the recommendation. Fall back to fully original proposals only when no relevant precedent exists or precedent is genuinely unsuited.
+
+    Scope: setup wizards, settings UI, notifications, error states, navigation patterns, terminology choices, similar UX-level decisions.
+
+    Out of scope: architectural / code decisions (those follow CLAUDE.md rules and Articles IV / VII), wire-format decisions, business-logic decisions specific to this product domain.
+
+    Rationale: novice product owners often accept the first proposal they hear because they have no comparison anchor. Citing precedent gives them an anchor to evaluate against ("Notion does X for similar reason — does that fit us too?") and reduces the risk of unique-but-suboptimal patterns. This rule reinforces the mentor skill principle (`.claude/skills/mentor/SKILL.md`) of critical mentor stance — but extends from "critique my own defaults" to "ground recommendations in industry precedent before defaulting at all".
 
 ---
 
@@ -666,6 +673,11 @@ These sources informed the constitution and are recommended reference material w
 
 ## Amendment History
 
+### 1.9 — 2026-06-24 (later same day)
+
+- **Article XV §14 added** — Cite UX precedent before original proposals. AI agents must research established products / industry leaders solving the same problem, surface 2–3 references, then recommend. Originals reserved for genuine precedent gaps. Scope: setup wizards, settings UI, notifications, error states, navigation, terminology. Out of scope: architectural / code / wire-format / domain business logic.
+- **Rationale**: triggered by TASK-7 scenarios pass 2026-06-24. Owner surfaced that prior proposals (donastroika via wizard re-run) lacked precedent grounding — leading to potential unique-but-suboptimal UX choices. Reinforces mentor skill critical stance from "critique my own defaults" → "ground in precedent before defaulting".
+
 ### 1.8 — 2026-06-24 (later same day)
 
 - **Article II §8 added** — MVP definition: base functional blocks end-to-end working, polish through JSON configuration not code, anti-pattern to target UX delight at MVP stage.
@@ -733,4 +745,4 @@ Initial project constitution created for Launcher based on:
 
 ---
 
-**Version**: 1.8.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-06-24
+**Version**: 1.9.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-06-24
