@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TASK-49 cloud-availability strings (T023 — RU).
+-->
+<resources>
+
+    <!-- SignInExplanationScreen -->
+    <string name="task49_signin_explanation_title">Войдите, чтобы включить облачные функции</string>
+    <string name="task49_signin_explanation_bullet_1">Доверенный родственник сможет видеть и настраивать этот телефон удалённо.</string>
+    <string name="task49_signin_explanation_bullet_2">Ваши настройки сохранятся в облаке и восстановятся при смене телефона.</string>
+    <string name="task49_signin_explanation_bullet_3">Вы сможете получать контакты и напоминания с другого устройства.</string>
+    <string name="task49_signin_explanation_bullet_4">Звонки, кнопка SOS и главный экран работают и без входа.</string>
+    <string name="task49_signin_explanation_button_signin">Войти через Google</string>
+    <string name="task49_signin_explanation_button_cancel">Не сейчас</string>
+
+</resources>

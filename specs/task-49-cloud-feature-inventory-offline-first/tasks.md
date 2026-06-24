@@ -103,8 +103,8 @@
 
 ### SignInExplanationScreen
 
-- [ ] **T022** Создать `app/src/main/kotlin/com/launcher/app/onboarding/SignInExplanationScreen.kt` — Composable function с параметрами `onSignInClicked: () -> Unit`, `onCancelClicked: () -> Unit`. Layout: Column с Title + 3-4 BulletPoint элементов + Spacer + Row с двумя кнопками. Все строки из string resources. Tap target кнопок ≥56dp. (FR-005, FR-006, FR-008, FR-008a). **Acceptance**: compile + manual preview в Android Studio.
-- [ ] **T023** Добавить string resources для `SignInExplanationScreen`: в `app/src/main/res/values/strings.xml` (или KMP resources directory согласно existing pattern) — keys `cloud.signin.explanation.title`, `cloud.signin.explanation.bullet1..bullet4`, `cloud.signin.explanation.button_signin`, `cloud.signin.explanation.button_cancel`. EN base + RU manually. (FR-007). **Acceptance**: strings present.
+- [x] **T022** Создать `app/src/main/kotlin/com/launcher/app/onboarding/SignInExplanationScreen.kt` — Composable function с параметрами `onSignInClicked: () -> Unit`, `onCancelClicked: () -> Unit`. Layout: Column с Title + 3-4 BulletPoint элементов + Spacer + Row с двумя кнопками. Все строки из string resources. Tap target кнопок ≥56dp. (FR-005, FR-006, FR-008, FR-008a). **Acceptance**: compile + manual preview в Android Studio.
+- [x] **T023** Добавить string resources для `SignInExplanationScreen`: в `app/src/main/res/values/strings.xml` (или KMP resources directory согласно existing pattern) — keys `cloud.signin.explanation.title`, `cloud.signin.explanation.bullet1..bullet4`, `cloud.signin.explanation.button_signin`, `cloud.signin.explanation.button_cancel`. EN base + RU manually. (FR-007). **Acceptance**: strings present.
 - [ ] **T024** Запустить `procedure-translate-spec-strings` (existing skill) для генерации остальных 9 locales (ES/ZH/AR/HI/PT/DE/FR/JA/KK-Latn). (FR-007). **Acceptance**: 11 locale-файлов содержат соответствующие keys.
 - [ ] **T025** Создать `app/src/androidTest/kotlin/com/launcher/app/onboarding/SignInExplanationScreenE2ETest.kt` через Compose UI testing framework. Tests:
   - Composable рендерится без ошибок.

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TASK-49 cloud-availability strings (T023 — EN baseline).
+  Other locales filled by procedure-translate-spec-strings (T024).
+-->
+<resources>
+
+    <!-- SignInExplanationScreen -->
+    <string name="task49_signin_explanation_title">Sign in to enable cloud features</string>
+    <string name="task49_signin_explanation_bullet_1">A trusted family member can view and adjust this phone remotely.</string>
+    <string name="task49_signin_explanation_bullet_2">Your settings are backed up and restored if you switch phones.</string>
+    <string name="task49_signin_explanation_bullet_3">You can receive contacts and reminders sent from another device.</string>
+    <string name="task49_signin_explanation_bullet_4">Calls, the SOS button and the home screen keep working without signing in.</string>
+    <string name="task49_signin_explanation_button_signin">Sign in with Google</string>
+    <string name="task49_signin_explanation_button_cancel">Not now</string>
+
+</resources>
