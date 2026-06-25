@@ -170,7 +170,6 @@ private fun activeHost(
     com.launcher.api.wizard.StepType.UIChoice -> uiChoiceHost
     com.launcher.api.wizard.StepType.SystemSetting -> systemSettingHost
     com.launcher.api.wizard.StepType.TutorialHint -> tutorialHintHost
-    is com.launcher.api.wizard.StepType.Custom -> uiChoiceHost
 }
 
 /**
@@ -194,6 +193,4 @@ private fun stepKeysFor(
         "system_setting.$refId.label" to "system_setting.$refId.desc"
     com.launcher.api.wizard.StepType.TutorialHint ->
         "hint.$refId" to "hint.$refId.body"
-    is com.launcher.api.wizard.StepType.Custom ->
-        "step.title.$refId" to "step.body.$refId"
 }

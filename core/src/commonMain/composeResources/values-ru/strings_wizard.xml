@@ -70,11 +70,6 @@
     <!-- TASK-7 — retry-сообщение для ROLE_HOME -->
     <string name="system_setting_role_home_retry_message">Чтобы завершить настройку, выберите это приложение как лаунчер по умолчанию. Это можно изменить позже в настройках Android.</string>
 
-    <!-- TASK-7 — Custom-шаг «pair-admin» -->
-    <string name="pair_admin_step_label">Подключите помощника (необязательно)</string>
-    <string name="pair_admin_step_desc">Родственник или сиделка может отсканировать QR-код, чтобы помочь вам удалённо. Можно пропустить и добавить позже.</string>
-    <string name="pair_admin_step_skip_button">Не сейчас</string>
-
     <!-- TASK-7 — Экран настроек -->
     <string name="settings_walk_through_all_label">Пройти все настройки пошагово</string>
     <string name="settings_pending_indicator_label">Требует вашего внимания</string>

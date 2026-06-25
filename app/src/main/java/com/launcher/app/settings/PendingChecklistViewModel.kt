@@ -43,10 +43,6 @@ class PendingChecklistViewModel(
         WireStepType.SystemSetting -> SYSTEM_SETTING_LABEL_KEYS[refId] ?: refId
         WireStepType.UIChoice -> "ui_${refId}_question"
         WireStepType.TutorialHint -> "hint_${refId}"
-        WireStepType.Custom -> when (refId) {
-            "pair-admin" -> "pair_admin_step_label"
-            else -> refId
-        }
     }
 
     private companion object {

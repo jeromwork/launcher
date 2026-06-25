@@ -47,7 +47,10 @@ class SimpleLauncherManifestTest {
         val steps = doc.body.steps
         assertNotNull(steps)
         steps!!
-        assertEquals(4, steps.size)
+        // 3-step manifest (pair-admin removed 2026-06-25 with StepType.Custom
+        // retirement per constitution amendment 1.10; returns as SystemSetting
+        // when TASK-8 lands — see TODO-TASK7-005).
+        assertEquals(3, steps.size)
         // Order — Сценарий 1.
         assertEquals(WireStepType.SystemSetting, steps[0].stepType)
         assertEquals("android.role.home", steps[0].refId)
@@ -62,11 +65,6 @@ class SimpleLauncherManifestTest {
         assertEquals("android.permission.POST_NOTIFICATIONS", steps[2].refId)
         assertEquals(true, steps[2].canSkip) // per-profile override
         assertEquals(WireCriticality.Required, steps[2].criticality)
-
-        assertEquals(WireStepType.Custom, steps[3].stepType)
-        assertEquals("pair-admin", steps[3].refId)
-        assertEquals(true, steps[3].canSkip)
-        assertEquals(WireCriticality.Optional, steps[3].criticality)
     }
 
     @Test

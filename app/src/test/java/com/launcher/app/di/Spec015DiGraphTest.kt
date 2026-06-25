@@ -7,26 +7,40 @@ import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.android.ext.koin.androidContext
-import org.koin.core.context.GlobalContext.startKoin
-import org.koin.core.context.GlobalContext.stopKoin
+import org.koin.core.context.GlobalContext
+import org.koin.core.context.startKoin
+import org.koin.core.context.stopKoin
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Regression: TASK-7 Phase-5 added `StepType.Custom(CUSTOM_DISPATCH_KEY)` to
- * the WizardStep map, after which `WizardActivity` crashes on real devices
- * with a Koin circular-dependency StackOverflowError during
- * `inject<WizardEngine>()`. Existing PairAdminStepIntegrationTest bypassed
- * Koin (instantiated CustomStep by hand) and missed it.
+ * Regression: TASK-7 Phase-5 added a second `Map<*, *>` binding to
+ * spec015Module which collided with existing Map bindings under JVM type
+ * erasure (Koin matches by KClass<Map> only), causing an infinite
+ * resolveFromRegistry loop and StackOverflowError on `inject<WizardEngine>()`.
+ * Existing Phase-5 unit test bypassed Koin entirely and missed it.
+ *
+ * Constitution amendment 1.10 (2026-06-25) retired `StepType.Custom` and the
+ * associated `CustomStep` / `CustomStepHandler` infrastructure entirely;
+ * the named-qualifier fix below remains in place so the moment any future
+ * second Map<*, *> binding is added, the graph resolves unambiguously.
+ *
+ * Uses a bare `android.app.Application` (not LauncherApplication) so we start
+ * Koin ourselves with ONLY spec015Module — without the full prod graph
+ * (FirebaseFirestore, CryptoModule, etc.) whose deps aren't available in JVM
+ * unit tests.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, application = Application::class)
 class Spec015DiGraphTest {
 
-    @After fun teardown() = stopKoin()
+    @After fun teardown() {
+        if (GlobalContext.getOrNull() != null) stopKoin()
+    }
 
     @Test
     fun wizardEngine_resolvesWithoutCircularDependency() {
+        if (GlobalContext.getOrNull() != null) stopKoin()
         val koin = startKoin {
             androidContext(ApplicationProvider.getApplicationContext())
             modules(spec015Module)

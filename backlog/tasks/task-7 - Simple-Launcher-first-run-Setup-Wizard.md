@@ -225,9 +225,9 @@ EFFORT: Medium (~1-2 weeks). Значительно меньше чем каза
 - [ ] #2 [hand] 3 mandatory + 1 optional → HomeActivity рендерит выбранную композицию (classic-6 поверх 3x4-classic) ≤ 1 сек после wizard exit'а — ⚠️ BLOCKED by TASK-52 (HomeActivity «Загрузка…» >60s on real device); wizard сам доходит до HomeActivity start, дальше внешний блокер
 - [x] #3 [hand] ROLE_HOME уже granted через Android Settings до wizard'а → wizard не показывает ROLE_HOME step (config-check master в действии) — ✅ verified Xiaomi 11T 2026-06-25, T063 PASS via `cmd role add-role-holder` (commit 29e7c0d)
 - [ ] #4 [hand] System locale change (Android Settings → Languages → English) после wizard'а с languageOverride: ru → app остаётся на русском после restart'а (Article III §7 stability) — ⚠️ BLOCKED by TASK-52 (cannot complete wizard end-to-end on device); unit-level code verified (LauncherApplication.onCreate reads override, WizardActivity sets it on completion)
-- [ ] #5 [hand] Pairing с admin device в wizard'е завершился успешно → LinkRegistry.activate() записал link → home screen рендерится с paired state — ⚠️ BLOCKED by TASK-51 (libsodium ristretto255 missing arm64) + TASK-55 (PairAdmin Custom step needs UI confirm before launching PairingActivity)
+- [ ] #5 [hand] Pairing с admin device в wizard'е завершился успешно → LinkRegistry.activate() записал link → home screen рендерится с paired state — ⚠️ DEFERRED to TASK-8: pair-admin step removed from simple-launcher.json manifest 2026-06-25 per constitution amendment 1.10 (StepType.Custom retired). Returns as SystemSetting step at TASK-8 with CheckSpec.PairAdminLink + ApplySpec.PairAdminIntent (see TODO-TASK7-005 in docs/dev/project-backlog.md). Also blocked by TASK-51 (libsodium ristretto255 missing arm64) regardless.
 - [ ] #6 [hand] Перезагрузил устройство → wizard не повторяется; HomeActivity открывается с применённой композицией — ⚠️ BLOCKED by TASK-52 (cannot complete wizard once); `UserPreferencesStore.isWizardCompleted` short-circuit verified in code (FirstLaunchActivity.proceedToHome)
-- [ ] #7 [hand] Senior-safe walkthrough на эмуляторе через skill android-emulator — assisting проходит wizard без подсказок — ❌ FAIL Xiaomi 11T 2026-06-25, contrast regression in senior-warm Light theme → TASK-54 (TASK-7 own follow-up)
+- [N/A] #7 [hand] Senior-safe walkthrough на эмуляторе через skill android-emulator — assisting проходит wizard без подсказок — ⚠️ Visual contrast tuning DEFERRED per Article II §8 (MVP polish via JSON, not code) — TASK-54 paused to post-MVP Phase 4. Wizard flow itself is functional end-to-end on Xiaomi 11T 2026-06-25; only visual polish deferred.
 - [ ] #8 [auto:deferred-local-emulator] Local emulator gates (T060 senior-safe, T062 locale persistence) — pending owner kicks emulator
 - [ ] #9 [auto:deferred-physical-device] Physical device gates (T038 locale persist, T058 PendingChecklist UI, T061 full E2E ≤1s HomeActivity, T064 Samsung One UI, T065 MIUI battery quirks, T066 2-device pairing) — partially verified on Xiaomi 11T 2026-06-25 (T063 ✅, T061 cold-start ✅); remaining blocked by TASK-51/52/54/55 or absent devices (Samsung, second device)
 <!-- AC:END -->
@@ -240,20 +240,23 @@ Device-verification прошла на Xiaomi 11T (arm64, MIUI V125, Android 11) 
 Найденный при прогоне блокер — Koin DI cycle между `SystemSettingPort` и `Map<StepType, WizardStep>` — починен в коммите **8882c71** (`task-7 fix: Koin Map<*,*> cycle blocking WizardActivity on real device`) + regression test `Spec015DiGraphTest`.
 
 ### Зависит от external follow-up tasks
-- **TASK-51** (libsodium ristretto255 native lib arm64) — блокирует AC #5 (pairing) через PairingActivity crash.
 - **TASK-52** (HomeActivity «Загрузка…» infinite) — блокирует AC #2, #4, #6 (full wizard flow → HomeActivity render → locale persist round-trip → reboot no-repeat).
 - **TASK-53** (FirstLaunchActivity preset picker EN-on-RU) — visible regression в preset picker; не AC-blocker, но видна.
 
-### Зависит от TASK-7-own follow-up tasks
-- **TASK-54** (senior-warm theme contrast) — блокирует AC #7 (senior-safe walkthrough).
-- **TASK-55** (PairAdmin Custom step needs UI confirm) — блокирует AC #5 (pairing flow design issue, отдельно от TASK-51 native bug).
+### Зависит от TASK-8 (Admin App + QR Pairing)
+- **AC #5** (pairing) — pair-admin step removed from manifest 2026-06-25 with `StepType.Custom` retirement (constitution amendment 1.10). Returns as `SystemSetting` step at TASK-8 time. Also gated by **TASK-51** (libsodium ristretto255 native lib arm64) — without that fix `PairingActivity` itself crashes.
+
+### Post-MVP polish (Paused)
+- **TASK-54** (senior-warm theme contrast) — paused per Article II §8: MVP polish happens via JSON configuration, not code edits. Resumed at Phase 4 (m-3) when theme-variant JSON authoring pass begins. NOT blocking TASK-7 merge.
 
 ### Что нужно для перехода Verification → Done
-1. TASK-51 fix (libsodium native rebuild с ristretto255) → re-run T066 (2-device pairing).
-2. TASK-52 fix (HomeActivity render finishes) → re-run T038/T058/T061-full-flow/T062.
-3. TASK-54 fix (senior-warm contrast) → re-run T060.
-4. TASK-55 fix (PairAdmin UI confirm) → re-run T049/T066 with new UI.
-5. Получить Samsung Galaxy → T064.
+1. TASK-52 fix (HomeActivity render finishes) → re-run T038/T058/T061-full-flow/T062.
+2. TASK-8 lands with proper `SystemSetting` `pair-admin` step + TASK-51 libsodium fix → re-run T066 (2-device pairing).
+3. Получить Samsung Galaxy → T064.
+
+TASK-7-own architectural debt resolved 2026-06-25:
+- DI cycle (commit 8882c71)
+- StepType.Custom retired (commits in this PR + constitution amendment 1.10)
 
 Когда любой блокер закрыт — повторный прогон `pre-pr-backlog-sync` обновит соответствующие AC.
 

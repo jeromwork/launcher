@@ -22,7 +22,7 @@ data class StepEntry(
 )
 
 @Serializable
-enum class WireStepType { UIChoice, SystemSetting, TutorialHint, Custom }
+enum class WireStepType { UIChoice, SystemSetting, TutorialHint }
 
 @Serializable
 enum class WireCriticality { Required, Optional }
@@ -31,19 +31,7 @@ fun WireStepType.toDomain(): StepType = when (this) {
     WireStepType.UIChoice -> StepType.UIChoice
     WireStepType.SystemSetting -> StepType.SystemSetting
     WireStepType.TutorialHint -> StepType.TutorialHint
-    // For Custom we always return the same sentinel `Custom("dispatch")`
-    // so the engine's `steps[stepType]` map lookup matches a single
-    // registered [CustomStep]; the per-refId dispatch happens inside
-    // CustomStep itself (data-model.md §5.1).
-    WireStepType.Custom -> StepType.Custom(CUSTOM_DISPATCH_KEY)
 }
-
-/**
- * Constant key used to register `CustomStep` in the engine's step map.
- * Inside `CustomStep.execute(...)`, the per-refId handler dispatch
- * resolves which actual flow runs.
- */
-const val CUSTOM_DISPATCH_KEY: String = "dispatch"
 
 fun WireCriticality.toDomain(): Criticality = when (this) {
     WireCriticality.Required -> Criticality.Required

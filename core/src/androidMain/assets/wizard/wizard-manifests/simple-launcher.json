@@ -25,12 +25,6 @@
         "refId": "android.permission.POST_NOTIFICATIONS",
         "canSkip": true,
         "criticality": "Required"
-      },
-      {
-        "stepType": "Custom",
-        "refId": "pair-admin",
-        "canSkip": true,
-        "criticality": "Optional"
       }
     ]
   }

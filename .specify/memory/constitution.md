@@ -275,6 +275,16 @@ Additional defaults:
     
     A new platform MUST ship as: (a) a new adapter module with its own `<Platform>SystemSettingAdapter` and handlers, (b) a new platform-keyed pool document with platform-specific `CheckSpec` variants, (c) DI wiring registering the platform's handlers. The engine, ports, and existing platform adapters MUST NOT change.
 
+16. **No `Custom` step type. No per-refId Kotlin handlers.** All wizard steps MUST be expressible through the generic `StepType` set (`SystemSetting`, `UIChoice`, `TutorialHint`) combined with the declarative `CheckSpec` / `ApplySpec` sealed hierarchies (§15). A wizard step that needs behaviour the existing kinds cannot express MUST extend the `CheckSpec` / `ApplySpec` sealed classes (with schema-version migration per CLAUDE.md rule 5), NOT introduce a `StepType.Custom` variant nor a per-`refId` Kotlin handler.
+
+    **Rationale.** Per-refId handlers couple step rendering and behaviour to compiled code keyed on a string from the manifest, breaking §11 (wizard = projection of config) and §13 (no per-profile code). They also create an escape hatch through which step types proliferate without going through the proper declarative `CheckSpec` / `ApplySpec` extension — leading to handlers that auto-execute on step entry (bypassing the user's ability to skip), to per-step DI registration that fights generic dispatch, and to manifest entries whose semantics are not knowable from the JSON alone.
+
+    **Why this rule exists.** F-3 (spec 015) added `StepType.Custom(val name: String)` as a *placeholder for future extension* with the comment "Custom types от app-family добавляются через DI Map" — without any concrete use case. This violated CLAUDE.md rule 4 ("Minimum Viable Architecture, not Minimum Viable Product — add abstraction only when not adding it would force a future *rewrite*, not future *addition*"). TASK-7 Phase-5 then misused this placeholder to wire `pair-admin` as a `Custom` step with a `PairAdminCustomStepHandler` that fire-and-forget-launched `PairingActivity` on step entry — no UI, no skip path, no `CheckSpec`-based state read. This rule retires the placeholder and forbids the pattern.
+
+    **Where step types that look "different" actually fit.** Pairing with admin device → `CheckSpec` queries link-registry state (`activeAdminLinkCount > 0`) + `ApplySpec` dispatches an intent to the pairing activity. SOS contact selection → `CheckSpec` queries user-prefs for a stored phone number + `ApplySpec` launches a contact-picker intent. Both fit `SystemSetting` semantics: there *is* a piece of device/user state, the wizard reads it, and applies through a generic mechanism.
+
+    **Existing `StepType.Custom` and `CustomStep` / `CustomStepHandler` infrastructure MUST be removed** as part of TASK-7 cleanup. New step needs that cannot be expressed today are deferred until the proper `CheckSpec` / `ApplySpec` variants are added, not workarounded through a per-refId handler.
+
 ---
 
 ## Article VIII. Accessibility and Elderly-First UX
@@ -673,6 +683,11 @@ These sources informed the constitution and are recommended reference material w
 
 ## Amendment History
 
+### 1.10 — 2026-06-25
+
+- **Article VII §16 added** — No `StepType.Custom`, no per-refId Kotlin handlers. All wizard steps MUST be expressible through generic `StepType` + declarative `CheckSpec` / `ApplySpec` (§15). New step needs MUST extend the sealed `CheckSpec` / `ApplySpec` hierarchies, NOT introduce a custom step variant nor a per-`refId` handler. Existing `StepType.Custom` placeholder + `CustomStep` / `CustomStepHandler` / `PairAdminCustomStepHandler` infrastructure MUST be removed as part of TASK-7 cleanup.
+- **Rationale**: triggered by TASK-7 device verification 2026-06-25 on Xiaomi 11T. F-3 (spec 015) had added `StepType.Custom(val name: String)` as a placeholder for "future extension via DI Map" with no concrete use case — violating CLAUDE.md rule 4. TASK-7 Phase-5 then misused this escape hatch to wire `pair-admin` as a custom step with a handler that fire-and-forget-launched `PairingActivity` on step entry — no user UI, no skip path, no state read. Pair-admin actually fits `SystemSetting` semantics (state = activeAdminLinkCount; apply = launch pairing intent) but the proper `CheckSpec` / `ApplySpec` variants are deferred to TASK-8 (Admin App + QR Pairing), TASK-51 (libsodium ristretto255 fix), and beyond. Removing `Custom` step now prevents the placeholder from causing further misuse and codifies the rule.
+
 ### 1.9 — 2026-06-24 (later same day)
 
 - **Article XV §14 added** — Cite UX precedent before original proposals. AI agents must research established products / industry leaders solving the same problem, surface 2–3 references, then recommend. Originals reserved for genuine precedent gaps. Scope: setup wizards, settings UI, notifications, error states, navigation, terminology. Out of scope: architectural / code / wire-format / domain business logic.
@@ -745,4 +760,4 @@ Initial project constitution created for Launcher based on:
 
 ---
 
-**Version**: 1.9.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-06-24
+**Version**: 1.10.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-06-25

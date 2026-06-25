@@ -20,7 +20,6 @@ sealed class StepType {
     data object UIChoice : StepType()
     data object SystemSetting : StepType()
     data object TutorialHint : StepType()
-    data class Custom(val name: String) : StepType()
 }
 
 sealed class StepResult {

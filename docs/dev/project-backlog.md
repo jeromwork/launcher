@@ -1399,3 +1399,16 @@ Code in main is complete; these only need *running* against a build.
 - **When**: emulator iteration session for TASK-7 polish.
 - **Status**: 🟢 OPEN
 - **Origin**: TASK-7 Phase 6 deferral 2026-06-24.
+
+### TODO-TASK7-005: pair-admin step — add via SystemSetting (NOT Custom) when TASK-8 lands 🟢
+
+- **What**: pair-admin step was removed from `simple-launcher.json` manifest 2026-06-25 along with the entire `StepType.Custom` infrastructure (constitution amendment 1.10). When TASK-8 (Admin App + QR Pairing) lands and the linkRegistry surface is properly defined, pair-admin returns as a normal `SystemSetting` step:
+  - Add `CheckSpec.PairAdminLink` (or similar — names final at TASK-8 time) reading `activeAdminLinkCount > 0` from `LinkRegistry`.
+  - Add `ApplySpec.PairAdminIntent` dispatching to `PairingActivity` (or its TASK-8 successor) via the generic intent ApplyHandler — possibly `SettingsDeepLink` is enough.
+  - Add new pool entry `pair-admin` in `android-pool.json` with the new `check.kind` / `apply.kind`.
+  - Re-add the step to `simple-launcher.json` manifest with `stepType: "SystemSetting"` and `canSkip: true`, `criticality: "Optional"`.
+- **Why**: pair-admin is a setting (state = number of active admin links). It MUST go through the generic `CheckSpec` / `ApplySpec` declarative seam per Article VII §15 + §16 — no per-refId Kotlin handler, no `Custom` step type.
+- **When**: paired with TASK-8 (Admin App + QR Pairing) AND after TASK-51 (libsodium ristretto255 native-lib fix) — without TASK-51 fix PairingActivity itself crashes.
+- **Status**: 🟢 OPEN
+- **Origin**: TASK-7 Phase-5 revert 2026-06-25 (constitution amendment 1.10).
+- **Anti-pattern reference**: original Phase-5 implementation wired pair-admin as `Custom` step with `PairAdminCustomStepHandler` that fire-and-forget-launched `PairingActivity` on step entry — no user UI, no skip path, no state read. DO NOT repeat.

@@ -39,14 +39,10 @@ import com.launcher.api.wizard.UserPreferencesStore
 import com.launcher.api.wizard.WizardCheckpointStore
 import com.launcher.api.wizard.WizardEngine
 import com.launcher.api.wizard.WizardStep
-import com.launcher.api.wizard.data.CUSTOM_DISPATCH_KEY
 import com.launcher.app.wizard.NoopDiagnosticEmitter
 import com.launcher.app.wizard.NoopPermissionRequestPort
-import com.launcher.app.wizard.PairAdminCustomStepHandler
 import com.launcher.ui.wizard.TutorialHintManager
 import com.launcher.ui.wizard.WizardEngineImpl
-import com.launcher.ui.wizard.steps.CustomStep
-import com.launcher.ui.wizard.steps.CustomStepHandler
 import com.launcher.ui.wizard.steps.StepHost
 import com.launcher.ui.wizard.steps.SystemSettingStep
 import com.launcher.ui.wizard.steps.TutorialHintStep
@@ -153,13 +149,6 @@ val spec015Module = module {
         )
     }
 
-    // TASK-7 Phase 5 — Custom-step dispatch (FR-027, FR-028).
-    single<Map<String, CustomStepHandler>>(named("customStepHandlers")) {
-        mapOf(
-            "pair-admin" to PairAdminCustomStepHandler(androidContext()),
-        )
-    }
-
     single<Map<StepType, WizardStep>>(named("wizardSteps")) {
         mapOf(
             StepType.UIChoice to UIChoiceStep(host = get(named("uiChoiceHost"))),
@@ -173,9 +162,6 @@ val spec015Module = module {
             StepType.TutorialHint to TutorialHintStep(
                 host = get(named("tutorialHintHost")),
                 hintManager = get(),
-            ),
-            StepType.Custom(CUSTOM_DISPATCH_KEY) to CustomStep(
-                handlers = get(named("customStepHandlers")),
             ),
         )
     }

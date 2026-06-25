@@ -81,7 +81,6 @@ class WizardEngineImpl(
                 StepType.SystemSetting -> systemSettingPort.status(entry.refId) != SettingStatus.Applied
                 StepType.UIChoice -> !prefs.hasValueFor(entry.refId)
                 StepType.TutorialHint -> !dismissedHintsStore.isDismissed(entry.refId)
-                is StepType.Custom -> true
             }
         }
     }
