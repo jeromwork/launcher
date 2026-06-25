@@ -24,6 +24,8 @@ references:
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 > **Версии описания.** Это описание sync'нуто 2026-06-24 после полного цикла speckit (specify → clarify → scenarios → plan → tasks → analyze). Источник правды: [`specs/task-7-simple-launcher-first-run/`](../../specs/task-7-simple-launcher-first-run/). Это описание — projection финального scope'а для backlog Kanban читателя; за полным контекстом — в spec.md / plan.md / tasks.md / analyze-report.md.
+>
+> **Update 2026-06-25 (post device verification).** Manifest сокращён с 4 шагов до 3 (ROLE_HOME + tileSet + POST_NOTIFICATIONS). Шаг pair-admin **вынесен** из TASK-7 в TASK-8 после constitution amendment 1.10 (запрет `StepType.Custom` / per-refId Kotlin handlers). Phase-5 (T046-T049) reverted. Все упоминания "4 шага", "Custom step", "pair-admin Custom" ниже относятся к **состоянию до 2026-06-25**; читай в [`tasks.md`](../../specs/task-7-simple-launcher-first-run/tasks.md) секцию "Device Verification Findings" и Phase-5 revert notice. Pair-admin вернётся в TASK-8 как `SystemSetting` step с `CheckSpec.PairAdminLink` + `ApplySpec.PairAdminIntent` (см. TODO-TASK7-005 в [`docs/dev/project-backlog.md`](../../docs/dev/project-backlog.md)).
 
 > **Про роли в этой задаче.** Wizard проходит **assisting** — родственник в гостях / платный помощник / IT-support в clinic'е / HR в B2B. Aspirational secondary path: primary user (пожилой, со слабыми когнитивными способностями) проходит wizard сам (CLAUDE.md «Personas vs domain roles»). Те же flow для clinic / B2B / self-care сегментов.
 
@@ -31,12 +33,13 @@ references:
 
 **TASK-7 = ship `simple-launcher` профиль + закрыть 3 архитектурные дыры в F-3.** Профиль `simple-launcher` (per constitution Article VII §9–13) = композиция bundled JSON-конфигов = elderly-friendly handheld variant с большими плитками, тёплыми цветами, минимум choices.
 
-**Финальный scope wizard'а (после clarify pass'а)** — **3 mandatory + 1 optional = 4 шага**:
+**Финальный scope wizard'а (post-2026-06-25 revert)** — **3 mandatory шага**:
 
 1. ★ ROLE_HOME (`canSkip: false` override от pool default `true`) — без этого launcher не launcher.
 2. ★ tileSet — выбор раскладки плиток (currently only one bundled: `classic-6`).
 3. ★ POST_NOTIFICATIONS (`canSkip: true` override от pool default `false`, auto-skip на Android < 13).
-4. ☆ pair-admin (Custom step, optional silent) — соединение с admin-устройством по QR через spec 007 PairingActivity.
+
+~~4. ☆ pair-admin (Custom step, optional silent)~~ — **removed 2026-06-25** per constitution amendment 1.10 (no `StepType.Custom`). Возвращается в TASK-8 как `SystemSetting` step с `CheckSpec.PairAdminLink` + `ApplySpec.PairAdminIntent` (см. TODO-TASK7-005).
 
 Language auto-detect (нет wizard step). Theme default warm light (нет wizard step). Все остальные настройки (CALL_PHONE, accessibility-service, battery-optimization, hide-status-bar, fontScale, grid, screenLayout) — Optional Silent (доступны в Settings, нет step в wizard, нет banner'а).
 
@@ -86,14 +89,15 @@ Language auto-detect (нет wizard step). Theme default warm light (нет wiza
 - `SettingStatusCache` + `CacheInvalidatingLifecycleObserver` (TTL 30s + invalidate-on-resume).
 - `AndroidSystemSettingAdapter` модификация: handler registry dispatch + cache integration + v1 fallback.
 - `WizardActivity` + `LauncherApplication` модификации: `AppCompatDelegate.setApplicationLocales()` calls.
-- `CustomStep` + `PairAdminCustomStepHandler` (launches spec 007 `PairingActivity`).
+- ~~`CustomStep` + `PairAdminCustomStepHandler` (launches spec 007 `PairingActivity`).~~ — **removed 2026-06-25** per constitution amendment 1.10 (no `StepType.Custom`); returns at TASK-8 as `SystemSetting` step.
 - Settings UI: `PendingChecklistScreen`, `WalkThroughButton`, `LocaleDivergenceIndicator` (Compose composables + ViewModels).
+- **Added 2026-06-25**: `Spec015DiGraphTest` regression test that resolves `WizardEngine` via real Koin to catch `Map<*, *>` ambiguity (the Phase-5 cycle that crashed `WizardActivity` on real device).
 
 **Content changes (Phase 4):**
 
-- `simple-launcher.wizard.manifest.json`: `autoOrder: true` → explicit `steps: [...]` (4 entries с per-profile canSkip overrides).
+- `simple-launcher.wizard.manifest.json`: `autoOrder: true` → explicit `steps: [...]` (3 entries post-2026-06-25 revert; originally 4 including pair-admin Custom).
 - `android-pool.json`: schemaVersion 1 → 2; добавить `check` + `apply` блоки для всех 6 entries.
-- String resources (en + ru) для новых ключей (pair-admin, walk-through, locale divergence, ROLE_HOME retry message).
+- String resources (en + ru) для новых ключей (walk-through, locale divergence, ROLE_HOME retry message). ~~pair-admin keys~~ removed 2026-06-25 with Phase-5 revert.
 
 **No new external dependencies.** Existing stack: kotlinx-serialization, Koin, AndroidX AppCompat, Compose Multiplatform.
 
@@ -116,7 +120,7 @@ Language auto-detect (нет wizard step). Theme default warm light (нет wiza
 
 ## Состояние
 
-**In Progress** (взято в работу 2026-06-24). Speckit cycle complete (verdict READY per [analyze-report.md](../../specs/task-7-simple-launcher-first-run/analyze-report.md)). Готов к implementation.
+**Verification** (Phase 0–7 implementation complete + device verification on Xiaomi 11T 2026-06-25). 2 architectural fixes surfaced during device run: (a) Koin `Map<*, *>` cycle → commit 8882c71 + `Spec015DiGraphTest`. (b) `StepType.Custom` retirement + Phase-5 revert → commit f4842aa + constitution amendment 1.10. Remaining device gates blocked by external TASK-51 (libsodium) / TASK-52 (HomeActivity hang). Pair-admin re-implementation moved to TASK-8 (see TODO-TASK7-005).
 
 **Зависимости**: TASK-1 Done. Не блокируется TASK-6 (Paused, F-5 Root Key) — TASK-7 LOCAL mode, без cloud / identity. Опирается на orphan-спеки 010 / 007 / 003 (код в репозитории verified 2026-06-24 через grep / file inspection).
 
@@ -222,14 +226,14 @@ EFFORT: Medium (~1-2 weeks). Значительно меньше чем каза
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 [hand] Wizard первый pending step виден ≤ 2 сек после tap'а на иконку — ✅ verified Xiaomi 11T 2026-06-25, T061 cold start TotalTime=1330 ms (commit 29e7c0d)
-- [ ] #2 [hand] 3 mandatory + 1 optional → HomeActivity рендерит выбранную композицию (classic-6 поверх 3x4-classic) ≤ 1 сек после wizard exit'а — ⚠️ BLOCKED by TASK-52 (HomeActivity «Загрузка…» >60s on real device); wizard сам доходит до HomeActivity start, дальше внешний блокер
+- [ ] #2 [hand] 3 mandatory шага (ROLE_HOME + tileSet + POST_NOTIFICATIONS) → HomeActivity рендерит выбранную композицию (classic-6 поверх 3x4-classic) ≤ 1 сек после wizard exit'а — ⚠️ BLOCKED by TASK-52 (HomeActivity «Загрузка…» >60s on real device); wizard сам доходит до HomeActivity start, дальше внешний блокер. (pair-admin step removed 2026-06-25 per constitution amendment 1.10 — returns as `SystemSetting` step at TASK-8)
 - [x] #3 [hand] ROLE_HOME уже granted через Android Settings до wizard'а → wizard не показывает ROLE_HOME step (config-check master в действии) — ✅ verified Xiaomi 11T 2026-06-25, T063 PASS via `cmd role add-role-holder` (commit 29e7c0d)
 - [ ] #4 [hand] System locale change (Android Settings → Languages → English) после wizard'а с languageOverride: ru → app остаётся на русском после restart'а (Article III §7 stability) — ⚠️ BLOCKED by TASK-52 (cannot complete wizard end-to-end on device); unit-level code verified (LauncherApplication.onCreate reads override, WizardActivity sets it on completion)
 - [ ] #5 [hand] Pairing с admin device в wizard'е завершился успешно → LinkRegistry.activate() записал link → home screen рендерится с paired state — ⚠️ DEFERRED to TASK-8: pair-admin step removed from simple-launcher.json manifest 2026-06-25 per constitution amendment 1.10 (StepType.Custom retired). Returns as SystemSetting step at TASK-8 with CheckSpec.PairAdminLink + ApplySpec.PairAdminIntent (see TODO-TASK7-005 in docs/dev/project-backlog.md). Also blocked by TASK-51 (libsodium ristretto255 missing arm64) regardless.
 - [ ] #6 [hand] Перезагрузил устройство → wizard не повторяется; HomeActivity открывается с применённой композицией — ⚠️ BLOCKED by TASK-52 (cannot complete wizard once); `UserPreferencesStore.isWizardCompleted` short-circuit verified in code (FirstLaunchActivity.proceedToHome)
 - [N/A] #7 [hand] Senior-safe walkthrough на эмуляторе через skill android-emulator — assisting проходит wizard без подсказок — ⚠️ Visual contrast tuning DEFERRED per Article II §8 (MVP polish via JSON, not code) — TASK-54 paused to post-MVP Phase 4. Wizard flow itself is functional end-to-end on Xiaomi 11T 2026-06-25; only visual polish deferred.
 - [ ] #8 [auto:deferred-local-emulator] Local emulator gates (T060 senior-safe, T062 locale persistence) — pending owner kicks emulator
-- [ ] #9 [auto:deferred-physical-device] Physical device gates (T038 locale persist, T058 PendingChecklist UI, T061 full E2E ≤1s HomeActivity, T064 Samsung One UI, T065 MIUI battery quirks, T066 2-device pairing) — partially verified on Xiaomi 11T 2026-06-25 (T063 ✅, T061 cold-start ✅); remaining blocked by TASK-51/52/54/55 or absent devices (Samsung, second device)
+- [ ] #9 [auto:deferred-physical-device] Physical device gates (T038 locale persist, T058 PendingChecklist UI, T061 full E2E ≤1s HomeActivity, T064 Samsung One UI, T065 MIUI battery quirks, T066 2-device pairing) — partially verified on Xiaomi 11T 2026-06-25 (T063 ✅ ROLE_HOME pre-grant, T061 cold-start ✅ 1260 ms); remaining blocked by external TASK-51 (libsodium) / TASK-52 (HomeActivity hang) or absent devices (Samsung, second device with admin app stub for TASK-8). TASK-54 (senior-warm contrast) paused to m-3 per Article II §8 — not a blocker.
 <!-- AC:END -->
 
 <!-- SECTION:VERIFICATION_PENDING:BEGIN -->

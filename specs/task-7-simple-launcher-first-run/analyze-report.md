@@ -2,6 +2,8 @@
 
 **Date**: 2026-06-24 | **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md) | **Tasks**: [tasks.md](tasks.md)
 
+> **⚠️ UPDATE 2026-06-25.** This report's PASS verdict on Phase-5 ("CustomStep + DI extension is the correct decoupling pattern") was **wrong** — Phase-5 design failed device verification, was reverted, and the `StepType.Custom` infrastructure removed entirely (constitution amendment 1.10). The report below reflects the pre-revert state. Authoritative current state: [`tasks.md`](tasks.md) Phase 5 revert + Device Verification Findings sections.
+
 Final consistency audit before implementation per [`speckit-analyze`](../../.claude/skills/speckit-analyze/SKILL.md) orchestrator. Re-runs constitution check, cross-artifact trace, full checklist sweep, and specific scans. Reports punch list; does not auto-fix.
 
 ---

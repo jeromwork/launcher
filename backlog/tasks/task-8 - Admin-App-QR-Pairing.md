@@ -58,6 +58,17 @@ ordinal: 8000
 - Sign-out preserves pairing (для recovery flow на новом устройстве admin'а).
 - Remote invites через адаптер (deferred, второй PairingChannel — TASK-31 V-6).
 
+**Inherited from TASK-7 revert 2026-06-25** (per constitution amendment 1.10 — no `StepType.Custom`):
+
+- **Simple Launcher wizard pair-admin step** возвращается в `simple-launcher.wizard.manifest.json` как `SystemSetting` шаг (НЕ `Custom`). TASK-7 убрал pair-admin полностью из manifest'а; TASK-8 добавляет его обратно через generic declarative seam:
+  - Новый `CheckSpec.PairAdminLink` variant в `core/commonMain` — читает `activeAdminLinkCount > 0` (или эквивалентное состояние) из `LinkRegistry` / KeyRegistry.
+  - Новый `ApplySpec.PairAdminIntent` variant — dispatches к pairing UI (QR scanner) через generic intent ApplyHandler — возможно достаточно existing `SettingsDeepLink`-style apply.
+  - Новая запись `pair-admin` в `android-pool.json` v2 с этими `check.kind` / `apply.kind`.
+  - Step добавляется в `simple-launcher.wizard.manifest.json` как `stepType: "SystemSetting"`, `canSkip: true`, `criticality: "Optional"`.
+  - DO NOT повторять Phase-5 anti-pattern: per-refId Kotlin handler с fire-and-forget startActivity — это нарушение Article VII §16.
+- Ссылка на полное описание паттерна: `docs/dev/project-backlog.md` → TODO-TASK7-005.
+- Также от TASK-51 (libsodium ristretto255 native lib) зависит — без неё `PairingActivity` сам по себе крашится на arm64.
+
 ## Состояние
 
 **Planned.** Cloud feature. Зависит от TASK-3 (Google Sign-In), TASK-6 (Root Key Registry), TASK-7 (Simple Launcher как target pairing'а).
@@ -82,6 +93,7 @@ SCOPE ВКЛЮЧАЕТ:
 - Pairing key persistence в KeyRegistry per-identity (из TASK-6 / F-5).
 - Admin dashboard UI: список paired Managed + статус последнего синка.
 - Sign-out preserves pairing (recovery-ready).
+- **Simple Launcher pair-admin step возвращается через generic SystemSetting** (НЕ Custom step). Добавляет `CheckSpec.PairAdminLink` + `ApplySpec.PairAdminIntent` в `core/commonMain`, новую запись в `android-pool.json`, и step в `simple-launcher.wizard.manifest.json`. Это inherited deliverable от TASK-7 revert 2026-06-25 — см. TODO-TASK7-005.
 
 SCOPE НЕ ВКЛЮЧАЕТ:
 - Remote invite через ссылку (LinkInvitePairingChannel) — TASK-31 V-6 в Phase 4.

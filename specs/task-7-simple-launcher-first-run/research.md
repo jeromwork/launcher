@@ -2,6 +2,8 @@
 
 **Date**: 2026-06-24 | **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md)
 
+> **⚠️ UPDATE 2026-06-25.** The decision "Pairing as Custom step via DI extension" documented below was **reversed** per constitution amendment 1.10. The exit ramp described in the decision (use generic `CheckSpec` / `ApplySpec` if `Custom` mechanism proves wrong) was **executed**: `StepType.Custom` retired, `CustomStep` / `CustomStepHandler` / `PairAdminCustomStepHandler` deleted. Pair-admin returns at TASK-8 as standard `SystemSetting` step. The original decision text is preserved below as historical record of how the wrong path was taken — note in particular that the exit ramp was correctly anticipated but ignored at Phase-5 implementation time.
+
 This document captures the one-way doors (per [`CLAUDE.md`](../../CLAUDE.md) §3) and significant design decisions for TASK-7. Each decision lists alternatives considered, why we chose the path, and exit ramp if we later need to reverse.
 
 ---

@@ -2,8 +2,26 @@
 
 **Feature Branch**: `task-7-simple-launcher-first-run`
 **Created**: 2026-06-24 (rewritten after architecture clarification, verification, and constitution amendments 1.7 / 1.8)
-**Status**: Draft post-clarify
+**Status**: Verification (post-device-verify 2026-06-25)
 **Input**: User description: backlog [TASK-7](../../backlog/tasks/task-7%20-%20Simple-Launcher-first-run-Setup-Wizard.md) S-1. Ship `simple-launcher` profile as composition of bundled JSON documents on top of the existing wizard engine (TASK-1 / F-3 Done). LOCAL mode, без cloud. Constitution Article VII §9-15 + Article II §8 + Article III §7.
+
+> **⚠️ UPDATE 2026-06-25 — post-device-verification revert.**
+>
+> The spec below was written before device verification surfaced two architectural problems on Xiaomi 11T:
+> 1. **Koin DI cycle** between `Map<*, *>` bindings — fixed by named qualifiers in [commit `8882c71`](https://github.com/jeromwork/launcher/commit/8882c71) + new regression test `Spec015DiGraphTest`.
+> 2. **`StepType.Custom` misuse**. F-3 (spec 015) added `StepType.Custom(name: String)` as a *placeholder for future extension* with the comment "Custom types от app-family добавляются через DI Map" — no concrete use case (violation of CLAUDE.md rule 4). TASK-7 Phase-5 (T046-T049) misused this placeholder to wire `pair-admin` as a `Custom` step with a `PairAdminCustomStepHandler` that fire-and-forget-launched `PairingActivity` on engine step entry — no user UI, no skip path, no `CheckSpec`-based state read. This breaks Article VII §11 (wizard = projection of config, not source of truth) and §13 (no per-profile code branches).
+>
+> **Constitution amendment 1.10** (2026-06-25) retires `StepType.Custom` and forbids per-refId Kotlin handlers (new Article VII §16). Phase-5 reverted. The 4th wizard step (`Custom("pair-admin") Optional`) **removed** from `simple-launcher.wizard.manifest.json`. The manifest is now **3-step**: `ROLE_HOME` + `tileSet` + `POST_NOTIFICATIONS`.
+>
+> Pair-admin returns at **TASK-8** as a standard `SystemSetting` step via the proper declarative seam:
+> - `CheckSpec.PairAdminLink` reading `activeAdminLinkCount > 0` from `LinkRegistry`.
+> - `ApplySpec.PairAdminIntent` dispatching to pairing UI via the generic intent ApplyHandler.
+> - New pool entry `pair-admin` in `android-pool.json` v2 with these `check.kind` / `apply.kind`.
+> - Step re-added to `simple-launcher.wizard.manifest.json` as `stepType: "SystemSetting"`, `canSkip: true`, `criticality: "Optional"`.
+>
+> See [`docs/dev/project-backlog.md`](../../docs/dev/project-backlog.md) → TODO-TASK7-005 for the full re-implementation contract.
+>
+> **All references below to "4 steps", "Custom step", "pair-admin Custom", `Custom("PairAdmin")`, `CustomStep`, `CustomStepHandler`, FR-027, FR-028, FR-029, Part G "Pairing integration as Custom step", and SC-005 in its pre-2026-06-25 form describe the original (now-reverted) Phase-5 design.** They are kept inline as historical record. The authoritative current state is in [`tasks.md`](tasks.md) Phase 5 revert notice + Device Verification Findings.
 
 ---
 

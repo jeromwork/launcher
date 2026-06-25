@@ -2,6 +2,8 @@
 
 **Date**: 2026-06-24 | **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md)
 
+> **⚠️ UPDATE 2026-06-25.** Section **§5 "CustomStep + CustomStepHandler"** below is **REVERTED** per constitution amendment 1.10 (no `StepType.Custom`, no per-refId handlers). `CustomStep.kt`, `CustomStepHandler` port, and `PairAdminCustomStepHandler` files deleted from the codebase. `WireStepType.Custom`, `StepType.Custom(name)`, `CUSTOM_DISPATCH_KEY` removed. Pair-admin returns at TASK-8 as a standard `SystemSetting` step with new `CheckSpec.PairAdminLink` + `ApplySpec.PairAdminIntent` variants. See [spec.md](spec.md) header + [`docs/dev/project-backlog.md`](../../docs/dev/project-backlog.md) → TODO-TASK7-005.
+
 All types expressed as domain data — no vendor SDK / platform types in signatures (CLAUDE.md rule 1). Wire format types (for JSON) are described in [contracts/](contracts/); this file covers runtime types and relationships.
 
 Types live in packages within the existing `:core` module:

@@ -3,6 +3,8 @@
 **Branch**: `task-7-simple-launcher-first-run` | **Date**: 2026-06-24 | **Spec**: [spec.md](spec.md)
 **Input**: Feature specification from `specs/task-7-simple-launcher-first-run/spec.md`
 
+> **⚠️ UPDATE 2026-06-25.** Phase 5 (T046-T049 "PairAdmin Custom step + DI wiring") was **REVERTED** per constitution amendment 1.10 (no `StepType.Custom`, no per-refId Kotlin handlers). The `Custom("pair-admin")` step was removed from `simple-launcher.json` (manifest now 3-step). Pair-admin returns at TASK-8 as a standard `SystemSetting` step. All Phase 5 references below describe the original (now-reverted) design — see [`tasks.md`](tasks.md) Phase 5 section for the current state, and [spec.md](spec.md) header for the rationale.
+
 ## Summary
 
 Ship `simple-launcher` profile as composition of bundled JSON documents on top of the existing F-3 wizard engine (TASK-1 Done). Three architectural gaps in current F-3 implementation must be closed to fulfill constitution Article VII §14 (config-check master) and Article III §7 (stability over system-level changes): (1) engine `computePending(manifest)` pre-flight using `SystemSettingPort.status()` per step, replacing linear traversal; (2) `AppCompatDelegate.setApplicationLocales()` integration for app-level locale override persistence; (3) pool schema v1→v2 bump with declarative `CheckSpec`/`ApplySpec` sealed hierarchies replacing hardcoded `when(settingId)` dispatch.

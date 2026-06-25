@@ -2,6 +2,8 @@
 
 **Date**: 2026-06-24 | **Spec**: [../spec.md](../spec.md) | **Plan**: [../plan.md](../plan.md)
 
+> **⚠️ UPDATE 2026-06-25.** Production manifest is now **3 steps**, not 4. The 4th `Custom("pair-admin") Optional` entry was **removed** per constitution amendment 1.10 (no `StepType.Custom`, no per-refId handlers). Pair-admin returns at TASK-8 as a standard `SystemSetting` step — see TODO-TASK7-005 in [`../../../docs/dev/project-backlog.md`](../../../docs/dev/project-backlog.md). The "expected JSON" example below still shows 4 entries as a historical record of the original Phase-5 design; the **canonical current state** lives in [`core/src/androidMain/assets/wizard/wizard-manifests/simple-launcher.json`](../../../core/src/androidMain/assets/wizard/wizard-manifests/simple-launcher.json).
+
 This document specifies the **content** of the bundled `simple-launcher.wizard.manifest.json` file after TASK-7 migrates it from `autoOrder: true, steps: null` to explicit steps with per-profile overrides.
 
 The wire format itself (`wizard.manifest` schema) is owned by F-3 / spec 015 and remains at `schemaVersion: 1`. TASK-7 only updates the content of this specific bundled instance.
