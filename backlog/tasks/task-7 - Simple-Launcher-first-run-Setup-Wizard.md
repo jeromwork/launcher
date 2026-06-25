@@ -1,10 +1,10 @@
 ---
 id: TASK-7
 title: Simple Launcher first-run + Setup Wizard
-status: In Progress
+status: Verification
 assignee: []
 created_date: '2026-06-23 05:36'
-updated_date: '2026-06-24 16:00'
+updated_date: '2026-06-25 14:30'
 labels:
   - phase-2
   - s-spec
@@ -221,11 +221,40 @@ EFFORT: Medium (~1-2 weeks). Значительно меньше чем каза
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 [hand] Assisting установил APK на эмулятор → wizard первый pending step виден ≤ 2 сек после tap'а на иконку
-- [ ] #2 [hand] Assisting прошёл 3 mandatory + 1 optional → HomeActivity рендерит выбранную композицию (classic-6 поверх 3x4-classic) ≤ 1 сек после wizard exit'а
-- [ ] #3 [hand] ROLE_HOME уже granted через Android Settings до wizard'а → wizard не показывает ROLE_HOME step (config-check master в действии)
-- [ ] #4 [hand] System locale change (Android Settings → Languages → English) после wizard'а с languageOverride: ru → app остаётся на русском после restart'а (Article III §7 stability)
-- [ ] #5 [hand] Pairing с admin device в wizard'е завершился успешно → LinkRegistry.activate() записал link → home screen рендерится с paired state
-- [ ] #6 [hand] Перезагрузил устройство → wizard не повторяется; HomeActivity открывается с применённой композицией
-- [ ] #7 [hand] Senior-safe walkthrough на эмуляторе через skill android-emulator — assisting проходит wizard без подсказок (manual [hand] AC)
+- [x] #1 [hand] Wizard первый pending step виден ≤ 2 сек после tap'а на иконку — ✅ verified Xiaomi 11T 2026-06-25, T061 cold start TotalTime=1330 ms (commit 29e7c0d)
+- [ ] #2 [hand] 3 mandatory + 1 optional → HomeActivity рендерит выбранную композицию (classic-6 поверх 3x4-classic) ≤ 1 сек после wizard exit'а — ⚠️ BLOCKED by TASK-52 (HomeActivity «Загрузка…» >60s on real device); wizard сам доходит до HomeActivity start, дальше внешний блокер
+- [x] #3 [hand] ROLE_HOME уже granted через Android Settings до wizard'а → wizard не показывает ROLE_HOME step (config-check master в действии) — ✅ verified Xiaomi 11T 2026-06-25, T063 PASS via `cmd role add-role-holder` (commit 29e7c0d)
+- [ ] #4 [hand] System locale change (Android Settings → Languages → English) после wizard'а с languageOverride: ru → app остаётся на русском после restart'а (Article III §7 stability) — ⚠️ BLOCKED by TASK-52 (cannot complete wizard end-to-end on device); unit-level code verified (LauncherApplication.onCreate reads override, WizardActivity sets it on completion)
+- [ ] #5 [hand] Pairing с admin device в wizard'е завершился успешно → LinkRegistry.activate() записал link → home screen рендерится с paired state — ⚠️ BLOCKED by TASK-51 (libsodium ristretto255 missing arm64) + TASK-55 (PairAdmin Custom step needs UI confirm before launching PairingActivity)
+- [ ] #6 [hand] Перезагрузил устройство → wizard не повторяется; HomeActivity открывается с применённой композицией — ⚠️ BLOCKED by TASK-52 (cannot complete wizard once); `UserPreferencesStore.isWizardCompleted` short-circuit verified in code (FirstLaunchActivity.proceedToHome)
+- [ ] #7 [hand] Senior-safe walkthrough на эмуляторе через skill android-emulator — assisting проходит wizard без подсказок — ❌ FAIL Xiaomi 11T 2026-06-25, contrast regression in senior-warm Light theme → TASK-54 (TASK-7 own follow-up)
+- [ ] #8 [auto:deferred-local-emulator] Local emulator gates (T060 senior-safe, T062 locale persistence) — pending owner kicks emulator
+- [ ] #9 [auto:deferred-physical-device] Physical device gates (T038 locale persist, T058 PendingChecklist UI, T061 full E2E ≤1s HomeActivity, T064 Samsung One UI, T065 MIUI battery quirks, T066 2-device pairing) — partially verified on Xiaomi 11T 2026-06-25 (T063 ✅, T061 cold-start ✅); remaining blocked by TASK-51/52/54/55 or absent devices (Samsung, second device)
 <!-- AC:END -->
+
+<!-- SECTION:VERIFICATION_PENDING:BEGIN -->
+## Verification pending (post-merge)
+
+Device-verification прошла на Xiaomi 11T (arm64, MIUI V125, Android 11) 2026-06-25. Подтверждено: cold start ≤2s (AC #1), config-check master ROLE_HOME pre-grant (AC #3), APK size +17 KB (T068 ≤150 KB лимит).
+
+Найденный при прогоне блокер — Koin DI cycle между `SystemSettingPort` и `Map<StepType, WizardStep>` — починен в коммите **8882c71** (`task-7 fix: Koin Map<*,*> cycle blocking WizardActivity on real device`) + regression test `Spec015DiGraphTest`.
+
+### Зависит от external follow-up tasks
+- **TASK-51** (libsodium ristretto255 native lib arm64) — блокирует AC #5 (pairing) через PairingActivity crash.
+- **TASK-52** (HomeActivity «Загрузка…» infinite) — блокирует AC #2, #4, #6 (full wizard flow → HomeActivity render → locale persist round-trip → reboot no-repeat).
+- **TASK-53** (FirstLaunchActivity preset picker EN-on-RU) — visible regression в preset picker; не AC-blocker, но видна.
+
+### Зависит от TASK-7-own follow-up tasks
+- **TASK-54** (senior-warm theme contrast) — блокирует AC #7 (senior-safe walkthrough).
+- **TASK-55** (PairAdmin Custom step needs UI confirm) — блокирует AC #5 (pairing flow design issue, отдельно от TASK-51 native bug).
+
+### Что нужно для перехода Verification → Done
+1. TASK-51 fix (libsodium native rebuild с ristretto255) → re-run T066 (2-device pairing).
+2. TASK-52 fix (HomeActivity render finishes) → re-run T038/T058/T061-full-flow/T062.
+3. TASK-54 fix (senior-warm contrast) → re-run T060.
+4. TASK-55 fix (PairAdmin UI confirm) → re-run T049/T066 with new UI.
+5. Получить Samsung Galaxy → T064.
+
+Когда любой блокер закрыт — повторный прогон `pre-pr-backlog-sync` обновит соответствующие AC.
+
+<!-- SECTION:VERIFICATION_PENDING:END -->
