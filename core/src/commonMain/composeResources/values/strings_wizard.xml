@@ -97,4 +97,8 @@
     <string name="settings_pending_indicator_label">Needs your attention</string>
     <string name="settings_locale_divergence_label_format">App language: %1$s (system Android: %2$s)</string>
 
+    <!-- TASK-7 — Walk-through mode primary / secondary buttons (T055) -->
+    <string name="wizard_walkthrough_keep">Keep</string>
+    <string name="wizard_walkthrough_change">Change</string>
+
 </resources>

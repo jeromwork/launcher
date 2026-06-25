@@ -69,7 +69,7 @@ class WizardEngineImpl(
         if (ordered.isEmpty()) {
             return finishCompleted(manifest, emptyMap())
         }
-        return traverseSteps(manifest, ordered, resumed = null)
+        return traverseSteps(manifest, ordered, resumed = null, mode = WizardEngine.Mode.WalkThrough)
     }
 
     override suspend fun computePending(manifest: WizardManifest): List<StepEntry> {
@@ -110,6 +110,7 @@ class WizardEngineImpl(
         manifest: WizardManifest,
         ordered: List<StepEntry>,
         resumed: WizardCheckpoint?,
+        mode: WizardEngine.Mode = WizardEngine.Mode.Wizard,
     ): WizardOutcome {
         val startIndex = resumed
             ?.takeIf { it.schemaVersion == 1 && it.currentStepIndex in ordered.indices }
@@ -133,6 +134,7 @@ class WizardEngineImpl(
                 totalSteps = ordered.size,
                 currentStep = step,
                 answers = answers.toMap(),
+                mode = mode,
             )
 
             val result = step.execute(

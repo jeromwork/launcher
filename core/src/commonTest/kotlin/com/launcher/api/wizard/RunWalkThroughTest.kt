@@ -19,6 +19,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 /**
  * TASK-7 Phase 6 — runWalkThrough variant (FR-014a / Сценарий 5).
@@ -54,6 +55,60 @@ class RunWalkThroughTest {
             steps = steps,
         ),
     )
+
+    private class ModeCapturingStep : WizardStep {
+        override val stepType: StepType = StepType.SystemSetting
+        override val canSkip: Boolean = true
+        override val canGoBack: Boolean = true
+        var engineRef: WizardEngine? = null
+        val capturedModes = mutableListOf<WizardEngine.Mode>()
+        override suspend fun execute(params: StepParams): StepResult {
+            val running = engineRef?.currentState()?.value as? WizardState.Running
+            running?.let { capturedModes += it.mode }
+            return StepResult.Skipped
+        }
+    }
+
+    @Test
+    fun runWalkThrough_setsWalkThroughModeOnState() = runTest {
+        val port = FakeSystemSettingAdapter()
+        val prefs = InMemoryUserPreferencesStore()
+        val recordingStep = ModeCapturingStep()
+        val engine = WizardEngineImpl(
+            steps = mapOf(StepType.SystemSetting to recordingStep),
+            checkpointStore = InMemoryCheckpointStore(),
+            userPreferencesStore = prefs,
+            configSource = FakeConfigSource(),
+            clock = FakeClock(),
+            diagnostics = RecordingDiagnosticEmitter(),
+            systemSettingPort = port,
+            dismissedHintsStore = InMemoryDismissedHintsStore(),
+        )
+        recordingStep.engineRef = engine
+
+        val m = manifest(
+            steps = listOf(
+                StepEntry(
+                    WireStepType.SystemSetting,
+                    "android.role.home",
+                    canSkip = true,
+                    criticality = WireCriticality.Optional,
+                ),
+            ),
+        )
+
+        engine.runWalkThrough(m)
+        assertEquals(listOf(WizardEngine.Mode.WalkThrough), recordingStep.capturedModes)
+
+        recordingStep.capturedModes.clear()
+        engine.run(m)
+        // FakeSystemSettingAdapter defaults to NotApplied, so computePending
+        // is non-empty and run() traverses the step in Wizard mode.
+        assertTrue(
+            recordingStep.capturedModes.all { it == WizardEngine.Mode.Wizard },
+            "expected Wizard mode in state during run(); got ${recordingStep.capturedModes}",
+        )
+    }
 
     @Test
     fun runWalkThrough_traversesAllSteps_evenWhenComputePendingWouldBeEmpty() = runTest {
