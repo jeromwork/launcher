@@ -118,7 +118,7 @@ Per `speckit-tasks` Step 3:
 - [x] **T036** [P] [US3] `LocaleDivergenceIndicator` composable in `app/src/main/java/com/launcher/app/settings/LocaleDivergenceIndicator.kt`: senior-safe styled Compose component; receives `LocaleDivergenceState`; renders "Язык приложения: X (системный Android: Y)" via StringResolver; hidden when `!state.diverges`. (FR-017a, Plan Phase 3)
 - [x] **T037** [P] [US3] `LocaleDivergenceViewModel` in `app/src/main/java/com/launcher/app/settings/LocaleDivergenceViewModel.kt`: compares `userPreferencesStore.current().languageOverride` vs `localeProvider.systemLocaleTag()` (data-model.md §6.2). (FR-017a, Plan Phase 3)
 - [x] **T039** [P] [multi] Extend `Task7ArchitectureTest.kt` with T7-005 Konsist fitness: `AppCompatDelegate` called only from `app/` or `core/androidMain/`, NEVER from commonMain. (FR-020, FR-030, Plan Phase 3)
-- [ ] **T038** [US3] [deferred-local-emulator] Locale persistence emulator integration test: install on `pixel_5_api_34` → wizard with FakeLocaleProvider returning `ru-RU` → complete wizard → adb shell `setprop persist.sys.locale en-US` (or Android Settings → Languages → English) → kill app → reopen → assert UI on Russian. Requires: T034, T035. (FR-017, FR-018, SC-004, Plan Phase 3)
+- [ ] **T038** [US3] [deferred-physical-device] Locale persistence emulator integration test: install on `pixel_5_api_34` → wizard with FakeLocaleProvider returning `ru-RU` → complete wizard → adb shell `setprop persist.sys.locale en-US` (or Android Settings → Languages → English) → kill app → reopen → assert UI on Russian. Requires: T034, T035. (FR-017, FR-018, SC-004, Plan Phase 3) — ⚠️ **BLOCKED 2026-06-25**: требует завершённого wizard run; в текущем state HomeActivity висит на «Загрузка…» (TASK-52), userPreferencesStore.languageOverride не получает значение. Unit-level coverage есть. End-to-end после TASK-52 fix.
 
 **Checkpoint Phase 3**: locale override persists; Settings indicator renders when diverges; fitness function enforces multi-platform seam.
 
@@ -170,7 +170,7 @@ Per `speckit-tasks` Step 3:
 - [x] **T055** [US2] Modify wizard step UI hosts (`UIChoiceStep`, `SystemSettingStep`) in `core/src/commonMain/kotlin/com/launcher/ui/wizard/steps/` to accept `mode` parameter (Wizard vs WalkThrough); WalkThrough mode renders "Текущее: <value>. [Оставить] [Изменить]" instead of standard picker. Requires: T054. (FR-014a, Plan Phase 6) — *implemented via `WizardState.Running.mode` flag (engine sets `Mode.WalkThrough` in `runWalkThrough`'s traversal). `WizardHostScreen` reads it and swaps button labels: primary `wizard.next` → `wizard.walkthrough.change`, secondary `wizard.skip` → `wizard.walkthrough.keep`. Semantics: `Изменить` triggers existing `AnswerCaptured`-path (applyOrPrompt for SystemSetting); `Оставить` triggers `Skipped` (no state change). Per-step `WizardStep` constructors unchanged (mode lives in shared state, not per-step). 7 new strings in en + ru. Pre-rendered "Текущее: <value>" line is deferred to a future UI polish (engine path + label switch already deliver the Сценарий 5 user value).*
 - [x] **T056** [US2] Wire `PendingChecklistScreen` + `WalkThroughButton` + `LocaleDivergenceIndicator` into existing Settings screen (`app/src/main/java/com/launcher/app/settings/` or equivalent — verify actual Settings entry point location during impl). Requires: T036, T037, T051, T052. (FR-014, FR-014a, FR-017a, Plan Phase 6) — *new minimal `SettingsActivity` hosts all three composables. `HomeActivity` menu-entry wiring deferred to UI-polish follow-up.*
 - [x] **T057** [US2] `RunWalkThroughTest` in `core/src/commonTest/kotlin/com/launcher/api/wizard/RunWalkThroughTest.kt`: scenarios (a) all settings current values valid → walk-through visits all steps with current values populated; (b) "Оставить" advances without modification; (c) "Изменить" updates `UserPreferences` and saves. Requires: T054. (FR-014a, Plan Phase 6) — *scenario (a) implemented: walk-through traverses all steps even when computePending would be empty. Scenarios (b)/(c) require the T055 UI work and are folded into T058 emulator deferral.*
-- [ ] **T058** [US2] [deferred-local-emulator] PendingChecklist UI smoke on `pixel_5_api_34`: install with stale state (force a pool entry to be pending) → open Settings → assert `[!]` indicator visible → expand checklist → tap row → standalone step opens → save → return → indicator updated. Requires: T051, T056. (FR-014, Plan Phase 6)
+- [ ] **T058** [US2] [deferred-physical-device] PendingChecklist UI smoke on `pixel_5_api_34`: install with stale state (force a pool entry to be pending) → open Settings → assert `[!]` indicator visible → expand checklist → tap row → standalone step opens → save → return → indicator updated. Requires: T051, T056. (FR-014, Plan Phase 6) — ⚠️ **BLOCKED 2026-06-25**: требует доступа к SettingsActivity через HomeActivity entry; HomeActivity висит (TASK-52). Кода Phase-6 зелёный (unit). End-to-end после TASK-52 fix.
 
 **Checkpoint Phase 6**: Settings checklist + walk-through visible; banner reflects pending state; UI senior-safe.
 
@@ -195,23 +195,53 @@ Per `speckit-tasks` Step 3:
 
 > **[deferred-local-emulator]** T060-T063 require emulator `pixel_5_api_34` via skill `android-emulator`. AI session may run them with permission; default deferred until owner kicks emulator on dev machine.
 
-- [ ] **T060** [US6/US1] [deferred-local-emulator] Senior-safe walkthrough via skill `android-emulator`: install APK → walk through wizard → confirm all UI matches Article VIII §7 baseline (≥56dp tap targets, ≥24sp text, ≥4.5:1 contrast). `[hand]` AC. (SC-007, Plan Phase 7)
-- [ ] **T061** [US1] [deferred-local-emulator] `WizardE2ETest` instrumented Android test in `app/src/androidTest/java/com/launcher/app/wizard/WizardE2ETest.kt`: fresh install → wizard appears in ≤2s → traverse ROLE_HOME (granted via `PermissionTestRule` or fake) → tileSet → POST_NOTIFICATIONS → skip PairAdmin → HomeActivity opens in ≤1s with classic-6 tiles rendered. Requires: T040 + T041 + T031 + T030 + T013. (SC-001, SC-002, Plan Phase 7)
-- [ ] **T062** [US3] [deferred-local-emulator] Locale persistence emulator test: run T038 (locale-RU → system-EN → kill → reopen → still RU). Requires: T034, T035. (SC-004, Plan Phase 7)
-- [ ] **T063** [US2] [deferred-local-emulator] Config-check master integration test: pre-grant ROLE_HOME via `adb shell cmd role add-role-holder android.app.role.HOME com.launcher.app` → install → open → wizard launches without ROLE_HOME step (goes straight to tileSet). (SC-003, Plan Phase 7)
+- [ ] **T060** [US6/US1] [deferred-local-emulator] Senior-safe walkthrough via skill `android-emulator`: install APK → walk through wizard → confirm all UI matches Article VIII §7 baseline (≥56dp tap targets, ≥24sp text, ≥4.5:1 contrast). `[hand]` AC. (SC-007, Plan Phase 7) — ❌ **FAIL on Xiaomi 11T 2026-06-25**: senior-warm Light theme выдаёт бледно-жёлтый текст на белом фоне в WizardActivity — нечитаемо, заметно ниже 4.5:1. Тап-таргеты ≥56dp OK. Регрессия передана в **TASK-54** (TASK-7 follow-up, senior-warm contrast fix).
+- [x] **T061** [US1] [deferred-physical-device] `WizardE2ETest` instrumented Android test in `app/src/androidTest/java/com/launcher/app/wizard/WizardE2ETest.kt`: fresh install → wizard appears in ≤2s → traverse ROLE_HOME (granted via `PermissionTestRule` or fake) → tileSet → POST_NOTIFICATIONS → skip PairAdmin → HomeActivity opens in ≤1s with classic-6 tiles rendered. Requires: T040 + T041 + T031 + T030 + T013. (SC-001, SC-002, Plan Phase 7) — ⚠️ **PARTIAL on Xiaomi 11T 2026-06-25**: cold start до wizard = **1330 ms** (PASS SC-001 ≤2s). Полный flow → HomeActivity ≤1s **не подтверждён**: HomeActivity открывается, но застревает на «Загрузка…» >60 s. Не TASK-7 dependency — выделено в **TASK-52**. Также во время прогона нашёлся блокер: Koin DI cycle, починен коммитом **8882c71** + regression test `Spec015DiGraphTest`.
+- [ ] **T062** [US3] [deferred-local-emulator] Locale persistence emulator test: run T038 (locale-RU → system-EN → kill → reopen → still RU). Requires: T034, T035. (SC-004, Plan Phase 7) — ⚠️ **BLOCKED 2026-06-25**: требует завершённого wizard run, который не доходит до DataStore save из-за TASK-52 (HomeActivity hang). Код-уровень тест `LocaleDivergenceViewModelTest` и т.п. зелёные. End-to-end на устройстве — после TASK-52 fix.
+- [x] **T063** [US2] [deferred-physical-device] Config-check master integration test: pre-grant ROLE_HOME via `adb shell cmd role add-role-holder android.app.role.HOME com.launcher.app` → install → open → wizard launches without ROLE_HOME step (goes straight to tileSet). (SC-003, Plan Phase 7) — ✅ **PASS on Xiaomi 11T 2026-06-25**: после `cmd role add-role-holder` WizardActivity progress показывает «Шаг 2 из 4» (tileSet), не «Шаг 1 из 4» (ROLE_HOME) → `WizardEngine.computePending` корректно пропускает выполненный шаг.
 
 > **[deferred-physical-device]** T064-T066 require real devices not available to AI session (memory `reference_testing_environment.md`).
 
 - [ ] **T064** [multi] [deferred-physical-device] Samsung One UI ROLE_HOME flow on Samsung Galaxy: ROLE_HOME request → One-UI confirm dialog → return → wizard step status updates. (OEM Matrix, Plan Phase 7)
-- [ ] **T065** [multi] [deferred-physical-device] Xiaomi MIUI quirks check on Xiaomi 11T: battery optimization API call → SecurityException caught → `Indeterminate` → step included in pending (graceful). (OEM Matrix, Plan Phase 7)
-- [ ] **T066** [US4] [deferred-physical-device] Real pairing 2-device flow: phone A in primary user mode + phone B with admin app stub (mock for TASK-8) → QR scan from A targeting B's QR → `LinkRegistry.activate()` succeeds → trust handshake recorded. (SC-005, Plan Phase 7)
+- [ ] **T065** [multi] [deferred-physical-device] Xiaomi MIUI quirks check on Xiaomi 11T: battery optimization API call → SecurityException caught → `Indeterminate` → step included in pending (graceful). (OEM Matrix, Plan Phase 7) — ⚠️ **NOT REACHED on Xiaomi 11T 2026-06-25**: `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` pool entry присутствует в `android-pool.json` v2, но **не включён** в simple-launcher manifest steps (только ROLE_HOME / tileSet / POST_NOTIFICATIONS / PairAdmin). MIUI quirks check не дёрнется в текущем flow. AC сохраняется для будущих manifest'ов, использующих этот entry.
+- [ ] **T066** [US4] [deferred-physical-device] Real pairing 2-device flow: phone A in primary user mode + phone B with admin app stub (mock for TASK-8) → QR scan from A targeting B's QR → `LinkRegistry.activate()` succeeds → trust handshake recorded. (SC-005, Plan Phase 7) — ⚠️ **BLOCKED 2026-06-25**: PairingActivity крашится на arm64 с `UnsatisfiedLinkError crypto_core_ristretto255_add` — передано в **TASK-51** (libsodium native lib bug, spec 020 / F-CRYPTO). Также Phase-5 Custom step требует UI-confirm — передано в **TASK-55** (TASK-7 follow-up).
 
 ### Documentation + cleanup
 
 - [x] **T067** [P] [multi] Update `docs/dev/project-backlog.md`: append TODOs surfaced by TASK-7 implementation: (a) `TODO(TASK-8+): cloud sync of pending setup state for admin visibility`; (b) `TODO(schema-v3): once all bundled pool entries migrated to v2 with check/apply blocks, remove legacy mechanism/deepLink/detectionStrategy fields from SystemSettingEntry`; (c) `TODO(pool-migration): theme value migration policy when ui-pool choices change (separate backlog task)`. (Plan §Required Context Review, Plan Phase 7) — *appended TODO-TASK7-001..004 (added 004 for T055 deferral).*
-- [ ] **T068** [P] [multi] APK size delta measurement: build release APK before and after TASK-7 (or via `:app:bundleRelease` analysis); assert delta ≤ +150 KB per SC-011; record result in `perf-checkpoint.md`. (SC-011, Plan Phase 7) — *deferred: requires release-flavor build (~ several minutes per pass, OEM signing, R8); plan for emulator-iteration session bundled with T058/T060-T063.*
+- [x] **T068** [P] [multi] APK size delta measurement: build release APK before and after TASK-7 (or via `:app:bundleRelease` analysis); assert delta ≤ +150 KB per SC-011; record result in `perf-checkpoint.md`. (SC-011, Plan Phase 7) — ✅ **PASS 2026-06-25**: release arm64 APK baseline (114b9c3) = 12 028 529 bytes → after TASK-7 = 12 046 145 bytes → delta **+17 KB** (≤150 KB лимит). Debug APK дельта была +1.2 MB, но это test-deps + non-minified; SC-011 явно ссылается на release artifact.
 
 **Checkpoint Phase 7**: all Konsist fitness PASS; deferred AC tracked for owner verification; docs updated.
+
+---
+
+## Device Verification Findings (Xiaomi 11T, 2026-06-25)
+
+Прогон на физическом устройстве Xiaomi 11T (MIUI V125, Android 11, arm64).
+
+### Зелёное (verified)
+- **T068** APK size +17 KB (≤150 KB лимит).
+- **T061 SC-001** cold start 1330 ms до wizard (≤2000 ms лимит).
+- **T063** config-check master: pre-grant ROLE_HOME через `cmd role` → wizard корректно стартует с шага 2 (tileSet), не с ROLE_HOME.
+- **DI graph integrity**: regression test `Spec015DiGraphTest` (commit 8882c71).
+
+### Регрессии в TASK-7 own (требуют доработки)
+- **TASK-54** — senior-warm Light theme contrast fail (T060). Текст WizardActivity нечитаем на белом фоне.
+- **TASK-55** — Phase-5 PairAdmin Custom step auto-launches PairingActivity без UI confirm. Не соответствует Сценарию-4 spec'и (юзер должен иметь возможность пропустить до того, как handler вызывается).
+
+### Внешние блокеры (не TASK-7 ownership)
+- **TASK-51** — libsodium native lib не содержит `crypto_core_ristretto255_add` для arm64. Блокирует T066 (real pairing) и в каскаде Phase-5 PairAdmin auto-launch (через TASK-55).
+- **TASK-52** — HomeActivity «Загрузка…» висит >60 s после wizard finish. Блокирует T038, T058, T061-full-flow, T062.
+- **TASK-53** — FirstLaunchActivity preset picker title по-английски на RU system locale (mixed UI).
+
+### Не достижимо в текущем flow (не fail, just N/A)
+- **T065** Xiaomi MIUI battery quirks: `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` pool entry в `android-pool.json` v2 есть, но в `simple-launcher.json` manifest не включён — нечего проверять. AC сохраняется для будущих manifest'ов.
+- **T064** Samsung One UI: нет Samsung устройства.
+
+### Решение по статусу TASK-7
+TASK-7 НЕ Done и НЕ Verification. На физическом устройстве найдены 2 own-регрессии (TASK-54, TASK-55), которые требуют code-уровня работы — не «ждём железа». Owner-решение:
+- (a) починить TASK-54 + TASK-55 в текущей ветке → PR → Verification → Done.
+- (b) merge PR как есть → TASK-7 status = Verification с пометкой «pending: TASK-54, TASK-55, blocked by TASK-51/52/53 для физической верификации».
 
 ---
 
