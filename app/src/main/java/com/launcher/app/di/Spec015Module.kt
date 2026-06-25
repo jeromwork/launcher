@@ -90,7 +90,10 @@ val spec015Module = module {
     single<PermissionRequestPort> { NoopPermissionRequestPort() }
 
     // TASK-7 Phase 2 — handler registries + cache (FR-009, FR-021, FR-022).
-    single<Map<KClass<out CheckSpec>, CheckHandler>> {
+    // Named qualifiers required: Koin matches Map<*, *> bindings by erased
+    // type after generic erasure, so multiple Map<*, *> singles in one
+    // graph collide (Phase-5 cycle reproduced by Spec015DiGraphTest).
+    single<Map<KClass<out CheckSpec>, CheckHandler>>(named("checkHandlers")) {
         mapOf(
             CheckSpec.AndroidRole::class to AndroidRoleCheckHandler(androidContext()),
             CheckSpec.AndroidPermission::class to AndroidPermissionCheckHandler(get()),
@@ -99,7 +102,7 @@ val spec015Module = module {
             CheckSpec.AndroidPackageHome::class to AndroidPackageHomeCheckHandler(androidContext()),
         )
     }
-    single<Map<KClass<out ApplySpec>, ApplyHandler>> {
+    single<Map<KClass<out ApplySpec>, ApplyHandler>>(named("applyHandlers")) {
         mapOf(
             ApplySpec.StandardPermissionRequest::class to AndroidStandardPermissionApplyHandler(get()),
             ApplySpec.AndroidRoleRequest::class to AndroidRoleApplyHandler(androidContext()),
@@ -116,8 +119,14 @@ val spec015Module = module {
             configSource = get(),
             permissionRequestPort = get(),
             userPreferencesStore = get(),
-            checkHandlers = get(),
-            applyHandlers = get(),
+            // Explicit generic types — without these Koin resolves by erased
+            // Map<*, *> and picks the first compatible definition, causing a
+            // circular dependency (Map<StepType, WizardStep> → SystemSettingStep
+            // → SystemSettingPort → here → ...). Phase-5 added a second Map
+            // binding, which exposed the latent ambiguity. Spec015DiGraphTest
+            // covers the regression.
+            checkHandlers = get(named("checkHandlers")),
+            applyHandlers = get(named("applyHandlers")),
             cache = get(),
         )
     }
@@ -145,13 +154,13 @@ val spec015Module = module {
     }
 
     // TASK-7 Phase 5 — Custom-step dispatch (FR-027, FR-028).
-    single<Map<String, CustomStepHandler>> {
+    single<Map<String, CustomStepHandler>>(named("customStepHandlers")) {
         mapOf(
             "pair-admin" to PairAdminCustomStepHandler(androidContext()),
         )
     }
 
-    single<Map<StepType, WizardStep>> {
+    single<Map<StepType, WizardStep>>(named("wizardSteps")) {
         mapOf(
             StepType.UIChoice to UIChoiceStep(host = get(named("uiChoiceHost"))),
             StepType.SystemSetting to SystemSettingStep(
@@ -165,13 +174,15 @@ val spec015Module = module {
                 host = get(named("tutorialHintHost")),
                 hintManager = get(),
             ),
-            StepType.Custom(CUSTOM_DISPATCH_KEY) to CustomStep(handlers = get()),
+            StepType.Custom(CUSTOM_DISPATCH_KEY) to CustomStep(
+                handlers = get(named("customStepHandlers")),
+            ),
         )
     }
 
     single<WizardEngine> {
         WizardEngineImpl(
-            steps = get(),
+            steps = get(named("wizardSteps")),
             checkpointStore = get(),
             userPreferencesStore = get(),
             configSource = get(),
