@@ -1,6 +1,7 @@
 package family.crypto.api.values
 
 import kotlinx.datetime.Instant
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -18,6 +19,7 @@ import kotlinx.serialization.Serializable
  * `toString()` MUST NOT log raw [wrappedKey] / [iv] bytes (only sizes).
  */
 @Serializable
+@SerialName("KeyBlob")
 class KeyBlob(
     val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
     val algorithm: String,

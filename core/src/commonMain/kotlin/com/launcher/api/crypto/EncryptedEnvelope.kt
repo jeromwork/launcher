@@ -1,8 +1,10 @@
 package com.launcher.api.crypto
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
+@SerialName("EncryptedEnvelope")
 class EncryptedEnvelope(
     val schemaVersion: Int,
     val cipherSuiteId: String,

@@ -1,8 +1,10 @@
 package com.launcher.api.crypto
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
+@SerialName("DeviceIdentity")
 data class DeviceIdentity(
     val schemaVersion: Int = SUPPORTED_SCHEMA_VERSION,
     val deviceId: DeviceId,
