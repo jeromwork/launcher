@@ -10,7 +10,7 @@
 |---|---|---|
 | Phase 1 — Gradle stripping | ✅ done | `1e6be2e` |
 | Phase 2 — Spec Kit pipeline | ✅ done | `20013d1`, `beca982`, `e342a76`, `e67e4bf`, `2adec37` |
-| Phase 3 — `@SerialName` audit | ⏳ TODO | — |
+| Phase 3 — `@SerialName` audit | ✅ done | `7eb6fa3` (T001+T002), baseline T003 PASS @ `7eb6fa3` |
 | Phase 4 — Namespace rename | ⏳ TODO | — |
 | Phase 5 — Pairing-side rewrite | ⏳ TODO | — |
 | Phase 6 — Old stack deletion | ⏳ TODO | — |
@@ -28,7 +28,7 @@
 
 - [x] **T002** Add missing `@SerialName(...)` annotations к типам без них (из T001 audit). Каждый тип получает explicit `@SerialName("TypeName")` matching текущее class name. (FR-004, FR-016) **Acceptance**: `grep "@SerialName" core/crypto/src/commonMain/.../*.kt | wc -l ≥ N` где N = размер audit list. `./gradlew :core:crypto:jvmTest --tests "*Roundtrip*"` зелёный.
 
-- [ ] **T003** **Run golden vectors roundtrip BEFORE rename** — baseline gate. Command: `./gradlew :core:keys:jvmTest --tests "*EnvelopeConfigCipherRoundtripTest"`. Записать success в `serial-name-audit.md` как baseline для post-rename comparison. (SC-013, Risk #2) **Acceptance**: test зелёный, golden vectors сохранены.
+- [x] **T003** **Run golden vectors roundtrip BEFORE rename** — baseline gate. Command: `./gradlew :core:keys:jvmTest --tests "*EnvelopeConfigCipherRoundtripTest"`. Записать success в `serial-name-audit.md` как baseline для post-rename comparison. (SC-013, Risk #2) **Acceptance**: test зелёный, golden vectors сохранены.
 
 ### Checkpoint Phase 3
 После T001-T003: все wire-format типы имеют `@SerialName`, golden vectors baseline зафиксирован. **Phase 4 unblocked**.

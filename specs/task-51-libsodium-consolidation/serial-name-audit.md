@@ -78,4 +78,27 @@ constant.
 
 ## Baseline golden vectors (T003)
 
-Populated after running the baseline gate test.
+**Baseline (pre-rename, 2026-06-26)**
+
+- **Command**: `./gradlew :core:keys:jvmTest --tests "*EnvelopeConfigCipherRoundtripTest"`
+- **Result**: PASS — `BUILD SUCCESSFUL in 7s`
+- **Commit hash (post-T002, pre-rename)**: `7eb6fa391920dd6903741b56a378a0cc8467e115`
+- **Test class**: `family.keys.EnvelopeConfigCipherRoundtripTest` (17 test methods including
+  `singleRecipientRoundtrip`, `multiRecipientThreeDevicesEachCanOpen`,
+  `crossUserDelegationOwnerAndHelperBothOpen`, `envelopeMapKeysSurviveJsonRoundtripImplicitlyByEqualityCheck`,
+  `ciphertextDiffersOnEachSealEvenForSamePlaintextAndRecipients`,
+  `tamperedCiphertextReturnsAeadAuthFailed`, `tamperedSealedCekReturnsAeadAuthFailed`,
+  `aadMismatchReturnsAeadAuthFailed`, `nonRecipientCannotOpenReturnsNotARecipient`,
+  `duplicateRecipientIdsRejected`, `emptyRecipientListRejected`,
+  `futureSchemaVersionRejected`, `unknownAlgorithmRejected`,
+  `oversizedPlaintextRejected`, `atMaxPlaintextSizeAccepted`,
+  `emptyPlaintextRoundtrip`, `newRecipient`).
+
+This is the **sentinel** for Phase 4 T015 post-rename verification.
+After the Phase 4 namespace rename (`family.* → cryptokit.*`), re-running the
+same command MUST still PASS — that proves the explicit `@SerialName` annotations
+added in T002 successfully decoupled the on-wire identifier from the FQN class
+path, and Firestore documents written before the rename remain readable.
+
+If T015 fails after rename → @SerialName audit incomplete → return to Phase 3,
+identify the type whose wire-format key changed, add `@SerialName(...)`, re-run.
