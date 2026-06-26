@@ -71,14 +71,12 @@ zxingCore = "3.5.3"
 # GMS to show the senior-safe hard-block screen.
 playServicesBase = "18.5.0"
 
-# Crypto stack (spec 011 — e2e-crypto-foundation).
-# Lazysodium-android = JNI binding над libsodium. Поставляет .so под 4 ABI.
-# Все crypto operations (AEAD/X25519/Ed25519/BLAKE2b) идут через эту библиотеку.
-lazysodium = "5.1.0"
-# JNA = native bridge для Lazysodium (runtime dependency, aar variant for Android).
-jna = "5.13.0"
+# Crypto stack — единая стопка через ionspin/multiplatform-crypto-libsodium-bindings
+# (spec 016, :core:crypto). Lazysodium-android + JNA удалены 2026-06-26 (TASK-51)
+# вместе со старой стопкой com.launcher.api.crypto.* — ionspin покрывает все
+# crypto operations (AEAD/X25519/Ed25519/BLAKE2b/Ristretto255) на всех KMP-таргетах.
 # EncryptedSharedPreferences — для хранения AES-wrapped X25519/Ed25519 priv bytes
-# (Android Keystore не поддерживает X25519 нативно; wrap-strategy per research.md §3, §2b).
+# (Android Keystore не поддерживает X25519 нативно; wrap-strategy per spec 016 research §3).
 # Также используется F-4 AuthProvider (spec 017) для EncryptedLocalSessionStore.
 androidxSecurityCrypto = "1.1.0-alpha06"
 
@@ -187,13 +185,13 @@ zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxingCo
 # in mockBackend builds too.
 google-play-services-base = { group = "com.google.android.gms", name = "play-services-base", version.ref = "playServicesBase" }
 
-# --- Crypto stack (spec 011) -------------------------------------------------
+# --- Crypto stack (spec 016 — единая стопка через :core:crypto) --------------
+# Lazysodium-android + JNA удалены 2026-06-26 в TASK-51 (libsodium consolidation):
+# ionspin покрывает все примитивы (AEAD/X25519/Ed25519/BLAKE2b/Ristretto255)
+# и работает на всех KMP-таргетах. Старая стопка com.launcher.api.crypto.* + её
+# адаптеры com.launcher.adapters.crypto.Libsodium*.kt также удалены.
 
-# Lazysodium-android: libsodium JNI binding. Provides:
-# AEAD (XChaCha20-Poly1305), X25519 + crypto_box_seal (hybrid encryption),
-# Ed25519 (signing), BLAKE2b (hashing). Single vendor for all 4 primitives.
-lazysodium-android = { group = "com.goterl", name = "lazysodium-android", version.ref = "lazysodium" }
-# ionspin/kotlin-multiplatform-libsodium — KMP binding (spec 016 :core:crypto Phase 5).
+# ionspin/kotlin-multiplatform-libsodium — KMP binding (spec 016 :core:crypto).
 libsodium-bindings = { group = "com.ionspin.kotlin", name = "multiplatform-crypto-libsodium-bindings", version.ref = "libsodiumKmp" }
 # kotlinx-datetime — Instant в KeyBlob (spec 016).
 kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version.ref = "kotlinxDatetime" }
@@ -201,8 +199,6 @@ kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime",
 kotest-runner-junit5 = { group = "io.kotest", name = "kotest-runner-junit5", version.ref = "kotest" }
 kotest-property = { group = "io.kotest", name = "kotest-property", version.ref = "kotest" }
 kotest-assertions-core = { group = "io.kotest", name = "kotest-assertions-core", version.ref = "kotest" }
-# JNA = transitive native bridge; aar variant needed for Android resources packaging.
-jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }
 # EncryptedSharedPreferences — для хранения AES-wrapped X25519 priv (Android Keystore
 # не поддерживает X25519 нативно; AES key в Keystore оборачивает X25519 priv bytes,
 # wrapped bytes хранятся в EncryptedSharedPreferences). Per research.md §3, quickstart.md §6.
