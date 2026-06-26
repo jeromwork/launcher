@@ -34,12 +34,32 @@ import kotlinx.coroutines.flow.first
 // [LegacyKeystoreReader] + re-encrypt under new keyId. On genuine first-run
 // generate fresh keypair via [AsymmetricCrypto].
 class PairingCryptoCoordinator(
-    private val secureKeyStore: SecureKeyStore,
+    private val secureKeyStore: KeyStoreAdapter,
     private val asymmetric: AsymmetricCrypto,
     private val repo: DeviceIdentityRepository,
     private val deviceIdProvider: DeviceIdProvider,
     private val nowMillis: () -> Long = { System.currentTimeMillis() },
 ) {
+
+    /**
+     * Production convenience constructor: takes the cryptokit `SecureKeyStore`
+     * directly. Unit tests use the primary constructor + a [KeyStoreAdapter]
+     * fake (Robolectric does not shadow AndroidKeyStore, so the real Android
+     * actual is unusable in JVM-side unit tests — TASK-51 T060).
+     */
+    constructor(
+        secureKeyStore: SecureKeyStore,
+        asymmetric: AsymmetricCrypto,
+        repo: DeviceIdentityRepository,
+        deviceIdProvider: DeviceIdProvider,
+        nowMillis: () -> Long = { System.currentTimeMillis() },
+    ) : this(
+        secureKeyStore = SecureKeyStoreAdapter(secureKeyStore),
+        asymmetric = asymmetric,
+        repo = repo,
+        deviceIdProvider = deviceIdProvider,
+        nowMillis = nowMillis,
+    )
 
     /** Cached after first successful load. Public bytes are not sensitive; private bytes are reused suspending-method-internal only. */
     @Volatile private var cachedKeys: KeyMaterial? = null
@@ -237,4 +257,30 @@ class PairingCryptoCoordinator(
 
         private const val LOG_TAG: String = "cryptokit"
     }
+}
+
+/**
+ * Thin interface mirroring [SecureKeyStore]'s 3-method shape so unit tests
+ * can inject an in-memory fake. Production wiring goes through the
+ * [SecureKeyStoreAdapter] convenience class which simply forwards.
+ *
+ * Why this seam exists: `SecureKeyStore` is an `expect class` — it cannot be
+ * subclassed from outside its module, and Robolectric does not shadow
+ * AndroidKeyStore. So a JVM-side unit test of [PairingCryptoCoordinator]
+ * needs a different way to inject a key-byte sink. Production code never
+ * sees this interface directly.
+ *
+ * TASK-51 T060.
+ */
+interface KeyStoreAdapter {
+    suspend fun store(keyId: KeyId, secret: ByteArray)
+    suspend fun load(keyId: KeyId): ByteArray?
+    suspend fun delete(keyId: KeyId)
+}
+
+/** Forwards every call to a real [SecureKeyStore]. */
+class SecureKeyStoreAdapter(private val delegate: SecureKeyStore) : KeyStoreAdapter {
+    override suspend fun store(keyId: KeyId, secret: ByteArray) = delegate.store(keyId, secret)
+    override suspend fun load(keyId: KeyId): ByteArray? = delegate.load(keyId)
+    override suspend fun delete(keyId: KeyId) = delegate.delete(keyId)
 }

@@ -29,8 +29,14 @@ class Spec011IsolationTest {
     fun T110_commonMain_crypto_does_not_import_vendor_sdks() {
         val dir = locateCommonMain().resolve("kotlin/com/launcher/api/crypto")
         if (!dir.isDirectory) return
+        // TASK-51 T074 — extended ban list. The directory itself is gone after
+        // Phase 7 (`com.launcher.api.crypto` collapsed into `cryptokit.*`),
+        // so this test no-ops in practice — kept as structural guard against
+        // accidental resurrection of the old layout.
         val forbidden = listOf(
-            "com.goterl.lazysodium",
+            "com.goterl",                       // legacy lazysodium (TASK-51)
+            "com.launcher.api.crypto",          // legacy port surface (TASK-51)
+            "family.crypto",                    // pre-rename family.* (TASK-51 Phase 4)
             "android.",
             "androidx.",
             "com.google.firebase",
@@ -39,7 +45,7 @@ class Spec011IsolationTest {
         val violations = scanImports(dir, forbidden)
         assertTrue(
             "commonMain/api/crypto/ must NOT import vendor SDKs " +
-                "(CLAUDE.md rule 1, spec 011 plan §Konsist gates).\n" +
+                "(CLAUDE.md rule 1, spec 011 plan §Konsist gates, TASK-51 FR-007/SC-007).\n" +
                 "Violations:\n${violations.joinToString("\n")}",
             violations.isEmpty(),
         )

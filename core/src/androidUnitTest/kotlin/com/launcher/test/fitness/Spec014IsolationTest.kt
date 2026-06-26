@@ -39,7 +39,10 @@ class Spec014IsolationTest {
             "com.google.android",
             "okhttp3.",
             "retrofit2.",
-            "com.goterl.lazysodium",
+            // TASK-51 T075 — extended ban list (FR-007).
+            "com.goterl",                       // legacy lazysodium
+            "com.launcher.api.crypto",          // legacy crypto port surface
+            "family.crypto",                    // pre-rename family.*
         )
         val violations = scanImports(dir, forbidden)
         assertTrue(
