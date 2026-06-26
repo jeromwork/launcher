@@ -350,3 +350,9 @@ Capability Registry readiness **не затрагивается**: те же abs
 - **CancellationException re-throw**: в universal `try/catch` обязательно re-throw, иначе coroutine cancellation сломается (silent bug, не падает при тестах, проявляется в UI hang при закрытии экрана).
 - **Silent migration depends on AndroidKeystore TEE доступности**: если root AES master key в TEE недоступен (clear-data, factory reset) — миграция невозможна, fall-through на recovery flow (F-5b). Этот edge case четко разделён: migration ≠ recovery.
 - **OEM verification**: Samsung One UI / Huawei EMUI не тестируются (нет устройств) → `TODO(physical-device)` → TASK-55 deferred-aggregator.
+
+---
+
+## Tasks
+
+Implementation tasks: see [tasks.md](./tasks.md).

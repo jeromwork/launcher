@@ -107,7 +107,9 @@ Pairing flow (спек 007) — **one-shot** operation на момент scan QR
 | Sealed hierarchy | `TrustEdgeBootstrap` | `core/.../trust/TrustEdgeBootstrap.kt` (existing спек 007) | Phase 1 (T015) — extend with new subtype |
 | Data shape | `DeviceKeyBootstrap` | same file | Phase 1 (T015) |
 | Generation | `generateX25519Pair`, `generateEd25519Pair` | `AsymmetricCrypto`, `DigitalSignature` ports | Phase 1 (T022, T023) |
-| Storage | Android Keystore wrapping | `SecureKeystore` port + `AndroidKeystoreSecureKeystore` | Phase 1 (T025), Phase 3 (T054-T055) |
+| Storage | Android Keystore wrapping | `SecureKeystore` port + `AndroidKeystoreSecureKeystore` ¹ | Phase 1 (T025), Phase 3 (T054-T055) |
+
+> ¹ **Deprecation note (TASK-51, 2026-06-26)**: The concrete adapter `AndroidKeystoreSecureKeystore` was removed during the libsodium consolidation refactor (TASK-51, FR-010). It has been replaced by `cryptokit.crypto.api.SecureKeyStore` — an `expect/actual` class living in `core/crypto` (commonMain port, androidMain actual = Android Keystore AES-256-GCM wrap; iosMain actual = stub-screamer until Keychain Services adapter lands). Wire-format and behaviour are preserved; existing ADR-007 design (port + adapter pattern, TEE-backed wrap, freshness gates) still holds — only the type name and namespace changed.
 | Publication | `publishOwn`, `fetchPeer` | `DeviceIdentityRepository` port + `FirestoreDeviceIdentityRepository` adapter | Phase 1 (T028), Phase 4 (T060) |
 | Pairing extension | call `publishOwn` after `consent.allow` | `PairingCoordinator` (existing спек 007) | Phase 4 (T061) |
 | Security Rules | freshness + ownership gates | `firestore.rules` | Phase 4 (T062) |

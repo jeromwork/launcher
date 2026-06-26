@@ -1412,3 +1412,25 @@ Code in main is complete; these only need *running* against a build.
 - **Status**: 🟢 OPEN
 - **Origin**: TASK-7 Phase-5 revert 2026-06-25 (constitution amendment 1.10).
 - **Anti-pattern reference**: original Phase-5 implementation wired pair-admin as `Custom` step with `PairAdminCustomStepHandler` that fire-and-forget-launched `PairingActivity` on step entry — no user UI, no skip path, no state read. DO NOT repeat.
+
+### TODO-TASK51-001: Verify `cryptokit.crypto.api.SecureKeyStore` actual hardening (androidMain) 🟡
+
+- **What**: TASK-51 заменил удалённый `AndroidKeystoreSecureKeystore` на `expect/actual class SecureKeyStore` в `cryptokit.crypto.api`. Контракт-уровень и unit-тесты зелёные, но **adjacent hardening concerns** в androidMain `actual` не были revisited в scope TASK-51:
+  - **AAD strategy** — какой associated data привязывается к AEAD wrap (keyId? versioned? стабильный per-install?). Должен быть устойчив к key-confusion attacks между разными `keyId`-ами в одном Keystore.
+  - **Nonce strategy** — гарантирована ли uniqueness nonce при AEAD wrap (random 24-byte XChaCha vs counter)? Какова reuse-probability при N rotation'ах?
+  - **`android:allowBackup=false`** — проверить, что AndroidManifest на launcher / admin app выставлен корректно; иначе TEE-wrapped blobs могут утечь в Auto Backup → Google Drive (видны Google).
+  - **Zeroize after use** — `ByteArray` с расшифрованными key material'ами должны затираться (`fill(0)`) сразу после использования; verify в hot-path коде.
+- **Why**: R-007 (adjacent SecureKeyStore concerns) был помечен out-of-scope в TASK-51 plan §Required Context Review — задача намеренно ограничилась namespace rename + provider consolidation, не security audit. Перед production-релизом эти concerns должны быть **explicit verified** или escalated в отдельную spec (например, S-4 hardening track).
+- **How**: mini-audit checklist (1 день): grep AAD/nonce использования в `SecureKeyStore.android.kt`, прочитать AndroidManifest на launcher + admin, прогнать leak detection через зеркало unit-теста (mock TEE, verify zeroize).
+- **When**: до первого Phase 4 (V-x) релиза. Не блокирует Phase 2/3.
+- **Status**: 🟡 OPEN
+- **Origin**: TASK-51 plan §Required Context Review (R-007), 2026-06-26.
+
+### TODO-TASK51-002: Remove `loadOrMigrate(newKeyId, legacyAlias)` helper post-TASK-6 🟢
+
+- **What**: `PairingCryptoCoordinator` (после TASK-51 rewrite) содержит helper `loadOrMigrate(newKeyId: KeyId, legacyAlias: String): KeyHandle` + thin shim `LegacyKeystoreReader`, которые умеют распаковать pre-TASK-51 ключи из старого Android Keystore alias namespace (`family.crypto.v1.*`) и перешифровать их под новый `cryptokit.*` keyId. Это **silent migration** path (FR-005) — пользователь не видит шагов.
+- **Why**: Когда TASK-6 (Root Key Hierarchy) приземлится, **все** ключи перестают храниться в Android Keystore по одному — они derive'ятся on-demand из root master key через HKDF. Migration helper становится **dead code**: новых ключей со старым alias-форматом не существует, root уже умеет восстановить нужный sub-key без обращения к legacy Keystore.
+- **How**: после merge TASK-6 — удалить `loadOrMigrate` + `LegacyKeystoreReader` + соответствующие тесты + sweep grep по `family.crypto.v1` aliases. Один PR на cleanup.
+- **When**: после merge TASK-6 (Root Key Hierarchy). Зависимость **жёсткая** — нельзя удалить до того, как root derivation работает в production.
+- **Status**: 🟢 OPEN (blocked by TASK-6)
+- **Origin**: TASK-51 plan §Required Context Review (R-002 exit ramp), 2026-06-26.

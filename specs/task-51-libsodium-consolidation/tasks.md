@@ -13,10 +13,11 @@
 | Phase 3 — `@SerialName` audit | ✅ done | `7eb6fa3` (T001+T002), baseline T003 PASS @ `7eb6fa3` |
 | Phase 4 — Namespace rename | ✅ done | T010-T015 (this commit) |
 | Phase 5 — Pairing-side rewrite | ✅ done | T020-T025 (this commit) |
-| Phase 6 — Old stack deletion | ⏳ TODO | — |
-| Phase 7 — Tests + fitness rules | ⏳ TODO | — |
-| Phase 8 — Manual smoke | ⏳ TODO | — |
-| Phase 9 — PR | ⏳ TODO | — |
+| Phase 6 — Old stack deletion | ✅ done | `7a65058`, `f0d2b77`, `51e8795` |
+| Phase 7 — Tests + fitness rules | ✅ done | `6902e7f`, `41eb6f3` |
+| Phase 8 — Manual smoke | ✅ done | `88d7621` |
+| Phase 9 — Physical-device verification | 🟡 deferred-physical-device (owner runs on Xiaomi 11T) | — |
+| Phase 10 — PR + cleanup | 🟡 partial — T200/T201/T204/T205 done (AI scope); T202 (pre-pr-backlog-sync) + T203 (`gh pr create`) owner-driven | this commit |
 
 ---
 
@@ -264,12 +265,12 @@ T100-T103 — primary gates на Xiaomi 11T. T110-T120 — deferred к TASK-55. 
 
 ## Phase 10 — PR + cleanup
 
-- [ ] **T200** Update `docs/dev/project-backlog.md`: append TODOs surfaced by TASK-51:
+- [x] **T200** Update `docs/dev/project-backlog.md`: append TODOs surfaced by TASK-51:
        - `TODO-TASK51-001`: `cryptokit.crypto.api.SecureKeyStore` actual в androidMain — verify AAD, nonce strategy, allowBackup=false, zeroize (R-007 adjacent concerns out-of-scope в TASK-51).
        - `TODO-TASK51-002`: после TASK-6 (Root Key Hierarchy) удалить `loadOrMigrate(newKeyId, legacyAlias)` helper из `PairingCryptoCoordinator` — derive-from-root заменяет (R-002 exit ramp).
        (Plan §Required Context Review)
 
-- [ ] **T201** Update spec.md `## Tasks` section: link to this tasks.md file.
+- [x] **T201** Update spec.md `## Tasks` section: link to this tasks.md file.
 
 - [ ] **T202** Run skill `pre-pr-backlog-sync` for TASK-51:
        - Regenerate `[auto:checklist]` AC lines from checklists/*.md.
@@ -283,9 +284,9 @@ T100-T103 — primary gates на Xiaomi 11T. T110-T120 — deferred к TASK-55. 
        - `pending AC: #N (auto:deferred-physical-device)` если Verification status
        - Link to specs/task-51-libsodium-consolidation/
 
-- [ ] **T204** [P] Update `docs/dev/crypto-review.md`: replace references to `family.crypto.libsodium.*` with `cryptokit.crypto.libsodium.*` (per FR-016 namespace rename). Affected lines: 24-27, 91, 245-246+ (and any others). Run grep `family\.crypto` в `docs/dev/crypto-review.md` после правки = 0 матчей. (cross-artifact trace findings, FR-016) **Acceptance**: `grep "family\.crypto\|LibsodiumAeadCipher\|LibsodiumAsymmetricCrypto" docs/dev/crypto-review.md` = 0 матчей.
+- [x] **T204** [P] Update `docs/dev/crypto-review.md`: replace references to `family.crypto.libsodium.*` with `cryptokit.crypto.libsodium.*` (per FR-016 namespace rename). Affected lines: 24-27, 91, 245-246+ (and any others). Run grep `family\.crypto` в `docs/dev/crypto-review.md` после правки = 0 матчей. (cross-artifact trace findings, FR-016) **Acceptance**: `grep "family\.crypto\|LibsodiumAeadCipher\|LibsodiumAsymmetricCrypto" docs/dev/crypto-review.md` = 0 матчей.
 
-- [ ] **T205** [P] Update `docs/adr/ADR-007-trust-edge-bootstrap-subtypes.md`: line 110 references deleted `AndroidKeystoreSecureKeystore`. Replace на `cryptokit.crypto.api.SecureKeyStore` (current API) OR add deprecation note «`AndroidKeystoreSecureKeystore` removed in TASK-51, replaced by `cryptokit.crypto.api.SecureKeyStore` expect/actual class». (cross-artifact trace findings, R-007) **Acceptance**: `grep "AndroidKeystoreSecureKeystore" docs/adr/` = 0 матчей (или замена noted explicitly).
+- [x] **T205** [P] Update `docs/adr/ADR-007-trust-edge-bootstrap-subtypes.md`: line 110 references deleted `AndroidKeystoreSecureKeystore`. Replace на `cryptokit.crypto.api.SecureKeyStore` (current API) OR add deprecation note «`AndroidKeystoreSecureKeystore` removed in TASK-51, replaced by `cryptokit.crypto.api.SecureKeyStore` expect/actual class». (cross-artifact trace findings, R-007) **Acceptance**: `grep "AndroidKeystoreSecureKeystore" docs/adr/` = 0 матчей (или замена noted explicitly).
 
 ### Checkpoint Phase 10
 PR open, backlog synchronized. Owner проходит T100-T103 на Xiaomi 11T → когда зелёные, manually переключает backlog AC #16, #19 на `[x]`, status переключается с Verification на Done.

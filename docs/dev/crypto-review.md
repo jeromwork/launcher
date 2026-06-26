@@ -21,13 +21,13 @@ binding pinned at version **`0.9.5`** (released 2025-11-23).
 
 | Purpose | Primitive | Adapter |
 |---|---|---|
-| AEAD (envelope encryption) | XChaCha20-Poly1305 IETF (24-byte nonce) | [`LibsodiumAeadCipher`](../../core/crypto/src/commonMain/kotlin/family/crypto/libsodium/LibsodiumAeadCipher.kt) |
-| Key agreement | X25519 raw `crypto_scalarmult` (RFC 7748) | [`LibsodiumAsymmetricCrypto.deriveSharedSecret`](../../core/crypto/src/commonMain/kotlin/family/crypto/libsodium/LibsodiumAsymmetricCrypto.kt) |
+| AEAD (envelope encryption) | XChaCha20-Poly1305 IETF (24-byte nonce) | [`LibsodiumAeadCipher`](../../core/crypto/src/commonMain/kotlin/cryptokit/crypto/libsodium/LibsodiumAeadCipher.kt) |
+| Key agreement | X25519 raw `crypto_scalarmult` (RFC 7748) | [`LibsodiumAsymmetricCrypto.deriveSharedSecret`](../../core/crypto/src/commonMain/kotlin/cryptokit/crypto/libsodium/LibsodiumAsymmetricCrypto.kt) |
 | Digital signatures | Ed25519 detached (`crypto_sign_detached`) | `LibsodiumAsymmetricCrypto.sign` / `verify` |
 | Sealed-box envelope (ADR-008 social recovery) | `crypto_box_seal` / `crypto_box_seal_open` | `LibsodiumAsymmetricCrypto.sealForRecipient` / `openSealed` |
-| Key derivation | HKDF-SHA256 (RFC 5869) — hand-rolled over platform HMAC-SHA256 because ionspin 0.9.5 does not expose `crypto_kdf_hkdf_sha256` | [`LibsodiumKeyDerivation`](../../core/crypto/src/commonMain/kotlin/family/crypto/libsodium/LibsodiumKeyDerivation.kt) + `HmacSha256` expect/actual (JCA on Android/JVM, stub on iOS) |
-| CSPRNG | libsodium `randombytes_buf` | [`LibsodiumRandomSource`](../../core/crypto/src/commonMain/kotlin/family/crypto/libsodium/LibsodiumRandomSource.kt) |
-| Key-at-rest protection | Android Keystore AES-256-GCM wrap, StrongBox-backed where available (Pixel Titan / Samsung Knox), TEE-only fallback elsewhere | [`SecureKeyStore.android.kt`](../../core/crypto/src/androidMain/kotlin/family/crypto/SecureKeyStore.android.kt) |
+| Key derivation | HKDF-SHA256 (RFC 5869) — hand-rolled over platform HMAC-SHA256 because ionspin 0.9.5 does not expose `crypto_kdf_hkdf_sha256` | [`LibsodiumKeyDerivation`](../../core/crypto/src/commonMain/kotlin/cryptokit/crypto/libsodium/LibsodiumKeyDerivation.kt) + `HmacSha256` expect/actual (JCA on Android/JVM, stub on iOS) |
+| CSPRNG | libsodium `randombytes_buf` | [`LibsodiumRandomSource`](../../core/crypto/src/commonMain/kotlin/cryptokit/crypto/libsodium/LibsodiumRandomSource.kt) |
+| Key-at-rest protection | Android Keystore AES-256-GCM wrap, StrongBox-backed where available (Pixel Titan / Samsung Knox), TEE-only fallback elsewhere | [`SecureKeyStore.android.kt`](../../core/crypto/src/androidMain/kotlin/cryptokit/crypto/SecureKeyStore.android.kt) |
 
 iOS adapters are stub-screamers per Clarifications Q1 — replaced when V-1 (iOS
 Admin Preset) ships. iOS targets compile today so the contract is fixed.
@@ -241,21 +241,21 @@ TEE-обёртка ключей на Android). Ничего самописног
 F-CRYPTO 1.0.0 уже включает `iosX64`, `iosArm64`, `iosSimulatorArm64` targets. `commonMain` код (ports, value types, Libsodium-based adapters для AEAD / AsymmetricCrypto / KeyDerivation / RandomSource) — **переиспользуется один-в-один** на iOS, потому что ionspin libsodium binding официально поддерживает все три iOS targets.
 
 **Что переиспользуется без изменений** (один файл, общий для всех платформ):
-- `family.crypto.api.*` — все ports и value types.
-- `family.crypto.libsodium.LibsodiumAeadCipher` — XChaCha20-Poly1305 IETF.
-- `family.crypto.libsodium.LibsodiumAsymmetricCrypto` — X25519 + Ed25519 + sealed-box.
-- `family.crypto.libsodium.LibsodiumKeyDerivation` — HKDF-SHA256 (через expect/actual HmacSha256).
-- `family.crypto.libsodium.LibsodiumRandomSource` — `randombytes_buf`.
-- `family.crypto.fake.*` — фейки для тестов.
-- `family.crypto.stubs.*` — KeyRotation/KeyEscrow stubs.
-- `family.crypto.api.values.KeyBlob` — wire format (JSON-сериализуется одинаково на всех платформах).
+- `cryptokit.crypto.api.*` — все ports и value types.
+- `cryptokit.crypto.libsodium.LibsodiumAeadCipher` — XChaCha20-Poly1305 IETF.
+- `cryptokit.crypto.libsodium.LibsodiumAsymmetricCrypto` — X25519 + Ed25519 + sealed-box.
+- `cryptokit.crypto.libsodium.LibsodiumKeyDerivation` — HKDF-SHA256 (через expect/actual HmacSha256).
+- `cryptokit.crypto.libsodium.LibsodiumRandomSource` — `randombytes_buf`.
+- `cryptokit.crypto.fake.*` — фейки для тестов.
+- `cryptokit.crypto.stubs.*` — KeyRotation/KeyEscrow stubs.
+- `cryptokit.crypto.api.values.KeyBlob` — wire format (JSON-сериализуется одинаково на всех платформах).
 
 **Что нужно заменить на iOS** (3 файла, каждый — замена `actual class` или `actual object`):
 
 1. **`iosMain/SecureKeyStore.ios.kt`** — сейчас stub-screamer, бросает `NotImplementedOnIos`. Замена: реализация через **iOS Keychain Services** (`SecItemAdd` / `SecItemCopyMatching` / `SecItemDelete`). Атрибуты:
    - `kSecClass = kSecClassGenericPassword` (для произвольных secret bytes).
    - `kSecAttrAccount = keyId.raw` (наш идентификатор).
-   - `kSecAttrService = "family.crypto.v1"` (namespace).
+   - `kSecAttrService = "cryptokit.crypto.v1"` (namespace).
    - `kSecAttrAccessible = kSecAttrAccessibleAfterFirstUnlock` (доступно после первого unlock телефона; не требует биометрии).
    - Опционально `kSecAttrAccessControl` с `SecAccessControlCreateWithFlags(...kSecAccessControlPrivateKeyUsage...)` если когда-то понадобится биометрия для специальных ключей (не для baseline).
 
@@ -392,8 +392,8 @@ EU Data Act 2024 требует, чтобы пользователь мог **э
 
 **Production hygiene:**
 - [ ] `verifyCryptoIsolation` Gradle task зеленый — `:core:crypto` не зависит от других модулей.
-- [ ] Konsist fitness `NoFakeCryptoInAppTest` зеленый — нет `family.crypto.fake.*` imports в `app/src/main`.
-- [ ] R8/ProGuard рулы strip `family.crypto.fake.**` из release APK (verify через dexdump или unzip).
+- [ ] Konsist fitness `NoFakeCryptoInAppTest` зеленый — нет `cryptokit.crypto.fake.*` imports в `app/src/main`.
+- [ ] R8/ProGuard рулы strip `cryptokit.crypto.fake.**` из release APK (verify через dexdump или unzip).
 - [ ] `assertNoFakeCryptoInRelease()` вызывается в `LauncherApplication.onCreate` под `!BuildConfig.DEBUG`.
 
 **Backup safety:**
