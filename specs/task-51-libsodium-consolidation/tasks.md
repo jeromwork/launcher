@@ -98,7 +98,7 @@
 
 ## Phase 6 — Rewrite pairing-side adapters + DI
 
-- [ ] **T030** Rewrite `core/src/androidMain/kotlin/com/launcher/adapters/crypto/PairingCryptoCoordinator.kt`:
+- [x] **T030** Rewrite `core/src/androidMain/kotlin/com/launcher/adapters/crypto/PairingCryptoCoordinator.kt`:
        - Import `cryptokit.crypto.api.AsymmetricCrypto`, `cryptokit.crypto.api.SecureKeyStore`, `cryptokit.pairing.api.DeviceIdentity`, etc.
        - Заменить вызовы `SecureKeystore.generateAndStoreEncryption(alias)` / `loadEncryption(alias)` на `random.nextBytes(32)` + `secureKeyStore.store(keyId, bytes)` / `load(keyId)`.
        - Convert all `Outcome<T, CryptoError>` returns в `throws CryptoException`. Remove `when` pattern matching.
@@ -107,34 +107,34 @@
        (FR-005, FR-008, FR-009, FR-017, R-002, R-003, plan.md §"Silent migration logic")
        **Acceptance**: `./gradlew :core:testMockBackendDebugUnitTest --tests "*PairingCryptoCoordinator*"` — compile green (tests will be rewritten in Phase 7).
 
-- [ ] **T031** [P] Rewrite `PairRecipientResolver.kt`: imports `cryptokit.pairing.api.*`. (FR-006)
+- [x] **T031** [P] Rewrite `PairRecipientResolver.kt`: imports `cryptokit.pairing.api.*`. (FR-006)
 
-- [ ] **T032** [P] Rewrite `BackgroundReconciler.kt`: `Outcome` → `try/catch`. Imports cryptokit. (FR-009)
+- [x] **T032** [P] Rewrite `BackgroundReconciler.kt`: `Outcome` → `try/catch`. Imports cryptokit. (FR-009)
 
-- [ ] **T033** [P] Rewrite `core/src/androidRealBackend/kotlin/com/launcher/adapters/crypto/FirestoreDeviceIdentityRepository.kt`:
+- [x] **T033** [P] Rewrite `core/src/androidRealBackend/kotlin/com/launcher/adapters/crypto/FirestoreDeviceIdentityRepository.kt`:
        - Imports `cryptokit.pairing.api.*`
        - 4+ `Outcome` blocks → `try/catch CryptoException.SerializationException`
        - Verify @SerialName используется для DeviceIdentity Firestore serialization
        (FR-009, FR-016)
 
-- [ ] **T034** [P] Rewrite `core/src/androidRealBackend/kotlin/com/launcher/adapters/crypto/WorkerEncryptedMediaStorage.kt`: imports cryptokit, `Outcome` → `try/catch`. (FR-009)
+- [x] **T034** [P] Rewrite `core/src/androidRealBackend/kotlin/com/launcher/adapters/crypto/WorkerEncryptedMediaStorage.kt`: imports cryptokit, `Outcome` → `try/catch`. (FR-009)
 
-- [ ] **T035** [P] Rewrite `app/src/main/java/com/launcher/app/di/PairingModule.kt`: imports cryptokit, `Outcome` callback wrap → direct suspend. (FR-009, FR-015)
+- [x] **T035** [P] Rewrite `app/src/main/java/com/launcher/app/di/PairingModule.kt`: imports cryptokit, `Outcome` callback wrap → direct suspend. (FR-009, FR-015)
 
-- [ ] **T036** [P] Update `core/src/androidRealBackend/kotlin/com/launcher/di/BackendInit.kt`: bindings reference cryptokit types. (FR-015)
+- [x] **T036** [P] Update `core/src/androidRealBackend/kotlin/com/launcher/di/BackendInit.kt`: bindings reference cryptokit types. (FR-015)
 
-- [ ] **T037** [P] Update `core/src/androidMockBackend/kotlin/com/launcher/di/BackendInit.kt`: same updates для mock variant. (FR-015)
+- [x] **T037** [P] Update `core/src/androidMockBackend/kotlin/com/launcher/di/BackendInit.kt`: same updates для mock variant. (FR-015)
 
-- [ ] **T038** Merge old `app/src/main/java/com/launcher/app/di/CryptoModule.kt` content into renamed `CryptokitModule.kt` (from T013). All remaining bindings — pairing-coordinator, recipient resolver, reconciler, ledger, clear-data detector, blob storage. Delete `CryptoModule.kt` file. (FR-015) **Acceptance**: `ls app/src/main/.../di/CryptoModule.kt` does not exist. `CryptokitModule.kt` contains все bindings.
+- [x] **T038** Merge old `app/src/main/java/com/launcher/app/di/CryptoModule.kt` content into renamed `CryptokitModule.kt` (from T013). All remaining bindings — pairing-coordinator, recipient resolver, reconciler, ledger, clear-data detector, blob storage. Delete `CryptoModule.kt` file. (FR-015) **Acceptance**: `ls app/src/main/.../di/CryptoModule.kt` does not exist. `CryptokitModule.kt` contains все bindings.
 
-- [ ] **T039** [P] Rewrite `app/src/main/java/com/launcher/app/debug/Spec011SmokeDebugActivity.kt`:
+- [x] **T039** [P] Rewrite `app/src/main/java/com/launcher/app/debug/Spec011SmokeDebugActivity.kt`:
        - Replace `HashFunction.hash(pubBytes)` с inline `MessageDigest.getInstance("SHA-256").digest(pubBytes).take(8).joinToString(" ") { "%02X".format(it) }` (R-004, FR-014).
        - Imports cryptokit.
        - Remove `ContentEncryptionKey.use{}` если использовался → replace на try/finally + `fill(0)` если нужен zeroize, либо просто inline if just for round-trip demo.
        - `Outcome` → `try/catch`. (FR-009, FR-014, R-004)
 
-### Checkpoint Phase 6
-После T030-T039: all pairing-side adapters на cryptokit, uniform throws pattern, silent migration logic in place. Build green. **Phase 7 unblocked**.
+### Checkpoint Phase 6 ✅ done
+После T030-T039: all pairing-side adapters на cryptokit, uniform throws pattern, silent migration logic in place. Build green (errors confined to Libsodium*/AndroidKeystoreSecureKeystore + legacy com.launcher.api.crypto/* — Phase 7 удалит). Golden vectors `EnvelopeConfigCipherRoundtripTest` — PASS. **Phase 7 unblocked**.
 
 ---
 

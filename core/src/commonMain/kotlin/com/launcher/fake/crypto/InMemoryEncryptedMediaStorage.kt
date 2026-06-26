@@ -1,35 +1,30 @@
 package com.launcher.fake.crypto
 
-import com.launcher.api.crypto.CryptoError
-import com.launcher.api.crypto.EncryptedEnvelope
-import com.launcher.api.crypto.EncryptedMediaStorage
-import com.launcher.api.result.Outcome
+import cryptokit.crypto.exception.CryptoException
+import cryptokit.pairing.api.EncryptedEnvelope
+import cryptokit.pairing.api.EncryptedMediaStorage
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-// mockBackend flavor — in-memory blob store. Production: FirebaseEncryptedMediaStorage.
+// mockBackend flavor — in-memory blob store. Production: WorkerEncryptedMediaStorage.
+//
+// TASK-51 Phase 6 — Outcome<T, CryptoError> → throws CryptoException.
 @OptIn(ExperimentalUuidApi::class)
 class InMemoryEncryptedMediaStorage : EncryptedMediaStorage {
     private data class Key(val linkId: String, val uuid: Uuid)
     private val store = mutableMapOf<Key, EncryptedEnvelope>()
 
-    override suspend fun upload(
-        linkId: String,
-        uuid: Uuid,
-        envelope: EncryptedEnvelope,
-    ): Outcome<Unit, CryptoError> {
+    override suspend fun upload(linkId: String, uuid: Uuid, envelope: EncryptedEnvelope) {
         store[Key(linkId, uuid)] = envelope
-        return Outcome.Success(Unit)
     }
 
-    override suspend fun download(linkId: String, uuid: Uuid): Outcome<EncryptedEnvelope, CryptoError> {
-        val env = store[Key(linkId, uuid)] ?: return Outcome.Failure(CryptoError.BlobMissing(uuid))
-        return Outcome.Success(env)
+    override suspend fun download(linkId: String, uuid: Uuid): EncryptedEnvelope {
+        return store[Key(linkId, uuid)]
+            ?: throw CryptoException.SerializationException("blob missing: $uuid")
     }
 
-    override suspend fun delete(linkId: String, uuid: Uuid): Outcome<Unit, CryptoError> {
+    override suspend fun delete(linkId: String, uuid: Uuid) {
         store.remove(Key(linkId, uuid))
-        return Outcome.Success(Unit)
     }
 
     override suspend fun exists(linkId: String, uuid: Uuid): Boolean =

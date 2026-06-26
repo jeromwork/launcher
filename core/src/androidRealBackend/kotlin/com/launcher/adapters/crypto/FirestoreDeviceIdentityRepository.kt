@@ -1,104 +1,122 @@
 package com.launcher.adapters.crypto
 
 import android.util.Base64
+import android.util.Log
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import com.launcher.api.crypto.CryptoError
-import com.launcher.api.crypto.DeviceId
-import com.launcher.api.crypto.DeviceIdentity
-import com.launcher.api.crypto.DeviceIdentityRepository
-import com.launcher.api.crypto.DigitalSignature
-import com.launcher.api.crypto.ED25519_KEY_SIZE
-import com.launcher.api.crypto.ED25519_SIGNATURE_SIZE
-import com.launcher.api.crypto.PublicKey
-import com.launcher.api.crypto.SigningPublicKey
-import com.launcher.api.crypto.SUPPORTED_SCHEMA_VERSION
-import com.launcher.api.crypto.X25519_KEY_SIZE
-import com.launcher.api.result.Outcome
+import cryptokit.crypto.api.AsymmetricCrypto
+import cryptokit.crypto.api.values.Signature
+import cryptokit.crypto.exception.CryptoException
+import cryptokit.pairing.api.DeviceId
+import cryptokit.pairing.api.DeviceIdentity
+import cryptokit.pairing.api.DeviceIdentityRepository
+import cryptokit.pairing.api.ED25519_KEY_SIZE
+import cryptokit.pairing.api.ED25519_SIGNATURE_SIZE
+import cryptokit.pairing.api.PublicKey
+import cryptokit.pairing.api.SUPPORTED_SCHEMA_VERSION
+import cryptokit.pairing.api.SigningPublicKey
+import cryptokit.pairing.api.X25519_KEY_SIZE
 import kotlin.uuid.ExperimentalUuidApi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.tasks.await
 
 // Firestore implementation: /links/{linkId}/devices/{deviceId}
 // + /links/{linkId}/deviceOwnership/{deviceId}.
 //
-// На fetchPeer MUST verify Ed25519 signature через injected DigitalSignature
+// На fetchPeer MUST verify Ed25519 signature через injected AsymmetricCrypto
 // ДО возврата identity. Tampered document / stale timestamp / size mismatch
-// → SignatureVerifyFailed.
+// → CryptoException.DecryptionFailed (verify-fail semantically maps к нему,
+// данные fingerprint'aются как auth-failed).
 //
 // Wire format — base64-encoded keys/signature (Firestore не поддерживает
 // raw bytes в string fields). Per contracts/device-identity.md.
+//
+// TASK-51 Phase 6: переписан с Outcome<T, CryptoError> на throws CryptoException;
+// inject AsymmetricCrypto (cryptokit) вместо legacy DigitalSignature port;
+// universal logging contract (FR-017) — operation / exceptionClass / messageHash,
+// никаких raw bytes / deviceIds в логах.
 @OptIn(ExperimentalUuidApi::class)
 class FirestoreDeviceIdentityRepository(
     private val firestore: FirebaseFirestore,
-    private val signature: DigitalSignature,
+    private val asymmetric: AsymmetricCrypto,
     private val ownerUid: () -> String?,
     private val nowMillis: () -> Long = { System.currentTimeMillis() },
 ) : DeviceIdentityRepository {
 
-    override suspend fun publishOwn(
-        linkId: String,
-        identity: DeviceIdentity,
-    ): Outcome<Unit, CryptoError> {
-        val uid = ownerUid() ?: return Outcome.Failure(CryptoError.KeystoreFailure(IllegalStateException("not signed in")))
-        return try {
-            // Сначала claim ownership (race-free).
-            val ownershipRef = firestore
-                .collection("links").document(linkId)
-                .collection("deviceOwnership").document(identity.deviceId.value)
-            val ownershipSnap = ownershipRef.get().await()
-            if (!ownershipSnap.exists()) {
-                ownershipRef.set(mapOf("ownerUid" to uid)).await()
+    override suspend fun publishOwn(linkId: String, identity: DeviceIdentity) {
+        withCryptoLogging("publishOwn") {
+            val uid = ownerUid() ?: throw CryptoException.KeyStoreException("not signed in")
+            try {
+                // Сначала claim ownership (race-free).
+                val ownershipRef = firestore
+                    .collection("links").document(linkId)
+                    .collection("deviceOwnership").document(identity.deviceId.value)
+                val ownershipSnap = ownershipRef.get().await()
+                if (!ownershipSnap.exists()) {
+                    ownershipRef.set(mapOf("ownerUid" to uid)).await()
+                }
+                val devRef = firestore
+                    .collection("links").document(linkId)
+                    .collection("devices").document(identity.deviceId.value)
+                devRef.set(toMap(identity)).await()
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (e: CryptoException) {
+                throw e
+            } catch (e: Throwable) {
+                throw CryptoException.SerializationException("publishOwn Firestore failure", e)
             }
-            val devRef = firestore
-                .collection("links").document(linkId)
-                .collection("devices").document(identity.deviceId.value)
-            devRef.set(toMap(identity)).await()
-            Outcome.Success(Unit)
-        } catch (e: Throwable) {
-            Outcome.Failure(CryptoError.StorageFailure(e))
         }
     }
 
-    override suspend fun fetchPeer(
-        linkId: String,
-        peerDeviceId: DeviceId,
-    ): Outcome<DeviceIdentity, CryptoError> {
-        val snap = try {
-            firestore.collection("links").document(linkId)
-                .collection("devices").document(peerDeviceId.value)
-                .get().await()
-        } catch (e: Throwable) {
-            return Outcome.Failure(CryptoError.StorageFailure(e))
+    override suspend fun fetchPeer(linkId: String, peerDeviceId: DeviceId): DeviceIdentity =
+        withCryptoLogging("fetchPeer") {
+            val snap = try {
+                firestore.collection("links").document(linkId)
+                    .collection("devices").document(peerDeviceId.value)
+                    .get().await()
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (e: Throwable) {
+                throw CryptoException.SerializationException("fetchPeer Firestore failure", e)
+            }
+            if (!snap.exists()) {
+                throw CryptoException.SerializationException("peer document missing")
+            }
+            val identity = fromMap(snap.data ?: emptyMap())
+                ?: throw CryptoException.SerializationException("peer document malformed")
+            // Verify Ed25519 signature ДО возврата.
+            val ok = try {
+                asymmetric.verify(
+                    Signature(identity.signature),
+                    identity.signedPayloadBytes(),
+                    identity.signingPublicKey.bytes,
+                )
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (e: Throwable) {
+                throw CryptoException.DecryptionFailed("signature verify threw: ${e.javaClass.simpleName}")
+            }
+            if (!ok) {
+                throw CryptoException.DecryptionFailed("signature verify failed")
+            }
+            // Freshness gate (7 days). Server-side rule также enforce — это defence-in-depth.
+            val now = nowMillis()
+            val age = now - identity.signedTimestamp
+            if (age > FRESHNESS_WINDOW_MILLIS || age < -CLOCK_SKEW_MILLIS) {
+                throw CryptoException.DecryptionFailed("stale timestamp")
+            }
+            identity
         }
-        if (!snap.exists()) {
-            return Outcome.Failure(CryptoError.SignatureVerifyFailed(peerDeviceId, reason = "no document"))
-        }
-        val identity = fromMap(snap.data ?: emptyMap())
-            ?: return Outcome.Failure(CryptoError.MalformedEnvelope())
-        // Verify signature ДО возврата.
-        val verifyResult = signature.verify(
-            identity.signedPayloadBytes(),
-            identity.signature,
-            identity.signingPublicKey,
-        )
-        if (verifyResult is Outcome.Failure) {
-            return Outcome.Failure(CryptoError.SignatureVerifyFailed(peerDeviceId, reason = "verify failed"))
-        }
-        // Freshness gate (7 days). Server-side rule также enforce — это defence-in-depth.
-        val now = nowMillis()
-        val age = now - identity.signedTimestamp
-        if (age > FRESHNESS_WINDOW_MILLIS || age < -CLOCK_SKEW_MILLIS) {
-            return Outcome.Failure(CryptoError.SignatureVerifyFailed(peerDeviceId, reason = "stale timestamp"))
-        }
-        return Outcome.Success(identity)
-    }
 
     override suspend fun listAll(linkId: String): List<DeviceIdentity> {
         return try {
             val qs = firestore.collection("links").document(linkId)
                 .collection("devices").get().await()
             qs.documents.mapNotNull { fromMap(it.data ?: emptyMap()) }
-        } catch (e: Throwable) {
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (_: Throwable) {
             emptyList()
         }
     }
@@ -141,14 +159,39 @@ class FirestoreDeviceIdentityRepository(
                 signature = sigBytes,
                 createdAt = createdAtMillis,
             )
-        } catch (e: Throwable) {
+        } catch (_: Throwable) {
             null
         }
+    }
+
+    private suspend inline fun <T> withCryptoLogging(
+        operation: String,
+        block: () -> T,
+    ): T = try {
+        block()
+    } catch (ce: CancellationException) {
+        throw ce
+    } catch (e: CryptoException) {
+        Log.w(
+            LOG_TAG,
+            "operation=$operation exceptionClass=${e.javaClass.simpleName} " +
+                "messageHash=${e.message?.hashCode()}",
+        )
+        throw e
+    } catch (e: Throwable) {
+        Log.w(
+            LOG_TAG,
+            "operation=$operation exceptionClass=${e.javaClass.simpleName} " +
+                "messageHash=${e.message?.hashCode()}",
+        )
+        throw CryptoException.SerializationException("unexpected $operation failure", e)
     }
 
     private companion object {
         private const val FRESHNESS_WINDOW_MILLIS = 7L * 24 * 60 * 60 * 1000
         private const val CLOCK_SKEW_MILLIS = 60L * 1000
+
+        private const val LOG_TAG: String = "cryptokit"
 
         private fun ByteArray.toBase64(): String = Base64.encodeToString(this, Base64.NO_WRAP)
         private fun String.fromBase64(): ByteArray = Base64.decode(this, Base64.NO_WRAP)

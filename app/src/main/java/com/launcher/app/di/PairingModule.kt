@@ -1,14 +1,16 @@
 package com.launcher.app.di
 
+import android.util.Log
 import com.launcher.adapters.crypto.PairingCryptoCoordinator
 import com.launcher.api.identity.DeviceIdProvider
 import com.launcher.api.identity.IdentityProvider
 import com.launcher.api.link.LinkRegistry
 import com.launcher.api.pairing.PairingService
 import com.launcher.api.push.PushSender
-import com.launcher.api.result.Outcome
 import com.launcher.api.sync.RemoteSyncBackend
 import com.launcher.app.ui.pairing.PairingViewModel
+import cryptokit.crypto.exception.CryptoException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -57,15 +59,19 @@ val pairingModule = module {
             identity = get<IdentityProvider>(),
             linkRegistry = get<LinkRegistry>(),
             onLinkEstablished = { linkId ->
-                when (val r = coordinator.publishOwnIdentity(linkId)) {
-                    is Outcome.Failure -> {
-                        // Log-only; pairing успешен, крипто-публикация повторится
-                        // при следующем lifecycle hook (ensureKeysReady — идемпотентна).
-                        android.util.Log.w("Spec011", "publishOwnIdentity failed: ${r.error::class.simpleName}")
-                    }
-                    is Outcome.Success -> {
-                        android.util.Log.i("Spec011", "Own DeviceIdentity published for link $linkId")
-                    }
+                try {
+                    coordinator.publishOwnIdentity(linkId)
+                    Log.i("Spec011", "Own DeviceIdentity published for link $linkId")
+                } catch (ce: CancellationException) {
+                    throw ce
+                } catch (e: CryptoException) {
+                    // Log-only; pairing успешен, крипто-публикация повторится
+                    // при следующем lifecycle hook (ensureKeysReady — идемпотентна).
+                    Log.w(
+                        "Spec011",
+                        "operation=publishOwnIdentity exceptionClass=${e.javaClass.simpleName} " +
+                            "messageHash=${e.message?.hashCode()}",
+                    )
                 }
             },
         )

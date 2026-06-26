@@ -26,6 +26,11 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            // TASK-51 Phase 6 — cryptokit API surfaces (DeviceIdentityRepository,
+            // EncryptedMediaStorage, RecipientResolver, CryptoException, etc.)
+            // are imported by pairing-side adapters (Background reconciler, fakes)
+            // and by core's androidMain Firestore/Worker adapters.
+            implementation(project(":core:crypto"))
             implementation(libs.kotlinx.coroutines.core)
 
             // Compose Multiplatform — UI runtime + Material 3 (per ADR-005 §1, §6)

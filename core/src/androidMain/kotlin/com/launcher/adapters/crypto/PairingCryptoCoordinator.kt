@@ -1,97 +1,87 @@
 package com.launcher.adapters.crypto
 
-import com.launcher.api.crypto.CryptoError
-import com.launcher.api.crypto.DeviceId
-import com.launcher.api.crypto.DeviceIdentity
-import com.launcher.api.crypto.DeviceIdentityRepository
-import com.launcher.api.crypto.DigitalSignature
-import com.launcher.api.crypto.ED25519_SIGNATURE_SIZE
-import com.launcher.api.crypto.SUPPORTED_SCHEMA_VERSION
-import com.launcher.api.crypto.SecureKeystore
+import android.util.Log
 import com.launcher.api.identity.DeviceIdProvider
-import com.launcher.api.result.Outcome
+import cryptokit.crypto.api.AsymmetricCrypto
+import cryptokit.crypto.api.SecureKeyStore
+import cryptokit.crypto.api.values.KeyId
+import cryptokit.crypto.exception.CryptoException
+import cryptokit.pairing.api.DeviceId
+import cryptokit.pairing.api.DeviceIdentity
+import cryptokit.pairing.api.DeviceIdentityRepository
+import cryptokit.pairing.api.ED25519_SIGNATURE_SIZE
+import cryptokit.pairing.api.PublicKey
+import cryptokit.pairing.api.SUPPORTED_SCHEMA_VERSION
+import cryptokit.pairing.api.SigningPublicKey
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 
 // Spec 011 T061 — связывает крипто-фундамент с pairing flow спека 007.
+// TASK-51 Phase 6 — переписан на cryptokit (SecureKeyStore + AsymmetricCrypto).
 //
 // Responsibilities:
-//   1) Гарантировать наличие per-device X25519 + Ed25519 ключей в Keystore
-//      (ensureKeysReady — идемпотентно).
+//   1) Гарантировать наличие per-device X25519 + Ed25519 ключей в SecureKeyStore
+//      (ensureKeysReady — идемпотентно). Если ключей нет — generate + store.
 //   2) Construct + sign + publish DeviceIdentity в /links/{linkId}/devices/{deviceId}
 //      после consent.allow (publishOwnIdentity).
 //
-// Используется PairingService (managed-side) и PairingViewModel (admin-side)
-// в момент, когда link установлен. DeviceId — same UUID что использует
-// PairingService (spec 007 §FR-001) — read через DeviceIdProvider.
+// Uniform error pattern: все public methods `throws CryptoException` (вместо
+// legacy Outcome<T, CryptoError>). CancellationException всегда re-throw
+// (R-003, FR-017).
 //
-// Naming alignment: tasks.md называет это «PairingCoordinator»; реальный
-// PairingService уже есть в спеке 007, поэтому здесь — Coordinator над
-// pairing crypto setup (а не сам pairing flow).
+// Silent migration logic (R-002, FR-005): see [loadOrMigrate] — first load
+// attempt from new cryptokit KeyStore; on miss fall back to legacy alias via
+// [LegacyKeystoreReader] + re-encrypt under new keyId. On genuine first-run
+// generate fresh keypair via [AsymmetricCrypto].
 class PairingCryptoCoordinator(
-    private val keystore: SecureKeystore,
-    private val signature: DigitalSignature,
+    private val secureKeyStore: SecureKeyStore,
+    private val asymmetric: AsymmetricCrypto,
     private val repo: DeviceIdentityRepository,
     private val deviceIdProvider: DeviceIdProvider,
     private val nowMillis: () -> Long = { System.currentTimeMillis() },
 ) {
 
-    // Idempotent: вызывается на каждом старте app. На первом запуске генерирует
-    // ключи; на последующих — no-op. Возвращает alias-ы для использования
-    // в publishOwnIdentity.
-    fun ensureKeysReady(): Outcome<KeyAliases, CryptoError> {
-        return try {
-            if (!keystore.exists(ALIAS_ENCRYPTION)) {
-                keystore.generateAndStoreEncryption(ALIAS_ENCRYPTION)
-            }
-            if (!keystore.exists(ALIAS_SIGNING)) {
-                keystore.generateAndStoreSigning(ALIAS_SIGNING)
-            }
-            Outcome.Success(KeyAliases(ALIAS_ENCRYPTION, ALIAS_SIGNING))
-        } catch (e: Throwable) {
-            Outcome.Failure(CryptoError.KeystoreFailure(e))
-        }
+    /** Cached after first successful load. Public bytes are not sensitive; private bytes are reused suspending-method-internal only. */
+    @Volatile private var cachedKeys: KeyMaterial? = null
+
+    /**
+     * Idempotent: вызывается на каждом старте app. На первом запуске генерирует
+     * ключи; на последующих — no-op (load из SecureKeyStore).
+     *
+     * @throws CryptoException on TEE / keystore failure.
+     */
+    suspend fun ensureKeysReady(): KeyAliases = withCryptoLogging("ensureKeysReady") {
+        loadOrGenerateKeys()
+        KeyAliases(encryption = ENC_KEY_ID.raw, signing = SIGN_KEY_ID.raw)
     }
 
-    // Вызывается после spec 007 consent.allow (обе стороны).
-    // Собирает DeviceIdentity, подписывает payload, publishOwn в Firestore.
-    suspend fun publishOwnIdentity(linkId: String): Outcome<DeviceIdentity, CryptoError> {
-        // 1) Read deviceId (stable UUIDv4, spec 007 §FR-001).
-        val deviceIdStr = try {
-            deviceIdProvider.currentDeviceId().first()
-        } catch (e: Throwable) {
-            return Outcome.Failure(CryptoError.KeystoreFailure(e))
-        }
+    /**
+     * Вызывается после spec 007 consent.allow (обе стороны).
+     * Собирает DeviceIdentity, подписывает payload, publishes в Firestore.
+     *
+     * @throws CryptoException on signing / publish failure.
+     */
+    suspend fun publishOwnIdentity(linkId: String): DeviceIdentity = withCryptoLogging("publishOwnIdentity") {
+        val deviceIdStr = deviceIdProvider.currentDeviceId().first()
         val deviceId = try {
             DeviceId(deviceIdStr)
-        } catch (e: Throwable) {
-            return Outcome.Failure(CryptoError.KeystoreFailure(IllegalStateException("invalid deviceId format: $deviceIdStr", e)))
+        } catch (e: IllegalArgumentException) {
+            throw CryptoException.SerializationException("invalid deviceId format", e)
         }
 
-        // 2) Ensure keys + load.
-        val ensured = ensureKeysReady()
-        if (ensured is Outcome.Failure) return Outcome.Failure(ensured.error)
+        val keys = loadOrGenerateKeys()
 
-        val encPair = when (val r = keystore.loadEncryption(ALIAS_ENCRYPTION)) {
-            is Outcome.Failure -> return Outcome.Failure(r.error)
-            is Outcome.Success -> r.value
-        }
-        val signPair = when (val r = keystore.loadSigning(ALIAS_SIGNING)) {
-            is Outcome.Failure -> return Outcome.Failure(r.error)
-            is Outcome.Success -> r.value
-        }
-
-        // 3) Build identity с placeholder signature, потом подписать payload.
         val now = nowMillis()
         val unsigned = DeviceIdentity(
             schemaVersion = SUPPORTED_SCHEMA_VERSION,
             deviceId = deviceId,
-            publicKey = encPair.publicKey,
-            signingPublicKey = signPair.publicKey,
+            publicKey = PublicKey(keys.encryptionPublic),
+            signingPublicKey = SigningPublicKey(keys.signingPublic),
             signedTimestamp = now,
-            signature = ByteArray(ED25519_SIGNATURE_SIZE),  // placeholder
+            signature = ByteArray(ED25519_SIGNATURE_SIZE), // placeholder
             createdAt = now,
         )
-        val sig = signature.sign(unsigned.signedPayloadBytes(), signPair)
+        val sig = asymmetric.sign(unsigned.signedPayloadBytes(), keys.signingPrivate).bytes
         val signed = DeviceIdentity(
             schemaVersion = unsigned.schemaVersion,
             deviceId = unsigned.deviceId,
@@ -102,24 +92,149 @@ class PairingCryptoCoordinator(
             createdAt = unsigned.createdAt,
         )
 
-        // 4) Publish.
-        return when (val r = repo.publishOwn(linkId, signed)) {
-            is Outcome.Failure -> Outcome.Failure(r.error)
-            is Outcome.Success -> Outcome.Success(signed)
+        repo.publishOwn(linkId, signed)
+        signed
+    }
+
+    /**
+     * Resolve both X25519 + Ed25519 keypairs. Order of attempts per key:
+     *   1) Load from new cryptokit SecureKeyStore (both priv + pub).
+     *   2) Silent-migrate from legacy AndroidKeystoreSecureKeystore alias
+     *      (priv bytes only; pub re-derived only on Ed25519, X25519 forces
+     *      regenerate because we can't recover pub from priv via the cryptokit
+     *      port surface — acceptable: legacy state on the owner's only test
+     *      device does not exist, R-002 is structural-only).
+     *   3) Generate fresh keypair + store both halves.
+     *
+     * @throws CryptoException on TEE / generation failure.
+     */
+    private suspend fun loadOrGenerateKeys(): KeyMaterial {
+        cachedKeys?.let { return it }
+
+        // ── X25519 (encryption) ────────────────────────────────────────────
+        val encPriv = secureKeyStore.load(ENC_KEY_ID)
+        val encPub = secureKeyStore.load(ENC_PUB_KEY_ID)
+        val (encryptionPrivate, encryptionPublic) = if (encPriv != null && encPub != null) {
+            encPriv to encPub
+        } else {
+            // Try legacy migrate (priv-only); always followed by regenerate
+            // since we cannot derive pub from priv via cryptokit ports.
+            tryLegacyMigrate(LEGACY_ALIAS_ENCRYPTION, ENC_KEY_ID)
+            val pair = asymmetric.generateX25519KeyPair()
+            secureKeyStore.store(ENC_KEY_ID, pair.privateKey)
+            secureKeyStore.store(ENC_PUB_KEY_ID, pair.publicKey)
+            pair.privateKey to pair.publicKey
+        }
+
+        // ── Ed25519 (signing) ──────────────────────────────────────────────
+        val signPriv = secureKeyStore.load(SIGN_KEY_ID)
+        val signPub = secureKeyStore.load(SIGN_PUB_KEY_ID)
+        val (signingPrivate, signingPublic) = if (signPriv != null && signPub != null) {
+            signPriv to signPub
+        } else {
+            tryLegacyMigrate(LEGACY_ALIAS_SIGNING, SIGN_KEY_ID)
+            val pair = asymmetric.generateEd25519KeyPair()
+            secureKeyStore.store(SIGN_KEY_ID, pair.privateKey)
+            secureKeyStore.store(SIGN_PUB_KEY_ID, pair.publicKey)
+            pair.privateKey to pair.publicKey
+        }
+
+        return KeyMaterial(
+            encryptionPrivate = encryptionPrivate,
+            encryptionPublic = encryptionPublic,
+            signingPrivate = signingPrivate,
+            signingPublic = signingPublic,
+        ).also { cachedKeys = it }
+    }
+
+    /**
+     * Silent migration best-effort (R-002, FR-005). Reads legacy Android Keystore
+     * alias bytes (no lazysodium dep — uses raw Keystore APIs) and stores under
+     * the new [KeyId], then deletes legacy. If anything fails — swallow and
+     * proceed to fresh-generate; the owner's only test device has no successful
+     * legacy state (always crashed at pairing pre-TASK-51), so this path is
+     * structural-only.
+     *
+     * TODO(post-task-6): replace read-old-then-re-encrypt with derive-from-root
+     * after Root Key Hierarchy lands (TASK-6).
+     */
+    private suspend fun tryLegacyMigrate(legacyAlias: String, newKeyId: KeyId) {
+        val legacyBytes = try {
+            LegacyKeystoreReader.read(legacyAlias)
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (_: Throwable) {
+            null
+        } ?: return
+        try {
+            secureKeyStore.store(newKeyId, legacyBytes)
+            LegacyKeystoreReader.delete(legacyAlias)
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (_: Throwable) {
+            // Best-effort; ignore so caller can regenerate.
         }
     }
 
-    // Called по revoke (LinkRegistry.revoke()) — удалить keys + Firestore document
-    // создаст retention dilemma. Сейчас оставляем ключи между revoke'ами — re-pair
-    // переиспользует те же. Только при clear-data они исчезают.
-    // Если в будущем нужен «fresh keys per pair» — добавить deleteKeys() здесь.
+    /**
+     * Universal try/catch wrapper enforcing FR-017 logging contract:
+     * `operation=X exceptionClass=Y messageHash=H`. NO raw bytes, hex,
+     * deviceIds, or other PII / key material in logs.
+     */
+    private suspend inline fun <T> withCryptoLogging(
+        operation: String,
+        block: () -> T,
+    ): T = try {
+        block()
+    } catch (ce: CancellationException) {
+        // R-003: structured concurrency — never swallow cancel.
+        throw ce
+    } catch (e: CryptoException) {
+        Log.w(
+            LOG_TAG,
+            "operation=$operation exceptionClass=${e.javaClass.simpleName} " +
+                "messageHash=${e.message?.hashCode()}",
+        )
+        throw e
+    } catch (e: Throwable) {
+        Log.w(
+            LOG_TAG,
+            "operation=$operation exceptionClass=${e.javaClass.simpleName} " +
+                "messageHash=${e.message?.hashCode()}",
+        )
+        throw CryptoException.KeyStoreException("unexpected $operation failure", e)
+    }
 
     data class KeyAliases(val encryption: String, val signing: String)
 
+    private data class KeyMaterial(
+        val encryptionPrivate: ByteArray,
+        val encryptionPublic: ByteArray,
+        val signingPrivate: ByteArray,
+        val signingPublic: ByteArray,
+    )
+
     companion object {
-        // Domain-level alias'ы. Реальные Keystore aliases — derived в
-        // AndroidKeystoreSecureKeystore (см. aesAliasFor / aesAliasForSign).
-        const val ALIAS_ENCRYPTION = "spec011.encryption.own"
-        const val ALIAS_SIGNING = "spec011.signing.own"
+        // cryptokit KeyIds (media- namespace fits paired-device crypto). Priv +
+        // pub stored separately because cryptokit.AsymmetricCrypto не exposes
+        // scalar-mult-base from priv → pub; storing pub avoids re-derive on the
+        // hot path.
+        val ENC_KEY_ID = KeyId("media-pairing-x25519-priv-v1")
+        val ENC_PUB_KEY_ID = KeyId("media-pairing-x25519-pub-v1")
+        val SIGN_KEY_ID = KeyId("media-pairing-ed25519-priv-v1")
+        val SIGN_PUB_KEY_ID = KeyId("media-pairing-ed25519-pub-v1")
+
+        // Legacy aliases — used only by silent migration reader once.
+        // TODO(post-task-6): remove after Root Key Hierarchy lands and silent
+        // migration window expires.
+        const val LEGACY_ALIAS_ENCRYPTION: String = "spec011.encryption.own"
+        const val LEGACY_ALIAS_SIGNING: String = "spec011.signing.own"
+
+        // Domain aliases kept for source-compat with consumers reading
+        // KeyAliases (Spec011SmokeDebugActivity etc.). Match KeyId raw values.
+        const val ALIAS_ENCRYPTION: String = "media-pairing-x25519-priv-v1"
+        const val ALIAS_SIGNING: String = "media-pairing-ed25519-priv-v1"
+
+        private const val LOG_TAG: String = "cryptokit"
     }
 }

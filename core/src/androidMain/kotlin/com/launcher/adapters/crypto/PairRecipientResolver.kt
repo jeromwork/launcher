@@ -1,9 +1,9 @@
 package com.launcher.adapters.crypto
 
-import com.launcher.api.crypto.DeviceId
-import com.launcher.api.crypto.DeviceIdentity
-import com.launcher.api.crypto.DeviceIdentityRepository
-import com.launcher.api.crypto.RecipientResolver
+import cryptokit.pairing.api.DeviceId
+import cryptokit.pairing.api.DeviceIdentity
+import cryptokit.pairing.api.DeviceIdentityRepository
+import cryptokit.pairing.api.RecipientResolver
 
 // Spec 011 RecipientResolver implementation for one-on-one pair.
 // Возвращает identity peer'a (другого member'а пары). В 011 — 1 entry.
