@@ -5,9 +5,9 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessaging
 import com.launcher.adapters.crypto.FirestoreDeviceIdentityRepository
 import com.launcher.adapters.crypto.WorkerEncryptedMediaStorage
-import com.launcher.api.crypto.DeviceIdentityRepository
-import com.launcher.api.crypto.DigitalSignature
-import com.launcher.api.crypto.EncryptedMediaStorage
+import cryptokit.crypto.api.AsymmetricCrypto
+import cryptokit.pairing.api.DeviceIdentityRepository
+import cryptokit.pairing.api.EncryptedMediaStorage
 import com.launcher.adapters.apps.InstalledAppsCatalogAdapter
 import com.launcher.adapters.apps.OpenAppDispatcherAdapter
 import com.launcher.adapters.config.AndroidSqlDriverProvider
@@ -138,7 +138,7 @@ val backendModule: Module = module {
     single<DeviceIdentityRepository> {
         FirestoreDeviceIdentityRepository(
             firestore = get(),
-            signature = get<DigitalSignature>(),
+            asymmetric = get<AsymmetricCrypto>(),
             ownerUid = {
                 // Resolved через IdentityProvider; current Firebase uid.
                 get<IdentityProvider>().currentIdentity()?.firebaseAuthUid

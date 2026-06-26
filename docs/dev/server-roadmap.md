@@ -241,6 +241,7 @@
 | 2026-05-25 | SRV-CRYPTO-001 rev. 2 — переключение storage с Firebase Storage (требует Blaze) на Backblaze B2 + Cloudflare Worker proxy. Free tier 10 GB, без credit card. Exit ramp сохранён через S3-compatible API. | Spec 011 mentor-сессия по billing |
 | 2026-05-28 | Добавлены SRV-CMD-002 (Firestore Transactions inadequacy для membership ops), SRV-SEC-005 (Firestore Rules complexity → server-side auth logic), SRV-INFRA-003 (Cloudflare Worker CPU time limit), SRV-DEV-001 (staging environment), SRV-CRYPTO-002 (manual key rotation FUTURE-SPEC-010) | Pre-F-1 mentor critique walkthrough |
 | 2026-06-19 | Добавлены SRV-RECOVERY-001 (own-server recovery key vault, replaces Firestore-based), SRV-CRYPTO-005 (out-of-band fingerprint verification / Safety Number screen), SRV-CRYPTO-006 (forward unsharing при removal admin'а), SRV-CRYPTO-007 (algorithm migration job для устаревших primitives) | F-5 spec 018 clarify session — multi-admin envelope перенесён в S-2, F-5 redefined как root key hierarchy + recovery |
+| 2026-06-26 | Добавлен SRV-SEC-006 (server-at-rest encryption + Shamir N-of-M threshold unsealing + remote attestation + hardware-backed Cloud KMS). Создан отдельный файл [`server-requirements.md`](server-requirements.md) с консолидированными требованиями launcher'а к серверу (уровень абстракции «что launcher ожидает», отдельно от operational roadmap). | Mentor-сессия 2026-06-26 — threat-model «server stolen / code stolen» впервые explicit |
 
 ---
 
@@ -781,3 +782,98 @@ JWT verification (Firebase ID-token validation) extracted в standalone TypeScri
 ## SRV-FCM-CONFIG-UPDATE: replaced by SRV-PUSH-FOUNDATION (2026-06-20)
 
 Этот entry **заменён** на `SRV-PUSH-FOUNDATION` выше. Узкий scope «один endpoint для config-updated» расширен до generic push infrastructure при проектировании spec 019. См. SRV-PUSH-FOUNDATION для актуальной планировки migration на свой сервер.
+
+---
+
+## SRV-SEC-006: Server-at-rest encryption + threshold unsealing + remote attestation
+
+**Контекст**: при переезде на собственный backend весь metadata (identity-links, public keys, access-grants, audit log, recovery vault ciphertext, envelope storage, blob references) попадает в БД на нашей инфре. **E2E inviolable** (server не видит plaintext config/media/keys) защищает только данные пользователя — **metadata же открыта** для любого, кто получит доступ к БД (insider, leaked DB dump, stolen disk image, скомпрометированный hosting provider).
+
+**Threat model, который этот entry закрывает**:
+- **TM-1 (stolen DB dump)**: атакующий получает копию Postgres. Без at-rest encryption — видит весь metadata. С naive at-rest encryption (master key на том же сервере) — взлом тривиален. Нужен **threshold unsealing**: master key не лежит на сервере, собирается из shard'ов при boot.
+- **TM-2 (stolen running server)**: атакующий получает live VM с decrypted master key in-memory. Закрывается **periodic remote attestation** + **bounded session TTL** для master key (auto re-seal через N часов).
+- **TM-3 (compromised hosting provider / insider)**: hosting admin может dump memory или modify binary. Закрывается **hardware attestation** (TPM PCR / AWS Nitro / GCP Confidential VMs) + **shard custody вне hosting provider** (shard'ы у разных operator'ов / cloud providers).
+- **TM-4 (long-term forward compromise)**: master key compromised в момент T → все данные до T читаемы. Закрывается **periodic master key rotation** + background re-encryption.
+
+**Требование к серверу**:
+
+1. **At-rest encryption всего metadata**:
+   - Field-level encryption для sensitive columns (recovery vault ciphertext, audit log payload hash, identity-links — всё кроме того, что нужно для index lookup в plain).
+   - Disk-level encryption (LUKS / cloud-provider TDE) как defence-in-depth, **не как primary**.
+   - Encryption key = `master_data_key`, derived from `master_unseal_key`.
+
+2. **Threshold unsealing (Shamir N-of-M)**:
+   - `master_unseal_key` разделён на **N shards** через Shamir's Secret Sharing.
+   - Server при boot ожидает **M-of-N shards** (recommendation: 3-of-5 или 2-of-3 для MVP).
+   - Shards вводятся через secure channel (отдельный admin endpoint `POST /ops/unseal`, mTLS, IP allowlist).
+   - До unseal'а: server в `sealed` state — отвечает только на `/health` и `/ops/unseal`, отбрасывает все остальные requests с 503.
+   - После unseal: `master_unseal_key` в memory, derives `master_data_key`, открывает БД.
+   - Reference: HashiCorp Vault `vault operator unseal` pattern.
+
+3. **Shard custody policy**:
+   - Каждый shard хранится **отдельным operator'ом** (физически разделённые люди / accounts / clouds).
+   - Recommended distribution: 1 shard offline cold storage (paper / metal backup в сейфе), 1 shard на hardware token у владельца, 1 shard у trusted operator (юрист / партнёр), 1 shard в cloud KMS другого провайдера.
+   - **Никакие 2 shard'а не лежат вместе** (иначе threshold нарушен).
+
+4. **Hardware-backed unsealing (preferred path)**:
+   - Если deployment поддерживает: master_unseal_key wrapped через **Cloud HSM / KMS** (AWS KMS + Nitro Enclaves, GCP Cloud KMS + Confidential VMs, Azure Key Vault + Confidential Computing).
+   - KMS releases key **только** если attestation document от instance проходит verification (PCR measurements / Nitro attestation).
+   - Это закрывает TM-3 (insider): hosting provider не может dump memory без trip attestation.
+
+5. **Periodic remote attestation**:
+   - Каждые **N часов** (recommendation: 6h) server отправляет attestation document на **external attestation service** (отдельный endpoint, отдельный provider).
+   - Attestation document: hash of running binary + hash of config + TPM PCR values + uptime + boot timestamp.
+   - Attestation service сравнивает с known-good baseline. На mismatch → alert + auto-shutdown via revoke unseal token.
+   - Owner получает push на каждую failed attestation.
+
+6. **Auto re-seal on TTL**:
+   - `master_unseal_key` в memory имеет **bounded TTL** (recommendation: 24h).
+   - После TTL: server переходит в `sealed` state, требует свежий threshold unsealing.
+   - Защищает от long-running compromise.
+
+7. **Master key rotation**:
+   - `master_data_key` ротируется раз в **90 дней** (recommendation).
+   - Background job re-encrypts старые ciphertext'ы под новый key.
+   - Старый key хранится для read для `re-encryption period + 30 дней`, затем удаляется.
+   - Audit log записывает rotation events.
+
+8. **Forensic-safe audit log**:
+   - Audit log сам по себе зашифрован под отдельный `audit_key` (не master_data_key).
+   - `audit_key` shards распределены по другим operator'ам (отличным от master_unseal_key custody).
+   - Append-only structure, tamper-evident через hash chain (каждая запись содержит hash предыдущей).
+
+**Что НЕ closes**:
+- Кража server **до** unseal'а — атакующий получает только encrypted blob, ничего полезного.
+- Threat-model «leaked source code» — закрывается тем, что в source нет secrets (все ключи derive'ятся at runtime через unseal). Это нужно явно verify через secret-leak scanner в CI.
+- Threat-model «physical access к hardware token у владельца» — accepted risk; mitigation = shard distribution + audit log alert на unauthorized unseal attempt.
+
+**MVP simplification path** (если full threshold + HSM overkill для phase 1):
+- **Phase 1 (single-server, < 100 users)**: master_unseal_key в env var через secret manager (Vault / AWS Secrets Manager). Disk encryption LUKS. **Documented limitation** — закрывает только stolen-disk vector, не insider/running-server.
+- **Phase 2 (production, > 100 users)**: добавить Shamir N-of-M threshold unsealing. Operator endpoint `POST /ops/unseal`.
+- **Phase 3 (regulated / GDPR-heavy)**: добавить hardware-backed (Cloud KMS + attestation) + periodic remote attestation + auto re-seal.
+- Migration между phases — additive (port `MasterKeyProvider` остаётся, swap implementation).
+
+**Что нужно от launcher-клиента**:
+- **Ничего** — это полностью server-side concern. Клиент продолжает работать с REST endpoint'ами как обычно. При server `sealed` state клиент получает 503 → retry с exponential backoff (та же логика, что и для любого server outage).
+
+**Когда поедет**: вместе с собственным backend проектом. Phase 1 (env var) — day 1 own server. Phase 2 (threshold) — до первых **реальных** users. Phase 3 (HSM + attestation) — до billing tier или EU/GDPR launch, что раньше.
+
+**Зависимости**:
+- Выбор backend stack (Ktor поддерживает custom startup hooks для unseal flow).
+- Выбор cloud provider (KMS + Confidential Computing availability).
+- Identification операторов для shard custody (юридический / организационный вопрос, не технический).
+
+**Связанные SRV-задачи**:
+- SRV-RECOVERY-001 — server-side atomic counter лежит под этим encryption (без unseal БД не открыта, counter недоступен).
+- SRV-SEC-002 — audit log использует separate audit_key (защита от tampering при компрометации master).
+- SRV-CRYPTO-008 — algorithm migration policy applies к server-side encryption тоже (XChaCha20-Poly1305 + Argon2id deprecation path).
+- SRV-INFRA-001 — production deployment должен включать unseal ceremony как часть deployment runbook.
+
+**Источник**: 2026-06-26 mentor-сессия с владельцем — впервые поднят threat-model «server stolen / code stolen», категория **server-at-rest encryption + threshold unsealing + remote attestation** добавлена как explicit requirement.
+
+**Industry references**:
+- [HashiCorp Vault — Seal/Unseal](https://developer.hashicorp.com/vault/docs/concepts/seal) — pattern для threshold unsealing.
+- [Shamir's Secret Sharing](https://en.wikipedia.org/wiki/Shamir%27s_secret_sharing) — math foundation.
+- [AWS Nitro Enclaves Attestation](https://docs.aws.amazon.com/enclaves/latest/user/nitro-enclave-concepts.html) — hardware attestation.
+- [GCP Confidential VMs](https://cloud.google.com/confidential-computing/confidential-vm/docs/about-cvm) — alternative.
+- [Signal — Sealed Sender](https://signal.org/blog/sealed-sender/) — metadata protection pattern (relevant к field-level encryption).

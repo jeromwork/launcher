@@ -82,7 +82,7 @@ kotlin {
 }
 
 android {
-    namespace = "family.crypto"
+    namespace = "cryptokit.crypto"
     compileSdk = libs.versions.compileSdk.get().toInt()
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()

@@ -100,34 +100,16 @@ android {
         }
     }
 
-    // libsodium.so duplication между spec 011 (lazysodium-android) и
-    // spec 016 (multiplatform-crypto-libsodium-bindings via :core:crypto).
-    // Обе библиотеки приносят идентичный libsodium.so под /lib/<abi>/.
-    // pickFirsts — берём первый встреченный, бит-в-бит идентичный второму.
-    // Технически правильнее было бы исключить одну из библиотек из :app
-    // classpath, но обе нужны: lazysodium для legacy spec 011 адаптеров,
-    // multiplatform-crypto для :core:crypto F-CRYPTO модуля.
-    // TODO(spec 016/011 cleanup): когда spec 011 lazysodium-based adapters
-    // будут мигрированы на :core:crypto KMP binding, можно убрать
-    // lazysodium dependency и pickFirsts тоже.
-    packaging {
-        jniLibs {
-            pickFirsts += setOf(
-                "lib/arm64-v8a/libsodium.so",
-                "lib/armeabi-v7a/libsodium.so",
-                "lib/x86/libsodium.so",
-                "lib/x86_64/libsodium.so",
-            )
-        }
-    }
-
-    // Spec 011 — ABI splits для release builds.
-    // Lazysodium-android поставляет нативный .so файл под 4 ABI.
+    // ABI splits для release builds — ionspin libsodium-kmp (через :core:crypto)
+    // поставляет libsodium.so под 4 ABI (arm64-v8a, armeabi-v7a, x86, x86_64).
     // Без splits release APK потяжелеет на ~1.0-1.2 MiB (все ABIs упакованы).
     // Со splits — каждый пользователь Play Store скачивает только свой ABI
     // (~300 KiB delta per device).
     // Debug builds: splits **отключены** (универсальный APK для удобства dev/CI).
-    // Per spec 011 plan.md §APK delta budget, Risk R3, quickstart.md §2.
+    //
+    // History: до 2026-06-26 (TASK-51) тут также стоял packaging.jniLibs.pickFirsts
+    // костыль для разрешения конфликта между lazysodium-android и ionspin (обе
+    // тащили свой libsodium.so). lazysodium удалён — pickFirsts больше не нужен.
     splits {
         abi {
             isEnable = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }

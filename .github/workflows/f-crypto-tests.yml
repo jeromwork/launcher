@@ -3,7 +3,7 @@
 # Three jobs:
 #   1. crypto-isolation — fitness function: :core:crypto MUST NOT depend on launcher modules.
 #   2. crypto-jvm-tests — RFC KAT vectors + property tests + KeyBlob roundtrip + backward-compat.
-#   3. crypto-no-fakes-in-app — Konsist scan: production app/src/main MUST NOT import family.crypto.fake.*.
+#   3. crypto-no-fakes-in-app — Konsist scan: production app/src/main MUST NOT import cryptokit.crypto.fake.*.
 #
 # Android instrumentation tests (:core:crypto:connectedDebugAndroidTest) require an
 # emulator runner and are documented separately — currently run manually until the
@@ -81,5 +81,5 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
 
-      - name: Konsist fitness — no family.crypto.fake imports in app/src/main (FR-018, SC-011)
+      - name: Konsist fitness — no cryptokit.crypto.fake imports in app/src/main (FR-018, SC-011)
         run: ./gradlew :app:testMockBackendDebugUnitTest --tests "com.launcher.app.fitness.*"

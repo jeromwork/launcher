@@ -22,8 +22,8 @@ import com.launcher.api.paired.LocalLinkRevocationStore
 import com.launcher.api.push.PushReceiver
 import com.launcher.api.push.PushSender
 import com.launcher.api.sync.RemoteSyncBackend
-import com.launcher.api.crypto.DeviceIdentityRepository
-import com.launcher.api.crypto.EncryptedMediaStorage
+import cryptokit.pairing.api.DeviceIdentityRepository
+import cryptokit.pairing.api.EncryptedMediaStorage
 import com.launcher.fake.apps.FakeInstalledAppsCatalog
 import com.launcher.fake.crypto.InMemoryDeviceIdentityRepository
 import com.launcher.fake.crypto.InMemoryEncryptedMediaStorage

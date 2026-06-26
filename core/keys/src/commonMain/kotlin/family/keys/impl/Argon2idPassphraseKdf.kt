@@ -1,6 +1,6 @@
 package family.keys.impl
 
-import family.crypto.api.PasswordHash
+import cryptokit.crypto.api.PasswordHash
 import family.keys.api.PassphraseKdfParams
 
 /**

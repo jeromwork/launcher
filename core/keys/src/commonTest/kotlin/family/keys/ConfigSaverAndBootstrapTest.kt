@@ -1,9 +1,9 @@
 package family.keys
 
 import com.ionspin.kotlin.crypto.LibsodiumInitializer
-import family.crypto.libsodium.LibsodiumAeadCipher
-import family.crypto.libsodium.LibsodiumAsymmetricCrypto
-import family.crypto.libsodium.LibsodiumRandomSource
+import cryptokit.crypto.libsodium.LibsodiumAeadCipher
+import cryptokit.crypto.libsodium.LibsodiumAsymmetricCrypto
+import cryptokit.crypto.libsodium.LibsodiumRandomSource
 import family.keys.api.AuthIdentity
 import family.keys.api.BootstrapError
 import family.keys.api.ConfigSaver

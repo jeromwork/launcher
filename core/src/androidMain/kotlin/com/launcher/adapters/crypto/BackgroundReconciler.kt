@@ -1,9 +1,10 @@
 package com.launcher.adapters.crypto
 
-import com.launcher.api.crypto.EncryptedMediaStorage
-import com.launcher.api.result.Outcome
+import cryptokit.crypto.exception.CryptoException
+import cryptokit.pairing.api.EncryptedMediaStorage
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
+import kotlinx.coroutines.CancellationException
 
 // Spec 011 FR-042 + research.md §5/§5c — orphan blob reconciliation.
 // Periodic 24h cadence (real scheduling — WorkManager periodic worker,
@@ -33,8 +34,16 @@ class BackgroundReconciler(
         var deleted = 0
         var failed = 0
         for (uuid in orphans) {
-            val result = storage.delete(linkId, uuid)
-            if (result is Outcome.Success) deleted++ else failed++
+            try {
+                storage.delete(linkId, uuid)
+                deleted++
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (_: CryptoException) {
+                failed++
+            } catch (_: Throwable) {
+                failed++
+            }
         }
 
         // Stale ledger entries (blob уже удалён из Storage) → cleanup ledger.

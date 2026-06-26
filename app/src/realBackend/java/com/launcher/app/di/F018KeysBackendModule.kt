@@ -4,10 +4,10 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.launcher.app.data.envelope.FirestoreEnvelopeStorage
 import com.launcher.app.data.envelope.FirestorePublicKeyDirectory
 import com.launcher.app.data.recovery.FirestoreRecoveryKeyVault
-import family.crypto.api.AeadCipher
-import family.crypto.api.AsymmetricCrypto
-import family.crypto.api.RandomSource
-import family.crypto.api.SecureKeyStore
+import cryptokit.crypto.api.AeadCipher
+import cryptokit.crypto.api.AsymmetricCrypto
+import cryptokit.crypto.api.RandomSource
+import cryptokit.crypto.api.SecureKeyStore
 import family.keys.android.AndroidDeviceIdentity
 import family.keys.android.WorkManagerAsyncConfigPushQueue
 import family.keys.api.AsyncConfigPushQueue

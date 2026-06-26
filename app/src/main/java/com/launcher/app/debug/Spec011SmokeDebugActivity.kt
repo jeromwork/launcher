@@ -22,60 +22,55 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.launcher.adapters.crypto.PairingCryptoCoordinator
-import com.launcher.api.crypto.AeadCipher
-import com.launcher.api.crypto.AsymmetricCrypto
-import com.launcher.api.crypto.CIPHER_SUITE_ID_V1
-import com.launcher.api.crypto.ContentEncryptionKey
-import com.launcher.api.crypto.DeviceId
-import com.launcher.api.crypto.DigitalSignature
-import com.launcher.api.crypto.EncryptedEnvelope
-import com.launcher.api.crypto.EncryptedMediaStorage
-import com.launcher.api.crypto.HashFunction
-import com.launcher.api.crypto.POLY1305_MAC_SIZE
-import com.launcher.api.crypto.Recipient
-import com.launcher.api.crypto.SUPPORTED_SCHEMA_VERSION
-import com.launcher.api.crypto.SecureKeystore
-import com.launcher.api.crypto.use
 import com.launcher.api.identity.DeviceIdProvider
-import com.launcher.api.result.Outcome
 import com.launcher.ui.theme.LauncherTheme
+import cryptokit.crypto.api.AeadCipher
+import cryptokit.crypto.api.AsymmetricCrypto
+import cryptokit.crypto.api.SecureKeyStore
+import cryptokit.crypto.api.values.Ciphertext
+import cryptokit.pairing.api.CIPHER_SUITE_ID_V1
+import cryptokit.pairing.api.DeviceId
+import cryptokit.pairing.api.EncryptedEnvelope
+import cryptokit.pairing.api.EncryptedMediaStorage
+import cryptokit.pairing.api.POLY1305_MAC_SIZE
+import cryptokit.pairing.api.Recipient
+import cryptokit.pairing.api.SUPPORTED_SCHEMA_VERSION
+import cryptokit.pairing.api.XCHACHA20_NONCE_SIZE
+import java.security.MessageDigest
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
 import org.koin.android.ext.android.inject
 
 /**
  * Spec 011 FR-070 / US-6 debug smoke screen.
  *
+ * TASK-51 Phase 6 — переписан на cryptokit (AeadCipher / AsymmetricCrypto /
+ * SecureKeyStore / EncryptedMediaStorage), try/catch вместо Outcome, inline
+ * SHA-256 для fingerprint вместо удалённого HashFunction port (R-004, FR-014).
+ *
  * Three buttons:
- *  1. **Self-roundtrip**: generate 16 random bytes → encrypt + seal CEK for OWN
- *     device → unseal + decrypt → assert plaintext matches. Validates that
- *     libsodium native loads on this device's ABI, Keystore works, envelope
- *     wire format round-trips.
- *  2. **Encrypt for peer + upload**: same encrypt, но seal CEK for peer device
- *     (берётся через RecipientResolver), upload в Storage. Запоминает uuid.
- *     Phase B: cross-device live.
+ *  1. **Self-roundtrip**: generate 16 random bytes → encrypt for self →
+ *     decrypt → assert plaintext matches. Validates что libsodium native
+ *     loads, SecureKeyStore работает, ciphertext round-trips.
+ *  2. **Encrypt for self + upload**: same encrypt, но sealed под own pub,
+ *     upload в Storage. Запоминает uuid.
  *  3. **Download + decrypt by uuid**: ввести uuid, скачать blob, расшифровать.
- *     Validates end-to-end на 2 устройствах.
  *
  * Запуск:
  * `adb shell am start -n com.launcher.app/.debug.Spec011SmokeDebugActivity`
- *
- * Linkage: spec 011 README — `specs/011-contacts-and-e2e-encrypted-media/smoke/README.md`.
  */
 class Spec011SmokeDebugActivity : ComponentActivity() {
 
     private val aead: AeadCipher by inject()
     private val asymm: AsymmetricCrypto by inject()
-    private val signature: DigitalSignature by inject()
-    private val hash: HashFunction by inject()
-    private val keystore: SecureKeystore by inject()
+    private val secureKeyStore: SecureKeyStore by inject()
     private val storage: EncryptedMediaStorage by inject()
     private val deviceIdProvider: DeviceIdProvider by inject()
     private val coordinator: PairingCryptoCoordinator by inject()
@@ -87,9 +82,7 @@ class Spec011SmokeDebugActivity : ComponentActivity() {
                 SmokeScreen(
                     aead = aead,
                     asymm = asymm,
-                    signature = signature,
-                    hash = hash,
-                    keystore = keystore,
+                    secureKeyStore = secureKeyStore,
                     storage = storage,
                     deviceIdProvider = deviceIdProvider,
                     coordinator = coordinator,
@@ -104,9 +97,7 @@ class Spec011SmokeDebugActivity : ComponentActivity() {
 private fun SmokeScreen(
     aead: AeadCipher,
     asymm: AsymmetricCrypto,
-    signature: DigitalSignature,
-    hash: HashFunction,
-    keystore: SecureKeystore,
+    secureKeyStore: SecureKeyStore,
     storage: EncryptedMediaStorage,
     deviceIdProvider: DeviceIdProvider,
     coordinator: PairingCryptoCoordinator,
@@ -114,7 +105,6 @@ private fun SmokeScreen(
     val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf("Ready. Ensure keys ready на старте.") }
     var ownDeviceIdStr by remember { mutableStateOf("(loading…)") }
-    var lastUuid by remember { mutableStateOf<Uuid?>(null) }
     var inputLinkId by remember { mutableStateOf("") }
     var inputUuid by remember { mutableStateOf("") }
     var inputPeerDeviceId by remember { mutableStateOf("") }
@@ -124,14 +114,16 @@ private fun SmokeScreen(
             val id = deviceIdProvider.currentDeviceId().first()
             ownDeviceIdStr = id
             inputPeerDeviceId = ""
-            // Гарантируем что ключи готовы.
-            when (val r = coordinator.ensureKeysReady()) {
-                is Outcome.Success -> {
-                    val pubFingerprint = (keystore.loadEncryption(PairingCryptoCoordinator.ALIAS_ENCRYPTION) as? Outcome.Success)?.value?.publicKey?.bytes?.let { hash.hash(it).toHex().take(16) }
-                    status = "Keys ready. Pub fingerprint (BLAKE2b-256 prefix): $pubFingerprint"
-                }
-                is Outcome.Failure -> status = "ensureKeysReady FAILED: ${r.error}"
-            }
+            coordinator.ensureKeysReady()
+            // R-004 / FR-014: inline SHA-256 для public-key fingerprint
+            // (HashFunction port removed in TASK-51 Phase 7).
+            val encPub = secureKeyStore.load(PairingCryptoCoordinator.ENC_PUB_KEY_ID)
+            val fingerprint = encPub?.let {
+                MessageDigest.getInstance("SHA-256").digest(it)
+                    .take(8)
+                    .joinToString(" ") { b -> "%02X".format(b) }
+            } ?: "(no pub key)"
+            status = "Keys ready. Pub fingerprint (SHA-256 prefix): $fingerprint"
         }.onFailure { status = "Init error: ${it.message}" }
     }
 
@@ -152,51 +144,24 @@ private fun SmokeScreen(
                         java.security.SecureRandom().nextBytes(plaintext)
                         val plaintextHex = plaintext.toHex()
 
-                        // Load own X25519 pair.
-                        val ownPair = when (val r = keystore.loadEncryption(PairingCryptoCoordinator.ALIAS_ENCRYPTION)) {
-                            is Outcome.Failure -> {
-                                status = "loadEncryption FAILED: ${r.error}"
-                                return@launch
-                            }
-                            is Outcome.Success -> r.value
-                        }
-
-                        // Encrypt + seal CEK for own pub.
-                        val cek = aead.generateCEK()
-                        val nonce = aead.randomNonce()
-                        val ciphertext = aead.encrypt(plaintext, cek, nonce, aad = byteArrayOf())
-                        val sealed = asymm.sealCEK(cek, ownPair.publicKey)
-                        cek.close()
-
-                        // Unseal + decrypt.
-                        val unsealOutcome = asymm.unsealCEK(sealed, ownPair)
-                        val cekRestored = when (unsealOutcome) {
-                            is Outcome.Failure -> {
-                                status = "unsealCEK FAILED: ${unsealOutcome.error}"
-                                return@launch
-                            }
-                            is Outcome.Success -> unsealOutcome.value
-                        }
-                        val decryptOutcome = cekRestored.use { aead.decrypt(ciphertext, it, nonce, aad = byteArrayOf()) }
-                        when (decryptOutcome) {
-                            is Outcome.Failure -> {
-                                status = "decrypt FAILED: ${decryptOutcome.error}"
-                            }
-                            is Outcome.Success -> {
-                                val match = decryptOutcome.value.toHex() == plaintextHex
-                                status = if (match) {
-                                    "Phase A ✅ self-roundtrip OK\nplaintext: $plaintextHex\n(${ciphertext.size} bytes ciphertext)"
-                                } else {
-                                    "Phase A ❌ hex MISMATCH\nwanted: $plaintextHex\ngot:    ${decryptOutcome.value.toHex()}"
-                                }
-                            }
+                        // Derive a fresh symmetric key для self-roundtrip
+                        // (no need для CEK seal here — cryptokit AeadCipher
+                        // expects raw 32-byte key + аутогенерируемый nonce).
+                        val symKey = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
+                        val ciphertext: Ciphertext = aead.encrypt(plaintext, symKey)
+                        val decrypted = aead.decrypt(ciphertext, symKey)
+                        val match = decrypted.toHex() == plaintextHex
+                        status = if (match) {
+                            "Phase A self-roundtrip OK\nplaintext: $plaintextHex\n(${ciphertext.bytes.size} bytes ciphertext)"
+                        } else {
+                            "Phase A hex MISMATCH\nwanted: $plaintextHex\ngot:    ${decrypted.toHex()}"
                         }
                     }.onFailure { status = "Self-roundtrip threw: ${it.javaClass.simpleName} ${it.message}" }
                 }
             }) { Text("Run self-roundtrip (16 random bytes)") }
 
             HorizontalDivider()
-            Text("Phase B — encrypt for peer + upload (cross-device):")
+            Text("Phase B — encrypt for self + upload (cross-device):")
             TextField(value = inputLinkId, onValueChange = { inputLinkId = it }, label = { Text("linkId (from pairing)") })
             TextField(value = inputPeerDeviceId, onValueChange = { inputPeerDeviceId = it }, label = { Text("peer deviceId (UUID)") })
 
@@ -207,39 +172,36 @@ private fun SmokeScreen(
                             status = "Phase B: fill linkId + peerDeviceId first"
                             return@launch
                         }
-                        // Build placeholder PublicKey from peer's X25519 — для smoke
-                        // peer's Pub приходит через DeviceIdentityRepository.fetchPeer.
-                        // Но это P1, для phase B-минимума: encrypt → upload → возвращаем uuid.
-                        // Decrypt-сторона должна fetchPeer + unseal сама.
-                        //
-                        // Здесь используем UPLOAD-ONLY режим — кодируем under own pub
-                        // (self-recipient) для упрощения. Peer decrypt сценарий требует
-                        // полноценного fetchPeer цикла — отдельная кнопка ниже.
-                        val ownPair = (keystore.loadEncryption(PairingCryptoCoordinator.ALIAS_ENCRYPTION) as Outcome.Success).value
+                        // Self-recipient mode: seal CEK под own pub, upload envelope.
+                        val ownPub = secureKeyStore.load(PairingCryptoCoordinator.ENC_PUB_KEY_ID)
+                            ?: run {
+                                status = "Phase B: own encryption pub key not in keystore"
+                                return@launch
+                            }
+
                         val plaintext = ByteArray(16)
                         java.security.SecureRandom().nextBytes(plaintext)
                         val plaintextHex = plaintext.toHex()
-                        val cek = aead.generateCEK()
-                        val nonce = aead.randomNonce()
-                        val ciphertext = aead.encrypt(plaintext, cek, nonce, aad = byteArrayOf())
-                        val sealed = asymm.sealCEK(cek, ownPair.publicKey)
-                        cek.close()
 
-                        val envelope = EncryptedEnvelope(
-                            schemaVersion = SUPPORTED_SCHEMA_VERSION,
-                            cipherSuiteId = CIPHER_SUITE_ID_V1,
-                            nonce = nonce,
-                            recipients = listOf(Recipient(DeviceId(ownDeviceIdStr), sealed)),
-                            ciphertext = ciphertext,
-                            mac = ByteArray(POLY1305_MAC_SIZE),  // combined-mode: MAC внутри ciphertext
-                        )
-                        val uuid = Uuid.random()
-                        when (val r = storage.upload(inputLinkId, uuid, envelope)) {
-                            is Outcome.Failure -> status = "Phase B upload FAILED: ${r.error}"
-                            is Outcome.Success -> {
-                                lastUuid = uuid
-                                status = "Phase B ✅ uploaded\nuuid: $uuid\nlinkId: $inputLinkId\nplaintext: $plaintextHex\n(передай uuid на другое устройство для Phase C decrypt)"
-                            }
+                        // CEK для XChaCha20-Poly1305 — 32 bytes.
+                        val cek = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
+                        try {
+                            val ct = aead.encrypt(plaintext, cek)
+                            val sealed = asymm.sealForRecipient(cek, ownPub).bytes
+
+                            val envelope = EncryptedEnvelope(
+                                schemaVersion = SUPPORTED_SCHEMA_VERSION,
+                                cipherSuiteId = CIPHER_SUITE_ID_V1,
+                                nonce = ByteArray(XCHACHA20_NONCE_SIZE),
+                                recipients = listOf(Recipient(DeviceId(ownDeviceIdStr), sealed)),
+                                ciphertext = ct.bytes,
+                                mac = ByteArray(POLY1305_MAC_SIZE),
+                            )
+                            val uuid = Uuid.random()
+                            storage.upload(inputLinkId, uuid, envelope)
+                            status = "Phase B uploaded\nuuid: $uuid\nlinkId: $inputLinkId\nplaintext: $plaintextHex"
+                        } finally {
+                            cek.fill(0)
                         }
                     }.onFailure { status = "Phase B threw: ${it.javaClass.simpleName} ${it.message}" }
                 }
@@ -261,32 +223,28 @@ private fun SmokeScreen(
                             status = "Phase C: bad uuid format"
                             return@launch
                         }
-                        val downOutcome = storage.download(inputLinkId, parsedUuid)
-                        val envelope = when (downOutcome) {
-                            is Outcome.Failure -> {
-                                status = "Phase C download FAILED: ${downOutcome.error}"
-                                return@launch
-                            }
-                            is Outcome.Success -> downOutcome.value
-                        }
-                        val ownPair = (keystore.loadEncryption(PairingCryptoCoordinator.ALIAS_ENCRYPTION) as Outcome.Success).value
+                        val envelope = storage.download(inputLinkId, parsedUuid)
                         val recipient = envelope.recipients.firstOrNull { it.deviceId.value == ownDeviceIdStr }
                         if (recipient == null) {
                             status = "Phase C: own deviceId not in recipients (envelope was encrypted for peer, not us)"
                             return@launch
                         }
-                        val unsealOutcome = asymm.unsealCEK(recipient.sealedCEK, ownPair)
-                        val cekRestored = when (unsealOutcome) {
-                            is Outcome.Failure -> {
-                                status = "Phase C unseal FAILED: ${unsealOutcome.error}"
+                        val ownPriv = secureKeyStore.load(PairingCryptoCoordinator.ENC_KEY_ID)
+                            ?: run {
+                                status = "Phase C: own encryption priv key not in keystore"
                                 return@launch
                             }
-                            is Outcome.Success -> unsealOutcome.value
-                        }
-                        val decOutcome = cekRestored.use { aead.decrypt(envelope.ciphertext, it, envelope.nonce, aad = byteArrayOf()) }
-                        status = when (decOutcome) {
-                            is Outcome.Failure -> "Phase C decrypt FAILED: ${decOutcome.error}"
-                            is Outcome.Success -> "Phase C ✅ decrypted\nplaintext (hex): ${decOutcome.value.toHex()}\n(сравни с Phase B output)"
+                        try {
+                            val sealedBlob = cryptokit.crypto.api.values.SealedBlob(recipient.sealedCEK)
+                            val cek = asymm.openSealed(sealedBlob, ownPriv)
+                            try {
+                                val decoded = aead.decrypt(Ciphertext(envelope.ciphertext), cek)
+                                status = "Phase C decrypted\nplaintext (hex): ${decoded.toHex()}"
+                            } finally {
+                                cek.fill(0)
+                            }
+                        } finally {
+                            ownPriv.fill(0)
                         }
                     }.onFailure { status = "Phase C threw: ${it.javaClass.simpleName} ${it.message}" }
                 }

@@ -1,183 +1,270 @@
 package com.launcher.adapters.crypto
 
-import com.launcher.api.crypto.CryptoError
-import com.launcher.api.crypto.DeviceKeyPair
-import com.launcher.api.crypto.DeviceSigningKeyPair
-import com.launcher.api.crypto.InMemoryPrivateKey
-import com.launcher.api.crypto.InMemorySigningPrivateKey
-import com.launcher.api.crypto.PublicKey
-import com.launcher.api.crypto.SecureKeystore
-import com.launcher.api.crypto.SigningPublicKey
-import com.launcher.api.crypto.ED25519_KEY_SIZE
-import com.launcher.api.crypto.X25519_KEY_SIZE
 import com.launcher.api.identity.DeviceIdProvider
-import com.launcher.api.result.Outcome
-import com.launcher.fake.crypto.FakeDigitalSignature
-import com.launcher.fake.crypto.InMemoryDeviceIdentityRepository
+import cryptokit.crypto.api.AsymmetricCrypto
+import cryptokit.crypto.api.values.KeyId
+import cryptokit.crypto.api.values.KeyPair
+import cryptokit.crypto.api.values.SealedBlob
+import cryptokit.crypto.api.values.SharedSecret
+import cryptokit.crypto.api.values.Signature
+import cryptokit.crypto.exception.CryptoException
+import cryptokit.pairing.api.DeviceId
+import cryptokit.pairing.api.DeviceIdentity
+import cryptokit.pairing.api.DeviceIdentityRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Before
 import org.junit.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+/**
+ * TASK-51 T060 — rewrite of legacy PairingCryptoCoordinatorTest after the
+ * libsodium/cryptokit consolidation (Phase 7 deleted the prior version which
+ * exercised Outcome/CryptoError + legacy AndroidKeystoreSecureKeystore).
+ *
+ * Drives the coordinator through its [KeyStoreAdapter] seam — Robolectric does
+ * not shadow AndroidKeyStore, so the real `SecureKeyStore` actual cannot run
+ * in a JVM unit test. The in-memory `InMemoryKeyStoreAdapter` defined below
+ * captures the byte-flow contract without invoking AndroidKeyStore.
+ * AsymmetricCrypto + DeviceIdentityRepository are similarly inline-faked —
+ * the `Fake*` counterparts live in `:core:crypto`'s `commonTest` source set,
+ * which is not visible to `:core`'s androidUnitTest.
+ *
+ * ≥ 6 cases per acceptance:
+ *  1. ensureKeysReady is idempotent (second call returns same alias pair).
+ *  2. ensureKeysReady persists both priv + pub bytes for both X25519 + Ed25519.
+ *  3. publishOwnIdentity happy path — identity flows to repo with non-zero signature.
+ *  4. Repo publish failure surfaces as CryptoException (SerializationException).
+ *  5. Invalid deviceId format → SerializationException.
+ *  6. Silent migration "empty legacy" → fresh-generate path completes.
+ *  7. CancellationException re-thrown (R-003), not wrapped.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
 class PairingCryptoCoordinatorTest {
 
-    private val testDeviceIdProvider = object : DeviceIdProvider {
-        private val state = MutableStateFlow("f1111111-1111-4111-8111-111111111111")
-        override fun currentDeviceId(): Flow<String> = state.asStateFlow()
-        override suspend fun regenerate() {
-            error("not used in test")
+    private lateinit var keyStore: InMemoryKeyStoreAdapter
+    private lateinit var asymmetric: InMemoryAsymmetricCrypto
+    private lateinit var repo: InMemoryDeviceIdentityRepository
+    private lateinit var deviceIdProvider: DeviceIdProvider
+    private val nowMs: () -> Long = { 1_700_000_000_000L }
+
+    @Before
+    fun setUp() {
+        keyStore = InMemoryKeyStoreAdapter()
+        asymmetric = InMemoryAsymmetricCrypto()
+        repo = InMemoryDeviceIdentityRepository()
+        deviceIdProvider = FixedDeviceIdProvider("12345678-1234-1234-1234-1234567890ab")
+    }
+
+    @Test
+    fun ensureKeysReady_isIdempotent() = runTest {
+        val coordinator = newCoordinator()
+        val first = coordinator.ensureKeysReady()
+        val second = coordinator.ensureKeysReady()
+        assertEquals(first.encryption, second.encryption)
+        assertEquals(first.signing, second.signing)
+        assertEquals(PairingCryptoCoordinator.ALIAS_ENCRYPTION, first.encryption)
+        assertEquals(PairingCryptoCoordinator.ALIAS_SIGNING, first.signing)
+    }
+
+    @Test
+    fun ensureKeysReady_persistsBothPrivAndPubBytes() = runTest {
+        val coordinator = newCoordinator()
+        coordinator.ensureKeysReady()
+        assertNotNull(
+            "X25519 priv must be persisted",
+            keyStore.load(PairingCryptoCoordinator.ENC_KEY_ID),
+        )
+        assertNotNull(
+            "X25519 pub must be persisted",
+            keyStore.load(PairingCryptoCoordinator.ENC_PUB_KEY_ID),
+        )
+        assertNotNull(
+            "Ed25519 priv must be persisted",
+            keyStore.load(PairingCryptoCoordinator.SIGN_KEY_ID),
+        )
+        assertNotNull(
+            "Ed25519 pub must be persisted",
+            keyStore.load(PairingCryptoCoordinator.SIGN_PUB_KEY_ID),
+        )
+    }
+
+    @Test
+    fun publishOwnIdentity_happyPath_signsAndPublishes() = runTest {
+        val coordinator = newCoordinator()
+        val identity = coordinator.publishOwnIdentity(linkId = "link-1")
+        assertEquals(1, repo.publishCount)
+        assertEquals("12345678-1234-1234-1234-1234567890ab", identity.deviceId.value)
+        assertEquals(nowMs(), identity.signedTimestamp)
+        assertTrue(
+            "Signature must be populated by sign()",
+            identity.signature.any { it != 0.toByte() },
+        )
+    }
+
+    @Test
+    fun publishOwnIdentity_repoFailure_throwsCryptoException() = runTest {
+        repo.publishError = CryptoException.SerializationException("network down")
+        val coordinator = newCoordinator()
+        try {
+            coordinator.publishOwnIdentity(linkId = "link-1")
+            fail("expected CryptoException")
+        } catch (e: CryptoException) {
+            assertTrue(
+                "expected SerializationException, got ${e::class.simpleName}",
+                e is CryptoException.SerializationException,
+            )
         }
     }
 
     @Test
-    fun ensureKeysReady_generates_keys_on_first_call() {
-        val keystore = SimpleSecureKeystore()
+    fun publishOwnIdentity_invalidDeviceIdFormat_throwsSerializationException() = runTest {
+        val badDeviceIdProvider = FixedDeviceIdProvider("not-a-uuid")
         val coordinator = PairingCryptoCoordinator(
-            keystore = keystore,
-            signature = FakeDigitalSignature(),
-            repo = InMemoryDeviceIdentityRepository(),
-            deviceIdProvider = testDeviceIdProvider,
-        )
-        val result = coordinator.ensureKeysReady()
-        assertTrue(result is Outcome.Success)
-        assertTrue(keystore.exists(PairingCryptoCoordinator.ALIAS_ENCRYPTION))
-        assertTrue(keystore.exists(PairingCryptoCoordinator.ALIAS_SIGNING))
-    }
-
-    @Test
-    fun ensureKeysReady_idempotent_on_second_call() {
-        val keystore = SimpleSecureKeystore()
-        val coordinator = PairingCryptoCoordinator(
-            keystore = keystore,
-            signature = FakeDigitalSignature(),
-            repo = InMemoryDeviceIdentityRepository(),
-            deviceIdProvider = testDeviceIdProvider,
-        )
-        coordinator.ensureKeysReady()
-        val firstEncPub = (keystore.loadEncryption(PairingCryptoCoordinator.ALIAS_ENCRYPTION) as Outcome.Success).value.publicKey
-        coordinator.ensureKeysReady()
-        val secondEncPub = (keystore.loadEncryption(PairingCryptoCoordinator.ALIAS_ENCRYPTION) as Outcome.Success).value.publicKey
-        assertEquals(firstEncPub, secondEncPub)
-    }
-
-    @Test
-    fun publishOwnIdentity_creates_signed_document() = runTest {
-        val keystore = SimpleSecureKeystore()
-        val repo = InMemoryDeviceIdentityRepository()
-        val signer = FakeDigitalSignature()
-        val coordinator = PairingCryptoCoordinator(
-            keystore = keystore,
-            signature = signer,
+            secureKeyStore = keyStore,
+            asymmetric = asymmetric,
             repo = repo,
-            deviceIdProvider = testDeviceIdProvider,
-            nowMillis = { 1_700_000_000_000L },
+            deviceIdProvider = badDeviceIdProvider,
+            nowMillis = nowMs,
         )
-        val result = coordinator.publishOwnIdentity("link-A")
-        assertTrue(result is Outcome.Success)
-        val identity = result.value
-        assertEquals("f1111111-1111-4111-8111-111111111111", identity.deviceId.value)
-        assertEquals(1_700_000_000_000L, identity.signedTimestamp)
-
-        // Verify Pub published.
-        val all = repo.listAll("link-A")
-        assertEquals(1, all.size)
-
-        // Verify signature verifiable.
-        val verify = signer.verify(identity.signedPayloadBytes(), identity.signature, identity.signingPublicKey)
-        assertTrue(verify is Outcome.Success)
+        try {
+            coordinator.publishOwnIdentity(linkId = "link-1")
+            fail("expected SerializationException for malformed deviceId")
+        } catch (e: CryptoException.SerializationException) {
+            assertTrue(
+                "message must mention deviceId",
+                e.message?.contains("deviceId") == true,
+            )
+        }
     }
 
     @Test
-    fun publishOwnIdentity_fails_gracefully_when_repo_fails() = runTest {
-        val keystore = SimpleSecureKeystore()
-        val failingRepo = object : com.launcher.api.crypto.DeviceIdentityRepository {
-            override suspend fun publishOwn(
-                linkId: String,
-                identity: com.launcher.api.crypto.DeviceIdentity,
-            ): Outcome<Unit, CryptoError> = Outcome.Failure(CryptoError.StorageFailure(RuntimeException("network")))
+    fun ensureKeysReady_emptyLegacy_freshGenerate() = runTest {
+        // LegacyKeystoreReader is a no-op stub returning null (Phase 7 source).
+        // That path MUST drive a fresh generate via AsymmetricCrypto.
+        val coordinator = newCoordinator()
+        val aliases = coordinator.ensureKeysReady()
+        assertEquals(PairingCryptoCoordinator.ALIAS_ENCRYPTION, aliases.encryption)
 
-            override suspend fun fetchPeer(
-                linkId: String,
-                peerDeviceId: com.launcher.api.crypto.DeviceId,
-            ): Outcome<com.launcher.api.crypto.DeviceIdentity, CryptoError> =
-                Outcome.Failure(CryptoError.StorageFailure(RuntimeException("network")))
-
-            override suspend fun listAll(linkId: String) = emptyList<com.launcher.api.crypto.DeviceIdentity>()
-        }
-        val coordinator = PairingCryptoCoordinator(
-            keystore = keystore,
-            signature = FakeDigitalSignature(),
-            repo = failingRepo,
-            deviceIdProvider = testDeviceIdProvider,
-        )
-        val result = coordinator.publishOwnIdentity("link-A")
-        assertTrue(result is Outcome.Failure)
-        assertTrue(result.error is CryptoError.StorageFailure)
+        val stored = keyStore.load(PairingCryptoCoordinator.ENC_KEY_ID)
+        assertNotNull("priv bytes generated by AsymmetricCrypto must be stored", stored)
+        assertEquals(32, stored!!.size)
     }
 
     @Test
-    fun publishOwnIdentity_rejects_invalid_device_id_format() = runTest {
-        val keystore = SimpleSecureKeystore()
-        val badProvider = object : DeviceIdProvider {
-            private val state = MutableStateFlow("not-a-uuid")
-            override fun currentDeviceId(): Flow<String> = state.asStateFlow()
-            override suspend fun regenerate() = error("n/a")
+    fun cancellation_isReThrown_notWrapped() = runTest {
+        val ce = CancellationException("test cancel")
+        val cancellingRepo = object : DeviceIdentityRepository {
+            override suspend fun publishOwn(linkId: String, identity: DeviceIdentity) { throw ce }
+            override suspend fun fetchPeer(linkId: String, peerDeviceId: DeviceId): DeviceIdentity =
+                throw ce
+            override suspend fun listAll(linkId: String): List<DeviceIdentity> = emptyList()
         }
-        val coordinator = PairingCryptoCoordinator(
-            keystore = keystore,
-            signature = FakeDigitalSignature(),
-            repo = InMemoryDeviceIdentityRepository(),
-            deviceIdProvider = badProvider,
+        val c2 = PairingCryptoCoordinator(
+            secureKeyStore = keyStore,
+            asymmetric = asymmetric,
+            repo = cancellingRepo,
+            deviceIdProvider = deviceIdProvider,
+            nowMillis = nowMs,
         )
-        val result = coordinator.publishOwnIdentity("link-A")
-        assertTrue(result is Outcome.Failure)
-        assertTrue(result.error is CryptoError.KeystoreFailure)
-    }
-}
-
-// Minimal SecureKeystore stub для test — deterministic keys without libsodium.
-private class SimpleSecureKeystore : SecureKeystore {
-    private val encryption = mutableMapOf<String, DeviceKeyPair>()
-    private val signing = mutableMapOf<String, DeviceSigningKeyPair>()
-    private var counter = 0
-
-    override fun generateAndStoreEncryption(alias: String): DeviceKeyPair {
-        val pub = ByteArray(X25519_KEY_SIZE) { ((counter + it) and 0xFF).toByte() }
-        val priv = ByteArray(X25519_KEY_SIZE) { ((counter + 100 + it) and 0xFF).toByte() }
-        counter++
-        val kp = DeviceKeyPair(PublicKey(pub), InMemoryPrivateKey(alias, priv))
-        encryption[alias] = kp
-        return kp
+        try {
+            c2.publishOwnIdentity(linkId = "link-1")
+            fail("expected CancellationException to propagate")
+        } catch (thrown: CancellationException) {
+            assertSame("CE must be the SAME instance — not wrapped/copied", ce, thrown)
+        }
     }
 
-    override fun generateAndStoreSigning(alias: String): DeviceSigningKeyPair {
-        val pub = ByteArray(ED25519_KEY_SIZE) { ((counter + 200 + it) and 0xFF).toByte() }
-        val priv = ByteArray(ED25519_KEY_SIZE) { ((counter + 300 + it) and 0xFF).toByte() }
-        counter++
-        val kp = DeviceSigningKeyPair(SigningPublicKey(pub), InMemorySigningPrivateKey(alias, priv))
-        signing[alias] = kp
-        return kp
+    // ─── helpers (private to this test) ──────────────────────────────────
+
+    private fun newCoordinator(): PairingCryptoCoordinator = PairingCryptoCoordinator(
+        secureKeyStore = keyStore,
+        asymmetric = asymmetric,
+        repo = repo,
+        deviceIdProvider = deviceIdProvider,
+        nowMillis = nowMs,
+    )
+
+    private class FixedDeviceIdProvider(private val id: String) : DeviceIdProvider {
+        override fun currentDeviceId(): Flow<String> = flowOf(id)
+        override suspend fun regenerate() {}
     }
 
-    override fun loadEncryption(alias: String): Outcome<DeviceKeyPair, CryptoError> {
-        val kp = encryption[alias] ?: return Outcome.Failure(CryptoError.KeyNotFound(alias))
-        return Outcome.Success(kp)
+    private class InMemoryKeyStoreAdapter : KeyStoreAdapter {
+        private val store: MutableMap<String, ByteArray> = mutableMapOf()
+        override suspend fun store(keyId: KeyId, secret: ByteArray) {
+            store[keyId.raw] = secret.copyOf()
+        }
+        override suspend fun load(keyId: KeyId): ByteArray? = store[keyId.raw]?.copyOf()
+        override suspend fun delete(keyId: KeyId) {
+            store.remove(keyId.raw)
+        }
     }
 
-    override fun loadSigning(alias: String): Outcome<DeviceSigningKeyPair, CryptoError> {
-        val kp = signing[alias] ?: return Outcome.Failure(CryptoError.KeyNotFound(alias))
-        return Outcome.Success(kp)
+    /** Deterministic 32-byte priv/pub pairs; counter-seeded. */
+    private class InMemoryAsymmetricCrypto : AsymmetricCrypto {
+        private var counter: Int = 0
+        override suspend fun generateX25519KeyPair(): KeyPair = makePair("X25519")
+        override suspend fun generateEd25519KeyPair(): KeyPair = makePair("Ed25519")
+        override suspend fun deriveSharedSecret(
+            myPrivate: ByteArray,
+            theirPublic: ByteArray,
+        ): SharedSecret = SharedSecret(ByteArray(32))
+        override suspend fun sign(message: ByteArray, privateKey: ByteArray): Signature {
+            val out = ByteArray(64)
+            for (i in 0 until 64) {
+                out[i] = (privateKey[i % privateKey.size].toInt() xor (message.size + i)).toByte()
+            }
+            return Signature(out)
+        }
+        override suspend fun verify(
+            signature: Signature,
+            message: ByteArray,
+            publicKey: ByteArray,
+        ): Boolean = true
+        override suspend fun sealForRecipient(
+            payload: ByteArray,
+            recipientPublicKey: ByteArray,
+        ): SealedBlob = SealedBlob(payload.copyOf())
+        override suspend fun openSealed(
+            blob: SealedBlob,
+            recipientPrivateKey: ByteArray,
+        ): ByteArray = blob.bytes.copyOf()
+
+        private fun makePair(algorithm: String): KeyPair {
+            val n = counter++
+            val priv = ByteArray(32) { ((it + n + 1) and 0xff).toByte() }
+            val pub = ByteArray(32) { ((it + n + 1) xor 0xA5).toByte() }
+            return KeyPair(privateKey = priv, publicKey = pub, algorithm = algorithm)
+        }
     }
 
-    override fun delete(alias: String) {
-        encryption.remove(alias)
-        signing.remove(alias)
-    }
+    private class InMemoryDeviceIdentityRepository : DeviceIdentityRepository {
+        var publishError: CryptoException? = null
+        var publishCount: Int = 0
+            private set
 
-    override fun exists(alias: String): Boolean =
-        encryption.containsKey(alias) || signing.containsKey(alias)
+        private val store = mutableMapOf<Pair<String, DeviceId>, DeviceIdentity>()
+
+        override suspend fun publishOwn(linkId: String, identity: DeviceIdentity) {
+            publishCount++
+            publishError?.let { ex -> publishError = null; throw ex }
+            store[linkId to identity.deviceId] = identity
+        }
+        override suspend fun fetchPeer(linkId: String, peerDeviceId: DeviceId): DeviceIdentity =
+            store[linkId to peerDeviceId]
+                ?: throw CryptoException.SerializationException("not found: $peerDeviceId")
+        override suspend fun listAll(linkId: String): List<DeviceIdentity> =
+            store.entries.filter { it.key.first == linkId }.map { it.value }
+    }
 }
