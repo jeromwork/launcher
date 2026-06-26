@@ -1,4 +1,4 @@
-package com.launcher.api.crypto
+package cryptokit.pairing.api
 
 // Symmetric key для одного blob'a (XChaCha20-Poly1305). Bytes стираются в close()
 // — Kotlin idiom: использовать через use { } extension. NOT Serializable.

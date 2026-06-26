@@ -1,4 +1,4 @@
-package com.launcher.api.crypto
+package cryptokit.pairing.api
 
 import kotlin.jvm.JvmInline
 import kotlin.uuid.ExperimentalUuidApi

@@ -40,4 +40,28 @@ sealed class CryptoException(message: String, cause: Throwable? = null) : Except
 
     /** iOS adapter not yet implemented. */
     class NotImplementedOnIos(message: String) : CryptoException(message)
+
+    // ---- TASK-51 broad-category hierarchy (data-model §1 / FR-018) ----
+    // Used by pairing-side adapters rewritten in Phase 6 to wrap vendor exceptions
+    // into uniform throws-pattern. Co-exist with granular spec-016 subclasses above.
+
+    /** AEAD encrypt/decrypt failures (Poly1305 MAC mismatch, invalid ciphertext layout). */
+    class AeadException(message: String, cause: Throwable? = null) :
+        CryptoException(message, cause)
+
+    /** SecureKeyStore failures (TEE unavailable, key invalidated, biometry change). */
+    class KeyStoreException(message: String, cause: Throwable? = null) :
+        CryptoException(message, cause)
+
+    /** KDF / HKDF / X25519 / Ed25519 derivation failures (invalid salt, weak input). */
+    class KeyDerivationException(message: String, cause: Throwable? = null) :
+        CryptoException(message, cause)
+
+    /** JNI link errors (UnsatisfiedLinkError, missing libsodium native symbols). */
+    class NativeLinkException(message: String, cause: Throwable? = null) :
+        CryptoException(message, cause)
+
+    /** Wire-format read/write failures (kotlinx.serialization wrapping). */
+    class SerializationException(message: String, cause: Throwable? = null) :
+        CryptoException(message, cause)
 }

@@ -1,4 +1,4 @@
-package com.launcher.api.crypto
+package cryptokit.pairing.api
 
 // Resolves recipients for a given link. В 011 — 1 entry (peer device).
 // Single-impl exception документирован Article XVII §3 / spec.md C-8 —

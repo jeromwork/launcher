@@ -1,4 +1,4 @@
-package com.launcher.api.crypto
+package cryptokit.pairing.api
 
 // Internal in-memory реализации sealed PrivateKey/SigningPrivateKey интерфейсов.
 // Используются:

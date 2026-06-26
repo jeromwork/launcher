@@ -1,4 +1,4 @@
-package com.launcher.api.crypto
+package cryptokit.pairing.api
 
 data class DeviceKeyPair(
     val publicKey: PublicKey,

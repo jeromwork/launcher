@@ -1,4 +1,4 @@
-package com.launcher.api.crypto
+package cryptokit.pairing.api
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

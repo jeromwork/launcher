@@ -12,7 +12,7 @@
 | Phase 2 — Spec Kit pipeline | ✅ done | `20013d1`, `beca982`, `e342a76`, `e67e4bf`, `2adec37` |
 | Phase 3 — `@SerialName` audit | ✅ done | `7eb6fa3` (T001+T002), baseline T003 PASS @ `7eb6fa3` |
 | Phase 4 — Namespace rename | ✅ done | T010-T015 (this commit) |
-| Phase 5 — Pairing-side rewrite | ⏳ TODO | — |
+| Phase 5 — Pairing-side rewrite | ✅ done | T020-T025 (this commit) |
 | Phase 6 — Old stack deletion | ⏳ TODO | — |
 | Phase 7 — Tests + fitness rules | ⏳ TODO | — |
 | Phase 8 — Manual smoke | ⏳ TODO | — |
@@ -58,7 +58,7 @@
 
 ## Phase 5 — Create `cryptokit.pairing.api.*` + migrate spec 011 wire-format types
 
-- [ ] **T020** [P] Create directory `core/crypto/src/commonMain/kotlin/cryptokit/pairing/api/`. Создать пустую структуру:
+- [x] **T020** [P] Create directory `core/crypto/src/commonMain/kotlin/cryptokit/pairing/api/`. Создать пустую структуру:
        ```
        cryptokit/pairing/api/
        ├── DeviceIdentity.kt        (will be moved here)
@@ -81,15 +81,15 @@
        ```
        (Plan §3, data-model §2)
 
-- [ ] **T021** Move 17 файлов из `core/src/commonMain/kotlin/com/launcher/api/crypto/` → `core/crypto/src/commonMain/kotlin/cryptokit/pairing/api/`. Включает все типы из data-model §2 + удаление **5 cryptopримитивных портов** (AeadCipher, AsymmetricCrypto, DigitalSignature, HashFunction, SecureKeystore) — они дублируют cryptokit.crypto.api.*. (FR-006, data-model §3) **Acceptance**: `ls core/src/commonMain/kotlin/com/launcher/api/crypto/` = пусто (готов к удалению папки в Phase 6).
+- [x] **T021** Move 17 файлов из `core/src/commonMain/kotlin/com/launcher/api/crypto/` → `core/crypto/src/commonMain/kotlin/cryptokit/pairing/api/`. Включает все типы из data-model §2 + удаление **5 cryptopримитивных портов** (AeadCipher, AsymmetricCrypto, DigitalSignature, HashFunction, SecureKeystore) — они дублируют cryptokit.crypto.api.*. (FR-006, data-model §3) **Acceptance**: `ls core/src/commonMain/kotlin/com/launcher/api/crypto/` = пусто (готов к удалению папки в Phase 6).
 
-- [ ] **T022** [P] Update package declarations в moved 17 файлах: `package com.launcher.api.crypto` → `package cryptokit.pairing.api`. (FR-006) **Acceptance**: `grep -rn "^package com\.launcher\.api\.crypto" .` = 0.
+- [x] **T022** [P] Update package declarations в moved 17 файлах: `package com.launcher.api.crypto` → `package cryptokit.pairing.api`. (FR-006) **Acceptance**: `grep -rn "^package com\.launcher\.api\.crypto" .` = 0.
 
-- [ ] **T023** [P] Add `@SerialName(...)` к wire-format типам если ещё нет (audit из T001 покажет какие). Specifically: `DeviceIdentity`, `DeviceId`, `PublicKey`, `SigningPublicKey`, `EncryptedEnvelope`, `Recipient`. (FR-004, contracts/device-identity.md, contracts/encrypted-envelope.md) **Acceptance**: каждый wire-format тип имеет `@SerialName`.
+- [x] **T023** [P] Add `@SerialName(...)` к wire-format типам если ещё нет (audit из T001 покажет какие). Specifically: `DeviceIdentity`, `DeviceId`, `PublicKey`, `SigningPublicKey`, `EncryptedEnvelope`, `Recipient`. (FR-004, contracts/device-identity.md, contracts/encrypted-envelope.md) **Acceptance**: каждый wire-format тип имеет `@SerialName`.
 
-- [ ] **T024** [P] Update `CryptoError` → references на `cryptokit.crypto.exception.CryptoException` (sealed, 5 subclasses из data-model §1). Старый `com.launcher.api.crypto.CryptoError` удаляется в Phase 6. (FR-009, FR-018, data-model §1)
+- [x] **T024** [P] Update `CryptoError` → references на `cryptokit.crypto.exception.CryptoException` (sealed, 5 subclasses из data-model §1). Старый `com.launcher.api.crypto.CryptoError` удаляется в Phase 6. (FR-009, FR-018, data-model §1)
 
-- [ ] **T025** [P] Expand `cryptokit.crypto.exception.CryptoException` иерархию до 5 subclasses согласно data-model §1: `AeadException`, `KeyStoreException`, `KeyDerivationException`, `NativeLinkException`, `SerializationException`. Если существующий код уже имеет часть иерархии — extend. (FR-018, data-model §1) **Acceptance**: `cryptokit.crypto.exception.CryptoException` is sealed, has 5 subclasses, each documented. Unit test `CryptoExceptionHierarchyTest` verifies sealed.
+- [x] **T025** [P] Expand `cryptokit.crypto.exception.CryptoException` иерархию до 5 subclasses согласно data-model §1: `AeadException`, `KeyStoreException`, `KeyDerivationException`, `NativeLinkException`, `SerializationException`. Если существующий код уже имеет часть иерархии — extend. (FR-018, data-model §1) **Acceptance**: `cryptokit.crypto.exception.CryptoException` is sealed, has 5 subclasses, each documented. Unit test `CryptoExceptionHierarchyTest` verifies sealed.
 
 ### Checkpoint Phase 5
 После T020-T025: `cryptokit.pairing.api.*` package заполнен, 17 wire-format типов переехали, exception hierarchy полная. Build green. **Phase 6 unblocked**.

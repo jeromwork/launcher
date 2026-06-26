@@ -1,4 +1,4 @@
-package com.launcher.api.crypto
+package cryptokit.pairing.api
 
 const val SUPPORTED_SCHEMA_VERSION: Int = 1
 
