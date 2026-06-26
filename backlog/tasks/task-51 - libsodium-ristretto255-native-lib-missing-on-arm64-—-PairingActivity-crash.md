@@ -4,7 +4,7 @@ title: libsodium consolidation — выкинуть lazysodium, единая cry
 status: In Progress
 assignee: []
 created_date: '2026-06-25 11:48'
-updated_date: '2026-06-26 12:30'
+updated_date: '2026-06-26 16:00'
 labels:
   - crypto
   - refactor
@@ -39,7 +39,7 @@ ordinal: 1000
 
 1. **Старая стопка** (Android-only, через `lazysodium-android` 5.1.0). Пакет `com.launcher.api.crypto.*` (порты в commonMain) + `com.launcher.adapters.crypto.Libsodium*.kt` (адаптеры в androidMain). Досталась от ранних задач (spec 011, шифрование контактов). **Главная боль**: `lazysodium-android` собран **без поддержки ristretto255** — функции `crypto_core_ristretto255_add` нет в `.so` файле ни на одном ABI. Без неё протокол привязки админ-устройства (TASK-8) не работает.
 
-2. **Новая стопка** (Kotlin Multiplatform, через `ionspin/libsodium-kmp` 0.9.5). Пакет `family.crypto.api.*` (всё в commonMain) + `family.crypto.libsodium.*` (реализации в commonMain). Добавлена позже (spec 016, TASK-2 F-CRYPTO). **Содержит** все нужные функции включая ristretto255. **Работает** на Android + iOS + JVM + потенциально JS.
+2. **Новая стопка** (Kotlin Multiplatform, через `ionspin/libsodium-kmp` 0.9.5). Пакет `cryptokit.crypto.api.*` (всё в commonMain) + `cryptokit.crypto.libsodium.*` (реализации в commonMain). Добавлена позже (spec 016, TASK-2 F-CRYPTO). **Содержит** все нужные функции включая ristretto255. **Работает** на Android + iOS + JVM + потенциально JS.
 
 **Беда** в том что **обе** стопки сейчас одновременно в проекте, и обе приносят свой `libsodium.so`. Чтобы они не конфликтовали при упаковке APK, в `app/build.gradle.kts` стоит костыль `pickFirsts` — «бери первый попавшийся файл».
 
@@ -71,7 +71,7 @@ PairingActivity (открывается)
 3. Удаляем `lazysodium` + `JNA` из gradle-зависимостей.
 4. Удаляем костыль `pickFirsts` — теперь один `.so` на ABI, не два.
 
-После этого в проекте **остаётся только одна crypto-стопка** — `family.crypto.api.*`. APK уменьшается на ~3-5 МБ. Cold start ускоряется на ~200-500 мс. Открывается путь к iOS / Android TV / desktop (crypto-слой уже в commonMain). Закрывается явный техдолг.
+После этого в проекте **остаётся только одна crypto-стопка** — `cryptokit.crypto.api.*`. APK уменьшается на ~3-5 МБ. Cold start ускоряется на ~200-500 мс. Открывается путь к iOS / Android TV / desktop (crypto-слой уже в commonMain). Закрывается явный техдолг.
 
 ## Что значит «переписать» — детально
 
@@ -130,6 +130,8 @@ keystore.store(keyId, байты)
 
 **Что меняется**: в `PairingCryptoCoordinator` (главный файл миграции) — нужно явно генерировать ключ, потом сохранять. **Архитектурное** изменение, не механическое — придумываем какие keyId использовать.
 
+**Silent migration (post-clarify owner-mandate 2026-06-26)**: если на устройстве уже есть persisted ключи под старыми именами (`spec011.encryption.own`, `spec011.signing.own`) — при первом обращении к ключу новый код **silent читает старую запись, переписывает её под новым именем через `cryptokit.crypto.api.SecureKeyStore.store(keyId, bytes)`, удаляет старую**. **Никаких user-facing шагов** (никаких pairing-экранов, никаких подтверждений). Existing pairing продолжает работать после upgrade. Inline TODO к TASK-6 (Root Key Hierarchy) — после неё derive-from-root заменит read-old-then-re-encrypt logic. Подробнее см. [research.md R-002](../../specs/task-51-libsodium-consolidation/research.md#r-002-persisted-keystore-keys-migration).
+
 ### Различие №4: ContentEncryptionKey lifecycle
 
 Это **security pattern** для безопасной очистки ключа в памяти. Старый стиль гарантировал zeroization через `use { }` блок; новый требует ручного `try/finally + fill(0)`. **Затрагивает только 1 место** (debug activity) — minor.
@@ -163,7 +165,9 @@ keystore.store(keyId, байты)
 - **end-user** (пожилого) — быстрее cold start, меньше APK
 - **future iOS / TV разработчика** — готовый commonMain crypto-слой
 
-## Что входит технически (план 8 фаз)
+## Что входит технически (план 10 фаз)
+
+> **Note**: detailed task-level breakdown в [tasks.md](../../specs/task-51-libsodium-consolidation/tasks.md) (49 tasks, 30 [P] parallel-safe, 6 [deferred-physical-device]). Ниже — high-level phase overview для Kanban-читателя.
 
 ### Phase 1: Gradle подготовка (~30 мин)
 - Удалить `lazysodium = "5.1.0"` и `jna = "5.13.0"` из `gradle/libs.versions.toml`.
@@ -173,7 +177,7 @@ keystore.store(keyId, байты)
 - **Точка проверки**: проект **не** компилируется (это нормально — старый код ещё ссылается на lazysodium). Идём дальше.
 
 ### Phase 2: DI bindings + LibsodiumProvider (~2 часа)
-- Переписать `CryptoModule.kt` (старый DI) — удалить bindings через `LibsodiumProvider`, оставить только bindings через `family.crypto.api.*`. Или удалить `CryptoModule.kt` целиком, если `F016CryptoModule` его покрывает.
+- Переписать `CryptoModule.kt` (старый DI) — удалить bindings через `LibsodiumProvider`, оставить только bindings через `cryptokit.crypto.api.*`. Или удалить `CryptoModule.kt` целиком, если `F016CryptoModule` его покрывает.
 - Удалить `LibsodiumProvider.kt` (singleton-фабрика lazysodium — больше не нужна).
 - Проверка `Spec015DiGraphTest` — DI граф резолвится через Koin без ambiguity.
 
@@ -182,7 +186,7 @@ keystore.store(keyId, байты)
   - Убрать вызовы `keystore.generateAndStoreEncryption(alias)` и `keystore.generateAndStoreSigning(alias)` — заменить на `random.nextBytes() + keystore.store(keyId, bytes)`.
   - Убрать 6+ паттернов `when (result) { is Outcome.Success ... is Outcome.Failure ... }` — переписать на `try/catch CryptoException`.
   - Убрать `if (ensured is Outcome.Failure) return Outcome.Failure(...)` — теперь exceptions распространяются естественным образом.
-  - Импорты: `com.launcher.api.crypto.*` → `family.crypto.api.*`, `com.launcher.api.result.Outcome` → стандартный try/catch.
+  - Импорты: `com.launcher.api.crypto.*` → `cryptokit.crypto.api.*`, `com.launcher.api.result.Outcome` → стандартный try/catch.
 - Обновить `PairingViewModel.kt` — callback `onLinkEstablished: suspend (linkId) -> Unit` уже suspend, проверить что обёртка корректна.
 - **Точка проверки**: `PairingCryptoCoordinatorTest` зелёный (после Phase 5).
 
@@ -194,7 +198,7 @@ keystore.store(keyId, байты)
 
 ### Phase 5: Тесты (~3 часа)
 - Переписать `PairingCryptoCoordinatorTest.kt` — использовать новые fakes из `family.crypto.fake.*` вместо `com.launcher.fake.crypto.*`.
-- Переписать `LibsodiumAdaptersTest.kt` — либо удалить (старые адаптеры не существуют), либо переписать под новый стэк (тесты на `family.crypto.libsodium.*` уже есть в `core/crypto/src/jvmTest/`).
+- Переписать `LibsodiumAdaptersTest.kt` — либо удалить (старые адаптеры не существуют), либо переписать под новый стэк (тесты на `cryptokit.crypto.libsodium.*` уже есть в `core/crypto/src/jvmTest/`).
 - Переписать `CryptoEnvelopeWireFormatTest.kt` — `FakeAeadCipher` → `family.crypto.fake.FakeAeadCipher`.
 - Обновить fitness-тесты:
   - `Spec011IsolationTest.kt` — запретить `com.goterl.lazysodium.*` импорты + `com.launcher.api.crypto.*` (старая стопка).
@@ -256,7 +260,19 @@ keystore.store(keyId, байты)
 
 ## Состояние
 
-**In Progress 2026-06-26**. Mentor-разбор завершён, полная разведка call-graph'а сделана, scope согласован (вариант B — полная консолидация). Ветка `task-51-libsodium-consolidation` создана. Готов к старту Phase 1.
+**In Progress 2026-06-26**. **Полный speckit pipeline пройден** — verdict READY ✅ (см. [analyze-report.md](../../specs/task-51-libsodium-consolidation/analyze-report.md)). Готов к старту имплементации с Phase 3 (T001 @SerialName audit).
+
+**Spec Kit artifacts** в `specs/task-51-libsodium-consolidation/`:
+- [spec.md](../../specs/task-51-libsodium-consolidation/spec.md) — 3 US, 16 FR, 12 SC, 4 сценария, 7 Q clarifications resolved
+- [plan.md](../../specs/task-51-libsodium-consolidation/plan.md) — 9-phase rollout, Constitution Check **6 PASS / 2 N/A / 0 FAIL**
+- [research.md](../../specs/task-51-libsodium-consolidation/research.md) — 7 architectural decisions (R-001..R-007) с alternatives + exit ramps
+- [data-model.md](../../specs/task-51-libsodium-consolidation/data-model.md) — 17 типов миграции + CryptoException 5-subclass hierarchy
+- [contracts/](../../specs/task-51-libsodium-consolidation/contracts/) — 3 wire-format contracts (DeviceIdentity, EncryptedEnvelope, Ciphertext)
+- [tasks.md](../../specs/task-51-libsodium-consolidation/tasks.md) — **49 tasks** в 10 фазах
+- [analyze-report.md](../../specs/task-51-libsodium-consolidation/analyze-report.md) — verdict READY ✅
+- [checklists/](../../specs/task-51-libsodium-consolidation/checklists/) — 11 spec-level + 3 plan-level (3 PERFECT spec: meta 13/13, domain 16/16, modular 18/18; 3 PERFECT plan: domain 16/16, wire-format 12/12, meta 13/13)
+
+**6 commits на ветке**: gradle stripping (`1e6be2e`), backlog root cause (`20013d1`), clarify (`beca982`), scenarios + corrections (`e342a76`, `e67e4bf`), plan (`2adec37`), tasks (`1e3dd0a`).
 
 **Зависимости**: TASK-2 (F-CRYPTO `:core:crypto`) — Done. lazysodium-адаптеры из spec 011 (TASK-4) переписываются в этой задаче.
 
@@ -264,7 +280,30 @@ keystore.store(keyId, байты)
 
 **Не блокирует**: TASK-52 (HomeActivity hang) — отдельная история, не связана с crypto.
 
-**Реалистичная оценка**: **10-15 часов чистой работы**, выполнимо за 2 рабочих дня. Главная боль — Phase 3 (PairingCryptoCoordinator, 4-6 часов).
+**Реалистичная оценка**: **10-15 часов чистой работы** имплементации (Phase 3-9). Phase 1 (gradle) + Phase 2 (speckit pipeline) уже done.
+
+## Корректировки модели в процессе
+
+Chronological log major shifts в понимании scope'а / архитектуры в течение speckit pipeline'а. Полезно для будущего AI-агента или новых разработчиков чтобы понять «почему spec выглядит так как выглядит».
+
+- **2026-06-25 утро**: TASK-51 создан как узкий bug-report: `UnsatisfiedLinkError: crypto_core_ristretto255_add` на arm64. Hypothesis: «нужно найти libsodium с ristretto255».
+- **2026-06-26 mentor pass раунд 1**: расширен scope от bug-fix до архитектурного refactor — в проекте **две параллельные crypto-стопки** (`com.launcher.api.crypto.*` + lazysodium / `family.crypto.api.*` + ionspin), нужна консолидация.
+- **2026-06-26 mentor pass раунд 2** (полная call-graph разведка через Explore subagent): объём миграции **значительно меньше** initial paniki — большая часть проекта уже на новом стэке, осталось только pairing-side (~37 файлов).
+- **2026-06-26 mentor pass раунд 3** (через stacktrace воспроизведение на Xiaomi 11T): **real root cause** — JNA eager-bind в `SodiumAndroid.<init>`, не функциональная потребность в ristretto255. Наш Kotlin-код Ristretto255 **никогда не вызывает** (grep = 0 матчей). Это переменило понимание fix'а: нам **не нужна** функция в `.so`, нам нужен **JNI lazy-bind вместо JNA eager-bind**.
+- **2026-06-26 /speckit.clarify Q1-Q7**: 7 архитектурных решений закрыты через mentor-style + 4 parallel industry research subagents (Signal, Tink, KMP community, NIST):
+  - Q1: deep migration (вариант B) — 15 wire-format типов переезжают в `cryptokit.pairing.api.*`, 5 криптопортов удалены.
+  - Q2: **silent auto-migration** (NOT force re-pair, owner correction после initial proposal). При первом обращении к ключу — read old → re-encrypt → delete old через AndroidKeystore TEE.
+  - Q3: uniform throws `CryptoException` + universal try/catch + auto re-throw `CancellationException` (owner correction после initial «hybrid» proposal).
+  - Q4: один Koin module (`cryptokitModule`).
+  - Q6: inline `MessageDigest.SHA-256` для debug fingerprint, без новых ports.
+  - Q7: удалить `AndroidKeystoreSecureKeystore` целиком (готовый аналог `cryptokit.crypto.api.SecureKeyStore` existing).
+  - Namespace: `family.* → cryptokit.*` (owner-decision, чтобы не было historical artifacts).
+- **2026-06-26 /speckit.scenarios**: 4 сценария + 7 trouble cases. **Owner pushback**: drop Сценарий 4 (cold-start) и Сценарий 5 (APK размер) как «надуманные метрики для своего кода». Также drop FR-012, FR-013, SC-008, SC-009. Кanonical `feedback_apk_size_only_for_external_libs` memory сохранена.
+- **2026-06-26 /speckit.plan**: 9-phase rollout, 3 contracts, Constitution Check 6 PASS / 2 N/A / 0 FAIL. 3 plan-level checklists PERFECT.
+- **2026-06-26 /speckit.tasks**: 49 tasks. Cross-artifact trace вскрыл 6 dangling references в `docs/dev/crypto-review.md` + `docs/adr/ADR-007.md` → addressed T204, T205 в Phase 10.
+- **2026-06-26 /speckit.analyze**: verdict READY ✅, никаких блокеров перед началом имплементации.
+
+**Effort revisions** на протяжении pipeline'а: «1.5-2 дня» (initial estimate) → «2 недели» (after first call-graph разведки, pessimistic) → «10-15 часов» (final estimate после refined scope в analyze).
 
 ## Что я уже проверил перед стартом
 
@@ -281,7 +320,7 @@ keystore.store(keyId, байты)
   Это **JNA eager-bind** при инициализации SodiumAndroid — не наш код, а внутрянка lazysodium.
 - **Grep по всему проекту**: `Ristretto255|ristretto255\.|crypto_core_ristretto` → **0 матчей** в Kotlin-коде. То есть наш код Ristretto255 **никогда не вызывает**. Это окончательно подтверждает: после миграции на ionspin (JNI lazy-bind) crash исчезнет сам, потому что JNI не пытается найти функции, которые никто не использует.
 - ASCII-grep по `libsodium.so` показал что **в обеих библиотеках** (lazysodium и ionspin) публичные ristretto255 функции **отсутствуют** в `.so`. Внутренние helpers (`ristretto255_elligator`, `_from_hash`, и т.д.) присутствуют, но `crypto_core_ristretto255_*` и `crypto_scalarmult_ristretto255_*` нет ни в одной. libsodium внутри обеих библиотек — **1.0.20**, собран без публичного ristretto255 API.
-- Порты `family.crypto.api.*` уже в commonMain → переносить структуру не нужно.
+- Порты `cryptokit.crypto.api.*` уже в commonMain → переносить структуру не нужно.
 - Большая часть проекта уже мигрирована на новый стэк → реальный объём изменений значительно меньше изначальной оценки.
 - Полный call-graph построен (отчёт sub-agent'а в conversation history). Знаю каждый файл который придётся трогать.
 
@@ -295,7 +334,7 @@ keystore.store(keyId, байты)
 - [ ] #4 [hand] В коде проекта не осталось **никаких JNA `register()` вызовов** через lazysodium — root cause исходного crash'а устранён. Проверка через grep `JNA\.register\|SodiumAndroid\|lazysodium.SodiumJava` = 0 матчей. ionspin использует JNI lazy-bind, который не падает на отсутствующих функциях, потому что не пытается их eager-биндить.
 - [ ] #5 [hand] В исходном коде проекта **не осталось упоминаний старой библиотеки lazysodium** (grep по `lazysodium` в production-коде даёт 0 матчей, кроме исторических specs/ и docs/). Подтверждает что мы её действительно выкинули, а не только переключили pickFirst.
 - [ ] #6 [hand] В исходном коде **не осталось импортов** `com.goterl.*` (это пакет lazysodium от компании Terl). Проверка через grep.
-- [ ] #7 [hand] **Старая параллельная стопка** `com.launcher.api.crypto` полностью ликвидирована — grep по проекту даёт 0 матчей. После этого в проекте остаётся только одна KMP-стопка `family.crypto.api`.
+- [ ] #7 [hand] **Старая параллельная стопка** `com.launcher.api.crypto` полностью ликвидирована — grep по проекту даёт 0 матчей. После этого в проекте остаётся только одна KMP-стопка `cryptokit.crypto.api`.
 - [ ] #8 [hand] **Старые адаптеры** `com.launcher.adapters.crypto.LibsodiumXxx` полностью удалены — grep даёт 0 матчей.
 - [ ] #9 [hand] **Из gradle-конфигурации** убраны зависимости `lazysodium` и `jna` (JNA — runtime-обёртка вокруг JNI, тащилась только из-за lazysodium). Проверка: grep по `gradle/libs.versions.toml` и всем `build.gradle.kts`.
 - [ ] #10 [hand] **Хитрая настройка pickFirsts** в `app/build.gradle.kts` (нужна была чтобы две библиотеки не конфликтовали при упаковке .so в APK) — удалена. Теперь одна .so на ABI, никаких костылей.
