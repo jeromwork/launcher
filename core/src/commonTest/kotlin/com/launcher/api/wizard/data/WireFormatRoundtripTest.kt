@@ -176,7 +176,10 @@ class WireFormatRoundtripTest {
         val result = ConfigParser.parse(ConfigKind.TileSet, futureVersion)
         assertIs<ConfigSourceResult.IncompatibleVersion>(result)
         assertEquals(999, result.found)
-        assertEquals(1, result.known)
+        // KNOWN_VERSION bumped 1 → 2 by TASK-7 (pool schemaVersion 2; see
+        // contracts/system-settings-pool-v2.md). Other kinds (TileSet etc.)
+        // still ship at v1 but the global parser ceiling is now 2.
+        assertEquals(2, result.known)
     }
 
     @Test

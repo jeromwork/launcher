@@ -2,6 +2,8 @@ package com.launcher.app
 
 import android.app.Application
 import android.util.Log
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.work.Configuration
 import com.launcher.adapters.auth.installAuthActivityTracker
 import com.launcher.adapters.lifecycle.ConfigRefreshWorker
@@ -20,6 +22,7 @@ import com.launcher.app.di.pairingModule
 import com.launcher.app.di.spec006Module
 import com.launcher.app.di.spec014Module
 import com.launcher.app.di.spec015Module
+import com.launcher.api.wizard.UserPreferencesStore
 import com.launcher.core.LauncherCore
 import com.launcher.di.backendModule
 import com.launcher.di.setupModule
@@ -37,6 +40,7 @@ import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.koin.android.ext.android.inject
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
@@ -133,6 +137,14 @@ class LauncherApplication : Application(), Configuration.Provider {
         // available, fetching /config/current and applying if newer.
         ConfigRefreshWorker.schedulePeriodicRefresh(this)
 
+        // TASK-7 / FR-018 — restore persisted app-level locale BEFORE any UI
+        // is inflated. AppCompatDelegate.setApplicationLocales is idempotent
+        // and effectively no-op when the override equals system locale. We
+        // accept the brief runBlocking here because (a) the read is a single
+        // DataStore key (~ms), (b) it must complete before Activity create,
+        // and (c) matches the existing project pattern (see core start()).
+        applyPersistedLocaleOverride()
+
         // Spec 018 F-5b: publish this device's X25519 public key into the
         // PublicKeyDirectory under the signed-in user's namespace, so other
         // devices and grant holders can resolve us as a recipient for envelope
@@ -141,6 +153,14 @@ class LauncherApplication : Application(), Configuration.Provider {
         // transition without side-effects. teardown() is fired on sign-out
         // to remove the device from the directory.
         observeIdentityAndBootstrapEnvelope()
+    }
+
+    private fun applyPersistedLocaleOverride() {
+        val store: UserPreferencesStore = org.koin.java.KoinJavaComponent.get(
+            UserPreferencesStore::class.java,
+        )
+        val override = runBlocking { store.current().languageOverride } ?: return
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(override))
     }
 
     private fun observeIdentityAndBootstrapEnvelope() {

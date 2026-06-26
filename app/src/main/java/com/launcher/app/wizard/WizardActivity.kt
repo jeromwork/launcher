@@ -13,10 +13,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import com.launcher.api.localization.StringResolver
 import com.launcher.api.wizard.ConfigKind
 import com.launcher.api.wizard.ConfigSource
 import com.launcher.api.wizard.ConfigSourceResult
+import com.launcher.api.wizard.UserPreferencesStore
 import com.launcher.api.wizard.WizardEngine
 import com.launcher.api.wizard.data.ConfigDocument
 import com.launcher.api.wizard.data.WizardManifest
@@ -41,6 +44,7 @@ class WizardActivity : ComponentActivity() {
     private val engine: WizardEngine by inject()
     private val configSource: ConfigSource by inject()
     private val stringResolver: StringResolver by inject()
+    private val userPreferencesStore: UserPreferencesStore by inject()
     private val uiChoiceHost: StepHost by inject(named("uiChoiceHost"))
     private val systemSettingHost: StepHost by inject(named("systemSettingHost"))
     private val tutorialHintHost: StepHost by inject(named("tutorialHintHost"))
@@ -76,7 +80,17 @@ class WizardActivity : ComponentActivity() {
                             }
                             val manifest = WizardManifest(doc.header, doc.body)
                             scope.launch {
-                                engine.run(manifest)
+                                val walkThrough = intent?.getBooleanExtra(EXTRA_WALK_THROUGH, false) == true
+                                if (walkThrough) {
+                                    engine.runWalkThrough(manifest)
+                                } else {
+                                    engine.run(manifest)
+                                }
+                                // TASK-7 / FR-017 — once the wizard captures a
+                                // language choice, persist it as the app-level
+                                // locale override so subsequent system-locale
+                                // changes don't override it (Article III §7).
+                                applyLanguageOverride()
                                 routeToHome()
                             }
                         }
@@ -114,6 +128,23 @@ class WizardActivity : ComponentActivity() {
             },
         )
         finish()
+    }
+
+    private suspend fun applyLanguageOverride() {
+        val override = userPreferencesStore.current().languageOverride ?: return
+        val locales = LocaleListCompat.forLanguageTags(override)
+        AppCompatDelegate.setApplicationLocales(locales)
+    }
+
+    companion object {
+        /**
+         * Intent extra (`Boolean`) — if true, [WizardActivity] runs the
+         * wizard via [WizardEngine.runWalkThrough] (skips computePending
+         * pre-flight) rather than the normal first-run [WizardEngine.run].
+         * Set by [com.launcher.app.settings.SettingsActivity] Walk-through
+         * button (TASK-7 / FR-014a / Сценарий 5).
+         */
+        const val EXTRA_WALK_THROUGH: String = "com.launcher.app.wizard.EXTRA_WALK_THROUGH"
     }
 
     private fun routeToFallback() {

@@ -22,7 +22,26 @@ data class UserPreferences(
     val languageOverride: String? = null,
     val attestedSettings: Map<String, AttestationRecord> = emptyMap(),
     val wizardCompletedAppFamilies: Set<String> = emptySet(),
-)
+) {
+    /**
+     * Has the user expressed a value for the given UIChoice step refId?
+     * Used by [com.launcher.api.wizard.WizardEngine.computePending] to skip
+     * UIChoice steps whose answer is already persisted (TASK-7 / FR-013).
+     *
+     * Hardcoded key set covers the current UIChoice refIds (`theme`,
+     * `fontScale`, `language`); unknown refIds fall through to
+     * [attestedSettings] lookup so SystemSetting self-attestation also works.
+     *
+     * TODO(TASK-?): generalize to a `Map<refId, JsonElement>` once UI pool
+     * supports custom UIChoice variants beyond the trio.
+     */
+    fun hasValueFor(refId: String): Boolean = when (refId) {
+        "theme" -> theme != ThemeChoice.Auto || refId in attestedSettings
+        "fontScale" -> fontScale != null
+        "language" -> languageOverride != null
+        else -> attestedSettings.containsKey(refId)
+    }
+}
 
 @Serializable
 enum class ThemeChoice { Light, Dark, Auto }

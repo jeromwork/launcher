@@ -84,4 +84,16 @@
     <string name="play_store_fallback_body">This config was made for a newer version. Update from the Play Store and try again.</string>
     <string name="play_store_fallback_open_store">Open Play Store</string>
 
+    <!-- TASK-7 — retry message for ROLE_HOME (shown after user refuses in system dialog) -->
+    <string name="system_setting_role_home_retry_message">To finish setup, choose this app as the default launcher. You can change it later in Android Settings.</string>
+
+    <!-- TASK-7 — Settings screen wiring -->
+    <string name="settings_walk_through_all_label">Walk through all settings step-by-step</string>
+    <string name="settings_pending_indicator_label">Needs your attention</string>
+    <string name="settings_locale_divergence_label_format">App language: %1$s (system Android: %2$s)</string>
+
+    <!-- TASK-7 — Walk-through mode primary / secondary buttons (T055) -->
+    <string name="wizard_walkthrough_keep">Keep</string>
+    <string name="wizard_walkthrough_change">Change</string>
+
 </resources>

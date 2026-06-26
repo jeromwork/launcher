@@ -67,4 +67,16 @@
     <string name="play_store_fallback_body">Эта конфигурация рассчитана на новую версию. Обновите приложение в Play Store и попробуйте снова.</string>
     <string name="play_store_fallback_open_store">Открыть Play Store</string>
 
+    <!-- TASK-7 — retry-сообщение для ROLE_HOME -->
+    <string name="system_setting_role_home_retry_message">Чтобы завершить настройку, выберите это приложение как лаунчер по умолчанию. Это можно изменить позже в настройках Android.</string>
+
+    <!-- TASK-7 — Экран настроек -->
+    <string name="settings_walk_through_all_label">Пройти все настройки пошагово</string>
+    <string name="settings_pending_indicator_label">Требует вашего внимания</string>
+    <string name="settings_locale_divergence_label_format">Язык приложения: %1$s (системный Android: %2$s)</string>
+
+    <!-- TASK-7 — Кнопки walk-through режима (T055) -->
+    <string name="wizard_walkthrough_keep">Оставить</string>
+    <string name="wizard_walkthrough_change">Изменить</string>
+
 </resources>

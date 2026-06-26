@@ -1,8 +1,10 @@
-# Glossary — конфиги, пресеты, визарды
+# Glossary — конфиги, профили, визарды
 
-**Дата**: 2026-06-16 · **Источник**: discussion 2026-06-16 (закрытие терминологических разночтений перед запуском F-3).
+**Дата**: 2026-06-16, обновлено 2026-06-24 · **Источник**: discussion 2026-06-16 + constitution amendment 1.7 (2026-06-24, Article VII §9–13).
 
-> Этот документ — **единственный источник правды** для терминов, которые в `roadmap.md` и use-cases исторически назывались по-разному (особенно «preset»). Любой новый артефакт (спека, ADR, decision doc) должен использовать **эти** имена. Если в roadmap.md есть устаревший термин — он будет правлен по мере касания, не одной волной.
+> Этот документ — **единственный источник правды** для терминов, которые в `roadmap.md` и use-cases исторически назывались по-разному (особенно «preset», «app-family»). Любой новый артефакт (спека, ADR, decision doc) должен использовать **эти** имена. Если в roadmap.md есть устаревший термин — он будет правлен по мере касания, не одной волной.
+>
+> **Обновление 2026-06-24**: после constitution amendment 1.7 канонический термин для слоя A — **«профиль»** (`profile`); прежнее «app-family» сохраняется только как deprecated synonym и как имя поля в wire format (`appFamilyId` — committed wire format, не меняется per CLAUDE.md rule 5). Constitution Article VII §9–13 — расширенное определение, эволюция wire-format kinds и mandatory/optional/skip semantics.
 
 ---
 
@@ -22,29 +24,37 @@
 
 | Слой | Что | Где живёт в коде | Когда строится |
 |---|---|---|---|
-| **A — App-family** | Тип целого приложения с собственным UI Kit, navigation, capabilities | `app/` (Compose, MVI presentation) | Simple Launcher — спека S-1; Admin App — спека S-2; TV / Caregiver — Phase 4+ |
-| **B — Wizard (first-run flow)** | Универсальный движок шагов настройки | `core/wizard/` (KMP common) | Спека F-3 (Phase 1) |
+| **A — Профиль (Profile)** | Тип целого приложения как **композиция bundled JSON-конфигов** — собственная UX, navigation, capabilities. Per constitution Article VII §9: «`simple-launcher`, `admin-app`, `clinic-patient-app`, `self-care` — это профили». **Прежнее имя «App-family»** оставлено только как deprecated synonym; в wire format поле называется `appFamilyId` (committed) | `app/` (Compose, MVI presentation); JSON в `core/src/androidMain/assets/wizard/` | Simple Launcher — TASK-7 / S-1; Admin App — TASK-8 / S-2; TV / Caregiver — Phase 4+ |
+| **B — Wizard (first-run flow)** | Универсальный движок шагов настройки. **Wizard — это view профиля**, не отдельная сущность (Article VII §11) | `core/wizard/` (KMP common) | TASK-1 / F-3 (Done) |
 | **C — ConfigDocument (runtime)** | Живой документ, описывающий текущее состояние устройства (плитки, контакты, виджеты) | `core/` (домен, уже существует, спека 008) | Уже есть. Спека 014 расширила до named configs |
 
 **Ключевое правило:** Wizard **не редактирует** ConfigDocument напрямую. Wizard **производит первый** ConfigDocument из выбранного `tile.set` + ответов пользователя. Дальнейшее редактирование — спека 014 (Tile Editing), а не wizard.
 
+**Принцип «профиль = данные, не код»** (Article VII §13, Project-Specific Direction §3): новый профиль ship'ается как новые bundled JSON-документы, **не** как новый Gradle-модуль кода и **не** как `if (appFamilyId == "x")` ветка в business-logic.
+
 ---
 
-## 3. Семейство bundled JSON-схем
+## 3. Семейство bundled JSON-схем (текущее поколение)
 
-В Phase 1 (F-3) появляются **три** независимые JSON-схемы. Это **семейство**, не единая мега-схема (Server-Driven UI отвергнут, см. §5). Каждая со своим `schemaVersion`, своим набором полей, своим roundtrip-тестом.
+> **Обновление 2026-06-24**: после реализации TASK-1 (F-3) bundled-семейство выросло с **трёх** схем до **пяти** — добавились `system-settings.pool` и `ui-customization.pool`. Это «текущее поколение» per constitution Article VII §10; деление зон ответственности **подвижно** и может эволюционировать (через schemaVersion bump per CLAUDE.md rule 5). Специфика и код MUST обращаться к этим типам через `ConfigKind` enum, не хардкодить N-way ветки по именам.
+
+В текущем поколении — **пять** независимых JSON-схем. Это **семейство**, не единая мега-схема (Server-Driven UI отвергнут, см. §5). Каждая со своим `schemaVersion`, своим набором полей, своим roundtrip-тестом.
 
 | Имя схемы | Описывает | Потребитель |
 |---|---|---|
-| **`wizard.manifest`** | Порядок шагов first-run flow для одной app-family. Поля: `appFamilyId`, `steps[]` с `stepType` и параметрами | `WizardEngine` |
-| **`screen.layout`** | Каркас экрана: размер grid'а (`gridRows × gridCols`), bottom toolbar, переключаемые табы. **Не содержит плиток** — только структуру | `HomeRenderer` (Compose в `app/`) |
-| **`tile.set`** | Обезличенный стартовый набор плиток: `tiles[]` с `position`, `actionType` (см. capability registry, спека 005), `labelKey`, `iconKey` | First-run после wizard'а; создаёт первый ConfigDocument |
+| **`wizard.manifest`** | Порядок шагов first-run flow для одного профиля. Поля: `appFamilyId` (= profile id), `steps[]` с `stepType` (`UIChoice` / `SystemSetting` / `TutorialHint` / `Custom`) и параметрами. Если `autoOrder=true` — engine собирает шаги из pool'ов автоматически по criticality | `WizardEngine` |
+| **`screen.layout`** | Композиция главного экрана: `gridRows × gridCols`, `bottomToolbar`, `topTabs`. По мере эволюции — статус-бар, app-shortcut intents, multi-screen navigation. **Не содержит плиток** — только архитектуру | `HomeRenderer` (Compose в `app/`) |
+| **`tile.set`** | Обезличенный стартовый набор плиток: `tiles[]` с `position`, `actionType` (см. capability registry), `labelKey`, `iconKey` | First-run после wizard'а; создаёт первый ConfigDocument |
+| **`system-settings.pool`** | Каталог Android-platform-level settings, которые профиль может включить в свой wizard: `id` (`android.role.home`, `android.permission.POST_NOTIFICATIONS`, …), `mechanism` (`StandardPermission` / `SpecialPermission` / `DeepLink` / `AccessibilityService` / `InAppOnly`), `criticality`, `canSkip`, `deepLink`, `androidMinApi`, `detectionStrategy`, `labelKey`, `descriptionKey` | `SystemSettingPort` + wizard `SystemSettingStep` |
+| **`ui-customization.pool`** | Каталог UI-опций: `language`, `theme`, `fontScale`, `grid`, `screenLayout` (pick-from-bundled), `tileSet` (pick-from-bundled). Каждая запись имеет `kind` (`simple-choice` / `pick-from-bundled`), `criticality`, `defaultValue`, `choices` / `choicesFrom` | Wizard `UIChoiceStep` + `UserPreferences` |
 
-**Что НЕ является отдельной схемой в Phase 1:**
+**Эволюция кинов** (Article VII §10): набор kinds — не финальный. В будущем `screen.layout` может разбиться на `screen.shell` / `screen.grid` / `screen.intents`; могут появиться `theme.pool`, `hint.set`, etc. Любое изменение — через `schemaVersion` bump + backward-compat reads (CLAUDE.md rule 5). Удаление kind — one-way door (CLAUDE.md rule 3), требует exit-ramp документации.
 
-- ❌ `theme` — темы code-driven через Compose `MaterialTheme`. JSON-тема появится только когда возникнет требование «admin remote-меняет цвета бабушке» (не сейчас).
-- ❌ `hint.set` — runtime-подсказки post-wizard. Отдельный `kind` появится **тогда**, когда первый hint реально нужен в S-1 или позднее. Преждевременно зашивать в F-3.
-- ❌ `permission.set` — это **шаг внутри** `wizard.manifest` (`PermissionStep` с параметром «какое разрешение»), а не отдельный документ.
+**Что НЕ является отдельной схемой сейчас (но может появиться при необходимости):**
+
+- ❌ `theme` как отдельная схема — пока запись в `ui-customization.pool` (choices: `light` / `dark` / `auto`). JSON-тема как отдельный kind появится, если возникнет требование «admin remote-меняет цвета primary user'у» или «marketplace тем».
+- ❌ `hint.set` — runtime-подсказки post-wizard. Отдельный kind появится **тогда**, когда первый hint реально нужен в S-1 или позднее (rule 4 MVA).
+- ❌ `permission.set` — это **шаг внутри** `wizard.manifest` (`stepType: SystemSetting` с `refId` ссылающимся на запись в `system-settings.pool`), а не отдельный документ.
 
 ---
 

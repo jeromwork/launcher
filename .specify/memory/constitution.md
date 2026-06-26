@@ -105,6 +105,14 @@ This constitution intentionally separates:
 5. "Nice to have", "might need later", and speculative extensibility are prohibited unless explicitly justified.
 6. The default engineering posture SHOULD be **simple now, extensible only when evidence exists**.
 7. Every new module, abstraction, event type, or configuration layer MUST have an explicit reason.
+8. **MVP definition.** The MVP delivers all *base functional blocks* working end-to-end — encryption, push, server integration, auth, recovery, remote management, screen rendering, settings — but is NOT yet polished for end-user experience. UX refinement, visual smoothness, and per-profile tuning happen *after* MVP through **configuration changes** (JSON wire-format documents per Article VII §10), not through new code branches or new modules.
+
+   Specifically post-MVP work consists of:
+   - Tuning bundled JSON pool entries and profiles based on usability observations (which sequences of steps work best for which target populations).
+   - Visual / animation polish through Compose theming changes.
+   - Adding new bundled documents (additional `tile.set`s, `screen.layout`s, adaptive-UX presets) without code changes — pure JSON content authoring.
+
+   The MVP is "shippable as functional product" but not "delightful as user experience". Targeting delight at MVP stage is explicit anti-pattern: it slows base-block delivery and embeds early UX guesses into code where they're expensive to revise. Article VII §13 reinforces this — new profiles ship as JSON, not as code.
 
 ---
 
@@ -118,6 +126,16 @@ The following are non-negotiable product and engineering invariants:
 4. Invalid configuration MUST fail safely with deterministic fallback.
 5. Optional capabilities MUST NOT compromise base application stability or launcher-mode stability.
 6. Security, privacy, and permission scope MUST remain proportionate to approved product requirements.
+7. **Stability over system-level changes.** The application MUST treat each applied configuration setting as *persistent user intent*. After a setting is explicitly applied through wizard or settings UI, the application MUST NOT silently follow a conflicting system-level change (locale, theme, font scale, accessibility settings). The user-applied value takes precedence until explicitly changed through the application's own settings.
+
+   Rationale: primary user (elderly, low cognitive capability per Article VIII) relies on stable, predictable behaviour. Surprise UI shifts triggered by system-level changes the user did not initiate (sometimes by accident) are a top-tier defect — they break the foundational trust relationship. This applies to locale (Article VII §12 already reflects per-profile manifest semantics), theme, font scale, grid size, and any future user-applied configuration value.
+
+   Concrete enforcement examples:
+   - Locale: after wizard saves `languageOverride`, the application MUST call `AppCompatDelegate.setApplicationLocales()` (or platform equivalent) so the application override persists across system locale changes.
+   - Theme: after wizard saves `ThemeChoice`, the application MUST honour the saved value regardless of `Configuration.uiMode` system shifts.
+   - Font scale: similar persistence vs system font scale changes.
+
+   Exception: device-level safety changes (emergency calls, accessibility services explicitly mandated by Android) MAY override application preferences when required by platform.
 
 ---
 
@@ -197,7 +215,7 @@ Additional defaults:
    - defaults,
    - migration policy.
 4. Configuration SHOULD be declarative where practical.
-5. Profiles MAY enable or disable modules, features, layouts, accessibility presets, or integration policies only through documented contracts.
+5. Profiles MAY enable or disable modules, features, layouts, **adaptive-UX presets** (see Project-Specific Direction §5), or integration policies only through documented contracts. Note: an **adaptive-UX preset** (variant for tremor, low vision, reduced dexterity, or cognitive load) is a sub-feature *inside* a profile — it is not itself a profile and is not at the same abstraction level as `simple-launcher`, `admin-app`, etc.
 6. Runtime-loaded or downloadable modules MUST remain optional enhancements, never assumptions for base application or launcher-mode stability.
 7. AI-generated changes MUST NOT silently widen config schema without updating:
    - schema docs,
@@ -209,6 +227,63 @@ Additional defaults:
    - `requiredModules`: modules without which the profile cannot be activated; the runtime MUST refuse activation and surface a clear reason if any are absent.
    - `optionalModules`: modules that enhance the profile but whose absence MUST degrade gracefully without breaking the base application or any active launcher-mode surface.
    The profile schema MUST treat these fields as part of the wire format (versioned, validated, backward-compatible per Article VII §3). End-user-facing prompts about module installation are not required: the project's primary persona (elderly user) does not configure devices — module acquisition is performed by an administrator/caregiver on the user's behalf, so the installation UX MAY be admin-facing only.
+
+9. **Profile composition.** The application's behaviour for a given product variant is expressed as a **profile** — a named composition of configuration documents that together determine the wizard flow, the main-surface composition, the in-cell content, the platform-level settings the variant uses, and the in-app UI options. Examples: `simple-launcher` (the elderly-friendly handheld variant), `admin-app` (remote-administrator variant), `clinic-patient-app` (B2B clinic variant). A profile is identified in wire format by the field `appFamilyId` (this field name is retained for backward compatibility per Article VII §3 and CLAUDE.md rule 5; the conceptual term used in specs and discussion is **"profile id"**). Behaviour of one APK across profiles MUST come from different bundled / loaded configurations, not from code branches keyed on the profile id.
+
+10. **Wire format kinds (current generation).** As of the current schema generation, a profile is composed by reference to documents of these kinds (`ConfigKind` enum, declared in `core/src/commonMain/kotlin/com/launcher/api/wizard/ConfigSource.kt`):
+    - `wizard.manifest` — first-run walkthrough scenario (StepEntry sequence referencing pool entries).
+    - `screen.layout` — main-surface composition: grid dimensions, toolbars, tabs, and — as the format evolves — status-bar configuration, app-shortcut intents, and multi-screen navigation. The current minimal schema (grid + bottom toolbar + top tabs) is expected to grow.
+    - `tile.set` — concrete content occupying screen.layout cells (position, action type, label, icon).
+    - `system-settings.pool` — catalogue of platform-level settings the profile uses; each entry declares mechanism (StandardPermission / SpecialPermission / DeepLink / AccessibilityService / InAppOnly), criticality, `canSkip`, deep-link target, detection strategy.
+    - `ui-customization.pool` — catalogue of in-app UI options (language, theme, font scale, grid dimensions, picker references to bundled `screen.layout` and `tile.set`).
+    
+    This division reflects the **current schema generation** and is **expected to evolve**. Kinds MAY split (for example, `screen.layout` separating into `screen.shell` / `screen.grid` / `screen.intents`), merge, or be added. Any change MUST follow [`CLAUDE.md`](../../CLAUDE.md) rule 5: explicit `schemaVersion` bump on every affected wire format, backward-compatible reads possible for at least one major release, versioned migration written **before** the breaking change ships. Specs and code MUST treat the set of kinds as data (operating on the `ConfigKind` enum) rather than hardcoded N-way branches over fixed kind names. Adding or removing a kind is a one-way door per CLAUDE.md rule 3 and requires explicit exit-ramp documentation.
+
+11. **Wizard as profile view.** A first-run wizard is the same set of settings that constitute the profile, exposed as a sequential walkthrough. Every setting visible in the wizard MUST also be reachable through the in-app Settings surface after first run, so that users (or, more commonly, their administrators or assisting family members) can change choices later without re-running the wizard. The wizard is one **view** of the profile, not the source of truth — the source of truth is the applied set of configuration documents.
+
+12. **Mandatory / optional / skip semantics.** Within a profile's wizard each setting falls into one of three categories:
+    - **Mandatory** — the user (or assisting administrator) MUST apply the setting; the wizard cannot proceed past it without an applied value or, where the profile allows, an explicit opt-out with a recorded reason. The profile remains visibly incomplete until this is resolved.
+    - **Optional with skip-banner** — MAY be skipped during the wizard; the in-app Settings surface MUST display a reminder banner that the entry was skipped and offer a direct path to set it.
+    - **Optional silent** — does not trigger a reminder banner; users can find the setting in the Settings surface but the profile does not actively prompt for it.
+    
+    The split is declared **per-entry in the relevant pool document** (`system-settings.pool` / `ui-customization.pool`) through `criticality` and `canSkip` fields, and MAY be overridden **per-profile** by the `wizard.manifest` (`StepEntry.canSkip`, `StepEntry.criticality`). Pool-level defaults represent reasonable defaults across profiles; per-profile overrides express the choices a specific product variant has made (for example: `android.role.home` is `canSkip: true` in `android-pool.json` so other profiles MAY skip it, but the `simple-launcher` profile MAY override to `canSkip: false` because without ROLE_HOME the simple-launcher experience is meaningless).
+
+13. **No per-profile code module.** A new profile MUST NOT be introduced as a new Gradle module of code dedicated to that profile, and MUST NOT add a code branch keyed on `appFamilyId`. New profiles ship as new bundled JSON documents — a new `wizard.manifest` plus, where the existing bundled `screen.layout`s, `tile.set`s, and pool entries are insufficient, new bundled documents and / or new pool entries. Where a new profile genuinely requires a capability the existing `ConfigKind` set cannot express, a new kind MAY be added under §10, but the proposal MUST justify why the existing kinds were insufficient and MUST follow the schema evolution rules in [`CLAUDE.md`](../../CLAUDE.md) rule 5.
+
+14. **Configuration lifecycle is independent of application lifecycle.** An application update (new APK version) and a configuration update (new bundled JSON in pool / new `wizard.manifest` / new `screen.layout` / etc.) are *independent events*. An application MUST be able to:
+    - Update its bundled configurations through a new APK version (current path).
+    - Update its configurations from a non-bundled source (file import, network, AI-agent-generated, marketplace) through a `ConfigSource` adapter pattern *without* requiring a new application version (future path; current implementation: `BundledConfigSource`. Future adapters: `FileConfigSource`, `NetworkConfigSource`, `McpConfigSource`, `MarketplaceConfigSource`).
+    
+    **Config-check master pattern.** When the application launches (or after a configuration update is applied), the engine MUST:
+    - Load the current profile manifest (e.g., `simple-launcher.wizard.manifest.json`) via `ConfigSource`.
+    - For each step entry, check the *actual current state* on the device — NOT a stored snapshot of which steps were previously completed:
+      - For `SystemSetting` steps: query `SystemSettingPort.status(refId)`. Setting may have been applied through wizard, through Android system settings directly, through an admin remote push, or through an MCP agent — engine treats them identically.
+      - For `UIChoice` steps: query `UserPreferencesStore.current()` for a valid value matching the current pool's allowed choices.
+    - Skip steps whose actual state is already in the desired configuration.
+    - Include in the pending list only steps whose state is `NotApplied` or `Indeterminate` or whose stored value is invalid against current pool definition.
+    
+    If the pending list is empty → no wizard runs. If the pending list is non-empty → the wizard runs as a **donastroika view** showing only the pending steps. Application updates MUST NOT silently re-trigger the full wizard. The user-applied state (per Article III §7) is preserved across application updates; only genuinely new settings require user input.
+    
+    **Why state-of-device, not snapshot-of-manifest.** A primary-user (or an assisting administrator, or an external Android system change) MAY apply settings through paths other than the wizard — Android Settings directly, admin remote push, AI agent capability invocation, future file import. The engine MUST detect that a setting *is* in the desired state regardless of *how* it got there. A snapshot of "what steps the wizard completed last time" would diverge from device reality whenever any non-wizard path is used.
+
+15. **Multi-platform adapter seam.** The wire-format kinds in §10 are platform-agnostic; the *implementations* that detect, apply, and validate settings are platform-specific. The architecture MUST keep this seam strict:
+    - All `ConfigKind` documents, all data classes, all sealed type hierarchies (including `CheckSpec`, `ApplySpec`, and similar declarative dispatch types) live in `commonMain`. They MUST be serializable cross-platform.
+    - The engine and ports (`WizardEngine`, `SystemSettingPort`, `ConfigSource`, `UserPreferencesStore`, etc.) live in `commonMain`. Engine logic does not know which platform is running.
+    - Platform adapter modules (`androidMain`, `iosMain`, `androidTvMain`, etc.) implement the ports and register handlers for the relevant `CheckSpec` / `ApplySpec` variants.
+    - Pool documents are platform-keyed (`platform: "android" | "ios" | "android-tv" | "*"`). A profile's manifest MAY reference pool entries from any platform whose adapters are active in the build.
+    - If a step references a `CheckSpec` variant whose handler is not registered in the current build (e.g., an iOS-only check in an Android-only build), `SystemSettingPort.status()` MUST return `Indeterminate` and the engine MUST treat the step as pending (graceful degradation, not crash).
+    
+    A new platform MUST ship as: (a) a new adapter module with its own `<Platform>SystemSettingAdapter` and handlers, (b) a new platform-keyed pool document with platform-specific `CheckSpec` variants, (c) DI wiring registering the platform's handlers. The engine, ports, and existing platform adapters MUST NOT change.
+
+16. **No `Custom` step type. No per-refId Kotlin handlers.** All wizard steps MUST be expressible through the generic `StepType` set (`SystemSetting`, `UIChoice`, `TutorialHint`) combined with the declarative `CheckSpec` / `ApplySpec` sealed hierarchies (§15). A wizard step that needs behaviour the existing kinds cannot express MUST extend the `CheckSpec` / `ApplySpec` sealed classes (with schema-version migration per CLAUDE.md rule 5), NOT introduce a `StepType.Custom` variant nor a per-`refId` Kotlin handler.
+
+    **Rationale.** Per-refId handlers couple step rendering and behaviour to compiled code keyed on a string from the manifest, breaking §11 (wizard = projection of config) and §13 (no per-profile code). They also create an escape hatch through which step types proliferate without going through the proper declarative `CheckSpec` / `ApplySpec` extension — leading to handlers that auto-execute on step entry (bypassing the user's ability to skip), to per-step DI registration that fights generic dispatch, and to manifest entries whose semantics are not knowable from the JSON alone.
+
+    **Why this rule exists.** F-3 (spec 015) added `StepType.Custom(val name: String)` as a *placeholder for future extension* with the comment "Custom types от app-family добавляются через DI Map" — without any concrete use case. This violated CLAUDE.md rule 4 ("Minimum Viable Architecture, not Minimum Viable Product — add abstraction only when not adding it would force a future *rewrite*, not future *addition*"). TASK-7 Phase-5 then misused this placeholder to wire `pair-admin` as a `Custom` step with a `PairAdminCustomStepHandler` that fire-and-forget-launched `PairingActivity` on step entry — no UI, no skip path, no `CheckSpec`-based state read. This rule retires the placeholder and forbids the pattern.
+
+    **Where step types that look "different" actually fit.** Pairing with admin device → `CheckSpec` queries link-registry state (`activeAdminLinkCount > 0`) + `ApplySpec` dispatches an intent to the pairing activity. SOS contact selection → `CheckSpec` queries user-prefs for a stored phone number + `ApplySpec` launches a contact-picker intent. Both fit `SystemSetting` semantics: there *is* a piece of device/user state, the wizard reads it, and applies through a generic mechanism.
+
+    **Existing `StepType.Custom` and `CustomStep` / `CustomStepHandler` infrastructure MUST be removed** as part of TASK-7 cleanup. New step needs that cannot be expressed today are deferred until the proper `CheckSpec` / `ApplySpec` variants are added, not workarounded through a per-refId handler.
 
 ---
 
@@ -363,6 +438,13 @@ When an AI agent works inside this repository through Spec Kit, it MUST behave a
     - propose a compliant alternative, or
     - flag that the constitution must be amended or an exception must be approved.
 13. Align **Git** practice with **Article XVIII**: after each **significant** step, **commit** and **push** to the remote (see Article XVIII for what counts as significant and for exceptions).
+14. **Cite UX precedent before original proposals.** When proposing a user-facing UX pattern (interaction flow, layout, control type, terminology, naming, navigation pattern), AI agents MUST first research how established products / industry leaders solve the same problem. Surface 2–3 references with brief descriptions of their approach. Only after presenting precedent — propose the recommendation. Fall back to fully original proposals only when no relevant precedent exists or precedent is genuinely unsuited.
+
+    Scope: setup wizards, settings UI, notifications, error states, navigation patterns, terminology choices, similar UX-level decisions.
+
+    Out of scope: architectural / code decisions (those follow CLAUDE.md rules and Articles IV / VII), wire-format decisions, business-logic decisions specific to this product domain.
+
+    Rationale: novice product owners often accept the first proposal they hear because they have no comparison anchor. Citing precedent gives them an anchor to evaluate against ("Notion does X for similar reason — does that fit us too?") and reduces the risk of unique-but-suboptimal patterns. This rule reinforces the mentor skill principle (`.claude/skills/mentor/SKILL.md`) of critical mentor stance — but extends from "critique my own defaults" to "ground recommendations in industry precedent before defaulting at all".
 
 ---
 
@@ -513,15 +595,15 @@ Features implement user-facing capabilities or isolated business logic. Features
 
 ### 3. Profiles and Configurations
 
-Profiles define curated application variants, launcher-mode variants, or user-focused operating modes. Examples may include elderly-friendly presets, simplified navigation variants, OEM-specific packaging constraints, communication-focused experiences, or optional feature bundles. Profiles are data, not forks.
+Profiles define curated application variants, launcher-mode variants, or user-focused operating modes. A profile is a **composition** of multiple configuration documents per Article VII §9–10 (current generation: `wizard.manifest` + `screen.layout` + `tile.set` + `system-settings.pool` + `ui-customization.pool`); the set of document kinds is itself versioned and expected to evolve. Examples: `simple-launcher` (elderly-friendly handheld), `admin-app` (remote administrator), `clinic-patient-app` (B2B clinic), `self-care` (single-user self-managed). Profiles are **data, not forks**: a new profile MUST NOT ship as new code dedicated to that profile (Article VII §13), and MUST NOT add an `if (appFamilyId == "x")` branch in business logic.
 
 ### 4. Optional Modules
 
 Optional or downloadable components must fail gracefully when absent. The base application and any enabled launcher-mode surface must remain coherent without them.
 
-### 5. Accessibility Presets
+### 5. Adaptive-UX Presets (accessibility variants)
 
-Accessibility-related presets are treated as product features backed by configuration, validation, and acceptance tests—not as ad hoc UI overrides.
+**Adaptive-UX presets** — variants for tremor, low vision, reduced dexterity, or cognitive load — are **sub-features within a profile** (Article VII §5, §9), not profiles themselves. A profile (e.g., `simple-launcher`) MAY enable one or more adaptive-UX presets; the same profile with a different adaptive-UX preset is still the same profile. Adaptive-UX presets are backed by configuration, validation, and acceptance tests — not by ad hoc UI overrides. Earlier wording in this constitution called these "accessibility presets"; the renamed term "adaptive-UX preset" is used to avoid confusion with the top-level "profile" concept.
 
 ### 6. Form-Factor Variants
 
@@ -601,6 +683,32 @@ These sources informed the constitution and are recommended reference material w
 
 ## Amendment History
 
+### 1.10 — 2026-06-25
+
+- **Article VII §16 added** — No `StepType.Custom`, no per-refId Kotlin handlers. All wizard steps MUST be expressible through generic `StepType` + declarative `CheckSpec` / `ApplySpec` (§15). New step needs MUST extend the sealed `CheckSpec` / `ApplySpec` hierarchies, NOT introduce a custom step variant nor a per-`refId` handler. Existing `StepType.Custom` placeholder + `CustomStep` / `CustomStepHandler` / `PairAdminCustomStepHandler` infrastructure MUST be removed as part of TASK-7 cleanup.
+- **Rationale**: triggered by TASK-7 device verification 2026-06-25 on Xiaomi 11T. F-3 (spec 015) had added `StepType.Custom(val name: String)` as a placeholder for "future extension via DI Map" with no concrete use case — violating CLAUDE.md rule 4. TASK-7 Phase-5 then misused this escape hatch to wire `pair-admin` as a custom step with a handler that fire-and-forget-launched `PairingActivity` on step entry — no user UI, no skip path, no state read. Pair-admin actually fits `SystemSetting` semantics (state = activeAdminLinkCount; apply = launch pairing intent) but the proper `CheckSpec` / `ApplySpec` variants are deferred to TASK-8 (Admin App + QR Pairing), TASK-51 (libsodium ristretto255 fix), and beyond. Removing `Custom` step now prevents the placeholder from causing further misuse and codifies the rule.
+
+### 1.9 — 2026-06-24 (later same day)
+
+- **Article XV §14 added** — Cite UX precedent before original proposals. AI agents must research established products / industry leaders solving the same problem, surface 2–3 references, then recommend. Originals reserved for genuine precedent gaps. Scope: setup wizards, settings UI, notifications, error states, navigation, terminology. Out of scope: architectural / code / wire-format / domain business logic.
+- **Rationale**: triggered by TASK-7 scenarios pass 2026-06-24. Owner surfaced that prior proposals (donastroika via wizard re-run) lacked precedent grounding — leading to potential unique-but-suboptimal UX choices. Reinforces mentor skill critical stance from "critique my own defaults" → "ground in precedent before defaulting".
+
+### 1.8 — 2026-06-24 (later same day)
+
+- **Article II §8 added** — MVP definition: base functional blocks end-to-end working, polish through JSON configuration not code, anti-pattern to target UX delight at MVP stage.
+- **Article III §7 added** — Stability over system-level changes: applied settings are persistent user intent; system-level shifts (locale, theme, font scale) MUST NOT silently override user-applied values. Locale enforcement via `AppCompatDelegate.setApplicationLocales()` explicitly required.
+- **Article VII §14 added** — Configuration lifecycle independent of application lifecycle. Engine reconciles current device state against current config spec at each launch through *config-check master* pattern: query `SystemSettingPort.status()` per step, skip applied, show only pending. Replaces snapshot-of-manifest approach. Applies to all paths through which a setting may have been applied (wizard, Android Settings directly, admin remote push, AI agent capability invocation, file import).
+- **Article VII §15 added** — Multi-platform adapter seam. Declarative dispatch types (`CheckSpec`, `ApplySpec`) in `commonMain`; handlers in platform-specific adapter modules. Graceful degradation: unregistered `CheckSpec` variants return `Indeterminate`. New platforms ship as new adapter + new platform-keyed pool; engine and ports unchanged.
+- **Rationale**: triggered by TASK-7 clarify pass 2026-06-24 (continuation of amendment 1.7 session). Owner explicitly surfaced that (a) MVP definition was implicit — risking AI scope creep through "let's polish this now" patches; (b) locale / theme silent shifts on system-level changes break the trust relationship with elderly primary users; (c) F-3 engine implementation traverses manifest linearly without checking current device state, causing wizard to re-show steps already applied by other paths; (d) future platforms (iOS, Android TV) and future sources (AI agent, file import, marketplace) require strict separation between commonMain data + ports and platform/source-specific implementations.
+
+### 1.7 — 2026-06-24
+
+- **Article VII** — added §9 (profile composition), §10 (current generation of wire format kinds + explicit evolution policy), §11 (wizard = view of profile, not source of truth), §12 (mandatory / optional with skip-banner / optional silent semantics, pool-level defaults + per-profile override), §13 (no per-profile code module, no `if (appFamilyId == "x")` branches).
+- **Article VII §5** — clarified that "adaptive-UX presets" are sub-features within a profile, not parallel concepts to profiles.
+- **Project-Specific Direction §3** — expanded definition of "profile" to reference the composition model and the current 5-kind division; added the concrete sample profile names (`simple-launcher`, `admin-app`, `clinic-patient-app`, `self-care`).
+- **Project-Specific Direction §5** — renamed "Accessibility Presets" to "Adaptive-UX Presets (accessibility variants)" and clarified the sub-feature relationship to profiles.
+- **Rationale**: prior wording left ambiguous whether `simple-launcher` was a Kotlin class, a JSON file, or a logical product variant. AI agents repeatedly wrote specs that hardcoded behaviour into code instead of treating profiles as composed configuration. Owner surfaced this during TASK-7 clarify pass 2026-06-24 («нет заранее запрограммированного лаунчера, всё строится из json»). The amendment captures the architectural model so future AI sessions cannot drift.
+
 ### 1.6 — 2026-06-17
 
 - Added **Article XIX. Organic Question Budgets in Clarification Passes** — overrides any prior numeric question caps in `speckit-clarify`, `mentor`, and analogous skills. Question count is organic, derived from spec's actual grey zones; typical range 3–7 but no hard cap. Padding to a target and trimming below organic count are both bugs.
@@ -652,4 +760,4 @@ Initial project constitution created for Launcher based on:
 
 ---
 
-**Version**: 1.5.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-04-25
+**Version**: 1.10.0 | **Ratified**: 2026-03-28 | **Last Amended**: 2026-06-25

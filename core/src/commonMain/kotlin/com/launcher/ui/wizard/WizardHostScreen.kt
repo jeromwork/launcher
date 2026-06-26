@@ -119,20 +119,37 @@ fun WizardHostScreen(
                         SeniorBodyText(stringResolver.resolve(bodyKey))
                         Spacer(Modifier.height(24.dp))
 
-                        // Two buttons: primary "Далее" captures a no-op answer
-                        // (per FR-008 — UI variants override this default by
-                        // providing a richer host binding); secondary "Пропустить".
+                        // TASK-7 Phase 6 / FR-014a — walk-through mode shows
+                        // semantically clearer labels:
+                        //  - "Изменить" (primary) — same as Wizard "Далее":
+                        //    captures the answer / triggers applyOrPrompt.
+                        //  - "Оставить" (secondary) — same as Wizard "Пропустить":
+                        //    Skipped, no state change.
+                        // Sealed pair so future modes (e.g. ReviewOnly) can add
+                        // a third label set without touching the engine.
+                        val (primaryKey, secondaryKey) = when (current.mode) {
+                            com.launcher.api.wizard.WizardEngine.Mode.Wizard ->
+                                "wizard.next" to "wizard.skip"
+                            com.launcher.api.wizard.WizardEngine.Mode.WalkThrough ->
+                                "wizard.walkthrough.change" to "wizard.walkthrough.keep"
+                        }
                         SeniorButton(
-                            text = stringResolver.resolve("wizard.next", emptyMap()),
+                            text = stringResolver.resolve(primaryKey, emptyMap()),
                             onClick = {
                                 active.resolve(StepResult.AnswerCaptured(JsonPrimitive("ack")))
                             },
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        if (current.currentStep.canSkip) {
+                        // In WalkThrough mode the secondary ("Оставить") is
+                        // always shown — the whole point is "review and
+                        // optionally skip per step". In Wizard mode we
+                        // respect canSkip per FR-008.
+                        val showSecondary = current.currentStep.canSkip ||
+                            current.mode == com.launcher.api.wizard.WizardEngine.Mode.WalkThrough
+                        if (showSecondary) {
                             Spacer(Modifier.height(12.dp))
                             SeniorSecondaryButton(
-                                text = stringResolver.resolve("wizard.skip", emptyMap()),
+                                text = stringResolver.resolve(secondaryKey, emptyMap()),
                                 onClick = { active.resolve(StepResult.Skipped) },
                                 modifier = Modifier.fillMaxWidth(),
                             )
@@ -153,7 +170,6 @@ private fun activeHost(
     com.launcher.api.wizard.StepType.UIChoice -> uiChoiceHost
     com.launcher.api.wizard.StepType.SystemSetting -> systemSettingHost
     com.launcher.api.wizard.StepType.TutorialHint -> tutorialHintHost
-    is com.launcher.api.wizard.StepType.Custom -> uiChoiceHost
 }
 
 /**
@@ -177,6 +193,4 @@ private fun stepKeysFor(
         "system_setting.$refId.label" to "system_setting.$refId.desc"
     com.launcher.api.wizard.StepType.TutorialHint ->
         "hint.$refId" to "hint.$refId.body"
-    is com.launcher.api.wizard.StepType.Custom ->
-        "step.title.$refId" to "step.body.$refId"
 }

@@ -17,30 +17,42 @@ import com.launcher.api.wizard.PermissionResult
 import com.launcher.api.wizard.SettingStatus
 import com.launcher.api.wizard.SystemSettingPort
 import com.launcher.api.wizard.UserPreferencesStore
+import com.launcher.api.wizard.data.ApplySpec
+import com.launcher.api.wizard.data.CheckSpec
 import com.launcher.api.wizard.data.ConfigDocument
 import com.launcher.api.wizard.data.SystemSettingEntry
 import com.launcher.api.wizard.data.WireSettingMechanism
+import com.launcher.api.wizard.handlers.ApplyHandler
+import com.launcher.api.wizard.handlers.CheckHandler
+import kotlin.reflect.KClass
 
 /**
- * Android adapter for SystemSettingPort — dispatches per mechanism
- * (FR-055). Reads the bundled `android-pool.json` via ConfigSource lazily
- * (first call only).
+ * Android adapter for [SystemSettingPort]. Dispatches via two handler
+ * registries (`checkHandlers` for state queries, `applyHandlers` for
+ * prompt launches), keyed on the spec variant class. Falls back to the
+ * legacy `mechanism + settingId` path for pool entries that have not
+ * yet been migrated to schemaVersion 2.
  *
- * Per-mechanism handling:
- *  - StandardPermission → PermissionRequestPort.request()
- *  - SpecialPermission → Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS etc.
- *  - AccessibilityService → Settings.ACTION_ACCESSIBILITY_SETTINGS deep-link
- *  - DeepLink → entry.deepLink (e.g. RoleManager.createRequestRoleIntent)
- *  - InAppOnly → in-app toggle (SelfAttest path)
+ * Results are memoised in [SettingStatusCache] (default TTL 30 s) and
+ * invalidated on `Lifecycle.Event.ON_RESUME` via
+ * [CacheInvalidatingLifecycleObserver] (FR-021, FR-022).
+ *
+ * TODO(multiplatform): IosSystemSettingAdapter — TASK-26 / TASK-29 —
+ * both ship as new adapters without changing engine, ports, or
+ * commonMain CheckSpec sealed class.
  *
  * TODO(physical-device): OEM-specific quirks (Samsung KNOX accessibility
- * restrictions, Xiaomi MIUI battery whitelist, Huawei EMUI protected apps).
+ * restrictions, Xiaomi MIUI battery whitelist, Huawei EMUI protected
+ * apps) need real-device verification — see TASK-7 T064/T065.
  */
 class AndroidSystemSettingAdapter(
     private val context: Context,
     private val configSource: ConfigSource,
     private val permissionRequestPort: PermissionRequestPort,
     @Suppress("unused") private val userPreferencesStore: UserPreferencesStore,
+    private val checkHandlers: Map<KClass<out CheckSpec>, CheckHandler>,
+    private val applyHandlers: Map<KClass<out ApplySpec>, ApplyHandler>,
+    private val cache: SettingStatusCache,
 ) : SystemSettingPort {
 
     private var poolCache: List<SystemSettingEntry>? = null
@@ -57,7 +69,7 @@ class AndroidSystemSettingAdapter(
                         collected += doc.body.settings
                     }
                 }
-                else -> { /* ignore failures here — engine surfaces IncompatibleVersion separately */ }
+                else -> { /* engine surfaces IncompatibleVersion separately */ }
             }
         }
         poolCache = collected
@@ -65,36 +77,54 @@ class AndroidSystemSettingAdapter(
     }
 
     override suspend fun status(settingId: String): SettingStatus {
+        cache.get(settingId)?.let { return it }
         val entry = pool().firstOrNull { it.id == settingId }
-            ?: return SettingStatus.NotSupportedOnPlatform
-        return when (entry.mechanism) {
-            WireSettingMechanism.StandardPermission -> {
-                if (permissionRequestPort.isGranted(settingId)) SettingStatus.Applied
-                else SettingStatus.NotApplied
-            }
-            WireSettingMechanism.DeepLink -> isDeepLinkApplied(settingId)
-            WireSettingMechanism.SpecialPermission -> isSpecialPermissionApplied(settingId)
-            WireSettingMechanism.AccessibilityService -> isAccessibilityApplied(settingId)
-            WireSettingMechanism.InAppOnly -> SettingStatus.Indeterminate
-        }
+            ?: return SettingStatus.NotSupportedOnPlatform.also { cache.put(settingId, it) }
+        val status = entry.check?.let { spec ->
+            // v2 declarative path.
+            val handler = checkHandlers[spec::class]
+                ?: return@let SettingStatus.Indeterminate // missing handler in this build
+            handler.check(spec)
+        } ?: legacyStatus(entry)
+        cache.put(settingId, status)
+        return status
     }
 
     override suspend fun applyOrPrompt(settingId: String): ApplyResult {
         val entry = pool().firstOrNull { it.id == settingId }
             ?: return ApplyResult.UnsupportedMechanism
-        return when (entry.mechanism) {
-            WireSettingMechanism.StandardPermission -> {
-                when (permissionRequestPort.request(settingId)) {
-                    PermissionResult.Granted -> ApplyResult.Applied
-                    PermissionResult.Denied -> ApplyResult.Denied
-                    PermissionResult.PermanentlyDenied -> ApplyResult.PermanentlyDenied
-                }
-            }
-            WireSettingMechanism.DeepLink -> handleDeepLink(settingId)
-            WireSettingMechanism.SpecialPermission -> launchSpecialPermission(settingId)
-            WireSettingMechanism.AccessibilityService -> launchAccessibilitySettings()
-            WireSettingMechanism.InAppOnly -> ApplyResult.PromptShown
+        val result = entry.apply?.let { spec ->
+            val handler = applyHandlers[spec::class] ?: return@let ApplyResult.UnsupportedMechanism
+            handler.apply(spec)
+        } ?: legacyApply(entry)
+        cache.invalidate(settingId) // force re-check on next status call
+        return result
+    }
+
+    // --- Legacy v1 dispatch (TODO(schema-v3): remove once all pool entries migrate to v2) ---
+
+    private suspend fun legacyStatus(entry: SystemSettingEntry): SettingStatus = when (entry.mechanism) {
+        WireSettingMechanism.StandardPermission -> {
+            if (permissionRequestPort.isGranted(entry.id)) SettingStatus.Applied else SettingStatus.NotApplied
         }
+        WireSettingMechanism.DeepLink -> isDeepLinkApplied(entry.id)
+        WireSettingMechanism.SpecialPermission -> isSpecialPermissionApplied(entry.id)
+        WireSettingMechanism.AccessibilityService -> SettingStatus.Indeterminate
+        WireSettingMechanism.InAppOnly -> SettingStatus.Indeterminate
+    }
+
+    private suspend fun legacyApply(entry: SystemSettingEntry): ApplyResult = when (entry.mechanism) {
+        WireSettingMechanism.StandardPermission -> {
+            when (permissionRequestPort.request(entry.id)) {
+                PermissionResult.Granted -> ApplyResult.Applied
+                PermissionResult.Denied -> ApplyResult.Denied
+                PermissionResult.PermanentlyDenied -> ApplyResult.PermanentlyDenied
+            }
+        }
+        WireSettingMechanism.DeepLink -> handleDeepLink(entry.id)
+        WireSettingMechanism.SpecialPermission -> launchSpecialPermission(entry.id)
+        WireSettingMechanism.AccessibilityService -> launchAccessibilitySettings()
+        WireSettingMechanism.InAppOnly -> ApplyResult.PromptShown
     }
 
     private fun handleDeepLink(settingId: String): ApplyResult {
@@ -153,12 +183,5 @@ class AndroidSystemSettingAdapter(
             else SettingStatus.NotApplied
         }
         else -> SettingStatus.Indeterminate
-    }
-
-    @Suppress("UNUSED_PARAMETER")
-    private fun isAccessibilityApplied(settingId: String): SettingStatus {
-        // OEM-specific reliable detection is non-trivial; the AccessibilityService
-        // entry uses Indeterminate detectionStrategy in the bundled pool → SelfAttest.
-        return SettingStatus.Indeterminate
     }
 }

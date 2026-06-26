@@ -5,6 +5,22 @@ import com.launcher.adapters.wizard.AndroidLocaleProvider
 import com.launcher.adapters.wizard.AndroidStringResolver
 import com.launcher.adapters.wizard.AndroidSystemSettingAdapter
 import com.launcher.adapters.wizard.BundledConfigSource
+import com.launcher.adapters.wizard.CacheInvalidatingLifecycleObserver
+import com.launcher.adapters.wizard.SettingStatusCache
+import com.launcher.adapters.wizard.handlers.AndroidAccessibilityServiceCheckHandler
+import com.launcher.adapters.wizard.handlers.AndroidInAppOnlyApplyHandler
+import com.launcher.adapters.wizard.handlers.AndroidPackageHomeCheckHandler
+import com.launcher.adapters.wizard.handlers.AndroidPermissionCheckHandler
+import com.launcher.adapters.wizard.handlers.AndroidRoleApplyHandler
+import com.launcher.adapters.wizard.handlers.AndroidRoleCheckHandler
+import com.launcher.adapters.wizard.handlers.AndroidSettingsDeepLinkApplyHandler
+import com.launcher.adapters.wizard.handlers.AndroidSpecialPermissionCheckHandler
+import com.launcher.adapters.wizard.handlers.AndroidStandardPermissionApplyHandler
+import com.launcher.api.wizard.data.ApplySpec
+import com.launcher.api.wizard.data.CheckSpec
+import com.launcher.api.wizard.handlers.ApplyHandler
+import com.launcher.api.wizard.handlers.CheckHandler
+import kotlin.reflect.KClass
 import com.launcher.adapters.wizard.PersistentCheckpointStore
 import com.launcher.adapters.wizard.PersistentDismissedHintsStore
 import com.launcher.adapters.wizard.PersistentUserPreferencesStore
@@ -69,12 +85,45 @@ val spec015Module = module {
     single<DiagnosticEmitter> { NoopDiagnosticEmitter() }
     single<PermissionRequestPort> { NoopPermissionRequestPort() }
 
+    // TASK-7 Phase 2 — handler registries + cache (FR-009, FR-021, FR-022).
+    // Named qualifiers required: Koin matches Map<*, *> bindings by erased
+    // type after generic erasure, so multiple Map<*, *> singles in one
+    // graph collide (Phase-5 cycle reproduced by Spec015DiGraphTest).
+    single<Map<KClass<out CheckSpec>, CheckHandler>>(named("checkHandlers")) {
+        mapOf(
+            CheckSpec.AndroidRole::class to AndroidRoleCheckHandler(androidContext()),
+            CheckSpec.AndroidPermission::class to AndroidPermissionCheckHandler(get()),
+            CheckSpec.AndroidSpecialPermission::class to AndroidSpecialPermissionCheckHandler(androidContext()),
+            CheckSpec.AndroidAccessibilityService::class to AndroidAccessibilityServiceCheckHandler(),
+            CheckSpec.AndroidPackageHome::class to AndroidPackageHomeCheckHandler(androidContext()),
+        )
+    }
+    single<Map<KClass<out ApplySpec>, ApplyHandler>>(named("applyHandlers")) {
+        mapOf(
+            ApplySpec.StandardPermissionRequest::class to AndroidStandardPermissionApplyHandler(get()),
+            ApplySpec.AndroidRoleRequest::class to AndroidRoleApplyHandler(androidContext()),
+            ApplySpec.SettingsDeepLink::class to AndroidSettingsDeepLinkApplyHandler(androidContext()),
+            ApplySpec.InAppOnly::class to AndroidInAppOnlyApplyHandler(),
+        )
+    }
+    single { SettingStatusCache(clock = get()) }
+    factory { CacheInvalidatingLifecycleObserver(cache = get()) }
+
     single<SystemSettingPort> {
         AndroidSystemSettingAdapter(
             context = androidContext(),
             configSource = get(),
             permissionRequestPort = get(),
             userPreferencesStore = get(),
+            // Explicit generic types — without these Koin resolves by erased
+            // Map<*, *> and picks the first compatible definition, causing a
+            // circular dependency (Map<StepType, WizardStep> → SystemSettingStep
+            // → SystemSettingPort → here → ...). Phase-5 added a second Map
+            // binding, which exposed the latent ambiguity. Spec015DiGraphTest
+            // covers the regression.
+            checkHandlers = get(named("checkHandlers")),
+            applyHandlers = get(named("applyHandlers")),
+            cache = get(),
         )
     }
 
@@ -85,7 +134,22 @@ val spec015Module = module {
 
     single { TutorialHintManager(get(), get(), get()) }
 
-    single<Map<StepType, WizardStep>> {
+    // TASK-7 Phase 6 — Settings VMs (FR-014, FR-014a, FR-017a).
+    factory {
+        com.launcher.app.settings.PendingChecklistViewModel(
+            engine = get(),
+            configSource = get(),
+            stringResolver = get(),
+        )
+    }
+    factory {
+        com.launcher.app.settings.LocaleDivergenceViewModel(
+            localeProvider = get(),
+            userPreferencesStore = get(),
+        )
+    }
+
+    single<Map<StepType, WizardStep>>(named("wizardSteps")) {
         mapOf(
             StepType.UIChoice to UIChoiceStep(host = get(named("uiChoiceHost"))),
             StepType.SystemSetting to SystemSettingStep(
@@ -104,12 +168,14 @@ val spec015Module = module {
 
     single<WizardEngine> {
         WizardEngineImpl(
-            steps = get(),
+            steps = get(named("wizardSteps")),
             checkpointStore = get(),
             userPreferencesStore = get(),
             configSource = get(),
             clock = get(),
             diagnostics = get(),
+            systemSettingPort = get(),
+            dismissedHintsStore = get(),
         )
     }
 }

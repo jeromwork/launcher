@@ -6,7 +6,26 @@
   "deviceClass": ["android-phone"],
   "body": {
     "appFamilyId": "simple-launcher",
-    "autoOrder": true,
-    "steps": null
+    "autoOrder": false,
+    "steps": [
+      {
+        "stepType": "SystemSetting",
+        "refId": "android.role.home",
+        "canSkip": false,
+        "criticality": "Required"
+      },
+      {
+        "stepType": "UIChoice",
+        "refId": "tileSet",
+        "canSkip": false,
+        "criticality": "Required"
+      },
+      {
+        "stepType": "SystemSetting",
+        "refId": "android.permission.POST_NOTIFICATIONS",
+        "canSkip": true,
+        "criticality": "Required"
+      }
+    ]
   }
 }
