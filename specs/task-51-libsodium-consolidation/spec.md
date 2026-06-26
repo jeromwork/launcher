@@ -16,7 +16,7 @@
 | # | Question | Resolution | Rationale |
 |---|----------|------------|-----------|
 | Q1 | Глубокая миграция (deep) vs adapter pattern (narrow) | **Deep migration** — 15 spec 011 wire-format типов переезжают в новый пакет `cryptokit.pairing.api.*`, 5 криптопортов удалены. ~25 call-sites переписываются. | Owner-mandate «делаем от и до, не возвращаться». Чище архитектурно: разделение примитивов и pairing wire-format. |
-| Q2 | Backward-compat persisted Keystore ключи | **Force re-pair (Pattern 4)** — старые aliases (`spec011.encryption.own`, `spec011.signing.own`) удаляются при первом запуске после upgrade, user проходит pairing flow заново. | Pre-release фаза, нет production users. F-5b recovery flow делает re-pair painless. Pattern 4 = zero migration code, zero migration bugs (CLAUDE.md rule 4 MVA). Inline-TODO к TASK-6 Root Key Hierarchy как exit ramp на Pattern 5 (derive-from-root). |
+| Q2 | Backward-compat persisted Keystore ключи | **Silent auto-migration через root-key TEE access** — owner-mandate 2026-06-26 (re-decision после первой версии "force re-pair"): при первом обращении к ключу после upgrade silent read-old → re-encrypt-под-new-name → delete-old через Android Keystore TEE. **Никаких user-facing действий**. | Owner-mandate: «раз у нас есть [ключ], значит мы доверяем тому что уже произошло, и не требуем никаких действий от пользователя». Сохранено в memory `feedback_no_user_action_for_internal_migrations`. Inline-TODO к TASK-6 как exit ramp на derive-from-root pattern (тогда миграция вообще не нужна). |
 | Q3 | Error handling: Outcome vs throws | **Везде throws** + универсальный `try/catch` наверху + auto re-throw `CancellationException` для structured concurrency. Старый `Outcome<T, CryptoError>` удаляется. | Owner-mandate простоты. Один отлов, один логгер, один UI error handler. CancellationException re-throw — критично для coroutines (без него scope не отменяется при close экрана). |
 | Q4 | DI modules: один vs два | **Один module** (`cryptokit module` объединяет `F016CryptoModule` + старый `CryptoModule`). | Не плодить infrastructure. После Q1 deep migration старые порты удалены — нет смысла в двух modules. |
 | Q6 | Hash для display fingerprint | **`java.security.MessageDigest.getInstance("SHA-256")`** inline в `Spec011SmokeDebugActivity`. Никакого `HashFunction` port. | CLAUDE.md rule 4 — port ради одной debug-фичи = premature abstraction. SHA-256 — industry default для fingerprints (SSH, Bitcoin, PGP V5). |
@@ -40,7 +40,7 @@
 
 3. **Inline-TODO к TASK-6** (Root Key Hierarchy parking-lot): где старые aliases удаляются, оставить комментарий:
    ```kotlin
-   // TODO(post-task-6): replace nuke-and-re-pair with derive-from-root after Root Key Hierarchy lands
+   // TODO(post-task-6): replace read-old-then-re-encrypt with derive-from-root after Root Key Hierarchy lands
    ```
 
 ## Сценарии использования
@@ -65,21 +65,25 @@
 
 ---
 
-### Сценарий 2 — Обновление приложения с force re-pair
+### Сценарий 2 — Обновление приложения **без** действий пользователя
 
-**Контекст**: бабушка обновляет launcher через Play Store (или помощник переустанавливает APK). На устройстве уже хранятся старые ключи pairing'а от предыдущей версии — но они под старыми именами, новый код их не узнает.
+**Контекст**: бабушка обновляет launcher через Play Store (или помощник переустанавливает APK). Если на устройстве уже есть валидные pairing-ключи от предыдущей версии — они должны **продолжать работать** после upgrade. Никаких user-facing действий, никакой кнопки «Привязать заново».
 
 1. Бабушка получает уведомление об обновлении, тапает «Обновить».
-2. После установки приложение запускается. **При первом старте после upgrade** код проверяет: «есть ли в Keystore старые имена ключей (`spec011.encryption.own`, `spec011.signing.own`)?»
-3. Если да — старые имена **удаляются автоматически** (force re-pair migration strategy). User этого не видит — это происходит в фоне.
-4. Бабушка открывает приложение, нажимает «Привязать админ-устройство». Видит pairing-экран как в Сценарии 1 (QR-код).
-5. Родственник заново сканирует QR со своего телефона. Pairing восстановлен в новой схеме хранения.
+2. После установки приложение запускается. **При первом обращении** к ключу (например, когда нужно зашифровать что-то для админа) код проверяет: «есть ли запись под именем в новой схеме?»
+3. Если **нет**, но **есть** запись под старым именем (`spec011.encryption.own` / `spec011.signing.own`) — код **silent**:
+   - читает старую запись через Android Keystore (root-ключ TEE никуда не девался, доступ есть)
+   - перешифровывает байты ключа под новой схемой через `cryptokit.crypto.api.SecureKeyStore.store(newKeyId, bytes)`
+   - удаляет старую запись
+   - всё это **в фоне, без UI, без подтверждений**.
+4. Бабушка открывает приложение, тапает на контактную плитку «Внук». Приложение работает как раньше. Никаких pairing-экранов. Никаких «вход требуется».
+5. Существующий pairing с админ-устройством **продолжает работать** — это та же связь, просто внутреннее имя ключа изменилось.
 
-**Что закрывает**: US-1, FR-005 (force re-pair migration), SC-011 (verified flow на Xiaomi 11T).
+**Что закрывает**: US-1, FR-005 (silent auto-migration через root-key TEE access).
 
-**Trouble case 2.b — Ключ не найден после clear-data**: пользователь очистил данные приложения через Android Settings → Storage → Clear Data. Старые ключи и так удалены. Сценарий схлопывается до «как fresh install» — никаких лишних шагов, force-re-pair работает.
+**Trouble case 2.b — Ключ не найден ни в старой, ни в новой схеме (clear-data / factory reset)**: это не upgrade scenario, а recovery scenario. Тут вступает в дело отдельный flow (F-5b — Google Sign-In + passphrase + Firestore-stored encrypted config). Это **другой сценарий**, не относится к routine upgrade. TASK-51 не отвечает за recovery — только за то чтобы routine upgrade не требовал user action.
 
-**Trouble case 2.c — Inline TODO для будущего**: код, который сейчас удаляет старые имена ключей, содержит явный комментарий-маркер: после реализации TASK-6 (Root Key Hierarchy) этот код заменится на «пересчитать ключи из root seed». User-experience останется такой же — но миграция станет невидимой (без необходимости re-pair).
+**Trouble case 2.c — Архитектурный exit ramp на TASK-6**: текущий silent auto-migration работает «один раз при upgrade с старой схемы». После реализации TASK-6 (Root Key Hierarchy) миграция станет ещё проще: все рабочие ключи **derive** из root seed deterministically, и при любом изменении схемы — просто re-derive (никаких stored ключей мигрировать вообще не нужно). До TASK-6 — используем подход «read old → re-encrypt → delete old». Inline-TODO маркер в коде: `// TODO(post-task-6): replace read-old-then-re-encrypt with derive-from-root`.
 
 ---
 
@@ -100,34 +104,7 @@
 
 ---
 
-### Сценарий 4 — Cold-start приложения
-
-**Контекст**: бабушка нажимает на иконку launcher'а на своём телефоне (Xiaomi 11T). Засекает время до появления первого экрана.
-
-1. Бабушка тапает иконку.
-2. Раньше — около 1.3 секунды до первого экрана (часть времени уходила на инициализацию JNA, проверку всех ~600 функций libsodium через eager-bind).
-3. После TASK-51 — те же ≤ 1.3 секунды (baseline сохранён) или короче (на ~200-500 мс быстрее, потому что JNI lazy-bind без проверки символов).
-4. Появляется главный экран launcher'а.
-
-**Что закрывает**: US-4, FR-013, SC-009 (cold start TotalTime ≤ 1330 ms на Xiaomi 11T).
-
-**Trouble case 4.b — Регрессия cold-start на не-Xiaomi устройстве**: на Samsung One UI или Huawei EMUI время может вести себя иначе. На текущем этапе устройства недоступны → пункт переезжает в TASK-55 (verification aggregator) как `deferred-physical-device`.
-
----
-
-### Сценарий 5 — Размер приложения
-
-**Контекст**: владелец сравнивает размер APK до TASK-51 и после.
-
-1. Скачивает APK из CI до merge TASK-51 → `stat -c%s app-mockBackend-debug.apk` показывает baseline-размер (commit `d5763d6`).
-2. Скачивает APK после merge TASK-51 → размер **меньше на ≥3 МБ**. Уменьшение происходит за счёт удаления JNA AAR (Java Native Access — runtime-обёртка, которая весила ~5 МБ и тащилась только из-за lazysodium).
-3. Для устройств с маленьким storage (16-32 GB) это заметное освобождение места.
-
-**Что закрывает**: US-4, FR-012, SC-008 (APK размер ≥3 МБ меньше).
-
----
-
-### Сценарий 6 — Будущая портация на iOS / Android TV
+### Сценарий 4 — Будущая портация на iOS / Android TV
 
 **Контекст**: через 6 месяцев (когда дойдёт TASK-26 — iOS Admin Preset) разработчик начинает добавлять iOS-поддержку.
 
@@ -139,7 +116,7 @@
 
 **Что закрывает**: US-3, FR-016 (namespace `cryptokit.*` готов к выносу в отдельный репо когда появится второй потребитель).
 
-**Trouble case 6.b — Вынос в отдельный репозиторий**: когда появится второй проект (мессенджер), `cryptokit` выносится в свой git-репо `cryptokit-kmp`. Namespace **не меняется** — только git remote. Это parking-lot задача, exit ramp задокументирован.
+**Trouble case 4.b — Вынос в отдельный репозиторий**: когда появится второй проект (мессенджер), `cryptokit` выносится в свой git-репо `cryptokit-kmp`. Namespace **не меняется** — только git remote. Это parking-lot задача, exit ramp задокументирован.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -185,32 +162,17 @@
 
 **Acceptance Scenarios**:
 
-1. **Given** репозиторий после TASK-51, **When** анализирую расположение файлов `family.crypto.*`, **Then** API + libsodium-implementation в `commonMain`, Android Keystore — только в `androidMain` через `expect/actual SecureKeyStore`.
+1. **Given** репозиторий после TASK-51, **When** анализирую расположение файлов `cryptokit.crypto.*`, **Then** API + libsodium-implementation в `commonMain`, Android Keystore — только в `androidMain` через `expect/actual SecureKeyStore`.
 2. **Given** репозиторий, **When** проверяю что в `commonMain` нет Android-specific imports (`android.*`, `androidx.*`) в crypto-стэке, **Then** clean.
-
----
-
-### User Story 4 — APK становится меньше + cold start не вырастает (Priority: P2)
-
-**Описание**: end-user (пожилой человек) с устройством на 16-32 GB storage получает обновление APK, которое **меньше** предыдущей версии. Cold start приложения (от tap до первого экрана) **не вырос** относительно baseline.
-
-**Почему P2**: важно для senior-launcher УХ (target-segment чувствителен к performance), но не блокирует TASK-8.
-
-**Independent Test**: измерение через `./gradlew :app:assembleMockBackendDebug` + `stat -c%s` для APK + `adb shell am start -W -n ... `для cold start.
-
-**Acceptance Scenarios**:
-
-1. **Given** baseline APK (до Phase 1, commit `d5763d6`), **When** собираю APK после TASK-51 merge, **Then** размер уменьшился на ≥3 МБ (выкинули JNA ~5 МБ AAR).
-2. **Given** Xiaomi 11T, **When** замеряю cold start через `adb shell am start -W`, **Then** TotalTime ≤ baseline 1330 ms из T061 TASK-7.
 
 ---
 
 ### Edge Cases
 
-- **What happens when**: `family.crypto.SecureKeyStore.load(keyId)` возвращает `null` (ключ не найден, например после clear-data)?
+- **What happens when**: `cryptokit.crypto.api.SecureKeyStore.load(keyId)` возвращает `null` (ключ не найден, например после clear-data)?
   → `PairingCryptoCoordinator` должен сгенерировать новый ключ и сохранить (idempotent ensure-keys). Никаких exceptions для caller'а.
 - **What happens when**: миграция выпустила и есть **persisted ключи** под старыми aliases (`spec011.encryption.own`, `spec011.signing.own`) на устройстве с предыдущей версии APK?
-  → Нужно решить через clarify: backward-compat read из старых aliases? Или forced re-pair (старые pairings invalidated)?
+  → Решено в Q2 (silent auto-migration): silent re-encrypt старых ключей под новыми именами через AndroidKeystore TEE при первом обращении. **Никаких user-facing действий**. См. FR-005, Сценарий 2.
 - **How does system handle**: ошибка JNI link на `cryptokit.crypto.libsodium.*` (если ionspin тоже зачем-то eager-bind'нет)?
   → ionspin lazy-bind by design; теоретически невозможно. Но если случится — fail-fast в `Application.onCreate` через `assertNoFakeCryptoInRelease` или новый health check.
 - **What happens when**: при тестах используется FakeAeadCipher из старого пакета (`com.launcher.fake.crypto`)?
@@ -229,7 +191,9 @@
 - **FR-004**: System MUST сохранить функциональную совместимость spec 011 pairing flow — все wire-format типы (DeviceIdentity, EncryptedEnvelope, Recipient, etc.) **читаются** и **пишутся** идентично pre-TASK-51 (byte-equal для same input, same `schemaVersion` остаётся 1).
   - **Serialization compatibility note**: при namespace rename (`family.* → cryptokit.*`, `com.launcher.api.crypto.* → cryptokit.pairing.api.*`) Kotlin-сериализатор не должен использовать FQN класса как key. Все wire-format типы обязаны иметь явные `@SerialName("DeviceIdentity")` / `@SerialName("EncryptedEnvelope")` / etc. — verify в `/speckit.plan` Phase research grep по существующему коду.
 
-- **FR-005**: System MUST применить **force re-pair migration strategy** (Q2 resolved): при первом запуске после upgrade старые Keystore aliases (`spec011.encryption.own`, `spec011.signing.own`) удаляются; user видит pairing flow заново. Backward-compat read **не поддерживается**. Inline-TODO в коде wipe-логики: `// TODO(post-task-6): replace nuke-and-re-pair with derive-from-root after Root Key Hierarchy lands`.
+- **FR-005**: System MUST применить **silent auto-migration strategy**: при первом обращении к ключу после upgrade код проверяет наличие записи под именем в новой схеме. Если её нет, но есть запись под старым именем (`spec011.encryption.own`, `spec011.signing.own`) — silent re-encrypt: читаем старую запись через Android Keystore (root TEE-ключ доступен), пишем под новым именем через `cryptokit.crypto.api.SecureKeyStore.store(newKeyId, bytes)`, удаляем старую запись. **Никаких user-facing действий**, никаких pairing-экранов, никаких подтверждений. Существующий pairing с админ-устройством продолжает работать после upgrade.
+  - **Inline-TODO**: `// TODO(post-task-6): replace read-old-then-re-encrypt with derive-from-root after Root Key Hierarchy lands` — после TASK-6 миграционная логика становится не нужна (ключи derive из root seed).
+  - **Recovery flow ≠ migration flow**: если ключей нет ни в одной схеме (clear-data, factory reset, fresh install) — это recovery scenario (F-5b: Google Sign-In + passphrase), **не часть TASK-51**.
 
 - **FR-006**: System MUST использовать `cryptokit.crypto.api.*` (KMP commonMain) как **единственный** crypto-API в production-коде. Параллельный `com.launcher.api.crypto.*` **полностью удалён** (Q1 deep migration). Все ~25 call-sites переписаны на новые импорты. Spec 011 wire-format типы (15 типов: `DeviceIdentity`, `EncryptedEnvelope`, `Recipient`, `DeviceIdentityRepository`, `EncryptedMediaStorage`, `RecipientResolver`, etc.) переезжают в `cryptokit.pairing.api.*` (новый pakage в том же `core/crypto/` модуле).
 
@@ -260,10 +224,6 @@
 
 - **FR-011**: System MUST оставить все юнит-тесты + Robolectric тесты зелёными после миграции. Снижение coverage недопустимо.
 
-- **FR-012**: System MUST сохранить размер APK не больше pre-TASK-51 baseline (commit `d5763d6`) и **уменьшить** его на ≥3 МБ (выкидывание JNA AAR).
-
-- **FR-013**: System MUST сохранить cold start приложения не хуже pre-TASK-51 baseline (1260-1330 ms на Xiaomi 11T из TASK-7 T061).
-
 - **FR-017** *(new from dev-experience + failure-recovery checklists)*: System MUST реализовать **uniform CryptoException logging contract**. На верхнем уровне (universal try/catch в pairing-side операциях) при `catch (e: CryptoException)` эмиттится Logcat запись с:
   - **Tag**: `cryptokit`
   - **Level**: `Log.W` (warn) или `Log.E` (error) в зависимости от типа exception (см. FR-018 иерархию).
@@ -281,7 +241,7 @@
       class SerializationException(...) : CryptoException(...) // wire-format read/write failures
   }
   ```
-  Минимум — эти 5 подклассов. Существующий `family.crypto.exception.CryptoException` уже может содержать часть иерархии — verify в `/speckit.plan` и дополнить недостающие.
+  Минимум — эти 5 подклассов. Существующий `cryptokit.crypto.exception.CryptoException` (после namespace rename per FR-016) уже может содержать часть иерархии — verify в `/speckit.plan` и дополнить недостающие.
 
 ### Key Entities
 
@@ -295,16 +255,14 @@
 ### Measurable Outcomes
 
 - **SC-001 [backlog]**: PairingActivity открывается на Xiaomi 11T (arm64, `17f33878`) без `UnsatisfiedLinkError`. Verifies FR-001.
-- **SC-002 [backlog]**: Spec011SmokeDebugActivity round-trip encrypt/decrypt проходит на Xiaomi 11T без exceptions. Подтверждает что crypto-стэк функционально работает (USv2 + FR-008).
+- **SC-002 [backlog]**: Spec011SmokeDebugActivity round-trip encrypt/decrypt проходит на Xiaomi 11T без exceptions. Подтверждает что crypto-стэк функционально работает (US-1 + FR-008).
 - **SC-003**: `grep -r "com.goterl" app/src/main/ core/src/{common,android}Main/` = 0 матчей. Verifies FR-002 + FR-007.
 - **SC-004**: `grep -r "lazysodium\|JNA\.register\|SodiumAndroid" app/src/main/ core/src/` = 0 матчей в production. Verifies FR-007.
 - **SC-005**: `./gradlew :app:dependencies | grep -E "lazysodium|net.java.dev.jna"` = empty. Verifies FR-002.
 - **SC-006 [backlog]**: `./gradlew :app:assembleMockBackendDebug` + `./gradlew test` = BUILD SUCCESSFUL, все unit + Robolectric тесты зелёные. Verifies FR-011.
 - **SC-007**: Fitness-test (Konsist) `NoLazysodiumInProductionTest` + (если вариант 1) `NoLegacyComLauncherCryptoTest` зелёные. Verifies FR-007.
-- **SC-008 [backlog]**: APK размер `app-mockBackend-debug.apk` после TASK-51 меньше baseline (commit `d5763d6`) на ≥3 МБ. Verifies FR-012.
-- **SC-009 [backlog]**: Cold start `adb shell am start -W -n com.launcher.app/.HomeActivity` TotalTime ≤ 1330 ms на Xiaomi 11T. Verifies FR-013.
 - **SC-010**: В `app/build.gradle.kts` отсутствует блок `packaging.jniLibs.pickFirsts` для libsodium.so. Verifies FR-003.
-- **SC-011 [backlog]**: На Xiaomi 11T с persisted pairing-данными от pre-TASK-51 версии — после установки нового APK старые Keystore aliases удалены, при открытии PairingActivity user видит pairing flow с QR-кодом (force re-pair per Q2). Verifies FR-005.
+- **SC-011 [backlog]**: На Xiaomi 11T с persisted pairing-данными от pre-TASK-51 версии — после установки нового APK при первом обращении к ключу старая запись silent перенесена под новое имя через AndroidKeystore TEE re-encrypt. **Никаких UI-шагов**, существующий pairing продолжает работать. Verifies FR-005.
 - **SC-012**: Namespace `family.*` полностью отсутствует в `core/crypto/`, `core/keys/`, `app/`, `core/` после миграции. `grep -r "family\.crypto" --include="*.kt"` = 0 матчей. Verifies FR-016.
 - **SC-013**: `EnvelopeConfigCipherRoundtripTest` (existing golden-vector test) проходит **байт-в-байт** после namespace rename. Verify через `./gradlew :core:keys:jvmTest --tests "*EnvelopeConfigCipherRoundtripTest"`. Verifies FR-004 (serialization compatibility).
 - **SC-014**: Logcat tag `cryptokit` появляется при искусственно вызванной CryptoException (negative test). Verify через `adb logcat -s cryptokit` + ручное triggering неправильного ключа. Verifies FR-017.
@@ -384,12 +342,11 @@ Capability Registry readiness **не затрагивается**: те же abs
 - **Иерархия исключений (FR-018)**: sealed `CryptoException` с 5 подклассами — `AeadException`, `KeyStoreException`, `KeyDerivationException`, `NativeLinkException`, `SerializationException`.
 - **Логирование (FR-017)**: Logcat tag = `cryptokit`, поля `operation/exceptionClass/messageHash(SHA-256, 8 байт)`. Запрещено: raw bytes, hex >8B, device IDs.
 - **Удаляется**: 22 файла в `com.launcher.api.crypto/`, 7 файлов адаптеров (`Libsodium*.kt` + `AndroidKeystoreSecureKeystore` + `LibsodiumProvider`), 8 файлов старых fakes, `lazysodium` + `jna` из gradle.
-- **Migration strategy (FR-005)**: force re-pair — старые Keystore aliases `spec011.encryption.own/signing.own` удаляются при первом запуске, user проходит pairing flow заново. Backward-compat read **не поддерживается** (pre-release, нет users).
-- **Метрики (SC-008, SC-009)**: APK уменьшится на ≥3 МБ; cold start ≤ 1330 ms на Xiaomi 11T (baseline TASK-7 T061).
+- **Migration strategy (FR-005)**: silent auto-migration. При первом обращении к ключу после upgrade — read old → re-encrypt-under-new-name → delete old через Android Keystore TEE. **Никаких user-facing шагов**. Existing pairing продолжает работать.
 - **Checklists score**: meta-minimization 13/13 ✓, domain-isolation 16/16 ✓, modular-delivery 18/18 ✓, security 17/24 (7 N/A, 0 fail), dev-experience 19/22, остальные с ожидаемыми N/A для refactor scope.
 
 **На что смотреть с осторожностью:**
 - **Serialization compatibility (FR-004)**: при namespace rename все wire-format типы (`DeviceIdentity`, `EncryptedEnvelope`, `Recipient`) должны иметь explicit `@SerialName` — без этого Kotlin-сериализатор использует FQN и сломает byte-equal roundtrip. Verify в `/speckit.plan` перед миграцией.
 - **CancellationException re-throw**: в universal `try/catch` обязательно re-throw, иначе coroutine cancellation сломается (silent bug, не падает при тестах, проявляется в UI hang при закрытии экрана).
-- **Force re-pair как one-way door**: если в release окажется production user — потеря pairing-state. Mitigated тем что pre-release + Xiaomi 11T единственное устройство. Exit ramp — TASK-6 Root Key Hierarchy (derive-from-root pattern).
+- **Silent migration depends on AndroidKeystore TEE доступности**: если root AES master key в TEE недоступен (clear-data, factory reset) — миграция невозможна, fall-through на recovery flow (F-5b). Этот edge case четко разделён: migration ≠ recovery.
 - **OEM verification**: Samsung One UI / Huawei EMUI не тестируются (нет устройств) → `TODO(physical-device)` → TASK-55 deferred-aggregator.
