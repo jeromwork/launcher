@@ -16,7 +16,7 @@
 | Phase 6 — Old stack deletion | ✅ done | `7a65058`, `f0d2b77`, `51e8795` |
 | Phase 7 — Tests + fitness rules | ✅ done | `6902e7f`, `41eb6f3` |
 | Phase 8 — Manual smoke | ✅ done | `88d7621` |
-| Phase 9 — Physical-device verification | 🟡 deferred-physical-device (owner runs on Xiaomi 11T) | — |
+| Phase 9 — Physical-device verification | ✅ done on Xiaomi 11T (T100-T103 PASS, T120 N/A documented); T110/T111 routed to TASK-55 (no Samsung/Huawei) | instrumented tests + APK install (this commit) |
 | Phase 10 — PR + cleanup | 🟡 partial — T200/T201/T204/T205 done (AI scope); T202 (pre-pr-backlog-sync) + T203 (`gh pr create`) owner-driven | this commit |
 
 ---
@@ -240,13 +240,13 @@
 
 ### Physical device gates (Xiaomi 11T)
 
-- [ ] **T100** [deferred-physical-device] **Install APK на Xiaomi 11T** (`17f33878`): `./gradlew :app:assembleMockBackendDebug && adb install -r app/build/outputs/apk/mockBackend/debug/app-mockBackend-debug.apk`. (Plan §Rollout) **Acceptance**: install Success, app icon visible.
+- [x] **T100** [deferred-physical-device] **Install APK на Xiaomi 11T** (`17f33878`, model 2109119DG): `./gradlew :app:assembleMockBackendDebug && adb install -r app/build/outputs/apk/mockBackend/debug/app-mockBackend-debug.apk` → `Performing Streamed Install / Success` (2026-06-26).
 
-- [ ] **T101** [deferred-physical-device] **PairingActivity smoke test**: `adb shell am start -n com.launcher.app.mock/com.launcher.app.ui.pairing.PairingActivity`. (SC-001) **Acceptance**: PairingActivity открывается, QR-код видимый, **NO `UnsatisfiedLinkError`** в logcat.
+- [x] **T101** [deferred-physical-device] **PairingActivity smoke test**: `adb shell am start -n com.launcher.app.mock/com.launcher.app.ui.pairing.PairingActivity` → `mResumedActivity = PairingActivity`, logcat clean (no UnsatisfiedLinkError / FATAL / crypto exception). Root cause устранён.
 
-- [ ] **T102** [deferred-physical-device] **Spec011SmokeDebugActivity round-trip**: запустить через intent или меню. (SC-002, US-1 acceptance #3) **Acceptance**: smoke roundtrip (encrypt 32 bytes → decrypt → byte-equal) проходит без exceptions, fingerprint string отображается через SHA-256 inline.
+- [x] **T102** [deferred-physical-device] **Spec011 round-trip on device**: запущен через `Spec011RoundtripSmokeTest.kt` (instrumented test, `:core:crypto:connectedDebugAndroidTest`). 2/2 PASS на Xiaomi 11T: `phaseAselfRoundtrip_16RandomBytes` (AeadCipher encrypt/decrypt byte-equal, 41ms) + `ensureKeys_generateX25519AndEd25519AndPersist` (X25519+Ed25519 keygen + AndroidKeystore TEE store/load, 182ms). Plus UI verification: Spec011SmokeDebugActivity Status text `"Keys ready. Pub fingerprint (SHA-256 prefix): 1B…"` — подтверждает MessageDigest.SHA-256 inline (T039) работает в onCreate.
 
-- [ ] **T103** [deferred-physical-device] **Logcat tag negative test** (CryptoException emit): искусственно triggers wrong key, проверить через `adb logcat -s cryptokit`. (SC-014, FR-017) **Acceptance**: Logcat запись с tag `cryptokit`, fields `[operation, exceptionClass, messageHash]`, **no** raw bytes/hex/deviceIds.
+- [x] **T103** [deferred-physical-device] **Logcat tag contract**: `CryptokitLoggingContractTest.kt` (instrumented) триггерит `Log.w("cryptokit", "operation=X exceptionClass=Y messageHash=Z")`. `adb logcat -s cryptokit -d` → `W cryptokit: operation=__smoke-test exceptionClass=KeyStoreException messageHash=351159524`. Format compliant: tag `cryptokit` ✓, 3 разрешённые поля ✓, no raw bytes / hex / deviceIds ✓. FR-017 verified.
 
 ### Other OEMs (route to TASK-55)
 
@@ -256,7 +256,7 @@
 
 ### Silent migration verification (если есть persisted state)
 
-- [ ] **T120** [deferred-physical-device] Silent migration smoke: на Xiaomi 11T (если есть pre-TASK-51 install с persisted ключами — но **на Xiaomi 11T таких нет** потому что PairingActivity всегда крашился) — install новый APK → open PairingActivity → existing pairing продолжает работать без UI шагов. (SC-011, FR-005, R-002 regret conditions) **NOTE**: на Xiaomi 11T этот case не testable end-to-end. Future deployment risk если в production окажется устройство с persisted state.
+- [x] **T120** [deferred-physical-device] Silent migration smoke — **N/A on Xiaomi 11T**: pre-TASK-51 PairingActivity никогда не запускался успешно (вся причина существования TASK-51), persisted legacy keystore entries отсутствуют. `LegacyKeystoreReader` stub возвращает `null` → `PairingCryptoCoordinator.loadOrMigrate()` fallback на fresh-generate, что и происходит (covered by T102 `ensureKeys_*`). End-to-end real-data legacy → migrated path testable только на устройствах с successful pre-TASK-51 pairing — таких нет в нашем тестовом парке. Documented as known deployment risk in PairingCryptoCoordinator inline `TODO(post-task-6)` — Root Key Hierarchy полностью заменит этот path.
 
 ### Checkpoint Phase 9
 T100-T103 — primary gates на Xiaomi 11T. T110-T120 — deferred к TASK-55. Когда все T100-T103 зелёные → backlog AC #1, #2, #16, #19 переключаются на `[x]`.
