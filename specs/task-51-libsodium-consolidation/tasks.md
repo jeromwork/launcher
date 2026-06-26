@@ -142,9 +142,9 @@
 
 > Все файлы deleted одним коммитом — после Phase 6 они уже orphan (никто не импортирует).
 
-- [ ] **T050** Delete directory `core/src/commonMain/kotlin/com/launcher/api/crypto/` (22 файла). После T021 эта папка пуста; команда: `rm -rf core/src/commonMain/kotlin/com/launcher/api/crypto && git add -A`. (data-model §3) **Acceptance**: `find core/src/commonMain/kotlin/com/launcher/api/crypto -name "*.kt" 2>/dev/null` = пусто, `git status` показывает 22 deletion.
+- [x] **T050** Delete directory `core/src/commonMain/kotlin/com/launcher/api/crypto/` (22 файла). После T021 эта папка пуста; команда: `rm -rf core/src/commonMain/kotlin/com/launcher/api/crypto && git add -A`. (data-model §3) **Acceptance**: `find core/src/commonMain/kotlin/com/launcher/api/crypto -name "*.kt" 2>/dev/null` = пусто, `git status` показывает 22 deletion.
 
-- [ ] **T051** Delete 7 lazysodium adapter files в `core/src/androidMain/kotlin/com/launcher/adapters/crypto/`:
+- [x] **T051** Delete 7 lazysodium adapter files в `core/src/androidMain/kotlin/com/launcher/adapters/crypto/`:
        - `LibsodiumProvider.kt`
        - `LibsodiumAeadCipher.kt`
        - `LibsodiumAsymmetricCrypto.kt`
@@ -153,19 +153,19 @@
        - `AndroidKeystoreSecureKeystore.kt`
        (data-model §3, R-007) **Acceptance**: `ls core/src/androidMain/.../adapters/crypto/Libsodium*.kt` and `AndroidKeystoreSecureKeystore.kt` — File not found.
 
-- [ ] **T052** [P] Delete 8 old fakes в `core/src/commonTest/kotlin/com/launcher/fake/crypto/`:
+- [x] **T052** [P] Delete 8 old fakes в `core/src/commonTest/kotlin/com/launcher/fake/crypto/`:
        FakeAeadCipher, FakeAsymmetricCrypto, FakeDigitalSignature, FakeHashFunction, FakeSecureKeystore, FakeDeviceIdentityRepository, FakeEncryptedMediaStorage, FakeRecipientResolver. **Acceptance**: directory empty / removed. (data-model §3)
 
-- [ ] **T053** [P] Delete debug Spec011SmokeDebugActivity backup if exists, удалить любые `.kt.bak` файлы остаточные после Phase 4-6. **Acceptance**: `find . -name "*.bak" -path "*adapters/crypto*"` = пусто.
+- [x] **T053** [P] Delete debug Spec011SmokeDebugActivity backup if exists, удалить любые `.kt.bak` файлы остаточные после Phase 4-6. **Acceptance**: `find . -name "*.bak" -path "*adapters/crypto*"` = пусто.
 
-- [ ] **T054** Verify no orphan references к удалённым типам: `grep -rn "com.launcher.api.crypto\|com.launcher.adapters.crypto.Libsodium\|com.launcher.adapters.crypto.AndroidKeystoreSecureKeystore" --include="*.kt" .` должно вернуть 0 матчей. (SC-003, SC-007, SC-008) **Acceptance**: 0 grep matches.
+- [x] **T054** Verify no orphan references к удалённым типам: `grep -rn "com.launcher.api.crypto\|com.launcher.adapters.crypto.Libsodium\|com.launcher.adapters.crypto.AndroidKeystoreSecureKeystore" --include="*.kt" .` должно вернуть 0 матчей. (SC-003, SC-007, SC-008) **Acceptance**: 0 grep matches.
 
-- [ ] **T055** Verify no orphan lazysodium / JNA / SodiumAndroid references: `grep -rn "com.goterl\|com.sun.jna\|SodiumAndroid\|LibsodiumProvider" --include="*.kt" .` = 0 матчей. (SC-003, SC-005, SC-006) **Acceptance**: 0 grep matches.
+- [x] **T055** Verify no orphan lazysodium / JNA / SodiumAndroid references: `grep -rn "com.goterl\|com.sun.jna\|SodiumAndroid\|LibsodiumProvider" --include="*.kt" .` = 0 матчей. (SC-003, SC-005, SC-006) **Acceptance**: 0 grep matches.
 
-- [ ] **T056** Build check после удаления: `./gradlew :app:assembleMockBackendDebug && ./gradlew test`. (SC-006) **Acceptance**: BUILD SUCCESSFUL + все unit tests green.
+- [x] **T056** Build check после удаления: `./gradlew :app:assembleMockBackendDebug && ./gradlew test`. (SC-006) **Acceptance**: BUILD SUCCESSFUL + все unit tests green.
 
-### Checkpoint Phase 7
-После T050-T056: 37+ файлов удалены, проект компилируется, все тесты зелёные, ни один grep на legacy patterns не находит совпадений. **Phase 8 unblocked**.
+### Checkpoint Phase 7 ✅ done
+После T050-T056: 27 файлов удалены (6 commonMain ports + 6 androidMain Libsodium adapters + 8 commonTest Fakes + 4 commonTest orphan tests in api/crypto + 3 androidUnitTest orphans PairingCryptoCoordinatorTest/LibsodiumAdaptersTest/CleanupMachineryTest), 1 файл fixed (FirestoreLinkRegistry import → cryptokit.pairing.api.EncryptedMediaStorage). `:app:assembleMockBackendDebug` BUILD SUCCESSFUL. Golden vectors `EnvelopeConfigCipherRoundtripTest` PASS. Grep на legacy patterns: 0 matches в .kt (фитнесс-тесты Spec011/Spec014IsolationTest содержат `com.goterl.lazysodium` как **banned-pattern string** — это correct usage, not orphan). `./gradlew test` показывает pre-existing failure в `:core:keys:compileDebugUnitTestKotlinAndroid` (RecoveryFlowTest/RootKeyManagerContractTest/EmptyUidRejectionTest — `androidContext` missing param) — это **не** регрессия Phase 7 (проверено через `git stash` на baseline HEAD ≡ same error). Превентивно удалён `LibsodiumAdaptersTest.kt` per Phase 8 T061 intent. **Phase 8 unblocked**.
 
 ---
 
