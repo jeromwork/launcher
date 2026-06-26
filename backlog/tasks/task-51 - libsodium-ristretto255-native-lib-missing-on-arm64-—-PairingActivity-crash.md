@@ -19,13 +19,17 @@ ordinal: 1000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-> **Эволюция scope.** Изначально (2026-06-25) task создан как узкий bug-репорт: `UnsatisfiedLinkError: crypto_core_ristretto255_add` на Xiaomi 11T при открытии `PairingActivity`. После двух раундов mentor-разбора 2026-06-26 выяснилось:
+> **Эволюция scope.** Изначально (2026-06-25) task создан как узкий bug-репорт: `UnsatisfiedLinkError: crypto_core_ristretto255_add` на Xiaomi 11T при открытии `PairingActivity`. После трёх раундов разбора 2026-06-26 выяснилось:
 >
 > **Раунд 1**: симптом — лишь верхушка техдолга, в проекте две параллельные crypto-стопки.
 >
-> **Раунд 2 (полная разведка call-graph'а)**: реальный объём миграции **значительно меньше** изначальной паники. Большая часть проекта **уже мигрирована** на новый стэк `family.crypto.api.*`: recovery flow, envelope config encryption, root key management, recovery ViewModel, DI bindings для нового стэка — всё на нём. Осталось мигрировать **только pairing-side**: 1 главный orchestrator + 1 старый DI module + wire-format adapter + 3 unit-теста + smoke debug activity + gradle cleanup. Итого ~37 файлов изменить (из которых ~30 — удаление, ~7 — переписывание).
+> **Раунд 2** (полная разведка call-graph'а): реальный объём миграции — ~37 файлов (большая часть проекта уже на новом стэке).
 >
-> **Реалистичная оценка после разведки: 10-15 часов чистой работы** (не 1.5-2 дня как казалось, и не 1.5-2 недели как пугал второй mentor-pass).
+> **Раунд 3 — РЕАЛЬНЫЙ ROOT CAUSE** (через stacktrace с устройства Xiaomi 11T 2026-06-26): нам **не нужна функция ristretto255** в `.so` вовсе. **Никакой Kotlin-код в проекте не вызывает Ristretto255**. Crash происходит на **`SodiumAndroid.<init>`** в lazysodium-android 5.1.0, который через `JNA.register()` делает **eager-bind всех ~600 функций** интерфейса `Sodium` — включая декларации `crypto_core_ristretto255_add`, которых нет в поставляемом ими `libsodium.so` 1.0.20 (собран без `--enable-ristretto255` публичного API). Crash возникает при первом резолве `AndroidKeystoreSecureKeystore` через Koin (он зависит от `LibsodiumProvider.getSodium`).
+>
+> **Архитектурно**: lazysodium-android **архитектурно сломан** для libsodium 1.0.20 — JNA-eager-bind несовместим с partial libsodium build. Это **именно та причина, почему ionspin лучше**: ionspin использует **JNI lazy-bind**, биндит только то, что реально вызывается. Так как нашей кодовой базе Ristretto255 не нужен — после миграции JNI никогда не пытается найти `crypto_core_ristretto255_add`, crash исчезает.
+>
+> **Реалистичная оценка после разведки: 10-15 часов чистой работы.**
 
 ## Что это простыми словами
 
@@ -35,7 +39,28 @@ ordinal: 1000
 
 2. **Новая стопка** (Kotlin Multiplatform, через `ionspin/libsodium-kmp` 0.9.5). Пакет `family.crypto.api.*` (всё в commonMain) + `family.crypto.libsodium.*` (реализации в commonMain). Добавлена позже (spec 016, TASK-2 F-CRYPTO). **Содержит** все нужные функции включая ristretto255. **Работает** на Android + iOS + JVM + потенциально JS.
 
-**Беда** в том что **обе** стопки сейчас одновременно в проекте, и обе приносят свой `libsodium.so`. Чтобы они не конфликтовали при упаковке APK, в `app/build.gradle.kts` стоит костыль `pickFirsts` — «бери первый попавшийся файл». Комментарий рядом утверждает что файлы «бит-в-бит идентичны». **Это ложь** — я проверил байты, размеры разные (286 КБ vs 370 КБ), и в файле от lazysodium функций ristretto255 нет. Поэтому PairingActivity падает.
+**Беда** в том что **обе** стопки сейчас одновременно в проекте, и обе приносят свой `libsodium.so`. Чтобы они не конфликтовали при упаковке APK, в `app/build.gradle.kts` стоит костыль `pickFirsts` — «бери первый попавшийся файл».
+
+## Реальный root cause (раунд 3 разбора)
+
+**Stacktrace с Xiaomi 11T 2026-06-26** показал, что crash **не из-за того, что нашему коду нужна функция `crypto_core_ristretto255_add`**. Никакой Kotlin-код в проекте Ristretto255 **не вызывает** — это проверено grep'ом по всему проекту (0 матчей).
+
+Crash происходит **на этапе инициализации Koin DI** при открытии PairingActivity, в этой цепочке:
+
+```
+PairingActivity (открывается)
+  → Koin резолвит SecureKeystore из старого CryptoModule.kt
+    → создаёт AndroidKeystoreSecureKeystore
+      → его конструктор вызывает LibsodiumProvider.getSodium
+        → инициализирует com.goterl.lazysodium.SodiumAndroid
+          → SodiumAndroid.<init> вызывает JNA.register()
+            → JNA пытается eager-bind ВСЕХ ~600 функций интерфейса Sodium
+              → не находит crypto_core_ristretto255_add в libsodium.so → CRASH
+```
+
+**Архитектурный изъян lazysodium**: библиотека интерфейс декларирует **все** функции libsodium включая ristretto255, но поставляемый ею `libsodium.so` (1.0.20) собран **без публичного ristretto255 API**. JNA при `register()` проверяет наличие всех символов **сразу** (eager-bind) — отсутствие любого = crash.
+
+**Почему ionspin не упадёт**: ionspin использует JNI напрямую, не JNA. JNI биндит функции **lazy** — только когда они реально вызываются. Раз наш код Ristretto255 не вызывает — JNI никогда не пытается найти этот символ. Никакого crash'а.
 
 **Что делаем в этой задаче — полная консолидация (вариант B)**:
 
@@ -242,8 +267,18 @@ keystore.store(keyId, байты)
 ## Что я уже проверил перед стартом
 
 - Устройство Xiaomi 11T (`17f33878`) подключено через adb — физическая проверка возможна.
-- ASCII-grep по `libsodium.so` подтвердил отсутствие `crypto_core_ristretto255_add` на arm64 **и** x86_64 (баг универсальный, не arm64-only).
-- Размеры `.so` разные (286 КБ arm64 vs 370 КБ x86_64) — комментарий «бит-в-бит идентичны» в `app/build.gradle.kts:106` неверный.
+- **Воспроизвёл crash на устройстве 2026-06-26**: установил APK с веткой до Phase 1, запустил PairingActivity, поймал stacktrace:
+  ```
+  java.lang.UnsatisfiedLinkError: Error looking up function 'crypto_core_ristretto255_add'
+    at com.sun.jna.Native.register(Native.java:1900)
+    at com.goterl.lazysodium.SodiumAndroid.<init>(SodiumAndroid.java:36)
+    at com.launcher.adapters.crypto.LibsodiumProvider.sodium_delegate$lambda$0
+    at com.launcher.adapters.crypto.AndroidKeystoreSecureKeystore.<init>
+    at com.launcher.app.di.CryptoModuleKt.cryptoModule$lambda$11$lambda$4
+  ```
+  Это **JNA eager-bind** при инициализации SodiumAndroid — не наш код, а внутрянка lazysodium.
+- **Grep по всему проекту**: `Ristretto255|ristretto255\.|crypto_core_ristretto` → **0 матчей** в Kotlin-коде. То есть наш код Ristretto255 **никогда не вызывает**. Это окончательно подтверждает: после миграции на ionspin (JNI lazy-bind) crash исчезнет сам, потому что JNI не пытается найти функции, которые никто не использует.
+- ASCII-grep по `libsodium.so` показал что **в обеих библиотеках** (lazysodium и ionspin) публичные ristretto255 функции **отсутствуют** в `.so`. Внутренние helpers (`ristretto255_elligator`, `_from_hash`, и т.д.) присутствуют, но `crypto_core_ristretto255_*` и `crypto_scalarmult_ristretto255_*` нет ни в одной. libsodium внутри обеих библиотек — **1.0.20**, собран без публичного ristretto255 API.
 - Порты `family.crypto.api.*` уже в commonMain → переносить структуру не нужно.
 - Большая часть проекта уже мигрирована на новый стэк → реальный объём изменений значительно меньше изначальной оценки.
 - Полный call-graph построен (отчёт sub-agent'а в conversation history). Знаю каждый файл который придётся трогать.
@@ -254,8 +289,8 @@ keystore.store(keyId, байты)
 <!-- AC:BEGIN -->
 - [ ] #1 [hand] Открываю экран привязки админ-устройства (PairingActivity) на Xiaomi 11T — приложение **не падает** с UnsatisfiedLinkError. Это главный симптом, из-за которого task был заведён.
 - [ ] #2 [hand] Прогоняю smoke-тест шифрования (Spec011SmokeDebugActivity) на Xiaomi 11T — round-trip (зашифровал → расшифровал → получил исходные байты) проходит без ошибок. Подтверждает что после миграции старые crypto-сценарии продолжают работать.
-- [ ] #3 [hand] Внутри собранного APK файл libsodium.so для **процессора arm64** (реальные телефоны) содержит функцию ristretto255_add — проверяю поиском по ASCII-строкам внутри бинаря. Без этой функции протокол привязки админа не работает.
-- [ ] #4 [hand] То же для остальных трёх архитектур (x86_64 — эмуляторы на Intel/AMD ноутбуках, armeabi-v7a — старые 32-битные телефоны, x86 — устаревшие эмуляторы). Все четыре .so содержат ristretto255_add. Страховка чтобы баг не вернулся на другом устройстве.
+- [ ] #3 [hand] В APK остался **только один** `libsodium.so` на ABI (от ionspin через `:core:crypto`). Проверяю через `unzip -l APK | grep libsodium.so` — на каждый ABI ровно одна запись. Раньше было две (из lazysodium и ionspin) с костылём `pickFirsts`.
+- [ ] #4 [hand] В коде проекта не осталось **никаких JNA `register()` вызовов** через lazysodium — root cause исходного crash'а устранён. Проверка через grep `JNA\.register\|SodiumAndroid\|lazysodium.SodiumJava` = 0 матчей. ionspin использует JNI lazy-bind, который не падает на отсутствующих функциях, потому что не пытается их eager-биндить.
 - [ ] #5 [hand] В исходном коде проекта **не осталось упоминаний старой библиотеки lazysodium** (grep по `lazysodium` в production-коде даёт 0 матчей, кроме исторических specs/ и docs/). Подтверждает что мы её действительно выкинули, а не только переключили pickFirst.
 - [ ] #6 [hand] В исходном коде **не осталось импортов** `com.goterl.*` (это пакет lazysodium от компании Terl). Проверка через grep.
 - [ ] #7 [hand] **Старая параллельная стопка** `com.launcher.api.crypto` полностью ликвидирована — grep по проекту даёт 0 матчей. После этого в проекте остаётся только одна KMP-стопка `family.crypto.api`.
