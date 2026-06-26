@@ -4,7 +4,7 @@ title: libsodium consolidation — выкинуть lazysodium, единая cry
 status: In Progress
 assignee: []
 created_date: '2026-06-25 11:48'
-updated_date: '2026-06-26 16:00'
+updated_date: '2026-06-26 17:30'
 labels:
   - crypto
   - refactor
@@ -138,7 +138,7 @@ keystore.store(keyId, байты)
 
 ## Что **уже сделано** в проекте (большие новости)
 
-При полной разведке call-graph'а выяснилось — большая часть кодовой базы **уже** работает на новом стэке `family.crypto.*`:
+При полной разведке call-graph'а выяснилось — большая часть кодовой базы **уже** работает на новом стэке (которому мы дадим имя `cryptokit.crypto.*` в Phase 4 namespace rename; до этого он называется `family.crypto.*`):
 
 - ✅ **Recovery flow** (`family.keys.impl.RecoveryFlow`)
 - ✅ **Envelope config encryption** (`family.keys.impl.EnvelopeConfigCipherImpl`)
@@ -162,69 +162,27 @@ keystore.store(keyId, байты)
 
 Чисто инфраструктурная задача — пользовательских ролей не затрагивает. Влияет на:
 - **разработчика** — один источник правды для crypto API
-- **end-user** (пожилого) — быстрее cold start, меньше APK
+- **end-user** (пожилого) — PairingActivity больше не падает; pairing работает на arm64 устройствах
 - **future iOS / TV разработчика** — готовый commonMain crypto-слой
 
-## Что входит технически (план 10 фаз)
+## Что входит технически
 
-> **Note**: detailed task-level breakdown в [tasks.md](../../specs/task-51-libsodium-consolidation/tasks.md) (49 tasks, 30 [P] parallel-safe, 6 [deferred-physical-device]). Ниже — high-level phase overview для Kanban-читателя.
+> **Полный task-level breakdown** в [tasks.md](../../specs/task-51-libsodium-consolidation/tasks.md): **49 tasks**, 30 [P] parallel-safe, 6 [deferred-physical-device]. Ниже — high-level overview для Kanban-читателя. **Источник правды — tasks.md**, не этот раздел.
 
-### Phase 1: Gradle подготовка (~30 мин)
-- Удалить `lazysodium = "5.1.0"` и `jna = "5.13.0"` из `gradle/libs.versions.toml`.
-- Удалить lazysodium/JNA dependencies из `core/build.gradle.kts`, `core/keys/build.gradle.kts` (если есть).
-- Удалить `packaging.jniLibs.pickFirsts` из `app/build.gradle.kts`.
-- Удалить ABI splits если были специально для lazysodium.
-- **Точка проверки**: проект **не** компилируется (это нормально — старый код ещё ссылается на lazysodium). Идём дальше.
+**10 фаз** (Phase 1-2 уже done на commits `1e6be2e`, `beca982`, `e342a76`, `e67e4bf`, `2adec37`, `1e3dd0a`, `9bbbde5`):
 
-### Phase 2: DI bindings + LibsodiumProvider (~2 часа)
-- Переписать `CryptoModule.kt` (старый DI) — удалить bindings через `LibsodiumProvider`, оставить только bindings через `cryptokit.crypto.api.*`. Или удалить `CryptoModule.kt` целиком, если `F016CryptoModule` его покрывает.
-- Удалить `LibsodiumProvider.kt` (singleton-фабрика lazysodium — больше не нужна).
-- Проверка `Spec015DiGraphTest` — DI граф резолвится через Koin без ambiguity.
-
-### Phase 3: PairingCryptoCoordinator (~4-6 часов) ⚠️ ГЛАВНАЯ ФАЗА
-- Переписать `PairingCryptoCoordinator.kt`:
-  - Убрать вызовы `keystore.generateAndStoreEncryption(alias)` и `keystore.generateAndStoreSigning(alias)` — заменить на `random.nextBytes() + keystore.store(keyId, bytes)`.
-  - Убрать 6+ паттернов `when (result) { is Outcome.Success ... is Outcome.Failure ... }` — переписать на `try/catch CryptoException`.
-  - Убрать `if (ensured is Outcome.Failure) return Outcome.Failure(...)` — теперь exceptions распространяются естественным образом.
-  - Импорты: `com.launcher.api.crypto.*` → `cryptokit.crypto.api.*`, `com.launcher.api.result.Outcome` → стандартный try/catch.
-- Обновить `PairingViewModel.kt` — callback `onLinkEstablished: suspend (linkId) -> Unit` уже suspend, проверить что обёртка корректна.
-- **Точка проверки**: `PairingCryptoCoordinatorTest` зелёный (после Phase 5).
-
-### Phase 4: Wire format слой + integration (~2 часа)
-- `FirestoreDeviceIdentityRepository.kt` — переписать 4+ места с `Outcome` на `try/catch`. `DeviceIdentity` wire-format остаётся (это формат данных в Firestore, не криптография).
-- `WorkerEncryptedMediaStorage.kt` — `Outcome` → `try/catch`, импорты на новые.
-- `PairingModule.kt` — DI bindings для нового стэка.
-- `BackendInit.kt` (real + mock backend) — обновить crypto bindings.
-
-### Phase 5: Тесты (~3 часа)
-- Переписать `PairingCryptoCoordinatorTest.kt` — использовать новые fakes из `family.crypto.fake.*` вместо `com.launcher.fake.crypto.*`.
-- Переписать `LibsodiumAdaptersTest.kt` — либо удалить (старые адаптеры не существуют), либо переписать под новый стэк (тесты на `cryptokit.crypto.libsodium.*` уже есть в `core/crypto/src/jvmTest/`).
-- Переписать `CryptoEnvelopeWireFormatTest.kt` — `FakeAeadCipher` → `family.crypto.fake.FakeAeadCipher`.
-- Обновить fitness-тесты:
-  - `Spec011IsolationTest.kt` — запретить `com.goterl.lazysodium.*` импорты + `com.launcher.api.crypto.*` (старая стопка).
-  - `Spec014IsolationTest.kt` — аналогично.
-  - `NoFakeCryptoInAppTest.kt` — обновить hardcoded путь от `family.crypto.fake` (если изменился).
-
-### Phase 6: Удаление старого (~30 мин)
-- Удалить `core/src/commonMain/kotlin/com/launcher/api/crypto/*.kt` (22 файла) — это уже только устаревшие порты.
-- Удалить `core/src/androidMain/kotlin/com/launcher/adapters/crypto/Libsodium*.kt` (5 файлов): `LibsodiumAeadCipher`, `LibsodiumAsymmetricCrypto`, `LibsodiumDigitalSignature`, `LibsodiumHashFunction`, `LibsodiumProvider`.
-- Удалить `core/src/androidMain/kotlin/com/launcher/adapters/crypto/AndroidKeystoreSecureKeystore.kt` — если он использовал lazysodium для AES-GCM unwrap. Если использовал чистый Android Keystore — оставить, но обновить чтобы возвращал `ByteArray` вместо `DeviceKeyPair`.
-- Удалить старые fakes `core/src/commonTest/kotlin/com/launcher/fake/crypto/*.kt` (8 файлов).
-
-### Phase 7: Сборка + verification на устройстве (~1 час)
-- `./gradlew :app:assembleMockBackendDebug` → BUILD SUCCESSFUL.
-- ASCII-grep по `libsodium.so` для всех 4 ABI (arm64-v8a, armeabi-v7a, x86, x86_64) — функции `crypto_core_ristretto255_add`, `crypto_box_easy`, `crypto_sign_detached`, `crypto_aead_xchacha20poly1305_ietf_encrypt` должны быть **во всех**.
-- `./gradlew test` → все юнит-тесты + Robolectric зелёные.
-- Замер APK size до/после.
-- Установка APK на Xiaomi 11T (`adb install`, устройство `17f33878` подключено).
-- Запуск `Spec011SmokeDebugActivity` — round-trip encrypt/decrypt без `UnsatisfiedLinkError`.
-- Запуск `PairingActivity` — открывается без crash'а.
-- Замер cold start.
-
-### Phase 8: Backlog hygiene + PR (~30 мин)
-- Обновить AC по факту прохождения (15 AC ниже).
-- `pre-pr-backlog-sync` skill.
-- PR на ветке `task-51-libsodium-consolidation` → main.
+| Phase | Tasks | Effort | Что делает |
+|---|---|---|---|
+| **1. Gradle stripping** ✅ done | — | done | lazysodium + JNA + pickFirsts удалены из gradle (`1e6be2e`) |
+| **2. Spec Kit pipeline** ✅ done | — | done | spec → clarify → scenarios → plan → tasks → analyze (verdict READY ✅) |
+| **3. @SerialName audit** | T001-T003 | ~30 мин | grep audit + add missing `@SerialName` annotations + golden vectors **baseline** roundtrip. **Critical pre-rename gate.** |
+| **4. Namespace rename** | T010-T015 | ~1 час | Mass `family.* → cryptokit.*` через `git mv` + sed. **Один логический commit**, чтобы не оставить broken intermediate state. T015 verify golden vectors **байт-в-байт** с T003 baseline. |
+| **5. Create `cryptokit.pairing.api.*` + migrate types** | T020-T025 | ~1.5 часа | Перенос 17 wire-format типов spec 011 в новый пакет + CryptoException 5-subclass hierarchy expansion. |
+| **6. Pairing-side rewrite** | T030-T039 | ~4-6 часов ⚠️ ГЛАВНАЯ | `PairingCryptoCoordinator` rewrite: alias → keyId, `Outcome` → `throws CryptoException`, **silent migration logic** (`loadOrMigrate` helper) с inline TODO к TASK-6. Rewrite ещё 9 файлов в pairing-side (BackendInit, FirestoreDeviceIdentityRepository, PairingModule, и др.). Inline `MessageDigest.SHA-256` вместо HashFunction в Spec011SmokeDebugActivity. |
+| **7. Old stack deletion** | T050-T056 | ~30 мин | Удалить 22 файла `com.launcher.api.crypto/`, 7 lazysodium adapters, 8 старых fakes. Grep-verify нет orphan references. |
+| **8. Tests + Konsist fitness rules** | T060-T090 | ~3 часа | Rewrite 3 unit tests (PairingCryptoCoordinator, CryptoEnvelopeWireFormat), создать 3 wire-format roundtrip+backcompat tests (DeviceIdentity, EncryptedEnvelope, Ciphertext), 3 новых fakes в `cryptokit.pairing.fake`, **7 Konsist rules** (4 NEW: NoLazysodium, NoLegacyComLauncher, NoLegacyFamily, NoBackdoorLogging + 3 updated: Spec011/014IsolationTest, NoFakeCryptoInApp). |
+| **9. Manual smoke** | T100-T103 (Xiaomi 11T) + T110-T111 (Samsung/Huawei → TASK-55) + T120 (silent migration verify) | ~1 час | **All `[deferred-physical-device]`** — owner runs. T100 install APK, T101 PairingActivity open no crash, T102 Spec011 smoke roundtrip, T103 CryptoException Logcat tag verify. |
+| **10. PR + docs cleanup** | T200-T205 | ~30 мин | Update `docs/dev/project-backlog.md` TODOs, update `docs/dev/crypto-review.md` (T204), update `docs/adr/ADR-007.md` (T205), `pre-pr-backlog-sync` (T202), open PR (T203). |
 
 ## Список изменяемых файлов (~37)
 
@@ -264,7 +222,7 @@ keystore.store(keyId, байты)
 
 **Spec Kit artifacts** в `specs/task-51-libsodium-consolidation/`:
 - [spec.md](../../specs/task-51-libsodium-consolidation/spec.md) — 3 US, 16 FR, 12 SC, 4 сценария, 7 Q clarifications resolved
-- [plan.md](../../specs/task-51-libsodium-consolidation/plan.md) — 9-phase rollout, Constitution Check **6 PASS / 2 N/A / 0 FAIL**
+- [plan.md](../../specs/task-51-libsodium-consolidation/plan.md) — 10-phase rollout, Constitution Check **6 PASS / 2 N/A / 0 FAIL**
 - [research.md](../../specs/task-51-libsodium-consolidation/research.md) — 7 architectural decisions (R-001..R-007) с alternatives + exit ramps
 - [data-model.md](../../specs/task-51-libsodium-consolidation/data-model.md) — 17 типов миграции + CryptoException 5-subclass hierarchy
 - [contracts/](../../specs/task-51-libsodium-consolidation/contracts/) — 3 wire-format contracts (DeviceIdentity, EncryptedEnvelope, Ciphertext)
@@ -272,7 +230,7 @@ keystore.store(keyId, байты)
 - [analyze-report.md](../../specs/task-51-libsodium-consolidation/analyze-report.md) — verdict READY ✅
 - [checklists/](../../specs/task-51-libsodium-consolidation/checklists/) — 11 spec-level + 3 plan-level (3 PERFECT spec: meta 13/13, domain 16/16, modular 18/18; 3 PERFECT plan: domain 16/16, wire-format 12/12, meta 13/13)
 
-**6 commits на ветке**: gradle stripping (`1e6be2e`), backlog root cause (`20013d1`), clarify (`beca982`), scenarios + corrections (`e342a76`, `e67e4bf`), plan (`2adec37`), tasks (`1e3dd0a`).
+**7 commits на ветке**: gradle stripping (`1e6be2e`), backlog root cause (`20013d1`), clarify (`beca982`), scenarios + corrections (`e342a76`, `e67e4bf`), plan (`2adec37`), tasks (`1e3dd0a`), analyze + backlog description sync (`9bbbde5`).
 
 **Зависимости**: TASK-2 (F-CRYPTO `:core:crypto`) — Done. lazysodium-адаптеры из spec 011 (TASK-4) переписываются в этой задаче.
 
