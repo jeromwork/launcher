@@ -1,10 +1,10 @@
 ---
 id: TASK-51
-title: libsodium consolidation — выкинуть lazysodium, единая family.crypto.api стопка
+title: libsodium consolidation — выкинуть lazysodium, единая cryptokit стопка
 status: In Progress
 assignee: []
 created_date: '2026-06-25 11:48'
-updated_date: '2026-06-26 06:30'
+updated_date: '2026-06-26 12:30'
 labels:
   - crypto
   - refactor
@@ -12,6 +12,8 @@ labels:
 milestone: m-1
 dependencies:
   - TASK-2
+references:
+  - specs/task-51-libsodium-consolidation/
 priority: high
 ordinal: 1000
 ---
@@ -302,4 +304,8 @@ keystore.store(keyId, байты)
 - [ ] #13 [hand] **Архитектурные fitness-тесты** (Spec011IsolationTest + Spec014IsolationTest + NoFakeCryptoInAppTest) обновлены — теперь запрещают использовать lazysodium и старую стопку `com.launcher.api.crypto`. Зелёные. Защитная сетка чтобы случайно не вернуть удалённое.
 - [ ] #14 [hand] **APK похудел** — итоговый размер debug-APK меньше предыдущего на 3+ МБ (выкинули JNA весом ~5 МБ). Замер до/после через `./gradlew :app:assembleMockBackendDebug` + сравнение размера выходного APK файла.
 - [ ] #15 [hand] **Cold start приложения** (от тапа на иконку до первого экрана) на Xiaomi 11T не вырос по сравнению с прошлым замером (baseline 1260-1330 мс из TASK-7 verification). В идеале — стал короче на 200-500 мс, потому что ionspin через JNI быстрее запускается чем lazysodium через JNA.
+- [ ] #16 [spec:SC-011] **Force re-pair flow проверен на Xiaomi 11T**: после установки нового APK поверх старой версии — старые Keystore aliases (`spec011.encryption.own`, `spec011.signing.own`) удалены автоматически при первом запуске; при открытии PairingActivity отображается экран pairing с QR-кодом (force re-pair per FR-005). Подтверждает миграционную стратегию.
+- [ ] #17 [spec:SC-012] **Namespace `family.*` полностью отсутствует** — `grep -r "family\.crypto" --include="*.kt"` по проекту даёт 0 матчей. Новый namespace `cryptokit.*` единственный.
+- [ ] #18 [spec:SC-013] **Golden vectors roundtrip** — `./gradlew :core:keys:jvmTest --tests "*EnvelopeConfigCipherRoundtripTest"` проходит байт-в-байт после namespace rename (FR-004 serialization compatibility).
+- [ ] #19 [spec:SC-014] **Logcat tag `cryptokit`** появляется при искусственно вызванной CryptoException (negative test): `adb logcat -s cryptokit` + ручное triggering неправильного ключа (FR-017 logging contract).
 <!-- AC:END -->
