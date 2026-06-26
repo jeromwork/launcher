@@ -1,11 +1,11 @@
 package family.keys
 
 import com.ionspin.kotlin.crypto.LibsodiumInitializer
-import family.crypto.api.KeyStoreContext
-import family.crypto.api.SecureKeyStore
-import family.crypto.libsodium.LibsodiumAeadCipher
-import family.crypto.libsodium.LibsodiumArgon2idPasswordHash
-import family.crypto.libsodium.LibsodiumRandomSource
+import cryptokit.crypto.api.KeyStoreContext
+import cryptokit.crypto.api.SecureKeyStore
+import cryptokit.crypto.libsodium.LibsodiumAeadCipher
+import cryptokit.crypto.libsodium.LibsodiumArgon2idPasswordHash
+import cryptokit.crypto.libsodium.LibsodiumRandomSource
 import family.keys.api.AuthIdentity
 import family.keys.api.Outcome
 import family.keys.api.RecoveryError

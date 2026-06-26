@@ -3,10 +3,10 @@ package com.launcher.app.di
 import com.launcher.app.data.envelope.InMemoryEnvelopeStorage
 import com.launcher.app.data.envelope.InMemoryPublicKeyDirectory
 import com.launcher.app.data.recovery.NoOpRecoveryKeyVault
-import family.crypto.api.AeadCipher
-import family.crypto.api.AsymmetricCrypto
-import family.crypto.api.RandomSource
-import family.crypto.api.SecureKeyStore
+import cryptokit.crypto.api.AeadCipher
+import cryptokit.crypto.api.AsymmetricCrypto
+import cryptokit.crypto.api.RandomSource
+import cryptokit.crypto.api.SecureKeyStore
 import com.launcher.app.data.envelope.InMemoryAsyncConfigPushQueueImpl
 import family.keys.android.AndroidDeviceIdentity
 import family.keys.api.AsyncConfigPushQueue

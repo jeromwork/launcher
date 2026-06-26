@@ -1,11 +1,11 @@
 package family.keys.impl
 
-import family.crypto.api.AeadCipher
-import family.crypto.api.RandomSource
-import family.crypto.api.SecureKeyStore
-import family.crypto.api.values.Ciphertext
-import family.crypto.api.values.KeyId
-import family.crypto.exception.CryptoException
+import cryptokit.crypto.api.AeadCipher
+import cryptokit.crypto.api.RandomSource
+import cryptokit.crypto.api.SecureKeyStore
+import cryptokit.crypto.api.values.Ciphertext
+import cryptokit.crypto.api.values.KeyId
+import cryptokit.crypto.exception.CryptoException
 import family.keys.api.AuthIdentity
 import family.keys.api.Outcome
 import family.keys.api.RootKey

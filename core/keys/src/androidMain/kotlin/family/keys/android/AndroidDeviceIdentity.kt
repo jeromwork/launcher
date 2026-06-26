@@ -5,9 +5,9 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import family.crypto.api.AsymmetricCrypto
-import family.crypto.api.SecureKeyStore
-import family.crypto.api.values.KeyId
+import cryptokit.crypto.api.AsymmetricCrypto
+import cryptokit.crypto.api.SecureKeyStore
+import cryptokit.crypto.api.values.KeyId
 import family.keys.api.DeviceId
 import family.keys.api.internal.DeviceIdentity
 import kotlinx.coroutines.flow.first

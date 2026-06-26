@@ -1,10 +1,10 @@
 package family.keys.fitness
 
 import com.ionspin.kotlin.crypto.LibsodiumInitializer
-import family.crypto.api.KeyStoreContext
-import family.crypto.api.SecureKeyStore
-import family.crypto.libsodium.LibsodiumAeadCipher
-import family.crypto.libsodium.LibsodiumRandomSource
+import cryptokit.crypto.api.KeyStoreContext
+import cryptokit.crypto.api.SecureKeyStore
+import cryptokit.crypto.libsodium.LibsodiumAeadCipher
+import cryptokit.crypto.libsodium.LibsodiumRandomSource
 import family.keys.api.AuthIdentity
 import family.keys.impl.RootKeyManagerImpl
 import kotlinx.coroutines.test.runTest

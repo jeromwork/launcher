@@ -1,6 +1,6 @@
 package family.keys.api
 
-import family.crypto.api.PasswordHash
+import cryptokit.crypto.api.PasswordHash
 import kotlinx.serialization.Serializable
 
 /**

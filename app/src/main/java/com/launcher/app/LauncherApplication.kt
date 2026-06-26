@@ -13,7 +13,7 @@ import com.launcher.app.di.appAndroidModule
 import com.launcher.app.di.assertNoFakeCryptoInRelease
 import com.launcher.app.di.cloudModule
 import com.launcher.app.di.cryptoModule
-import com.launcher.app.di.f016CryptoModule
+import com.launcher.app.di.cryptokitModule
 import com.launcher.app.di.f018KeysBackendModule
 import com.launcher.app.di.f018KeysModule
 import com.launcher.app.di.f019PushBackendModule
@@ -107,7 +107,7 @@ class LauncherApplication : Application(), Configuration.Provider {
                 backendModule, // flavor-resolved (Firebase or Fakes)
                 pairingModule, // spec 007 PairingService + PairingViewModel
                 cryptoModule,  // spec 011 crypto adapters + PairingCryptoCoordinator
-                f016CryptoModule, // spec 016 (F-CRYPTO) ports → Libsodium adapters
+                cryptokitModule, // spec 016 (F-CRYPTO) ports → Libsodium adapters
                 f018KeysModule,   // spec 018 (F-5) RootKeyManager + IdentityProof + Argon2id KDF
                 f018KeysBackendModule, // spec 018 RecoveryKeyVault (flavor-resolved)
                 f019PushCommonModule,  // spec 019 (F-5c) PushHandlerRegistry + ConfigUpdatedHandler

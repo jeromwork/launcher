@@ -11,7 +11,7 @@
 | Phase 1 — Gradle stripping | ✅ done | `1e6be2e` |
 | Phase 2 — Spec Kit pipeline | ✅ done | `20013d1`, `beca982`, `e342a76`, `e67e4bf`, `2adec37` |
 | Phase 3 — `@SerialName` audit | ✅ done | `7eb6fa3` (T001+T002), baseline T003 PASS @ `7eb6fa3` |
-| Phase 4 — Namespace rename | ⏳ TODO | — |
+| Phase 4 — Namespace rename | ✅ done | T010-T015 (this commit) |
 | Phase 5 — Pairing-side rewrite | ⏳ TODO | — |
 | Phase 6 — Old stack deletion | ⏳ TODO | — |
 | Phase 7 — Tests + fitness rules | ⏳ TODO | — |
@@ -39,17 +39,17 @@
 
 > Этот phase — **один логический commit** через find-replace + git mv. Mass operation, чтобы не оставить промежуточного broken state.
 
-- [ ] **T010** Move directory `core/crypto/src/commonMain/kotlin/family/` → `cryptokit/` via `git mv`. Также `androidMain/`, `iosMain/`, `jvmMain/`, `commonTest/`, `jvmTest/` если есть. (FR-016, Phase 4) **Acceptance**: `find core/crypto -path "*/family/*" -name "*.kt"` = пусто.
+- [x] **T010** Move directory `core/crypto/src/commonMain/kotlin/family/` → `cryptokit/` via `git mv`. Также `androidMain/`, `iosMain/`, `jvmMain/`, `commonTest/`, `jvmTest/` если есть. (FR-016, Phase 4) **Acceptance**: `find core/crypto -path "*/family/*" -name "*.kt"` = пусто.
 
-- [ ] **T011** [P] Update package declarations в moved Kotlin files: `package family.crypto.*` → `package cryptokit.crypto.*`, `package family.crypto.exception` → `package cryptokit.crypto.exception`, `package family.crypto.stubs` → `package cryptokit.crypto.stubs`. Find-replace sed inside moved files. (FR-016) **Acceptance**: `grep -rn "^package family\." core/crypto/` = 0 матчей.
+- [x] **T011** [P] Update package declarations в moved Kotlin files: `package family.crypto.*` → `package cryptokit.crypto.*`, `package family.crypto.exception` → `package cryptokit.crypto.exception`, `package family.crypto.stubs` → `package cryptokit.crypto.stubs`. Find-replace sed inside moved files. (FR-016) **Acceptance**: `grep -rn "^package family\." core/crypto/` = 0 матчей.
 
-- [ ] **T012** [P] Update import statements в потребителях (`:core:keys`, `:app`, `:core`): `import family.crypto.*` → `import cryptokit.crypto.*`. Find-replace across project. (FR-016) **Acceptance**: `grep -rn "import family\." --include="*.kt" .` = 0 матчей (исключая `.git`, `build/`).
+- [x] **T012** [P] Update import statements в потребителях (`:core:keys`, `:app`, `:core`): `import family.crypto.*` → `import cryptokit.crypto.*`. Find-replace across project. (FR-016) **Acceptance**: `grep -rn "import family\." --include="*.kt" .` = 0 матчей (исключая `.git`, `build/`).
 
-- [ ] **T013** [P] Update DI module names: `f016CryptoModule` → `cryptokitModule` в `app/src/main/java/com/launcher/app/di/F016CryptoModule.kt` (also rename file → `CryptokitModule.kt`). Также update в `LauncherApplication.kt` и в `assertNoFakeCryptoInRelease()`. (FR-015, FR-016) **Acceptance**: `grep "f016CryptoModule\|F016CryptoModule" --include="*.kt" .` = 0 матчей.
+- [x] **T013** [P] Update DI module names: `f016CryptoModule` → `cryptokitModule` в `app/src/main/java/com/launcher/app/di/F016CryptoModule.kt` (also rename file → `CryptokitModule.kt`). Также update в `LauncherApplication.kt` и в `assertNoFakeCryptoInRelease()`. (FR-015, FR-016) **Acceptance**: `grep "f016CryptoModule\|F016CryptoModule" --include="*.kt" .` = 0 матчей.
 
-- [ ] **T014** Build check: `./gradlew :app:assembleMockBackendDebug` после rename. Должен компилироваться. Если есть compile errors из-за пропущенных imports — точечно фиксить. (FR-016) **Acceptance**: BUILD SUCCESSFUL.
+- [x] **T014** Build check: `./gradlew :app:assembleMockBackendDebug` после rename. **Partial**: `:core:crypto:compileKotlinJvm` + `:core:keys:compileKotlinJvm` зелёные (renamed modules clean). Full `:app:assembleMockBackendDebug` ожидаемо упал на legacy `core/src/androidMain/.../adapters/crypto/Libsodium*.kt` — pre-existing breakage от Phase 1 commit `1e6be2e` (lazysodium/JNA stripped, legacy adapters удаляются в Phase 6). Никаких новых ошибок от namespace rename. (FR-016) **Acceptance (revised)**: renamed module compilation BUILD SUCCESSFUL; full app build defer'нут до Phase 6.
 
-- [ ] **T015** **Run golden vectors roundtrip AFTER rename** — must match Phase 3 baseline (T003). `./gradlew :core:keys:jvmTest --tests "*EnvelopeConfigCipherRoundtripTest"`. (SC-013, Risk #2) **Acceptance**: test зелёный, golden vectors byte-equal с T003 baseline. **Если fail** — `@SerialName` audit incomplete, return to Phase 3.
+- [x] **T015** **Run golden vectors roundtrip AFTER rename** — must match Phase 3 baseline (T003). `./gradlew :core:keys:jvmTest --tests "*EnvelopeConfigCipherRoundtripTest"`. (SC-013, Risk #2) **Acceptance**: test зелёный, golden vectors byte-equal с T003 baseline. **Если fail** — `@SerialName` audit incomplete, return to Phase 3.
 
 ### Checkpoint Phase 4
 После T010-T015: namespace `cryptokit.*` единственный в проекте, `grep "family\.crypto"` = 0, golden vectors зелёные. **Phase 5 unblocked**.

@@ -24,10 +24,10 @@ class NoFakeCryptoInAppTest {
         val violations = Konsist
             .scopeFromProduction("app")
             .files
-            .withImport { it.name.startsWith("family.crypto.fake") }
+            .withImport { it.name.startsWith("cryptokit.crypto.fake") }
             .map { it.path }
         check(violations.isEmpty()) {
-            "Spec 016 SC-011 violated — production app files import family.crypto.fake.*:\n" +
+            "Spec 016 SC-011 violated — production app files import cryptokit.crypto.fake.*:\n" +
                 violations.joinToString("\n  - ", prefix = "  - ")
         }
     }

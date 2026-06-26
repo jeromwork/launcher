@@ -2,7 +2,7 @@ package family.keys
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ionspin.kotlin.crypto.LibsodiumInitializer
-import family.crypto.libsodium.LibsodiumArgon2idPasswordHash
+import cryptokit.crypto.libsodium.LibsodiumArgon2idPasswordHash
 import family.keys.api.PassphraseKdfParams
 import family.keys.impl.Argon2idPassphraseKdf
 import kotlinx.coroutines.test.runTest
