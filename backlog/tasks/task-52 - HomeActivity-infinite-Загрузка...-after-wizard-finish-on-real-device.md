@@ -4,13 +4,14 @@ title: HomeActivity infinite "Загрузка..." after wizard finish on real d
 status: Draft
 assignee: []
 created_date: '2026-06-25 11:48'
+updated_date: '2026-06-26 04:32'
 labels:
   - home-screen
   - bug
 milestone: m-1
 dependencies: []
 priority: high
-ordinal: 52000
+ordinal: 56000
 ---
 
 ## Acceptance Criteria

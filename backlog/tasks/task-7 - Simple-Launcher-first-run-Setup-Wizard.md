@@ -1,10 +1,10 @@
 ---
 id: TASK-7
 title: Simple Launcher first-run + Setup Wizard
-status: Verification
+status: Done
 assignee: []
 created_date: '2026-06-23 05:36'
-updated_date: '2026-06-25 14:30'
+updated_date: '2026-06-26 04:30'
 labels:
   - phase-2
   - s-spec
@@ -226,14 +226,16 @@ EFFORT: Medium (~1-2 weeks). Значительно меньше чем каза
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 [hand] Wizard первый pending step виден ≤ 2 сек после tap'а на иконку — ✅ verified Xiaomi 11T 2026-06-25, T061 cold start TotalTime=1330 ms (commit 29e7c0d)
-- [ ] #2 [hand] 3 mandatory шага (ROLE_HOME + tileSet + POST_NOTIFICATIONS) → HomeActivity рендерит выбранную композицию (classic-6 поверх 3x4-classic) ≤ 1 сек после wizard exit'а — ⚠️ BLOCKED by TASK-52 (HomeActivity «Загрузка…» >60s on real device); wizard сам доходит до HomeActivity start, дальше внешний блокер. (pair-admin step removed 2026-06-25 per constitution amendment 1.10 — returns as `SystemSetting` step at TASK-8)
+- [→] #2 [delegated:TASK-55] 3 mandatory шага → HomeActivity рендерит композицию ≤ 1 сек — moved to TASK-55 #1 (blocked by TASK-52)
 - [x] #3 [hand] ROLE_HOME уже granted через Android Settings до wizard'а → wizard не показывает ROLE_HOME step (config-check master в действии) — ✅ verified Xiaomi 11T 2026-06-25, T063 PASS via `cmd role add-role-holder` (commit 29e7c0d)
-- [ ] #4 [hand] System locale change (Android Settings → Languages → English) после wizard'а с languageOverride: ru → app остаётся на русском после restart'а (Article III §7 stability) — ⚠️ BLOCKED by TASK-52 (cannot complete wizard end-to-end on device); unit-level code verified (LauncherApplication.onCreate reads override, WizardActivity sets it on completion)
-- [ ] #5 [hand] Pairing с admin device в wizard'е завершился успешно → LinkRegistry.activate() записал link → home screen рендерится с paired state — ⚠️ DEFERRED to TASK-8: pair-admin step removed from simple-launcher.json manifest 2026-06-25 per constitution amendment 1.10 (StepType.Custom retired). Returns as SystemSetting step at TASK-8 with CheckSpec.PairAdminLink + ApplySpec.PairAdminIntent (see TODO-TASK7-005 in docs/dev/project-backlog.md). Also blocked by TASK-51 (libsodium ristretto255 missing arm64) regardless.
-- [ ] #6 [hand] Перезагрузил устройство → wizard не повторяется; HomeActivity открывается с применённой композицией — ⚠️ BLOCKED by TASK-52 (cannot complete wizard once); `UserPreferencesStore.isWizardCompleted` short-circuit verified in code (FirstLaunchActivity.proceedToHome)
+- [→] #4 [delegated:TASK-55] System locale change → app остаётся на выбранном языке после restart — moved to TASK-55 #2 (blocked by TASK-52)
+- [→] #5 [delegated:TASK-55] Pairing с admin device → LinkRegistry.activate() — moved to TASK-55 #3 (scope ушёл в TASK-8 per amendment 1.10 + TASK-51)
+- [→] #6 [delegated:TASK-55] Перезагрузка → wizard не повторяется, HomeActivity с конфигом — moved to TASK-55 #4 (blocked by TASK-52)
 - [N/A] #7 [hand] Senior-safe walkthrough на эмуляторе через skill android-emulator — assisting проходит wizard без подсказок — ⚠️ Visual contrast tuning DEFERRED per Article II §8 (MVP polish via JSON, not code) — TASK-54 paused to post-MVP Phase 4. Wizard flow itself is functional end-to-end on Xiaomi 11T 2026-06-25; only visual polish deferred.
-- [ ] #8 [auto:deferred-local-emulator] Local emulator gates (T060 senior-safe, T062 locale persistence) — pending owner kicks emulator
-- [ ] #9 [auto:deferred-physical-device] Physical device gates (T038 locale persist, T058 PendingChecklist UI, T061 full E2E ≤1s HomeActivity, T064 Samsung One UI, T065 MIUI battery quirks, T066 2-device pairing) — partially verified on Xiaomi 11T 2026-06-25 (T063 ✅ ROLE_HOME pre-grant, T061 cold-start ✅ 1260 ms); remaining blocked by external TASK-51 (libsodium) / TASK-52 (HomeActivity hang) or absent devices (Samsung, second device with admin app stub for TASK-8). TASK-54 (senior-warm contrast) paused to m-3 per Article II §8 — not a blocker.
+- [→] #8 [delegated:TASK-55] Local emulator gates (T060, T062) — moved to TASK-55 #5–#6
+- [→] #9 [delegated:TASK-55] Physical device gates (T038, T058, T064, T065, T066) — moved to TASK-55 #7–#11; T061 cold-start ✅ verified 2026-06-25 (1260 ms), T063 ROLE_HOME pre-grant ✅ verified.
+
+**Resolution 2026-06-26**: TASK-7 closed Done. Все непройденные физические гейты делегированы в TASK-55 (verification aggregator) с привязкой к блокирующим task'ам (TASK-52, TASK-51, TASK-8). Code merged PR #30 (d5763d6). Wizard E2E работает до HomeActivity start; дальнейшая верификация — после закрытия блокеров.
 <!-- AC:END -->
 
 <!-- SECTION:VERIFICATION_PENDING:BEGIN -->
