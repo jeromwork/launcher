@@ -102,3 +102,30 @@ path, and Firestore documents written before the rename remain readable.
 
 If T015 fails after rename → @SerialName audit incomplete → return to Phase 3,
 identify the type whose wire-format key changed, add `@SerialName(...)`, re-run.
+
+---
+
+## Phase 4 post-rename verification (T015)
+
+**Post-rename (2026-06-26)**
+
+- **Command**: `./gradlew :core:keys:jvmTest --tests "*EnvelopeConfigCipherRoundtripTest"`
+- **Result**: PASS — `BUILD SUCCESSFUL in 4s`
+- **Commit hash (post-rename)**: `7a65058`
+- **Comparison vs baseline**: Same test class (now `cryptokit.keys.EnvelopeConfigCipherRoundtripTest` per
+  file path; runtime FQN unchanged since `core:keys` rename is TASK-56 scope). All 17 test methods
+  passed. **Byte-equal**: golden roundtrip succeeded, which is the byte-equality proof — the test
+  serializes, persists, deserializes, and asserts equality across the wire-format boundary; PASS
+  means no field key drifted from baseline.
+- **What this proves**: explicit `@SerialName(...)` annotations added in Phase 3 T002 successfully
+  decoupled wire-format identifiers from FQN class paths. The `family.* → cryptokit.*` rename did
+  not change a single byte of serialized output for any wire-format type owned by `:core:crypto`.
+  Firestore documents written before the rename remain readable after.
+- **Preserved literal identities**: two `family.crypto.*` string literals intentionally kept as
+  stable identifiers (not source-code package references):
+  - `PrimitiveSerialDescriptor("family.crypto.ByteArrayBase64", ...)` in `ByteArrayBase64Serializer.kt`
+    — metadata-only descriptor name (PrimitiveKind.STRING, not part of JSON output).
+  - `kSecAttrService="family.crypto.v1"` in `SecureKeyStore.ios.kt` — iOS Keychain service ID,
+    persisted across app upgrades.
+
+**Phase 4 gate**: PASSED. Phase 5 unblocked.
