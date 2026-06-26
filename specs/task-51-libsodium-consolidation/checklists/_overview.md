@@ -22,6 +22,16 @@
 
 **Architecture score**: 3 perfect + 5 pass + 3 pass-with-caveats + 0 hard-fail → **READY for /speckit.plan**.
 
+## Plan-level checklists re-run (2026-06-26 after /speckit.plan)
+
+| # | Checklist | Score | File |
+|---|---|---|---|
+| 1 | domain-isolation-plan | 16/16 ✓ PERFECT | [domain-isolation-plan.md](domain-isolation-plan.md) |
+| 2 | wire-format-plan | 12/12 ✓ PERFECT | [wire-format-plan.md](wire-format-plan.md) |
+| 3 | meta-minimization-plan | 13/13 ✓ PERFECT | [meta-minimization-plan.md](meta-minimization-plan.md) |
+
+**Plan-level score**: 3/3 perfect, **0 open items**. Combined с Constitution Check (6 PASS / 2 N/A / 0 FAIL) → **plan архитектурно bulletproof**.
+
 ## Spec patches applied 2026-06-26 (post-checklists)
 
 5 patches applied to address critical open items before scenarios:
