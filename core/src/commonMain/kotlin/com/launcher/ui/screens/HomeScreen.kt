@@ -16,6 +16,7 @@ import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import com.launcher.ui.components.BottomFlowBar
 import com.launcher.ui.gate.sevenTapAdminGate
 import com.launcher.ui.navigation.HomeComponent
+import com.launcher.ui.navigation.HomeLoadingState
 import com.launcher.ui.theme.Spacing
 
 /**
@@ -34,6 +35,7 @@ fun HomeScreen(
     topSlot: @Composable () -> Unit = {},
 ) {
     val state by component.state.collectAsState()
+    val loadingState by component.loadingState.collectAsState()
     val flowSlot by component.flowSlot.subscribeAsState()
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -60,19 +62,27 @@ fun HomeScreen(
             // Spec 006 banner stack. Empty slot when no banners visible — нулевая высота.
             topSlot()
             Box(modifier = Modifier.weight(1f).fillMaxSize()) {
-                val active = flowSlot.child?.instance
-                if (active != null) {
-                    FlowScreen(component = active)
-                } else {
-                    Box(
-                        modifier = Modifier.fillMaxSize().padding(Spacing.xl),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "Загрузка…",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                when (loadingState) {
+                    is HomeLoadingState.Loading -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize().padding(Spacing.xl),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "Загрузка…",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    is HomeLoadingState.Ready -> {
+                        val active = flowSlot.child?.instance
+                        if (active != null) {
+                            FlowScreen(component = active)
+                        }
+                    }
+                    is HomeLoadingState.Error -> {
+                        Box(modifier = Modifier.fillMaxSize())
                     }
                 }
             }

@@ -177,10 +177,8 @@ class HomeScreenArch016Test {
             LauncherTheme(preset = "simple-launcher") { HomeScreen(component = component) }
         }
         rule.waitForIdle()
-        // Without a link, the flow list is empty → the placeholder loading
-        // text from HomeScreen is shown. FR-005 preset-fallback content is
-        // populated by the spec 010 Phase 3 wizard — TODO[preset-fallback]
-        // covers the senior-safe path once the wizard seeds /config/current.
-        rule.onNodeWithText("Загрузка…").assertIsDisplayed()
+        // TASK-52: Without a link or config, the flow list is empty → transitions
+        // from Loading to Error("flows empty") instead of getting stuck in infinite "Загрузка…".
+        rule.onNodeWithText("Загрузка…").assertDoesNotExist()
     }
 }

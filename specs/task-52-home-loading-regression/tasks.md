@@ -61,13 +61,13 @@
 
 **Independent Test**: Manual smoke на pixel_5_api_34 + Xiaomi 11T — fresh install → wizard → секундомер ≤ 3s.
 
-- [ ] **T020** [US1] В `core/src/commonMain/kotlin/com/launcher/ui/screens/HomeScreen.kt` заменить текущий `if (flowSlot.child != null)` на `when (state.loadingState)`:
+- [x] **T020** [US1] В `core/src/commonMain/kotlin/com/launcher/ui/screens/HomeScreen.kt` заменить текущий `if (flowSlot.child != null)` на `when (state.loadingState)`:
   - `Loading` → существующий текст «Загрузка…» (preserve current behaviour);
   - `Ready` → существующий `FlowScreen(active)`;
   - `Error` → placeholder Box (заполняется в US2 task'ами).
   Trace: FR-004 part 1.
-- [ ] **T021** [US1] В `app/src/main/java/com/launcher/app/HomeActivity.kt`: ревизировать `runBlocking { presetRepository.getActivePreset() }` (line 55). Замерить median time через `System.nanoTime()` + 3 cold launch'а. **Если < 16ms** — оставить как есть (низкий ANR risk). **Если ≥ 16ms** — переместить чтение активного preset'а внутрь `HomeComponent.init` через suspend init. Документировать измерение inline-комментарием. Trace: FR-008, R2, plan §Risk R2.
-- [ ] **T022** [US1] В `app/src/main/java/com/launcher/app/wizard/WizardActivity.kt` проверить: `presetRepository.setActivePreset(...)` завершается **до** `startActivity(HomeActivity)`. Если сейчас fire-and-forget — обернуть в `lifecycleScope.launch { setActivePreset(); startActivity(...) }`. Trace: FR-007, plan §R1.
+- [x] **T021** [US1] В `app/src/main/java/com/launcher/app/HomeActivity.kt`: ревизировать `runBlocking { presetRepository.getActivePreset() }` (line 55). Замерить median time через `System.nanoTime()` + 3 cold launch'а. **Если < 16ms** — оставить как есть (низкий ANR risk). **Если ≥ 16ms** — переместить чтение активного preset'а внутрь `HomeComponent.init` через suspend init. Документировать измерение inline-комментарием. Trace: FR-008, R2, plan §Risk R2.
+- [x] **T022** [US1] В `app/src/main/java/com/launcher/app/wizard/WizardActivity.kt` проверить: `presetRepository.setActivePreset(...)` завершается **до** `startActivity(HomeActivity)`. Если сейчас fire-and-forget — обернуть в `lifecycleScope.launch { setActivePreset(); startActivity(...) }`. Trace: FR-007, plan §R1.
 
 **Checkpoint US1**: Свежий запуск → главный экран с 6 плитками за ≤ 3s. Manual smoke (deferred gates) проверит.
 
