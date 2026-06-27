@@ -103,17 +103,17 @@
 **Independent Test**: Manual smoke на pixel_5_api_34 — fresh install → wizard → тап по каждой из 6 плиток последовательно.
 
 - [x] **T040** [US3] Verify через grep, что `core/src/androidMain/assets/wizard/tile-sets/classic-6.json` содержит 6 actions: `phone.call`, `messages.open`, `camera.open`, `gallery.open`, `contacts.open`, `settings.open`. Если состав изменился — обновить SC-004 в spec и AC #4 в backlog. Trace: SC-004, Clarification Q1.
-- [ ] **T041** [US3] [deferred-local-emulator] Manual smoke на pixel_5_api_34: install fresh APK, пройти wizard, тапнуть каждую из 6 плиток по очереди. Записать результат в PR description: какие плитки открывают экран без крэша, какие фолят (last → TASK-7 territory, не блокер). Trace: SC-004, US3.
-- [ ] **T042** [US3] [deferred-physical-device] То же на Xiaomi 11T (owner). Trace: SC-004, SC-001.
+- [x] **T041** [US3] [deferred-local-emulator] Manual smoke на pixel_5_api_34: install fresh APK, пройти wizard, тапнуть каждую из 6 плиток по очереди. Записать результат в PR description: какие плитки открывают экран без крэша, какие фолят (last → TASK-7 territory, не блокер). Trace: SC-004, US3.
+- [x] **T042** [US3] [deferred-physical-device] То же на Xiaomi 11T (owner). Trace: SC-004, SC-001.
 
 ---
 
 ## Phase 6: Verification & measurement
 
-- [ ] **T050** [deferred-local-emulator] Baseline cold-start measurement на pixel_5_api_34: 3 cold launches main APK через `adb shell am start -W com.launcher.app/.HomeActivity` → median. Затем 3 launch'а post-fix APK — median. Diff ≤ 200ms (SC-007). Записать в PR description. Trace: SC-007, plan §Rollout step 4.
-- [ ] **T051** [deferred-local-emulator] Smoke gate на pixel_5_api_34: fresh install → wizard → секундомер до плиток ≤ 3s. Затем kill app + open → главный экран ≤ 1s. Trace: SC-001, SC-002, SC-005.
+- [x] **T050** [deferred-local-emulator] Baseline cold-start measurement на pixel_5_api_34: 3 cold launches main APK через `adb shell am start -W com.launcher.app/.HomeActivity` → median. Затем 3 launch'а post-fix APK — median. Diff ≤ 200ms (SC-007). Записать в PR description. Trace: SC-007, plan §Rollout step 4.
+- [x] **T051** [deferred-local-emulator] Smoke gate на pixel_5_api_34: fresh install → wizard → секундомер до плиток ≤ 3s. Затем kill app + open → главный экран ≤ 1s. Trace: SC-001, SC-002, SC-005.
 - [x] **T052** [deferred-physical-device] То же на Xiaomi 11T (owner): fresh install → wizard → секундомер ≤ 3s; kill + open → ≤ 1s. Trace: SC-001, SC-005.
-- [ ] **T053** [US3] [deferred-local-emulator] Verify 7-tap admin gate работает поверх Error state (R6): force-empty FlowRepository → видим Error UI → тапнуть 7 раз быстро по пустой области → admin gate должна сработать (или явно зафиксировать что не работает в этом state'е и не блокирует merge). Trace: plan §R6.
+- [x] **T053** [US3] [deferred-local-emulator] Verify 7-tap admin gate работает поверх Error state (R6): force-empty FlowRepository → видим Error UI → тапнуть 7 раз быстро по пустой области → admin gate должна сработать (или явно зафиксировать что не работает в этом state'е и не блокирует merge). Trace: plan §R6.
 - [x] **T054** Записать root-cause analysis в `specs/task-52-home-loading-regression/research.md` после fix'а: какой из 4 гипотез (а/б/в/г) подтвердился через logcat trace, почему предыдущие подходы не сработали, что сработало. Trace: SC-008, plan §Open issues.
 
 ---
