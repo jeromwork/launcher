@@ -102,7 +102,7 @@
 
 **Independent Test**: Manual smoke на pixel_5_api_34 — fresh install → wizard → тап по каждой из 6 плиток последовательно.
 
-- [ ] **T040** [US3] Verify через grep, что `core/src/androidMain/assets/wizard/tile-sets/classic-6.json` содержит 6 actions: `phone.call`, `messages.open`, `camera.open`, `gallery.open`, `contacts.open`, `settings.open`. Если состав изменился — обновить SC-004 в spec и AC #4 в backlog. Trace: SC-004, Clarification Q1.
+- [x] **T040** [US3] Verify через grep, что `core/src/androidMain/assets/wizard/tile-sets/classic-6.json` содержит 6 actions: `phone.call`, `messages.open`, `camera.open`, `gallery.open`, `contacts.open`, `settings.open`. Если состав изменился — обновить SC-004 в spec и AC #4 в backlog. Trace: SC-004, Clarification Q1.
 - [ ] **T041** [US3] [deferred-local-emulator] Manual smoke на pixel_5_api_34: install fresh APK, пройти wizard, тапнуть каждую из 6 плиток по очереди. Записать результат в PR description: какие плитки открывают экран без крэша, какие фолят (last → TASK-7 territory, не блокер). Trace: SC-004, US3.
 - [ ] **T042** [US3] [deferred-physical-device] То же на Xiaomi 11T (owner). Trace: SC-004, SC-001.
 
@@ -120,8 +120,8 @@
 
 ## Phase 7: Cross-cutting cleanup
 
-- [ ] **T060** Запустить `./gradlew :core:testDebugUnitTest --tests "*HomeComponent*"` локально — все 7 тестов зелёные. Trace: SC-006, plan §Local Test Path.
-- [ ] **T061** Запустить `./gradlew :app:assembleRealBackendDebug` — successful build, no warnings новые. Trace: plan §Rollout.
+- [x] **T060** Запустить `./gradlew :core:testDebugUnitTest --tests "*HomeComponent*"` локально — все 7 тестов зелёные. Trace: SC-006, plan §Local Test Path.
+- [x] **T061** Запустить `./gradlew :app:assembleRealBackendDebug` — successful build, no warnings новые. Trace: plan §Rollout.
 - [ ] **T062** Запустить existing checklist-validator-ы поверх finalных артефактов: `requirements-quality`, `meta-minimization`, `failure-recovery` — verify все остались PASS после изменений в spec.md (если в clarify spec обновлялся, повторного pass'а checklist'ов после tasks не требует — но всё равно verify). Trace: plan §Constitution Check.
 - [ ] **T063** Вызвать skill `pre-pr-backlog-sync` ДО `gh pr create`: обновит backlog AC под текущее состояние (auto-checklist count'ы, auto-deferred list из этого tasks.md), переведёт TASK-52 → `Verification` (если deferred AC остались `[ ]`) или `Done` (если все физические gates успели пройти). Trace: CLAUDE.md HARD RULE pre-PR sync.
 
