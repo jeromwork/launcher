@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 
 /**
@@ -41,12 +42,21 @@ class HomeComponent(
     // которые не используют scanner. Production wiring через RootComponent.
     val onOpenScanner: () -> Unit = {},
     private val managedDevices: com.launcher.api.link.ManagedDevicesRegistry? = null,
+    val onResetData: () -> Unit = {},
 ) : ComponentContext by componentContext {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
+
+    private val _loadingState = MutableStateFlow<HomeLoadingState>(HomeLoadingState.Loading)
+    val loadingState: StateFlow<HomeLoadingState> = _loadingState.asStateFlow()
+
+    private val _resetDialogVisible = MutableStateFlow(false)
+    val resetDialogVisible: StateFlow<Boolean> = _resetDialogVisible.asStateFlow()
+
+    private var loadFlowsJob: kotlinx.coroutines.Job? = null
 
     private val flowSlotNav = SlotNavigation<FlowSlotConfig>()
     val flowSlot: Value<ChildSlot<FlowSlotConfig, FlowComponent>> = childSlot(
@@ -72,16 +82,73 @@ class HomeComponent(
         // pushes; preserves the активный tab when the layout updates.
         flowRepository.observeFlows()
             .onEach { flows ->
-                val previousActive = _state.value.activeFlowId
-                val activeId = previousActive
-                    ?.takeIf { id -> flows.any { it.id == id } }
-                    ?: flows.firstOrNull()?.id
-                _state.value = HomeUiState(flows = flows, activeFlowId = activeId)
-                if (activeId != null && activeId != previousActive) {
-                    flowSlotNav.activate(FlowSlotConfig(activeId))
+                if (flows.isNotEmpty()) {
+                    val previousActive = _state.value.activeFlowId
+                    val activeId = previousActive
+                        ?.takeIf { id -> flows.any { it.id == id } }
+                        ?: flows.firstOrNull()?.id
+                    _state.value = HomeUiState(flows = flows, activeFlowId = activeId)
+                    if (activeId != null && activeId != previousActive) {
+                        flowSlotNav.activate(FlowSlotConfig(activeId))
+                    }
+                    if (activeId != null && _loadingState.value is HomeLoadingState.Ready) {
+                        _loadingState.value = HomeLoadingState.Ready(activeId)
+                    }
                 }
             }
             .launchIn(scope)
+        launchLoadFlows()
+    }
+
+    private fun launchLoadFlows() {
+        loadFlowsJob?.cancel()
+        _loadingState.value = HomeLoadingState.Loading
+        loadFlowsJob = scope.launch {
+            try {
+                withTimeout(3000) {
+                    val flows = flowRepository.loadFlows()
+                    if (flows.isNotEmpty()) {
+                        val previousActive = _state.value.activeFlowId
+                        val activeId = previousActive
+                            ?.takeIf { id -> flows.any { it.id == id } }
+                            ?: flows.first().id
+                        _state.value = HomeUiState(flows = flows, activeFlowId = activeId)
+                        flowSlotNav.activate(FlowSlotConfig(activeId))
+                        _loadingState.value = HomeLoadingState.Ready(activeId)
+                    } else {
+                        val reason = "flows empty"
+                        println("WARN: HomeLoadingState error: $reason")
+                        _loadingState.value = HomeLoadingState.Error(reason)
+                    }
+                }
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                val reason = "timeout 3s"
+                println("WARN: HomeLoadingState error: $reason")
+                _loadingState.value = HomeLoadingState.Error(reason)
+            } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                val reason = "exception: ${e.message}"
+                println("WARN: HomeLoadingState error: $reason")
+                _loadingState.value = HomeLoadingState.Error(reason)
+            }
+        }
+    }
+
+    fun retry() {
+        launchLoadFlows()
+    }
+
+    fun showResetConfirmation() {
+        _resetDialogVisible.value = true
+    }
+
+    fun hideResetConfirmation() {
+        _resetDialogVisible.value = false
+    }
+
+    fun confirmReset() {
+        _resetDialogVisible.value = false
+        onResetData()
     }
 
     /** Spec 007 manual reload (used by RootComponent after FlowRepository.addFlow).
@@ -106,6 +173,9 @@ class HomeComponent(
         if (_state.value.activeFlowId == flowId) return
         _state.value = _state.value.copy(activeFlowId = flowId)
         flowSlotNav.activate(FlowSlotConfig(flowId))
+        if (_loadingState.value is HomeLoadingState.Ready) {
+            _loadingState.value = HomeLoadingState.Ready(flowId)
+        }
     }
 
     @Serializable

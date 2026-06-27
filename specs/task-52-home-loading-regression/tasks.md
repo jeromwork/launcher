@@ -26,13 +26,13 @@
 
 **Purpose**: State machine type + retain mechanism — без этого ни одна US не имплементится.
 
-- [ ] **T001** [SH] Создать sealed class `HomeLoadingState` в `core/src/commonMain/kotlin/com/launcher/ui/navigation/HomeLoadingState.kt`. 3 варианта: `data object Loading`, `data class Ready(val activeFlowId: String)`, `data class Error(val reason: String)`. Pure Kotlin, никаких imports кроме stdlib. Trace: FR-001, plan §Architecture.
-- [ ] **T002** [SH] Добавить `private val _loadingState = MutableStateFlow<HomeLoadingState>(HomeLoadingState.Loading)` + `val loadingState: StateFlow<HomeLoadingState> = _loadingState.asStateFlow()` в `core/src/commonMain/kotlin/com/launcher/ui/navigation/HomeComponent.kt`. Размещение в **существующем** компоненте — retain через Decompose `retainedInstance` уже работает. Trace: FR-001, FR-010, plan §Architecture, Clarification Q5.
-- [ ] **T003** [SH] [P] Добавить `private val _resetDialogVisible = MutableStateFlow(false)` + публичный `StateFlow` в `HomeComponent.kt` (для confirmation dialog retention через recreate per R4). Trace: FR-006, plan §R4.
-- [ ] **T004** [SH] Реализовать `private fun launchLoadFlows()` в `HomeComponent.kt`: cancel предыдущий `loadFlowsJob?.cancel()`, set `_loadingState.value = Loading`, запустить `coroutineScope.launch { withTimeout(3000) { … FlowRepository.getFlows() … } }`. Branches: non-empty → `Ready(activeFlowId)`; empty → `Error("flows empty")`; `TimeoutCancellationException` → `Error("timeout 3s")`; other exception → `Error("exception: ${e.message}")`. Все Error ветки делают `logger.warn(...)` с reason (FR-012). Trace: FR-002, FR-003, FR-012, R3.
-- [ ] **T005** [SH] Вызвать `launchLoadFlows()` из `init` блока `HomeComponent`. Trace: FR-002.
-- [ ] **T006** [SH] Добавить public `fun retry()` в `HomeComponent.kt` — вызывает `launchLoadFlows()`. Trace: FR-005.
-- [ ] **T007** [SH] Добавить public `fun showResetConfirmation()` / `fun hideResetConfirmation()` / `fun confirmReset()` в `HomeComponent.kt`. `confirmReset()` вызывает существующий `onResetData` callback. Trace: FR-006.
+- [x] **T001** [SH] Создать sealed class `HomeLoadingState` в `core/src/commonMain/kotlin/com/launcher/ui/navigation/HomeLoadingState.kt`. 3 варианта: `data object Loading`, `data class Ready(val activeFlowId: String)`, `data class Error(val reason: String)`. Pure Kotlin, никаких imports кроме stdlib. Trace: FR-001, plan §Architecture.
+- [x] **T002** [SH] Добавить `private val _loadingState = MutableStateFlow<HomeLoadingState>(HomeLoadingState.Loading)` + `val loadingState: StateFlow<HomeLoadingState> = _loadingState.asStateFlow()` в `core/src/commonMain/kotlin/com/launcher/ui/navigation/HomeComponent.kt`. Размещение в **существующем** компоненте — retain через Decompose `retainedInstance` уже работает. Trace: FR-001, FR-010, plan §Architecture, Clarification Q5.
+- [x] **T003** [SH] [P] Добавить `private val _resetDialogVisible = MutableStateFlow(false)` + публичный `StateFlow` в `HomeComponent.kt` (для confirmation dialog retention через recreate per R4). Trace: FR-006, plan §R4.
+- [x] **T004** [SH] Реализовать `private fun launchLoadFlows()` в `HomeComponent.kt`: cancel предыдущий `loadFlowsJob?.cancel()`, set `_loadingState.value = Loading`, запустить `coroutineScope.launch { withTimeout(3000) { … FlowRepository.getFlows() … } }`. Branches: non-empty → `Ready(activeFlowId)`; empty → `Error("flows empty")`; `TimeoutCancellationException` → `Error("timeout 3s")`; other exception → `Error("exception: ${e.message}")`. Все Error ветки делают `logger.warn(...)` с reason (FR-012). Trace: FR-002, FR-003, FR-012, R3.
+- [x] **T005** [SH] Вызвать `launchLoadFlows()` из `init` блока `HomeComponent`. Trace: FR-002.
+- [x] **T006** [SH] Добавить public `fun retry()` в `HomeComponent.kt` — вызывает `launchLoadFlows()`. Trace: FR-005.
+- [x] **T007** [SH] Добавить public `fun showResetConfirmation()` / `fun hideResetConfirmation()` / `fun confirmReset()` в `HomeComponent.kt`. `confirmReset()` вызывает существующий `onResetData` callback. Trace: FR-006.
 
 **Checkpoint**: State machine готов в core. UI ещё «Загрузка…», но логика переходов покрыта unit-тестами.
 

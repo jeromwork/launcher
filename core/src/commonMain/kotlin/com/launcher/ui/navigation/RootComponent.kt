@@ -112,6 +112,7 @@ class RootComponent(
                     // Spec 007 admin QR scanner + paired devices view.
                     onOpenScanner = onOpenScanner,
                     managedDevices = managedDevices,
+                    onResetData = onResetData,
                 )
             )
             is RootConfig.ChallengeGate -> RootChild.ChallengeGate(
