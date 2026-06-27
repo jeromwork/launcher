@@ -79,4 +79,12 @@
     <string name="wizard_walkthrough_keep">Оставить</string>
     <string name="wizard_walkthrough_change">Изменить</string>
 
+    <!-- TASK-52 — Home screen loading error UI and reset dialog -->
+    <string name="home_loading_error_title">Не удалось загрузить настройки</string>
+    <string name="home_loading_error_retry">Попробовать снова</string>
+    <string name="home_loading_error_reset">Сбросить настройки и пройти заново</string>
+    <string name="home_reset_dialog_message">Все настройки будут стёрты. Продолжить?</string>
+    <string name="home_reset_dialog_confirm">Сбросить</string>
+    <string name="home_reset_dialog_cancel">Отмена</string>
+
 </resources>

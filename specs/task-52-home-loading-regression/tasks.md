@@ -79,7 +79,7 @@
 
 **Independent Test**: Unit-тесты для state machine (Phase 2) + Compose UI rendering зрительная проверка через debug build с force-empty FlowRepository через DI override.
 
-- [ ] **T030** [P] [US2] Добавить string keys в `core/src/commonMain/composeResources/values/strings_wizard.xml` (EN base) + `core/src/androidMain/res/values-ru/strings_wizard.xml` (RU) + `core/src/androidMain/res/values/strings_wizard.xml`:
+- [x] **T030** [P] [US2] Добавить string keys в `core/src/commonMain/composeResources/values/strings_wizard.xml` (EN base) + `core/src/androidMain/res/values-ru/strings_wizard.xml` (RU) + `core/src/androidMain/res/values/strings_wizard.xml`:
   - `home_loading_error_title` → «Не удалось загрузить настройки» / «Failed to load settings»
   - `home_loading_error_retry` → «Попробовать снова» / «Try again»
   - `home_loading_error_reset` → «Сбросить настройки и пройти заново» / «Reset settings and start over»
@@ -87,10 +87,10 @@
   - `home_reset_dialog_confirm` → «Сбросить» / «Reset»
   - `home_reset_dialog_cancel` → «Отмена» / «Cancel»
   Trace: FR-004, FR-006, FR-011.
-- [ ] **T031** [P] [US2] Добавить context entries для 6 новых keys в `core/strings-context/CONTEXT.json` (tone: elderly-friendly, formal-but-warm). Trace: plan §Localization checklist open issue, localization.md.
-- [ ] **T032** [US2] В `HomeScreen.kt` реализовать `Error` ветку: Column с Text(title) + два Button (Retry, Reset). Tap target ≥ 56dp (senior-safe). `Modifier.wrapContentSize()` для устойчивости к length expansion (RU 30-40% длиннее EN). Retry button onClick → `component.retry()`. Reset button onClick → `component.showResetConfirmation()`. Trace: FR-004 part 2, FR-005, localization-ui.md.
-- [ ] **T033** [US2] В `HomeScreen.kt` добавить `AlertDialog` (Compose Material3), visible когда `state.resetDialogVisible == true`. Title/text/buttons через string resources из T030. Confirm → `component.confirmReset()` (которая вызывает existing onResetData callback в HomeActivity). Cancel → `component.hideResetConfirmation()`. Trace: FR-006, R4.
-- [ ] **T034** [US2] Verify: technical reason из `Error(reason)` **НЕ показывается** в UI — только title из T030. logcat WARN/ERROR пишется из `launchLoadFlows()` (уже сделано в T004). Trace: FR-012, elderly-friendly.md.
+- [x] **T031** [P] [US2] Добавить context entries для 6 новых keys в `core/strings-context/CONTEXT.json` (tone: elderly-friendly, formal-but-warm). Trace: plan §Localization checklist open issue, localization.md.
+- [x] **T032** [US2] В `HomeScreen.kt` реализовать `Error` ветку: Column с Text(title) + два Button (Retry, Reset). Tap target ≥ 56dp (senior-safe). `Modifier.wrapContentSize()` для устойчивости к length expansion (RU 30-40% длиннее EN). Retry button onClick → `component.retry()`. Reset button onClick → `component.showResetConfirmation()`. Trace: FR-004 part 2, FR-005, localization-ui.md.
+- [x] **T033** [US2] В `HomeScreen.kt` добавить `AlertDialog` (Compose Material3), visible когда `state.resetDialogVisible == true`. Title/text/buttons через string resources из T030. Confirm → `component.confirmReset()` (которая вызывает existing onResetData callback в HomeActivity). Cancel → `component.hideResetConfirmation()`. Trace: FR-006, R4.
+- [x] **T034** [US2] Verify: technical reason из `Error(reason)` **НЕ показывается** в UI — только title из T030. logcat WARN/ERROR пишется из `launchLoadFlows()` (уже сделано в T004). Trace: FR-012, elderly-friendly.md.
 
 **Checkpoint US2**: Compose UI рендерит 3 state'а. Unit-тесты из Phase 2 зелёные. Force-empty (через debug build flag или DI override) показывает error UI.
 

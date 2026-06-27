@@ -41,6 +41,30 @@
     "play_store_fallback_title": {
       "value": "Please update the app",
       "context": "Shown when a bundled config has schemaVersion > known (FR-016 hard-fail). User cannot proceed; this screen replaces the wizard. Per Q-6 (b)."
+    },
+    "home_loading_error_title": {
+      "value": "Failed to load settings",
+      "context": "Title displayed when home screen configuration fails to load. Tone: plain language, formal-but-warm, no technical jargon."
+    },
+    "home_loading_error_retry": {
+      "value": "Try again",
+      "context": "Primary button to retry loading configuration on the home screen error view. Senior-safe primitive."
+    },
+    "home_loading_error_reset": {
+      "value": "Reset settings and start over",
+      "context": "Secondary button on home screen error view to initiate setup reset. Should clearly explain consequence without alarmism."
+    },
+    "home_reset_dialog_message": {
+      "value": "All settings will be erased. Continue?",
+      "context": "Confirmation dialog body explaining that resetting will wipe existing app data. Tone: clear, elderly-friendly."
+    },
+    "home_reset_dialog_confirm": {
+      "value": "Reset",
+      "context": "Confirm action button inside the setup reset confirmation dialog."
+    },
+    "home_reset_dialog_cancel": {
+      "value": "Cancel",
+      "context": "Cancel button inside the setup reset confirmation dialog."
     }
   }
 }
