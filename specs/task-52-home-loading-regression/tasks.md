@@ -122,7 +122,7 @@
 
 - [x] **T060** Запустить `./gradlew :core:testDebugUnitTest --tests "*HomeComponent*"` локально — все 7 тестов зелёные. Trace: SC-006, plan §Local Test Path.
 - [x] **T061** Запустить `./gradlew :app:assembleRealBackendDebug` — successful build, no warnings новые. Trace: plan §Rollout.
-- [ ] **T062** Запустить existing checklist-validator-ы поверх finalных артефактов: `requirements-quality`, `meta-minimization`, `failure-recovery` — verify все остались PASS после изменений в spec.md (если в clarify spec обновлялся, повторного pass'а checklist'ов после tasks не требует — но всё равно verify). Trace: plan §Constitution Check.
+- [x] **T062** Запустить existing checklist-validator-ы поверх finalных артефактов: `requirements-quality`, `meta-minimization`, `failure-recovery` — verify все остались PASS после изменений в spec.md (если в clarify spec обновлялся, повторного pass'а checklist'ов после tasks не требует — но всё равно verify). Trace: plan §Constitution Check.
 - [ ] **T063** Вызвать skill `pre-pr-backlog-sync` ДО `gh pr create`: обновит backlog AC под текущее состояние (auto-checklist count'ы, auto-deferred list из этого tasks.md), переведёт TASK-52 → `Verification` (если deferred AC остались `[ ]`) или `Done` (если все физические gates успели пройти). Trace: CLAUDE.md HARD RULE pre-PR sync.
 
 ---
