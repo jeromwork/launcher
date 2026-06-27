@@ -42,14 +42,14 @@
 
 **Purpose**: Unit-тесты для state machine. Должны падать сейчас (HomeComponent ещё не отдаёт StateFlow в существующем коде, but T002 уже сделан) → проходить после T001-T007.
 
-- [ ] **T010** [P] [SH] Создать `core/src/commonTest/kotlin/com/launcher/ui/navigation/HomeComponentLoadingStateTest.kt`. Setup: fake `FlowRepository`, fake `PresetRepository`, `TestScope` через `runTest { … }`. Trace: plan §Test strategy.
-- [ ] **T011** [P] [SH] Test `loading_to_ready_on_non_empty_flows`: fake возвращает 6 flow'ов → state переходит в `Ready(activeFlowId = первый)`. Trace: FR-002, SC-006.
-- [ ] **T012** [P] [SH] Test `loading_to_error_on_empty_flows`: fake возвращает `emptyList()` → state переходит в `Error("flows empty")`. Trace: FR-003, SC-006.
-- [ ] **T013** [P] [SH] Test `loading_to_error_on_timeout`: fake возвращает `delay(forever)`; `advanceTimeBy(3001)` → state переходит в `Error("timeout 3s")`. Включает fitness assertion: «после 3.5s state НЕ `Loading`». Trace: FR-003, SC-006, plan §Fitness functions.
-- [ ] **T014** [P] [SH] Test `loading_to_error_on_exception`: fake throws `IllegalStateException("boom")` → state переходит в `Error("exception: boom")`. Trace: FR-003, SC-006.
-- [ ] **T015** [P] [SH] Test `retry_after_error_relaunches`: start в Error → `retry()` → state транзитирует Loading → второй call возвращает данные → Ready. Trace: FR-005, SC-006.
-- [ ] **T016** [P] [SH] Test `retry_cancels_previous_pending_job`: первый load в полёте (delay forever), вызов `retry()` → первый job cancel'нут, новый job запущен. Verify через `loadFlowsJob.isCancelled` или флаг в fake. Trace: R3.
-- [ ] **T017** [P] [SH] Test `reset_confirmation_state_transitions`: initial `_resetDialogVisible.value == false` → `showResetConfirmation()` → true → `hideResetConfirmation()` → false; `confirmReset()` → вызывает passed callback. Trace: FR-006, R4.
+- [x] **T010** [P] [SH] Создать `core/src/commonTest/kotlin/com/launcher/ui/navigation/HomeComponentLoadingStateTest.kt`. Setup: fake `FlowRepository`, fake `PresetRepository`, `TestScope` через `runTest { … }`. Trace: plan §Test strategy.
+- [x] **T011** [P] [SH] Test `loading_to_ready_on_non_empty_flows`: fake возвращает 6 flow'ов → state переходит в `Ready(activeFlowId = первый)`. Trace: FR-002, SC-006.
+- [x] **T012** [P] [SH] Test `loading_to_error_on_empty_flows`: fake возвращает `emptyList()` → state переходит в `Error("flows empty")`. Trace: FR-003, SC-006.
+- [x] **T013** [P] [SH] Test `loading_to_error_on_timeout`: fake возвращает `delay(forever)`; `advanceTimeBy(3001)` → state переходит в `Error("timeout 3s")`. Включает fitness assertion: «после 3.5s state НЕ `Loading`». Trace: FR-003, SC-006, plan §Fitness functions.
+- [x] **T014** [P] [SH] Test `loading_to_error_on_exception`: fake throws `IllegalStateException("boom")` → state переходит в `Error("exception: boom")`. Trace: FR-003, SC-006.
+- [x] **T015** [P] [SH] Test `retry_after_error_relaunches`: start в Error → `retry()` → state транзитирует Loading → второй call возвращает данные → Ready. Trace: FR-005, SC-006.
+- [x] **T016** [P] [SH] Test `retry_cancels_previous_pending_job`: первый load в полёте (delay forever), вызов `retry()` → первый job cancel'нут, новый job запущен. Verify через `loadFlowsJob.isCancelled` или флаг в fake. Trace: R3.
+- [x] **T017** [P] [SH] Test `reset_confirmation_state_transitions`: initial `_resetDialogVisible.value == false` → `showResetConfirmation()` → true → `hideResetConfirmation()` → false; `confirmReset()` → вызывает passed callback. Trace: FR-006, R4.
 
 **Checkpoint**: `./gradlew :core:testDebugUnitTest --tests "*HomeComponentLoadingStateTest*"` зелёный (7 тестов).
 
