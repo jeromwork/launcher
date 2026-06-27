@@ -2,6 +2,7 @@ package com.launcher.ui.navigation
 
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
+import com.arkivanov.essenty.lifecycle.destroy
 import com.arkivanov.essenty.lifecycle.resume
 import com.launcher.api.FlowDescriptor
 import com.launcher.api.FlowRepository
@@ -187,5 +188,31 @@ class HomeComponentLoadingStateTest {
         component.confirmReset()
         assertFalse(component.resetDialogVisible.value)
         assertTrue(resetCalled)
+    }
+
+    @Test
+    fun lifecycle_cancel_during_launchLoadFlows_rethrows_cancellation() = runTest(testDispatcher) {
+        val repo = FakeFlowRepository(delayMs = 5000)
+        val lr = LifecycleRegistry()
+        lr.resume()
+        val context = DefaultComponentContext(lifecycle = lr)
+        val component = HomeComponent(
+            componentContext = context,
+            flowRepository = repo,
+            dispatchAction = { DispatchResult.Ok },
+            onSettingsClick = {},
+            onAddFlowClick = {},
+            onAdminDevicesClick = {},
+            onAddSlotClick = {},
+            onResetData = {},
+        )
+
+        advanceTimeBy(1000)
+        assertEquals(HomeLoadingState.Loading, component.loadingState.value)
+
+        lr.destroy()
+        advanceUntilIdle()
+        assertEquals(HomeLoadingState.Loading, component.loadingState.value)
+        assertEquals(1, repo.cancelledCount)
     }
 }

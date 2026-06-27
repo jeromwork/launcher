@@ -165,7 +165,12 @@ class HomeComponent(
                 else -> flows.firstOrNull()?.id
             }
             _state.value = HomeUiState(flows = flows, activeFlowId = newActive)
-            newActive?.let { flowSlotNav.activate(FlowSlotConfig(it)) }
+            if (newActive != null) {
+                flowSlotNav.activate(FlowSlotConfig(newActive))
+                _loadingState.value = HomeLoadingState.Ready(newActive)
+            } else if (flows.isEmpty()) {
+                _loadingState.value = HomeLoadingState.Error("flows empty")
+            }
         }
     }
 
@@ -173,9 +178,7 @@ class HomeComponent(
         if (_state.value.activeFlowId == flowId) return
         _state.value = _state.value.copy(activeFlowId = flowId)
         flowSlotNav.activate(FlowSlotConfig(flowId))
-        if (_loadingState.value is HomeLoadingState.Ready) {
-            _loadingState.value = HomeLoadingState.Ready(flowId)
-        }
+        _loadingState.value = HomeLoadingState.Ready(flowId)
     }
 
     @Serializable

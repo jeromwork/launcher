@@ -32,6 +32,7 @@ import launcher.core.generated.resources.Res
 import launcher.core.generated.resources.home_loading_error_reset
 import launcher.core.generated.resources.home_loading_error_retry
 import launcher.core.generated.resources.home_loading_error_title
+import launcher.core.generated.resources.home_loading_in_progress
 import launcher.core.generated.resources.home_reset_dialog_cancel
 import launcher.core.generated.resources.home_reset_dialog_confirm
 import launcher.core.generated.resources.home_reset_dialog_message
@@ -88,7 +89,7 @@ fun HomeScreen(
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = "Загрузка…",
+                                text = stringResource(Res.string.home_loading_in_progress),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

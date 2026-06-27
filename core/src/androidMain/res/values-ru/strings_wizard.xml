@@ -98,5 +98,6 @@
     <string name="home_reset_dialog_message">Все настройки будут стёрты. Продолжить?</string>
     <string name="home_reset_dialog_confirm">Сбросить</string>
     <string name="home_reset_dialog_cancel">Отмена</string>
+    <string name="home_loading_in_progress">Загрузка…</string>
 
 </resources>

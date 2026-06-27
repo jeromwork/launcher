@@ -65,6 +65,10 @@
     "home_reset_dialog_cancel": {
       "value": "Cancel",
       "context": "Cancel button inside the setup reset confirmation dialog."
+    },
+    "home_loading_in_progress": {
+      "value": "Loading…",
+      "context": "Loading indicator text shown on the home screen while flows are initializing."
     }
   }
 }

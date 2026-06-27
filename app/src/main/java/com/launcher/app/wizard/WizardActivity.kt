@@ -127,8 +127,10 @@ class WizardActivity : ComponentActivity() {
 
     private fun routeToHome() {
         lifecycleScope.launch {
-            val preset = presetRepository.getActivePreset() ?: FlowPreset.SIMPLE_LAUNCHER
-            presetRepository.setActivePreset(preset)
+            if (presetRepository.getActivePreset() == null) {
+                // wizard без выбора пресета = senior default
+                presetRepository.setActivePreset(FlowPreset.SIMPLE_LAUNCHER)
+            }
             startActivity(
                 Intent(this@WizardActivity, HomeActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)

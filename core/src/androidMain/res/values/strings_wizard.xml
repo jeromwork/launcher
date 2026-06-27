@@ -119,5 +119,6 @@
     <string name="home_reset_dialog_message">All settings will be erased. Continue?</string>
     <string name="home_reset_dialog_confirm">Reset</string>
     <string name="home_reset_dialog_cancel">Cancel</string>
+    <string name="home_loading_in_progress">Loading…</string>
 
 </resources>
