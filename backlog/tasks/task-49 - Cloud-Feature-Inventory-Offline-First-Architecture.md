@@ -156,7 +156,7 @@ EFFORT: Medium (~1-2 weeks).
 - [x] #2 [hand] FcmTokenRegistrationGuard откладывает FCM token registration до cloudAvailable=true (regression fix spec 019)
 - [x] #3 [hand] CloudAvailabilityContractTest invariant INV-7 (persistence survives recreate) зелёный
 - [x] #4 [hand] docs/dev/cloud-availability.md существует и читается non-developer
-- [ ] #5 [hand] Owner решает: создавать ли отдельный docs/dev/offline-online-architecture.md или ссылаться на cloud-availability.md (упомянут в spec.md «Что входит технически»)
+- [x] #5 [hand] Owner decision 2026-06-28: `docs/dev/cloud-availability.md` остаётся единственным документом; отдельный `offline-online-architecture.md` не создаётся (дубликат)
 - [x] #6 [hand] Pseudo-gate переписан в DI-override unit test (CloudAvailabilityImpl с GMS=unavailable возвращает Disabled) + inline TODO physical-device в коде
 - [x] #7 [auto:checklist] checklists/domain-isolation.md: 16/16 CHK [x]
 - [x] #8 [auto:checklist] checklists/meta-minimization.md: 13/13 CHK [x]
@@ -174,7 +174,7 @@ Pending для перехода Verification → Done:
 
 | AC | Type | Recovery step |
 |---|---|---|
-| #5 | hand | Owner решает: создавать ли отдельный `offline-online-architecture.md` или это дубликат `cloud-availability.md`. Если первое — создать файл, проставить `[x]`. |
+| #5 | hand | [x] Owner decision 2026-06-28: `cloud-availability.md` остаётся единственным документом. |
 | #6 | hand | [x] AC переформулирован и покрыт DI-override тестом (`CloudAvailabilityImplTest.huaweiWithoutGms_authProviderReturnsNull_cloudRemainsUnavailable`). |
 | #10 | auto:deferred-local-emulator | Установить AVD API 34 (per memory `reference_compose_ui_test_api_mismatch.md`), прогнать T031-T036 + T043 через skill `android-emulator`, проставить `[x]` с указанием имени AVD. |
 | #11 | auto:deferred-physical-device | Owner вручную прогоняет на Xiaomi 11T (packet capture 5 мин в local-mode → 0 requests to Firebase/Firestore/FCM), приложить артефакт к PR comment, проставить `[x]`. |
