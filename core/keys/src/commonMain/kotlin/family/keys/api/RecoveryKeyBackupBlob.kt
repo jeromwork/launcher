@@ -62,7 +62,10 @@ data class RecoveryKeyBackupBlob(
     }
 
     companion object {
-        const val SCHEMA_VERSION: Int = 1
+        /** Wire format version (contracts/recovery-key-backup-v1.md §1). */
+        const val SCHEMA_VERSION_V1: Int = 1
+        /** Alias for backward compatibility with RecoveryBlobCodec. */
+        const val SCHEMA_VERSION: Int = SCHEMA_VERSION_V1
         const val ALGORITHM_V1: String = "argon2id-xchacha20poly1305-v1"
     }
 }

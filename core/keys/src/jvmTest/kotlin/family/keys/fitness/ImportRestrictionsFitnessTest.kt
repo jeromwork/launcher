@@ -171,6 +171,47 @@ class ImportRestrictionsFitnessTest {
         error("Could not find repo root (settings.gradle.kts) from ${File(".").canonicalPath}")
     }
 
+    /**
+     * SC-007: forbidden provider-identifying tokens in :core:keys/commonMain source code (T631).
+     *
+     * Grep all .kt files under `core/keys/src/commonMain/` for forbidden token patterns.
+     * Violations in KDoc comment lines (starting with ` * ` or `//`) are excluded —
+     * the rule targets production code tokens only (identifiers, string literals, type names).
+     *
+     * **Scope exclusions** (per inventory.md §D4):
+     *  - `AAD_PREFIX = "f5-recovery-vault-v1"` — FR-018 byte-equal wire constant; intentional.
+     *  - KDoc/comment text — excluded from scan.
+     *  - `firestore.rules` — out of scope (deployment surface).
+     */
+    @Test
+    fun coreKeysCommonMainMustNotContainForbiddenTokens() {
+        val commonMain = File(repoRoot, "core/keys/src/commonMain")
+        if (!commonMain.exists()) return  // not yet created — skip gracefully
+
+        val violations = mutableListOf<Violation>()
+        commonMain.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .forEach { file ->
+                file.useLines { lines ->
+                    lines.forEachIndexed { idx, line ->
+                        val trimmed = line.trimStart()
+                        // Skip KDoc and comment lines.
+                        if (trimmed.startsWith("*") || trimmed.startsWith("//") || trimmed.startsWith("/*")) return@forEachIndexed
+                        if (FORBIDDEN_DOMAIN_TOKENS.containsMatchIn(line)) {
+                            violations.add(Violation(file, idx + 1, line.trimEnd()))
+                        }
+                    }
+                }
+            }
+        assertNoViolations(
+            violations,
+            ruleName = "SC-007 — no provider-identifying tokens in :core:keys/commonMain",
+            hint = "Tokens Google|Firebase|OAuth|Apple|PhoneNumber|PhoneAuth|IdToken|Cloudflare|WorkerUrl " +
+                "MUST NOT appear in domain code. Move to adapter layer (app/src/realBackend or androidMain adapter). " +
+                "Scope exclusions: AAD_PREFIX wire constant (FR-018), KDoc comments."
+        )
+    }
+
     companion object {
         /**
          * Любой импорт из `com.ionspin.kotlin.crypto.*` — корневой пакет libsodium
@@ -199,6 +240,18 @@ class ImportRestrictionsFitnessTest {
          */
         private val FORBIDDEN_KEYS_INTERNAL_IMPORT = Regex(
             """family\.keys\.api\.internal\b"""
+        )
+
+        /**
+         * SC-007: forbidden provider-identifying tokens in domain code.
+         * Matches identifier-boundary occurrences (\b) to avoid false positives
+         * like 'GMS' inside 'ALGORITHMS' or 'apple' inside 'pineapple'.
+         *
+         * Exclusions: AAD_PREFIX string "f5-recovery-vault-v1" — wire constant;
+         * KDoc/comment lines — excluded by calling code.
+         */
+        private val FORBIDDEN_DOMAIN_TOKENS = Regex(
+            """\b(?:Google|Firebase|OAuth|Apple|PhoneNumber|PhoneAuth|IdToken|Cloudflare|WorkerUrl)\b"""
         )
     }
 }

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 2,
+  "algorithm": "argon2id-xchacha20poly1305-v1",
+  "kdfSalt": "Tx5LqK8mZ3JpV2cBgWQpAA==",
+  "kdfParams": {
+    "memoryKib": 65536,
+    "iterations": 3,
+    "parallelism": 1
+  },
+  "wrappedRootKey": "P3vG2X5n0K8mZ3JpV2cBgWQpA9Fk1tR8nXmYzQwLpEsT2cD5fHaB+cD/eFgHiJkLmNoPqRsTuVwXyZ0123==",
+  "nonce": "B+gWQpA9Fk1tR8nXmYzQwLpEsT2cD5fH",
+  "createdAt": 1751104800000,
+  "futureField": "hypothetical-v2-field"
+}

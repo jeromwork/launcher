@@ -26,58 +26,58 @@ ID numbering: `T6NN` consistent with task-6 (spec 003 used T3NN; spec task-49 us
 
 ### Setup
 
-- [ ] **T601** **Verify existing** `core/keys/build.gradle.kts`. Module ALREADY exists (from spec 018 / TASK-4). Do **NOT** create new module. Only changes allowed: (i) add `kotlinx-serialization-json` if not already in dependencies (it likely is for envelope JSON); (ii) verify dependency on `:core:crypto` (libsodium primitives from TASK-51) is wired. Verify `./gradlew :core:keys:build` succeeds with no changes (baseline). (Plan §Project Structure — adjusted to actual codebase reality.)
+- [x] **T601** **Verify existing** `core/keys/build.gradle.kts`. Module ALREADY exists (from spec 018 / TASK-4). Do **NOT** create new module. Only changes allowed: (i) add `kotlinx-serialization-json` if not already in dependencies (it likely is for envelope JSON); (ii) verify dependency on `:core:crypto` (libsodium primitives from TASK-51) is wired. Verify `./gradlew :core:keys:build` succeeds with no changes (baseline). (Plan §Project Structure — adjusted to actual codebase reality.)
 
 ### Domain value types (commonMain/api/)
 
-- [ ] **T602** [P] [US-1, US-2] Add `StableId.kt` type alias = `String` with KDoc invariants (UUID v4, provider-agnostic, NO Google sub/email/phone). (FR-001, data-model.md §2)
-- [ ] **T603** [P] [US-1] Add `KdfParams.kt` value class: algorithm, iterations, memoryKb, parallelism. Init-block validation (algorithm in known set; iterations≥1; memoryKb≥1024; parallelism≥1). (FR-006, data-model.md §5)
-- [ ] **T604** [P] [US-1] Add `RootKey.kt` opaque value class (32-byte material, private constructor, no toString exposing material). (FR-003, data-model.md §3)
-- [ ] **T605** [P] [US-1] Add `DerivedKey.kt` opaque value class (HKDF output wrapper, same privacy as RootKey). (FR-002, data-model.md §4)
-- [ ] **T606** [P] [US-4] Add `AvailabilityReason.kt` enum: `NoSupportedProvider`, `KeystoreLocked`, `NetworkUnreachable`. Forbidden values doc-line «no Google/GMS/Huawei/HMS/Apple/Firebase strings». (FR-005, data-model.md §8)
-- [ ] **T607** [P] [US-4] Add `AuthAvailabilityStatus.kt` sealed class: `Available | Unavailable(reason: AvailabilityReason)`. (FR-005, data-model.md §7)
-- [ ] **T608** [P] [US-1, US-2, US-3] Add `RootKeyError.kt` sealed: `WrongPassphrase | CorruptedBlob | NoKeystore | NoIdentity`. (FR-003, data-model.md §9)
-- [ ] **T609** [P] [US-1, US-2, US-3] Add `BackupError.kt` sealed: `NetworkUnavailable | AuthExpired | ServerQuotaExceeded | Conflict | UnsupportedSchema`. (FR-004, data-model.md §10)
+- [x] **T602** [P] [US-1, US-2] Add `StableId.kt` type alias = `String` with KDoc invariants (UUID v4, provider-agnostic, NO Google sub/email/phone). (FR-001, data-model.md §2)
+- [x] **T603** [P] [US-1] Add `KdfParams.kt` value class: algorithm, iterations, memoryKb, parallelism. Init-block validation (algorithm in known set; iterations≥1; memoryKb≥1024; parallelism≥1). (FR-006, data-model.md §5)
+- [x] **T604** [P] [US-1] Add `RootKey.kt` opaque value class (32-byte material, private constructor, no toString exposing material). (FR-003, data-model.md §3)
+- [x] **T605** [P] [US-1] Add `DerivedKey.kt` opaque value class (HKDF output wrapper, same privacy as RootKey). (FR-002, data-model.md §4)
+- [x] **T606** [P] [US-4] Add `AvailabilityReason.kt` enum: `NoSupportedProvider`, `KeystoreLocked`, `NetworkUnreachable`. Forbidden values doc-line «no Google/GMS/Huawei/HMS/Apple/Firebase strings». (FR-005, data-model.md §8)
+- [x] **T607** [P] [US-4] Add `AuthAvailabilityStatus.kt` sealed class: `Available | Unavailable(reason: AvailabilityReason)`. (FR-005, data-model.md §7)
+- [x] **T608** [P] [US-1, US-2, US-3] Add `RootKeyError.kt` sealed: `WrongPassphrase | CorruptedBlob | NoKeystore | NoIdentity`. (FR-003, data-model.md §9)
+- [x] **T609** [P] [US-1, US-2, US-3] Add `BackupError.kt` sealed: `NetworkUnavailable | AuthExpired | ServerQuotaExceeded | Conflict | UnsupportedSchema`. (FR-004, data-model.md §10)
 
 ### Wire format
 
-- [ ] **T610** [US-1, US-2] Add `RecoveryKeyBackupBlob.kt` data class per `contracts/recovery-key-backup-v1.md`: schemaVersion=1 (const `SCHEMA_VERSION_V1`), stableId, salt (ByteArray), kdfParams, ciphertext, nonce, createdAt (Instant). kotlinx-serialization-json codec with base64 for ByteArray fields. (FR-006, contract spec)
-- [ ] **T611** [US-1] Add `RecoveryBlobCodec.kt` in `impl/`: JSON encode/decode with explicit schemaVersion check (UnsupportedSchema for `version > 1`). (contracts/recovery-key-backup-v1.md §Versioning)
+- [x] **T610** [US-1, US-2] Add `RecoveryKeyBackupBlob.kt` data class per `contracts/recovery-key-backup-v1.md`: schemaVersion=1 (const `SCHEMA_VERSION_V1`), stableId, salt (ByteArray), kdfParams, ciphertext, nonce, createdAt (Instant). kotlinx-serialization-json codec with base64 for ByteArray fields. (FR-006, contract spec)
+- [x] **T611** [US-1] Add `RecoveryBlobCodec.kt` in `impl/`: JSON encode/decode with explicit schemaVersion check (UnsupportedSchema for `version > 1`). (contracts/recovery-key-backup-v1.md §Versioning)
 
 ### Domain ports (commonMain/api/)
 
-- [ ] **T612** [P] [US-1, US-2, US-3] Add `KeyRegistry.kt` port: `derive(stableId, purpose)`, `wipeAll(stableId)`, `list(stableId)`. Inline TODO comment per FR-007 (Purpose registry, when N>5). (FR-002)
-- [ ] **T613** [P] [US-1, US-2, US-3] Add `RootKeyManager.kt` port: `current: Flow<RootKey?>`, `create()`, `recover()`, `forget()`. Inline TODO comment per FR-007 (one-way door rule-3 + TASK-41 exit ramp). (FR-003)
-- [ ] **T614** [P] [US-1, US-2, US-3] Add `RecoveryKeyBackup.kt` port: `uploadBlob()`, `fetchBlob()`, `deleteBlob()`. Inline TODO comment per FR-007 (SRV-RECOVERY-001 exit ramp на own-server). (FR-004)
-- [ ] **T615** [P] [US-1, US-4] Add `AuthAvailability.kt` port: `check(): AuthAvailabilityStatus`. (FR-005)
+- [x] **T612** [P] [US-1, US-2, US-3] Add `KeyRegistry.kt` port: `derive(stableId, purpose)`, `wipeAll(stableId)`, `list(stableId)`. Inline TODO comment per FR-007 (Purpose registry, when N>5). (FR-002)
+- [x] **T613** [P] [US-1, US-2, US-3] Add `RootKeyManager.kt` port: `current: Flow<RootKey?>`, `create()`, `recover()`, `forget()`. Inline TODO comment per FR-007 (one-way door rule-3 + TASK-41 exit ramp). (FR-003)
+- [x] **T614** [P] [US-1, US-2, US-3] Add `RecoveryKeyBackup.kt` port: `uploadBlob()`, `fetchBlob()`, `deleteBlob()`. Inline TODO comment per FR-007 (SRV-RECOVERY-001 exit ramp на own-server). (FR-004)
+- [x] **T615** [P] [US-1, US-4] Add `AuthAvailability.kt` port: `check(): AuthAvailabilityStatus`. (FR-005)
 
 ### Fake adapters (commonTest/fakes/)
 
-- [ ] **T616** [P] Add `FakeKeyRegistry.kt`: in-memory Map<StableId, Map<String, DerivedKey>>; deterministic derivation (SHA-256 of stableId+purpose for test material). (FR-022, CLAUDE.md rule 6)
-- [ ] **T617** [P] Add `FakeRootKeyManager.kt`: stateful Flow current; in-memory passphrase-blob storage; deterministic Argon2-stub. (FR-022)
-- [ ] **T618** [P] Add `FakeRecoveryKeyBackup.kt`: in-memory Map<StableId, RecoveryKeyBackupBlob>; shared between test instances для cross-device test. (FR-022)
-- [ ] **T619** [P] Add `FakeAuthAvailability.kt`: returns hardcoded `Available` or `Unavailable(reason)` set by test. (FR-022)
+- [x] **T616** [P] Add `FakeKeyRegistry.kt`: in-memory Map<StableId, Map<String, DerivedKey>>; deterministic derivation (SHA-256 of stableId+purpose for test material). (FR-022, CLAUDE.md rule 6)
+- [x] **T617** [P] Add `FakeRootKeyManager.kt`: stateful Flow current; in-memory passphrase-blob storage; deterministic Argon2-stub. (FR-022)
+- [x] **T618** [P] Add `FakeRecoveryKeyBackup.kt`: in-memory Map<StableId, RecoveryKeyBackupBlob>; shared between test instances для cross-device test. (FR-022)
+- [x] **T619** [P] Add `FakeAuthAvailability.kt`: returns hardcoded `Available` or `Unavailable(reason)` set by test. (FR-022)
 
 ### Contract tests (commonTest/)
 
-- [ ] **T620** [P] [US-1] `KeyRegistryDerivationDeterminismTest`: same stableId+purpose → same DerivedKey (10 iterations); different purpose → different key. (SC-013, FR-023, plan §Test Strategy)
-- [ ] **T621** [P] [US-2] `KeyRegistryIsolationTest`: different stableId → different DerivedKey for same purpose; wipe of one namespace не trogает другие. (SC-013, FR-023)
-- [ ] **T622** [P] [US-1, US-2] `RecoveryKeyBackupBlobRoundtripTest`: encode → decode → assert structural equal (all fields including kdfParams). (SC-013, FR-023, contract §Test contracts)
-- [ ] **T623** [P] [US-2] `RecoveryKeyBackupBlobBackwardCompatTest`: decode `core/keys/src/commonTest/resources/fixtures/recovery-blob-v1-sample.json` → success; assert all v1 fields populated. (SC-013, FR-023)
-- [ ] **T624** [P] [US-6] `RecoveryKeyBackupBlobProviderAgnosticTest`: parse JSON keys, assert ABSENCE of `googleSub`, `firebaseUid`, `providerKind`, `providerId`, `googleAccountId`, `email`, `phoneNumber`. (SC-008, FR-023, contract §Forbidden fields)
-- [ ] **T625** [P] [US-6] `RecoveryKeyBackupBlobUnsupportedSchemaTest`: fixture с schemaVersion=2 → decode returns `BackupError.UnsupportedSchema`. (contracts/recovery-key-backup-v1.md §Versioning forward-compat)
-- [ ] **T626** [P] [US-6] `RootKeyManagerProviderAgnosticTest`: prove US-1 + US-2 scenarios через `FakeAuthAdapter` (provider-agnostic) — fitness function. (SC-009, US-6 acceptance scenario 2)
-- [ ] **T627** [P] [US-6] `RootKeyForgetFlowTest`: после `RootKeyManager.forget()` → `KeyRegistry.list(stableId)` returns empty, `RootKeyManager.current` emits null. (FR-019, SC-012)
+- [x] **T620** [P] [US-1] `KeyRegistryDerivationDeterminismTest`: same stableId+purpose → same DerivedKey (10 iterations); different purpose → different key. (SC-013, FR-023, plan §Test Strategy)
+- [x] **T621** [P] [US-2] `KeyRegistryIsolationTest`: different stableId → different DerivedKey for same purpose; wipe of one namespace не trogает другие. (SC-013, FR-023)
+- [x] **T622** [P] [US-1, US-2] `RecoveryKeyBackupBlobRoundtripTest`: encode → decode → assert structural equal (all fields including kdfParams). (SC-013, FR-023, contract §Test contracts)
+- [x] **T623** [P] [US-2] `RecoveryKeyBackupBlobBackwardCompatTest`: decode `core/keys/src/commonTest/resources/fixtures/recovery-blob-v1-sample.json` → success; assert all v1 fields populated. (SC-013, FR-023)
+- [x] **T624** [P] [US-6] `RecoveryKeyBackupBlobProviderAgnosticTest`: parse JSON keys, assert ABSENCE of `googleSub`, `firebaseUid`, `providerKind`, `providerId`, `googleAccountId`, `email`, `phoneNumber`. (SC-008, FR-023, contract §Forbidden fields)
+- [x] **T625** [P] [US-6] `RecoveryKeyBackupBlobUnsupportedSchemaTest`: fixture с schemaVersion=2 → decode returns `BackupError.UnsupportedSchema`. (contracts/recovery-key-backup-v1.md §Versioning forward-compat)
+- [x] **T626** [P] [US-6] `RootKeyManagerProviderAgnosticTest`: prove US-1 + US-2 scenarios через `FakeAuthAdapter` (provider-agnostic) — fitness function. (SC-009, US-6 acceptance scenario 2)
+- [x] **T627** [P] [US-6] `RootKeyForgetFlowTest`: после `RootKeyManager.forget()` → `KeyRegistry.list(stableId)` returns empty, `RootKeyManager.current` emits null. (FR-019, SC-012)
 
 ### Fixture files (commonTest/resources/fixtures/)
 
-- [ ] **T628** [P] Create `recovery-blob-v1-sample.json` per contracts/recovery-key-backup-v1.md §Canonical example. (contract §Fixture path)
-- [ ] **T629** [P] Create `recovery-blob-v2-sample-future.json` (synthetic v2 для T625 forward-compat test). (T625 dependency)
+- [x] **T628** [P] Create `recovery-blob-v1-sample.json` per contracts/recovery-key-backup-v1.md §Canonical example. (contract §Fixture path)
+- [x] **T629** [P] Create `recovery-blob-v2-sample-future.json` (synthetic v2 для T625 forward-compat test). (T625 dependency)
 - [ ] **T630** [P] Create `config-ciphertext-spec018-sample.bin` (capture from spec 018 fixture for T652 migration test).
 
 ### Fitness function (Konsist rule)
 
-- [ ] **T631** [US-6] Add Konsist rule in `core/keys/src/jvmTest/`: grep `core/keys/src/commonMain/` for forbidden tokens `Google|Firebase|OAuth|Apple|Phone|Email|Sub|IdToken|Cloudflare|Worker`. Test fails if any match. Wire into `./gradlew :core:keys:check`. (SC-007, plan §Test Strategy)
+- [x] **T631** [US-6] Add Konsist rule in `core/keys/src/jvmTest/`: grep `core/keys/src/commonMain/` for forbidden tokens `Google|Firebase|OAuth|Apple|Phone|Email|Sub|IdToken|Cloudflare|Worker`. Test fails if any match. Wire into `./gradlew :core:keys:check`. (SC-007, plan §Test Strategy)
 
 ---
 

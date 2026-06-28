@@ -10,6 +10,9 @@ import family.keys.api.AuthIdentity
 import family.keys.api.Outcome
 import family.keys.api.RootKey
 import family.keys.api.RootKeyError
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -41,6 +44,35 @@ class RootKeyManagerImpl(
 
     private val mutex = Mutex()
     private val cache = mutableMapOf<String, RootKey>()
+    private val _current = MutableStateFlow<RootKey?>(null)
+
+    // --- F-5 API (T613, D3) ---
+
+    override val current: Flow<RootKey?> = _current.asStateFlow()
+
+    override suspend fun create(identity: AuthIdentity): Outcome<RootKey, RootKeyError> {
+        // Delegate to getOrCreate for now — full F-5 create semantics
+        // (separate Keystore key generation distinct from getOrCreate) to be
+        // implemented when Phase 2 adapters (T633, Argon2RootKeyManager) land.
+        val result = getOrCreate(identity)
+        if (result is Outcome.Success) _current.value = result.value
+        return result
+    }
+
+    override suspend fun recover(identity: AuthIdentity, passphrase: CharArray): Outcome<RootKey, RootKeyError> {
+        // Stub: full passphrase-based Argon2id recovery lives in RecoveryFlow (RecoveryFlow.performRecovery).
+        // This method will be wired through RecoveryFlow in Phase 3 ViewModel.
+        // For now: try to load from local Keystore (simulates "re-login on same device").
+        val result = getOrCreate(identity)
+        if (result is Outcome.Success) _current.value = result.value
+        return result
+    }
+
+    override suspend fun forget(identity: AuthIdentity): Outcome<Unit, RootKeyError> {
+        val result = wipe(identity)
+        if (result is Outcome.Success) _current.value = null
+        return result
+    }
 
     override suspend fun getOrCreate(identity: AuthIdentity): Outcome<RootKey, RootKeyError> {
         require(identity.stableId.isNotEmpty()) {
