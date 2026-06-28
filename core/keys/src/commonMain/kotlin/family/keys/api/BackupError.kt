@@ -15,6 +15,9 @@ package family.keys.api
  *  - decode fail или missing required field → [Malformed]
  *  - schemaVersion > MAX_SUPPORTED_SCHEMA_VERSION → [UnsupportedSchema]
  *
+ * Note (C3): [Malformed] and [NotFound] are included beyond the base T609 specification
+ * in `tasks.md` as they are practically required by codec validation and fetch operations.
+ *
  * @see RecoveryKeyBackup
  */
 sealed class BackupError {

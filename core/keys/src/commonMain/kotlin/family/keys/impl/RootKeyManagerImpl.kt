@@ -39,6 +39,7 @@ import kotlinx.coroutines.sync.withLock
 class RootKeyManagerImpl(
     private val secureKeyStore: SecureKeyStore,
     private val random: RandomSource,
+    // TODO(T633): wired here for Phase 2 Argon2RootKeyManager encryption
     @Suppress("unused") private val aead: AeadCipher
 ) : family.keys.api.RootKeyManager {
 

@@ -1,7 +1,6 @@
 package family.keys.impl
 
 import family.keys.api.BackupError
-import family.keys.api.KdfParams
 import family.keys.api.Outcome
 import family.keys.api.RecoveryKeyBackupBlob
 import family.keys.api.StableId
