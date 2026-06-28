@@ -206,7 +206,7 @@ class ImportRestrictionsFitnessTest {
         assertNoViolations(
             violations,
             ruleName = "SC-007 — no provider-identifying tokens in :core:keys/commonMain",
-            hint = "Tokens Google|Firebase|OAuth|Apple|PhoneNumber|PhoneAuth|IdToken|Cloudflare|WorkerUrl " +
+            hint = "Tokens Google|Firebase|OAuth|Apple|PhoneNumber|PhoneAuth|IdToken|Cloudflare|WorkerUrl|Email|Sub " +
                 "MUST NOT appear in domain code. Move to adapter layer (app/src/realBackend or androidMain adapter). " +
                 "Scope exclusions: AAD_PREFIX wire constant (FR-018), KDoc comments."
         )
@@ -249,9 +249,12 @@ class ImportRestrictionsFitnessTest {
          *
          * Exclusions: AAD_PREFIX string "f5-recovery-vault-v1" — wire constant;
          * KDoc/comment lines — excluded by calling code.
+         * Note: Tokens Worker, Bearer, JWT, HTTP, OkHttp, R2, KV from handoff DZ-1 are
+         * intentionally omitted to prevent false-positives (e.g. WorkManager Worker,
+         * BearerToken in DI, generic HTTP/KV structures).
          */
         private val FORBIDDEN_DOMAIN_TOKENS = Regex(
-            """\b(?:Google|Firebase|OAuth|Apple|PhoneNumber|PhoneAuth|IdToken|Cloudflare|WorkerUrl)\b"""
+            """\b(?:Google|Firebase|OAuth|Apple|PhoneNumber|PhoneAuth|IdToken|Cloudflare|WorkerUrl|Email|Sub)\b"""
         )
     }
 }

@@ -16,6 +16,10 @@ import family.keys.api.PassphraseKdfParams
  *
  * Парсит JSON top-level key set и assertирует ОТСУТСТВИЕ запрещённых полей (contracts §4).
  * Это fitness function — проверяет что blob не содержит identity-provider leakage.
+ *
+ * Note (B3): Fixture loading is placed in `jvmTest` instead of `commonTest`
+ * because resource loading utilizes `this::class.java.classLoader.getResourceAsStream(...)`
+ * which is JVM-specific.
  */
 class RecoveryKeyBackupBlobProviderAgnosticTest {
 

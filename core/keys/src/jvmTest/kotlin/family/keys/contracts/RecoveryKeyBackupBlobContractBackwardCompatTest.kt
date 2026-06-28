@@ -15,8 +15,12 @@ import kotlin.test.assertIs
  *
  * Этот тест НИКОГДА не должен падать от рефакторинга serialization кода.
  * Если он падает — breaking change в v1 reader.
+ *
+ * Note (B3): Fixture loading is placed in `jvmTest` instead of `commonTest`
+ * because resource loading utilizes `this::class.java.classLoader.getResourceAsStream(...)`
+ * which is JVM-specific.
  */
-class RecoveryKeyBackupBlobBackwardCompatTest {
+class RecoveryKeyBackupBlobContractBackwardCompatTest {
 
     @Test
     fun v1FixtureDecodesSuccessfully() {

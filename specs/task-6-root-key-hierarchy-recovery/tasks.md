@@ -48,14 +48,14 @@ ID numbering: `T6NN` consistent with task-6 (spec 003 used T3NN; spec task-49 us
 
 - [x] **T612** [P] [US-1, US-2, US-3] Add `KeyRegistry.kt` port: `derive(stableId, purpose)`, `wipeAll(stableId)`, `list(stableId)`. Inline TODO comment per FR-007 (Purpose registry, when N>5). (FR-002)
 - [x] **T613** [P] [US-1, US-2, US-3] Add `RootKeyManager.kt` port: `current: Flow<RootKey?>`, `create()`, `recover()`, `forget()`. Inline TODO comment per FR-007 (one-way door rule-3 + TASK-41 exit ramp). (FR-003)
-- [x] **T614** [P] [US-1, US-2, US-3] Add `RecoveryKeyBackup.kt` port: `uploadBlob()`, `fetchBlob()`, `deleteBlob()`. Inline TODO comment per FR-007 (SRV-RECOVERY-001 exit ramp на own-server). (FR-004)
+- [x] **T614** [P] [US-1, US-2, US-3] Add `RecoveryKeyBackup.kt` port: `uploadBlob()`, `fetchBlob()`, `deleteBlob()`. Inline TODO comment per FR-007 (SRV-RECOVERY-001 exit ramp на own-server). (FR-004) <!-- completed via D4 rename 7be001c -->
 - [x] **T615** [P] [US-1, US-4] Add `AuthAvailability.kt` port: `check(): AuthAvailabilityStatus`. (FR-005)
 
 ### Fake adapters (commonTest/fakes/)
 
 - [x] **T616** [P] Add `FakeKeyRegistry.kt`: in-memory Map<StableId, Map<String, DerivedKey>>; deterministic derivation (SHA-256 of stableId+purpose for test material). (FR-022, CLAUDE.md rule 6)
 - [x] **T617** [P] Add `FakeRootKeyManager.kt`: stateful Flow current; in-memory passphrase-blob storage; deterministic Argon2-stub. (FR-022)
-- [x] **T618** [P] Add `FakeRecoveryKeyBackup.kt`: in-memory Map<StableId, RecoveryKeyBackupBlob>; shared between test instances для cross-device test. (FR-022)
+- [x] **T618** [P] Add `FakeRecoveryKeyBackup.kt`: in-memory Map<StableId, RecoveryKeyBackupBlob>; shared between test instances для cross-device test. (FR-022) <!-- completed via D4 rename 7be001c -->
 - [x] **T619** [P] Add `FakeAuthAvailability.kt`: returns hardcoded `Available` or `Unavailable(reason)` set by test. (FR-022)
 
 ### Contract tests (commonTest/)

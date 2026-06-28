@@ -12,6 +12,10 @@ import kotlin.test.assertIs
  *
  * Fixture с schemaVersion=2 → decode MUST return BackupError.UnsupportedSchema(version=2).
  * Никакого partial-parse leakage — caller не получает никаких полей.
+ *
+ * Note (B3): Fixture loading is placed in `jvmTest` instead of `commonTest`
+ * because resource loading utilizes `this::class.java.classLoader.getResourceAsStream(...)`
+ * which is JVM-specific.
  */
 class RecoveryKeyBackupBlobUnsupportedSchemaTest {
 

@@ -5,14 +5,13 @@ import family.keys.api.KeyRegistry
 import family.keys.api.Outcome
 import family.keys.api.RootKeyError
 import family.keys.api.StableId
-import java.security.MessageDigest
 
 /**
  * In-memory [KeyRegistry] для тестов (FR-022, CLAUDE.md rule 6).
  *
- * **Deterministic derivation**: SHA-256 от `"$stableId|$purpose"` как test material.
+ * **Deterministic derivation**: детерминированный XOR-chain от `"$stableId|$purpose"` как test material (KMP-safe).
  * Гарантирует: те же входы → тот же DerivedKey; разные purpose → разные ключи.
- * Не использует настоящий HKDF — это намеренно (тесты должны быть быстрыми и детерминированными).
+ * Не использует настоящий HKDF/SHA-256 — это намеренно (тесты должны быть быстрыми, детерминированными и KMP-compatible).
  *
  * **Namespace isolation**: Map<StableId, Map<String, DerivedKey>> — wipe одного stableId
  * не затрагивает другие (SC-012, T621).
@@ -51,7 +50,15 @@ class FakeKeyRegistry : KeyRegistry {
     // --- helpers ---
 
     private fun deterministicBytes(stableId: StableId, purpose: String): ByteArray {
-        val input = "$stableId|$purpose"
-        return MessageDigest.getInstance("SHA-256").digest(input.encodeToByteArray())
+        val input = "$stableId|$purpose".encodeToByteArray()
+        val bytes = ByteArray(32)
+        for (i in bytes.indices) {
+            var hash = 2166136261L xor (i * 1000003L)
+            for (b in input) {
+                hash = (hash xor (b.toLong() and 0xFF)) * 16777619L
+            }
+            bytes[i] = (hash and 0xFF).toByte()
+        }
+        return bytes
     }
 }
