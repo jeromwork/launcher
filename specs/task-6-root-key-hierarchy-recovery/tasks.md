@@ -22,7 +22,7 @@ ID numbering: `T6NN` consistent with task-6 (spec 003 used T3NN; spec task-49 us
 
 ### Phase 0 — Inventory (mandatory BEFORE any code change)
 
-- [ ] **T600** **STOP and read** existing `core/keys/` module (already exists from spec 018 / TASK-4 F-5b). Inventory what's there. Produce `specs/task-6-root-key-hierarchy-recovery/inventory.md` with three lists: (a) **KEEP** files (legacy F-5b that F-5 builds on — e.g., `ConfigCipher2.kt`, `AuthIdentity.kt`, `Envelope.kt`); (b) **MIGRATE** files (touched by F-5, e.g., `ConfigCipher2` per FR-018 byte-equal); (c) **ADD** files (new F-5 types — `RootKey.kt`, `KeyRegistry.kt`, `RecoveryKeyBackup.kt`, etc. per plan.md §Project Structure). NO code changes in T600 — only inventory. (Mandatory pre-implementation reconciliation per gemini-handoff.md §«Existing code reality».)
+- [x] **T600** **STOP and read** existing `core/keys/` module (already exists from spec 018 / TASK-4 F-5b). Inventory what's there. Produce `specs/task-6-root-key-hierarchy-recovery/inventory.md` with three lists: (a) **KEEP** files (legacy F-5b that F-5 builds on — e.g., `ConfigCipher2.kt`, `AuthIdentity.kt`, `Envelope.kt`); (b) **MIGRATE** files (touched by F-5, e.g., `ConfigCipher2` per FR-018 byte-equal); (c) **ADD** files (new F-5 types — `RootKey.kt`, `KeyRegistry.kt`, `RecoveryKeyBackup.kt`, etc. per plan.md §Project Structure). NO code changes in T600 — only inventory. (Mandatory pre-implementation reconciliation per gemini-handoff.md §«Existing code reality».)
 
 ### Setup
 
