@@ -416,6 +416,21 @@ Additional defaults:
 4. Local-first behavior SHOULD be preferred unless a networked feature is explicitly required.
 5. Sensitive actions involving installed apps, package visibility, accessibility services, or device state MUST be documented with user-value justification.
 6. Fallback behavior for denied permissions MUST be designed, not improvised.
+7. **Server-side data minimization (anti-traceability by design).** Architecture MUST be designed so that any current third-party backend (Cloudflare Worker, Firebase, etc.) AND any future own-server learns as little as possible about its users. This is an **architectural aspiration**, not a one-shot gate — surface concerns during every architecture discussion touching server-bound data; revisit at each major spec touching identifiers, persistence, or relationships.
+
+   Specifically:
+
+   (a) **Opaque identifiers reaching the server.** Identifiers stored or routed by the server MUST be opaque (UUID / random ID), not derivable from identity-provider primary keys (no Google `sub`, no email, no phone number as server-side primary key). Mapping from identity-provider ID to our opaque ID stays client-side or in a separate, access-controlled mapping table.
+
+   (b) **Ciphertext + routing-metadata only.** Persistent server-side records SHOULD store ciphertext + minimum metadata required for routing (recipient ID, timestamp, schema version) only. Plaintext PII (names, contacts, photos, configurations, locations, behavioral data) MUST stay on device unless an explicit FR in an approved spec justifies otherwise.
+
+   (c) **No cross-user correlation by access pattern.** Server MUST NOT be able to infer "user A and user B are paired / share a family group / share contacts" from access patterns alone. Design implications: separate endpoints per relationship type, no shared rooms / chats addressable by both parties, no temporal correlation between related operations, request mixing where natural.
+
+   (d) **Access logs are a privacy surface.** Cloudflare access logs / our future server's request logs MUST be treated as a privacy surface. Design wire formats and addressing so that a third party with full log access cannot reconstruct user relationships, content, or behavioral patterns from IPs + timestamps + paths alone.
+
+   (e) **Worst-case-provider assumption.** When choosing free-tier infrastructure (Cloudflare, Firebase, GitHub Pages, etc.), assume the provider sees everything in access logs and could be compelled to share them. Design so that compliance with such a request yields **the least useful data possible**.
+
+   This rule complements rule 8 of [`CLAUDE.md`](../../CLAUDE.md) (server-roadmap migration tracking): the eventual own-server is the **destination**, not the **fix** — the on-server data shape must be minimal at design time, not retrofit-able later. Wire-format decisions made now constrain what own-server can know later (rule 5 of CLAUDE.md — wire-format versioning).
 
 ---
 

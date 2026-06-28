@@ -161,15 +161,18 @@
 
 ### RECOVERY + KEY MANAGEMENT (spec 018 / F-5 + S-2)
 
-**SRV-RECOVERY-001: Own-server recovery key vault** (replaces Firestore-based vault) + atomic brute-force counter.
-- *Сейчас:* recovery key admin'а зашифрован его passphrase'ом и лежит в Firestore `users/{uid}/recovery-key`. Firestore доступен любым actor'ам с правильным Google auth → cloud-feature разработчик / Google / forensics видит ciphertext (но не plaintext без passphrase). Brute-force защита — local DataStore counter (per FR-027 resolved 2026-06-19, H-1 mitigation): 3 попытки / hour sliding window, обходится через Clear App Data / factory reset / root.
-- *Сервер должен:*
-  - (a) предоставлять `RecoveryKeyVault` endpoint с better availability guarantees;
-  - (b) явный audit log access;
-  - (c) no third-party (Google) data residency;
-  - (d) **atomic counter increment** — server-side rate-limit, который **полностью** закрывает H-1: brute-force нельзя обойти через Clear App Data (counter не на устройстве), нельзя через factory reset (counter привязан к UID, а не к устройству), нельзя через root (counter не доступен клиентскому коду). Cost атаки повышается до server-side throttling (нет способа обойти);
-  - (e) защита от schema-version downgrade (per SRV-RECOVERY-002 below).
-- *Когда поедет:* при появлении собственного сервера; F-5 декларирует `RecoveryKeyVault` port — adapter swap без переписывания F-5 кода.
+**SRV-RECOVERY-001: Own-server recovery key vault** (replaces Cloudflare Worker MVP adapter) + atomic brute-force counter.
+- *Сейчас (MVP adapter, per spec [task-6-root-key-hierarchy-recovery](../../specs/task-6-root-key-hierarchy-recovery/) 2026-06-28):* recovery key пользователя зашифрован его passphrase'ом (Argon2id + AEAD) и лежит в **нашем Cloudflare Worker'е** `workers/backup/` (планируется), endpoint `POST /backup` / `GET /backup/{stableId}` / `DELETE /backup/{stableId}`. Storage — Workers KV (free 1GB) или R2 (strongly consistent, free 10GB; **рекомендуется R2** из-за eventual-consistency проблемы KV для cross-device recovery первые ~60 сек). Аутентификация — Firebase JWT (Bearer header) verified через `workers/_shared/auth-jwt/`. Worker читает `claims.stableId` (custom claim, выпускается одной строчкой Admin SDK при первом sign-in) и сверяет с path'овым `{stableId}` (403 если несовпадение). Brute-force защита — Argon2id work-factor (interactive params 64 MiB / 3 iter / 1 par) + per-identity DataStore counter на клиенте (3-5 попыток / hour sliding window). **Server-side rate-limit пока in-memory в Worker'е** — сбрасывается при перезапуске instance, обходится сменой IP. Этот недостаток — explicit MVP trade-off, закрывается в SRV-RECOVERY-001 (a-d) ниже.
+- *Worker (MVP) гарантирует Article XIV §7 minimization:* (i) path содержит только `stableId` (наш UUID, **не** Google sub / email / phone); (ii) blob — ciphertext + KDF params, никакого plaintext PII; (iii) Worker access logs (Cloudflare) видят только `{stableId, timestamp, IP}` — кросс-юзерные отношения (pairing, family group) **не реконструируются** из логов backup endpoint'а; (iv) при compromise Cloudflare access logs атакующий получает мало полезного — IP+stableId+timestamp недостаточно для reidentification без отдельного источника stableId→identity маппинга.
+- *Migration на собственный сервер (рекомендуется при triggers):*
+  - (a) **`HttpRecoveryBackupStorage` adapter** поверх REST API собственного backend'а; wire format `RecoveryKeyBackupBlob` (JSON + schemaVersion=1) остаётся прежним — миграция blob'ов через background reconciler / dual-write window;
+  - (b) явный audit log access (наши логи, не Cloudflare);
+  - (c) no third-party data residency;
+  - (d) **persistent atomic counter** для rate-limit — server-side counter привязан к `stableId` в БД (PostgreSQL), нельзя обнулить через Clear App Data / IP change / factory reset. Cost атаки = N attempts/hour, нет workaround'а;
+  - (e) защита от schema-version downgrade (per SRV-RECOVERY-002 below);
+  - (f) Article XIV §7 (b)+(c): persistent records хранят ciphertext + минимум routing-metadata; нет shared rooms / cross-user тэгов.
+- *Когда поедет:* любой из триггеров — (1) первый incident-report «попытка взлома recovery» в beta; (2) Cloudflare KV/R2 free tier превышен; (3) requirement на audit log / data residency / GDPR compliance; (4) приезд PostgreSQL/own-VPS по другому компоненту (push-worker / config sync); (5) launcher выходит из MVP в production.
+- *Architectural seam уже на месте:* `RecoveryKeyBackup` port в `core/keys/` — adapter swap (`WorkerRecoveryKeyBackup` → `HttpRecoveryBackupStorage`) **без** переписывания F-5 кода. Это и есть **exit ramp destination** (rule 3 CLAUDE.md) для one-way door'а «Worker как MVP backup storage».
 
 **SRV-CRYPTO-005: Out-of-band fingerprint verification (Safety Number screen в pairing'е).**
 - *Сейчас:* QR pairing полностью «чёрный ящик» с точки зрения user'а — никакого fingerprint сравнения двух pubkey'ев. Ghost device attack vector: Firebase / atttacker с server-write-access может тихо подменить pubkey recipient'а. Accepted risk per F-5 clarify 2026-06-19 («чем тупее сервер, тем лучше»).

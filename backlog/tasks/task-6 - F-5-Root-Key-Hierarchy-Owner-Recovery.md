@@ -1,10 +1,10 @@
 ---
 id: TASK-6
 title: Root Key Hierarchy + Owner Recovery
-status: Paused
+status: In Progress
 assignee: []
 created_date: '2026-06-23 05:01'
-updated_date: '2026-06-23 09:44'
+updated_date: '2026-06-28 07:16'
 labels:
   - phase-1
   - F-feature
@@ -20,7 +20,7 @@ dependencies:
   - TASK-5
   - TASK-49
 references:
-  - specs/020-f5-root-key-hierarchy-recovery/
+  - specs/task-6-root-key-hierarchy-recovery/
 priority: high
 ordinal: 6000
 ---
