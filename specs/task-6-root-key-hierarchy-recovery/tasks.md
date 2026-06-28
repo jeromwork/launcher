@@ -24,6 +24,10 @@ ID numbering: `T6NN` consistent with task-6 (spec 003 used T3NN; spec task-49 us
 
 - [x] **T600** **STOP and read** existing `core/keys/` module (already exists from spec 018 / TASK-4 F-5b). Inventory what's there. Produce `specs/task-6-root-key-hierarchy-recovery/inventory.md` with three lists: (a) **KEEP** files (legacy F-5b that F-5 builds on — e.g., `ConfigCipher2.kt`, `AuthIdentity.kt`, `Envelope.kt`); (b) **MIGRATE** files (touched by F-5, e.g., `ConfigCipher2` per FR-018 byte-equal); (c) **ADD** files (new F-5 types — `RootKey.kt`, `KeyRegistry.kt`, `RecoveryKeyBackup.kt`, etc. per plan.md §Project Structure). NO code changes in T600 — only inventory. (Mandatory pre-implementation reconciliation per gemini-handoff.md §«Existing code reality».)
 
+### Phase 0.5 — A1 Wire-format alignment (mandatory pre-Phase-2 blocker)
+
+- [ ] **T600.5** **A1 resolution — wire-format alignment**: implement Variant 2 per [a1-resolution.md](./a1-resolution.md). Restructures `RecoveryKeyBackupBlob` to match contract `recovery-key-backup-v1.md` shape (adds `stableId`, renames `kdfSalt`→`salt`, `wrappedRootKey`→`ciphertext`, drops top-level `algorithm`, `createdAt: Long`→`Instant`). Consolidates `PassphraseKdfParams`→`KdfParams`. Regenerates v1/v2 fixtures. Updates 4 production + 7 test files. Preserves `AAD_PREFIX` (D4 scope exclusion). **Phase 2 blocked until this is green.** (A1 STOP-block resolution — owner decision 2026-06-28)
+
 ### Setup
 
 - [x] **T601** **Verify existing** `core/keys/build.gradle.kts`. Module ALREADY exists (from spec 018 / TASK-4). Do **NOT** create new module. Only changes allowed: (i) add `kotlinx-serialization-json` if not already in dependencies (it likely is for envelope JSON); (ii) verify dependency on `:core:crypto` (libsodium primitives from TASK-51) is wired. Verify `./gradlew :core:keys:build` succeeds with no changes (baseline). (Plan §Project Structure — adjusted to actual codebase reality.)
