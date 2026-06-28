@@ -4,7 +4,7 @@ import cryptokit.crypto.api.PasswordHash
 import kotlinx.serialization.Serializable
 
 /**
- * Argon2id KDF параметры, embedded в [RecoveryVaultBlob].
+ * Argon2id KDF параметры, embedded в [RecoveryKeyBackupBlob].
  *
  * **Default = interactive profile** (spec 018 FR-030):
  *  • memory = 64 MiB (`PasswordHash.DEFAULT_MEMORY_KIB` = 65 536 KiB)

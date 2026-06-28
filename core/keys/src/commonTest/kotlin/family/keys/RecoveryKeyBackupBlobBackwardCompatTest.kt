@@ -1,14 +1,14 @@
 package family.keys
 
-import family.keys.api.RecoveryVaultBlob
+import family.keys.api.RecoveryKeyBackupBlob
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * Backward-compat test для [RecoveryVaultBlob] wire-format (T081, CLAUDE.md rule 5).
+ * Backward-compat test для [RecoveryKeyBackupBlob] wire-format (T081, CLAUDE.md rule 5).
  */
-class RecoveryVaultBackwardCompatTest {
+class RecoveryKeyBackupBlobBackwardCompatTest {
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -33,7 +33,7 @@ class RecoveryVaultBackwardCompatTest {
 
     @Test
     fun v1FixtureDecodes() {
-        val parsed = json.decodeFromString<RecoveryVaultBlob>(v1Fixture)
+        val parsed = json.decodeFromString<RecoveryKeyBackupBlob>(v1Fixture)
         assertEquals(1, parsed.schemaVersion)
         assertEquals("argon2id-xchacha20poly1305-v1", parsed.algorithm)
         assertEquals(16, parsed.kdfSalt.size)
@@ -47,9 +47,9 @@ class RecoveryVaultBackwardCompatTest {
 
     @Test
     fun v1FixtureRoundtripStable() {
-        val parsed = json.decodeFromString<RecoveryVaultBlob>(v1Fixture)
-        val text = Json { encodeDefaults = true }.encodeToString(RecoveryVaultBlob.serializer(), parsed)
-        val reparsed = json.decodeFromString<RecoveryVaultBlob>(text)
+        val parsed = json.decodeFromString<RecoveryKeyBackupBlob>(v1Fixture)
+        val text = Json { encodeDefaults = true }.encodeToString(RecoveryKeyBackupBlob.serializer(), parsed)
+        val reparsed = json.decodeFromString<RecoveryKeyBackupBlob>(text)
         assertEquals(parsed, reparsed)
     }
 
@@ -68,7 +68,7 @@ class RecoveryVaultBackwardCompatTest {
               "futureField2": 42
             }
         """.trimIndent()
-        val parsed = json.decodeFromString<RecoveryVaultBlob>(fwd)
+        val parsed = json.decodeFromString<RecoveryKeyBackupBlob>(fwd)
         assertEquals(1, parsed.schemaVersion)
     }
 }

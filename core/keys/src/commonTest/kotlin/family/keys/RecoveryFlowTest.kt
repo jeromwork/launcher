@@ -9,10 +9,10 @@ import cryptokit.crypto.libsodium.LibsodiumRandomSource
 import family.keys.api.AuthIdentity
 import family.keys.api.Outcome
 import family.keys.api.RecoveryError
-import family.keys.api.RecoveryVaultBlob
+import family.keys.api.RecoveryKeyBackupBlob
 import family.keys.api.RootKey
 import family.keys.fakes.FakePassphrasePrompter
-import family.keys.fakes.FakeRecoveryKeyVault
+import family.keys.fakes.FakeRecoveryKeyBackup
 import family.keys.api.PassphraseKdfParams
 import family.keys.fakes.InMemoryAttemptCounter
 import family.keys.impl.Argon2idPassphraseKdf
@@ -49,13 +49,13 @@ class RecoveryFlowTest {
         val random = LibsodiumRandomSource()
         val aead = LibsodiumAeadCipher()
         val rootMgr = RootKeyManagerImpl(keystore, random, aead)
-        val vault = FakeRecoveryKeyVault()
+        val backup = FakeRecoveryKeyBackup()
         val kdf = Argon2idPassphraseKdf(LibsodiumArgon2idPasswordHash())
         val prompter = FakePassphrasePrompter()
         val counter = InMemoryAttemptCounter()
         val flow = RecoveryFlow(
             rootKeyManager = rootMgr,
-            vault = vault,
+            backup = backup,
             kdf = kdf,
             aead = aead,
             random = random,
@@ -63,12 +63,12 @@ class RecoveryFlowTest {
             attemptCounter = counter,
             setupKdfParams = fastParams
         )
-        return Setup(rootMgr, vault, prompter, counter, flow)
+        return Setup(rootMgr, backup, prompter, counter, flow)
     }
 
     private data class Setup(
         val rootMgr: RootKeyManagerImpl,
-        val vault: FakeRecoveryKeyVault,
+        val backup: FakeRecoveryKeyBackup,
         val prompter: FakePassphrasePrompter,
         val counter: InMemoryAttemptCounter,
         val flow: RecoveryFlow
@@ -83,8 +83,8 @@ class RecoveryFlowTest {
         val setup = s.flow.performSetup(identity, root)
         assertIs<Outcome.Success<Unit>>(setup)
 
-        assertTrue(s.vault.has(uid))
-        val blob = (s.vault.fetchVault(uid) as Outcome.Success<RecoveryVaultBlob>).value
+        assertTrue(s.backup.has(uid))
+        val blob = (s.backup.fetchBlob(uid) as Outcome.Success<RecoveryKeyBackupBlob>).value
         assertEquals(1, blob.schemaVersion)
         assertEquals("argon2id-xchacha20poly1305-v1", blob.algorithm)
         assertEquals(16, blob.kdfSalt.size)
@@ -109,12 +109,12 @@ class RecoveryFlowTest {
         val rootA = (sA.rootMgr.getOrCreate(identity) as Outcome.Success<RootKey>).value
         sA.prompter.enqueueSetup("my-secret-passphrase")
         assertIs<Outcome.Success<Unit>>(sA.flow.performSetup(identity, rootA))
-        val blob = (sA.vault.fetchVault(uid) as Outcome.Success<RecoveryVaultBlob>).value
+        val blob = (sA.backup.fetchBlob(uid) as Outcome.Success<RecoveryKeyBackupBlob>).value
         val rootABytes = rootA.bytes.copyOf()
 
         // Client B: новое устройство, fresh Keystore, тот же UID, тот же vault state.
         val sB = makeSetup()
-        sB.vault.seed(uid, blob)
+        sB.backup.seed(uid, blob)
         sB.prompter.enqueueRecovery("my-secret-passphrase")
 
         val recovered = (sB.flow.performRecovery(identity) as Outcome.Success<RootKey>).value
@@ -127,10 +127,10 @@ class RecoveryFlowTest {
         val rootA = (sA.rootMgr.getOrCreate(identity) as Outcome.Success<RootKey>).value
         sA.prompter.enqueueSetup("right-passphrase")
         sA.flow.performSetup(identity, rootA)
-        val blob = (sA.vault.fetchVault(uid) as Outcome.Success<RecoveryVaultBlob>).value
+        val blob = (sA.backup.fetchBlob(uid) as Outcome.Success<RecoveryKeyBackupBlob>).value
 
         val sB = makeSetup()
-        sB.vault.seed(uid, blob)
+        sB.backup.seed(uid, blob)
         sB.prompter.enqueueRecovery("wrong-passphrase")
 
         val attempt = sB.flow.performRecovery(identity)
@@ -146,10 +146,10 @@ class RecoveryFlowTest {
         val rootA = (sA.rootMgr.getOrCreate(identity) as Outcome.Success<RootKey>).value
         sA.prompter.enqueueSetup("correct-pw")
         sA.flow.performSetup(identity, rootA)
-        val blob = (sA.vault.fetchVault(uid) as Outcome.Success<RecoveryVaultBlob>).value
+        val blob = (sA.backup.fetchBlob(uid) as Outcome.Success<RecoveryKeyBackupBlob>).value
 
         val sB = makeSetup()
-        sB.vault.seed(uid, blob)
+        sB.backup.seed(uid, blob)
         repeat(3) { sB.prompter.enqueueRecovery("wrong-$it") }
 
         val r1 = sB.flow.performRecovery(identity)
@@ -170,10 +170,10 @@ class RecoveryFlowTest {
         val rootA = (sA.rootMgr.getOrCreate(identity) as Outcome.Success<RootKey>).value
         sA.prompter.enqueueSetup("correct-pw")
         sA.flow.performSetup(identity, rootA)
-        val blob = (sA.vault.fetchVault(uid) as Outcome.Success<RecoveryVaultBlob>).value
+        val blob = (sA.backup.fetchBlob(uid) as Outcome.Success<RecoveryKeyBackupBlob>).value
 
         val sB = makeSetup()
-        sB.vault.seed(uid, blob)
+        sB.backup.seed(uid, blob)
         // 3 неправильных + 4-й попытка с правильным.
         repeat(3) { sB.prompter.enqueueRecovery("wrong-$it") }
         sB.prompter.enqueueRecovery("correct-pw")
@@ -208,8 +208,8 @@ class RecoveryFlowTest {
         sA.flow.performSetup(idAlice, rootAlice)
         sA.flow.performSetup(idBob, rootBob)
 
-        val blobAlice = (sA.vault.fetchVault("uid-alice") as Outcome.Success<RecoveryVaultBlob>).value
-        val blobBob = (sA.vault.fetchVault("uid-bob") as Outcome.Success<RecoveryVaultBlob>).value
+        val blobAlice = (sA.backup.fetchBlob("uid-alice") as Outcome.Success<RecoveryKeyBackupBlob>).value
+        val blobBob = (sA.backup.fetchBlob("uid-bob") as Outcome.Success<RecoveryKeyBackupBlob>).value
         // FR-021 domain separation: same passphrase + different UID → different wrappedRootKey.
         assertTrue(
             !blobAlice.wrappedRootKey.contentEquals(blobBob.wrappedRootKey),
@@ -225,10 +225,10 @@ class RecoveryFlowTest {
         val rootA = (sA.rootMgr.getOrCreate(identity) as Outcome.Success<RootKey>).value
         sA.prompter.enqueueSetup("correct-pw")
         sA.flow.performSetup(identity, rootA)
-        val blob = (sA.vault.fetchVault(uid) as Outcome.Success<RecoveryVaultBlob>).value
+        val blob = (sA.backup.fetchBlob(uid) as Outcome.Success<RecoveryKeyBackupBlob>).value
 
         val sB = makeSetup()
-        sB.vault.seed(uid, blob)
+        sB.backup.seed(uid, blob)
         sB.prompter.enqueueRecovery("wrong")
         sB.prompter.enqueueRecovery("correct-pw")
         sB.flow.performRecovery(identity) // wrong → counter = 1
@@ -243,12 +243,12 @@ class RecoveryFlowTest {
         val rootA = (sA.rootMgr.getOrCreate(identity) as Outcome.Success<RootKey>).value
         sA.prompter.enqueueSetup("correct-pw")
         sA.flow.performSetup(identity, rootA)
-        val blob = (sA.vault.fetchVault(uid) as Outcome.Success<RecoveryVaultBlob>).value
+        val blob = (sA.backup.fetchBlob(uid) as Outcome.Success<RecoveryKeyBackupBlob>).value
 
         val sB = makeSetup()
         // Corrupt: truncate wrappedRootKey до 5 байт (вместо 48).
         val corrupted = blob.copy(wrappedRootKey = ByteArray(5) { 0xFF.toByte() })
-        sB.vault.seed(uid, corrupted)
+        sB.backup.seed(uid, corrupted)
         sB.prompter.enqueueRecovery("correct-pw")
 
         val r = sB.flow.performRecovery(identity)

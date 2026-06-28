@@ -3,7 +3,7 @@ package com.launcher.app.di
 import com.google.firebase.firestore.FirebaseFirestore
 import com.launcher.app.data.envelope.FirestoreEnvelopeStorage
 import com.launcher.app.data.envelope.FirestorePublicKeyDirectory
-import com.launcher.app.data.recovery.FirestoreRecoveryKeyVault
+import com.launcher.app.data.recovery.FirestoreRecoveryKeyBackup
 import cryptokit.crypto.api.AeadCipher
 import cryptokit.crypto.api.AsymmetricCrypto
 import cryptokit.crypto.api.RandomSource
@@ -14,7 +14,7 @@ import family.keys.api.AsyncConfigPushQueue
 import family.keys.api.ConfigSaver
 import family.keys.api.EnvelopeBootstrap
 import family.keys.api.IdentityProof
-import family.keys.api.RecoveryKeyVault
+import family.keys.api.RecoveryKeyBackup
 import family.keys.api.RemoteStorage
 import family.keys.api.internal.DeviceIdentity
 import family.keys.api.internal.EnvelopeStorage
@@ -32,7 +32,7 @@ import org.koin.dsl.module
  * Spec 018 (F-5 + F-5b) backend wiring — **realBackend flavor**.
  *
  * F-5 bindings:
- *  - [RecoveryKeyVault] → [FirestoreRecoveryKeyVault]
+ *  - [RecoveryKeyBackup] → [FirestoreRecoveryKeyBackup]
  *
  * F-5b envelope-storage bindings (Batch 4):
  *  - [DeviceIdentity] → [AndroidDeviceIdentity]
@@ -46,8 +46,8 @@ import org.koin.dsl.module
  * into domain or UI layers.
  */
 val f018KeysBackendModule = module {
-    single<RecoveryKeyVault> {
-        FirestoreRecoveryKeyVault(firestore = FirebaseFirestore.getInstance())
+    single<RecoveryKeyBackup> {
+        FirestoreRecoveryKeyBackup(firestore = FirebaseFirestore.getInstance())
     }
 
     single<DeviceIdentity> {

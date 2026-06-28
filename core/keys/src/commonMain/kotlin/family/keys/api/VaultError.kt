@@ -1,7 +1,7 @@
 package family.keys.api
 
 /**
- * Ошибки [RecoveryKeyVault] операций (FR-025).
+ * Ошибки [RecoveryKeyBackup] операций (FR-025).
  *
  * Per contracts/recovery-vault-v1.md:
  *  • [NotFound] — vault для этого UID не существует (новый user).

@@ -30,7 +30,7 @@ import kotlinx.coroutines.sync.withLock
  * `MutableMap`; thread-safety через [mutex].
  *
  * **Wipe semantics**: `wipe(identity)` удаляет из SecureKeyStore + обнуляет
- * cached instance. НЕ удаляет Firestore vault (RecoveryKeyVault.deleteVault —
+ * cached instance. НЕ удаляет Firestore backup (RecoveryKeyBackup.deleteBlob —
  * отдельный вызов).
  */
 class RootKeyManagerImpl(

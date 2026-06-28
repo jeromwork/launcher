@@ -26,7 +26,7 @@ import kotlinx.serialization.Serializable
  * multi-app cohabitation (S-2) без cross-app vault leak'ов.
  */
 @Serializable
-data class RecoveryVaultBlob(
+data class RecoveryKeyBackupBlob(
     val schemaVersion: Int = SCHEMA_VERSION,
     val algorithm: String = ALGORITHM_V1,
     @Serializable(with = ByteArrayBase64Serializer::class)
@@ -40,7 +40,7 @@ data class RecoveryVaultBlob(
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        if (other !is RecoveryVaultBlob) return false
+        if (other !is RecoveryKeyBackupBlob) return false
         return schemaVersion == other.schemaVersion &&
             algorithm == other.algorithm &&
             kdfSalt.contentEquals(other.kdfSalt) &&

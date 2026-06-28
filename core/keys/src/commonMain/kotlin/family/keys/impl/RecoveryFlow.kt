@@ -10,8 +10,8 @@ import family.keys.api.PassphraseAttemptCounter
 import family.keys.api.PassphraseKdfParams
 import family.keys.api.PassphrasePrompter
 import family.keys.api.RecoveryError
-import family.keys.api.RecoveryKeyVault
-import family.keys.api.RecoveryVaultBlob
+import family.keys.api.RecoveryKeyBackup
+import family.keys.api.RecoveryKeyBackupBlob
 import family.keys.api.RootKey
 import family.keys.api.VaultError
 import kotlinx.datetime.Clock
@@ -22,10 +22,10 @@ import kotlinx.datetime.Clock
  * **Setup flow** ([performSetup]): после генерации root key (через
  * [RootKeyManagerImpl.getOrCreate]) — запросить passphrase у user'а →
  * derive Argon2id wrapKey → AEAD-wrap root key → upload blob в
- * [RecoveryKeyVault].
+ * [RecoveryKeyBackup].
  *
  * **Recovery flow** ([performRecovery]): на новом устройстве после Sign-In —
- * fetchVault → prompt passphrase → derive wrapKey → AEAD-unwrap root → seed
+ * fetchBlob → prompt passphrase → derive wrapKey → AEAD-unwrap root → seed
  * RootKeyManager local cache + persistent SecureKeyStore через
  * `RootKeyManagerImpl.seedFromRecovery`.
  *
@@ -39,7 +39,7 @@ import kotlinx.datetime.Clock
  */
 class RecoveryFlow(
     private val rootKeyManager: RootKeyManagerImpl,
-    private val vault: RecoveryKeyVault,
+    private val backup: RecoveryKeyBackup,
     private val kdf: Argon2idPassphraseKdf,
     private val aead: AeadCipher,
     private val random: RandomSource,
@@ -51,7 +51,7 @@ class RecoveryFlow(
 ) {
 
     /**
-     * Создаёт RecoveryVaultBlob и upload'ит в Vault. Вызывается сразу после
+     * Создаёт RecoveryKeyBackupBlob и upload'ит в Backup. Вызывается сразу после
      * генерации root key через [RootKeyManagerImpl.getOrCreate].
      *
      * Идемпотентно: повторный setup для same UID — overwrite blob (rotation
@@ -78,14 +78,14 @@ class RecoveryFlow(
             val ct: Ciphertext = aead.encrypt(rootKey.bytes, wrapKey, aad)
             val nonce = ct.bytes.copyOfRange(0, 24)
             val cipherPart = ct.bytes.copyOfRange(24, ct.bytes.size)
-            val blob = RecoveryVaultBlob(
+            val blob = RecoveryKeyBackupBlob(
                 kdfSalt = kdfSalt,
                 kdfParams = params,
                 wrappedRootKey = cipherPart,
                 nonce = nonce,
                 createdAt = clock.now().toEpochMilliseconds()
             )
-            return when (val s = vault.storeVault(identity.stableId, blob)) {
+            return when (val s = backup.uploadBlob(identity.stableId, blob)) {
                 is Outcome.Success -> Outcome.Success(Unit)
                 is Outcome.Failure -> Outcome.Failure(RecoveryError.MalformedVault) // upstream error surfaced as broad
             }
@@ -100,7 +100,7 @@ class RecoveryFlow(
      * `RootKeyManagerImpl.getOrCreate` ранее вернул `RecoveryRequired`
      * (Keystore пуст для этой identity).
      *
-     * Step 1: fetchVault. Если NotFound → NoVaultPresent.
+     * Step 1: fetchBlob. Если NotFound → NoVaultPresent.
      * Step 2: check attempt counter (persistent, H-1). Если ≥ maxAttempts → TooManyAttempts.
      * Step 3: prompt passphrase.
      * Step 4: derive wrapKey + AEAD-unwrap. AeadAuthFailed → WrongPassphrase + record attempt.
@@ -109,7 +109,7 @@ class RecoveryFlow(
     suspend fun performRecovery(identity: AuthIdentity): Outcome<RootKey, RecoveryError> {
         require(identity.stableId.isNotEmpty())
 
-        val blob = when (val fetch = vault.fetchVault(identity.stableId)) {
+        val blob = when (val fetch = backup.fetchBlob(identity.stableId)) {
             is Outcome.Success -> fetch.value
             is Outcome.Failure -> return when (fetch.error) {
                 VaultError.NotFound -> Outcome.Failure(RecoveryError.NoVaultPresent)
@@ -120,10 +120,10 @@ class RecoveryFlow(
         }
 
         // Schema-version validation (H-3 analog для recovery blob).
-        if (blob.schemaVersion > RecoveryVaultBlob.SCHEMA_VERSION) {
+        if (blob.schemaVersion > RecoveryKeyBackupBlob.SCHEMA_VERSION) {
             return Outcome.Failure(RecoveryError.MalformedVault)
         }
-        if (blob.algorithm != RecoveryVaultBlob.ALGORITHM_V1) {
+        if (blob.algorithm != RecoveryKeyBackupBlob.ALGORITHM_V1) {
             return Outcome.Failure(RecoveryError.MalformedVault)
         }
 

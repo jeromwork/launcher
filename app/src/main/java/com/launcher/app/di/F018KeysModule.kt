@@ -27,8 +27,8 @@ import org.koin.dsl.module
  *  • [RootKeyManagerImpl] singleton (потребляет F-CRYPTO ports).
  *
  * **Flavor-specific bindings** (см. f018KeysBackendModule):
- *  • [family.keys.api.RecoveryKeyVault] → FirestoreRecoveryKeyVault (realBackend)
- *    или NoOpRecoveryKeyVault (mockBackend / non-GMS fallback).
+ *  • [family.keys.api.RecoveryKeyBackup] → FirestoreRecoveryKeyBackup (realBackend)
+ *    или NoOpRecoveryKeyBackup (mockBackend / non-GMS fallback).
  *  • [family.keys.api.RemoteStorage] / [family.keys.api.ConfigSaver] /
  *    [family.keys.api.EnvelopeBootstrap] (F-5b envelope surface).
  *  • [PassphraseAttemptCounter] → DataStorePassphraseAttemptCounter.

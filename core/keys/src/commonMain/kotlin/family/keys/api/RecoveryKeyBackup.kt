@@ -6,7 +6,7 @@ package family.keys.api
  * **Backend** (production): Firestore по пути `users/{uid}/recovery-key`. Security
  * rules enforce `auth.uid == uid` (FR-009).
  *
- * **Backend** (test/dev): in-memory fake; `OwnServerRecoveryKeyVault` adapter
+ * **Backend** (test/dev): in-memory fake; `OwnServerRecoveryKeyBackup` adapter
  * заменит Firestore variant когда мы переедем на свой сервер (СLAUDE.md rule 8,
  * docs/dev/server-roadmap.md SRV-RECOVERY-001).
  *
@@ -18,20 +18,20 @@ package family.keys.api
  *
  * Per contracts/recovery-vault-v1.md.
  */
-interface RecoveryKeyVault {
+interface RecoveryKeyBackup {
     /**
      * Возвращает blob для UID. Отсутствие → `VaultError.NotFound`.
      */
-    suspend fun fetchVault(uid: String): Outcome<RecoveryVaultBlob, VaultError>
+    suspend fun fetchBlob(uid: String): Outcome<RecoveryKeyBackupBlob, VaultError>
 
     /**
      * Перезаписывает blob (last-write-wins per current backend; transactional
      * conflict surfacing — backend-specific).
      */
-    suspend fun storeVault(uid: String, blob: RecoveryVaultBlob): Outcome<Unit, VaultError>
+    suspend fun uploadBlob(uid: String, blob: RecoveryKeyBackupBlob): Outcome<Unit, VaultError>
 
     /**
      * Удаляет blob (Sign-Out cleanup или recovery reset).
      */
-    suspend fun deleteVault(uid: String): Outcome<Unit, VaultError>
+    suspend fun deleteBlob(uid: String): Outcome<Unit, VaultError>
 }

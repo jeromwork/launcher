@@ -77,7 +77,7 @@ class ImportRestrictionsFitnessTest {
         assertNoViolations(
             violations,
             ruleName = "T121 — no Firebase imports outside app/src/realBackend",
-            hint = "Move Firebase usage to app/src/realBackend/ ACL adapter or guard via RecoveryKeyVault port."
+            hint = "Move Firebase usage to app/src/realBackend/ ACL adapter or guard via RecoveryKeyBackup port."
         )
     }
 

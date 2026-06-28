@@ -6,9 +6,9 @@ package family.keys.api
  * **Lifecycle**:
  *  1. First Sign-In: generate 256-bit random root key → wrap via SecureKeyStore →
  *     persist wrapped blob → prompt user to set passphrase → derive Argon2id wrapKey →
- *     AEAD-wrap root → upload to [RecoveryKeyVault].
+ *     AEAD-wrap root → upload to [RecoveryKeyBackup].
  *  2. Subsequent launches: read wrapped blob → unwrap via SecureKeyStore → return.
- *  3. New device (Sign-In но Keystore пуст): fetchVault → если есть → prompt passphrase →
+ *  3. New device (Sign-In но Keystore пуст): fetchBlob → если есть → prompt passphrase →
  *     derive Argon2id → unwrap → re-persist в local Keystore.
  *  4. Recovery missing: return `RecoveryRequired`. UI offers "set up as new device" path.
  *
@@ -29,8 +29,8 @@ interface RootKeyManager {
      * Удаляет root key конкретной identity (Sign-Out + local cleanup). Также
      * удаляет связанные DEK'и из [KeyRegistry] для этой identity.
      *
-     * NOT touches Firestore recovery-vault — это server-side responsibility
-     * через `RecoveryKeyVault.deleteVault` отдельно.
+     * NOT touches Firestore recovery-backup — это server-side responsibility
+     * через `RecoveryKeyBackup.deleteBlob` отдельно.
      */
     suspend fun wipe(identity: AuthIdentity): Outcome<Unit, RootKeyError>
 }

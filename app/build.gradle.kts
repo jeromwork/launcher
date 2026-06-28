@@ -184,7 +184,7 @@ dependencies {
     "realBackendImplementation"("com.google.guava:guava:33.4.0-android")
 
     // Firebase SDKs needed by realBackend adapters (FirestoreEnvelopeStorage,
-    // FirestorePublicKeyDirectory, FirestoreRecoveryKeyVault, FirebaseEmulatorWiring).
+    // FirestorePublicKeyDirectory, FirestoreRecoveryKeyBackup, FirebaseEmulatorWiring).
     "realBackendImplementation"(platform(libs.firebase.bom))
     "realBackendImplementation"(libs.firebase.firestore.ktx)
     "realBackendImplementation"(libs.firebase.auth.ktx)

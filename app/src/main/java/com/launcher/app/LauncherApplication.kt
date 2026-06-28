@@ -107,7 +107,7 @@ class LauncherApplication : Application(), Configuration.Provider {
                 pairingModule, // spec 007 PairingService + PairingViewModel
                 cryptokitModule, // TASK-51 unified: spec 016 (F-CRYPTO) ports + spec 011 pairing-side adapters + coordinator
                 f018KeysModule,   // spec 018 (F-5) RootKeyManager + IdentityProof + Argon2id KDF
-                f018KeysBackendModule, // spec 018 RecoveryKeyVault (flavor-resolved)
+                f018KeysBackendModule, // spec 018 RecoveryKeyBackup (flavor-resolved)
                 f019PushCommonModule,  // spec 019 (F-5c) PushHandlerRegistry + ConfigUpdatedHandler
                 f019PushBackendModule, // spec 019 PushTrigger / FcmTokenPublisher / ConfigChangeNotifier (flavor-resolved)
                 cloudModule,   // TASK-49 CloudAvailability + EmergencyNumberResolver + SOSDialerAlternative

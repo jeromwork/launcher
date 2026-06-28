@@ -5,18 +5,18 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import family.keys.api.Outcome
 import family.keys.api.PassphraseKdfParams
-import family.keys.api.RecoveryKeyVault
-import family.keys.api.RecoveryVaultBlob
+import family.keys.api.RecoveryKeyBackup
+import family.keys.api.RecoveryKeyBackupBlob
 import family.keys.api.VaultError
 import kotlinx.coroutines.tasks.await
 
 /**
- * Firestore adapter для [RecoveryKeyVault] (T045, FR-008, FR-009).
+ * Firestore adapter для [RecoveryKeyBackup] (T045, FR-008, FR-009).
  *
  * **Firebase Firestore SDK импортируется ТОЛЬКО здесь** — per CLAUDE.md rule 2 (ACL).
  * Domain (`:core:keys`) и UI не знают о Firebase.
  *
- * **Path**: `users/{uid}/recovery-key/main`. Document'ы хранят [RecoveryVaultBlob]
+ * **Path**: `users/{uid}/recovery-key/main`. Document'ы хранят [RecoveryKeyBackupBlob]
  * как **native Firestore typed fields** (bytes / int / map) — НЕ как JSON blob
  * в одном string поле. Это позволяет Firestore Rules валидировать shape (sizes,
  * types) per contracts/firestore-security-rules.md.
@@ -35,18 +35,18 @@ import kotlinx.coroutines.tasks.await
  * ре-проверяет на клиенте — server-side rules — source of truth.
  *
  * TODO(server-roadmap SRV-RECOVERY-001): когда переедем на свой сервер,
- * заменим этим OwnServerRecoveryKeyVault. F-5 domain не трогается, только
+ * заменим этим OwnServerRecoveryKeyBackup. F-5 domain не трогается, только
  * этот файл и DI binding.
  */
-class FirestoreRecoveryKeyVault(
+class FirestoreRecoveryKeyBackup(
     private val firestore: FirebaseFirestore
-) : RecoveryKeyVault {
+) : RecoveryKeyBackup {
 
     private fun docRef(uid: String) =
         firestore.collection(COLLECTION_USERS).document(uid)
             .collection(COLLECTION_RECOVERY).document(DOCUMENT_MAIN)
 
-    override suspend fun fetchVault(uid: String): Outcome<RecoveryVaultBlob, VaultError> {
+    override suspend fun fetchBlob(uid: String): Outcome<RecoveryKeyBackupBlob, VaultError> {
         if (uid.isEmpty()) return Outcome.Failure(VaultError.Unauthorized)
         return try {
             val snap = docRef(uid).get().await()
@@ -67,7 +67,7 @@ class FirestoreRecoveryKeyVault(
         }
     }
 
-    override suspend fun storeVault(uid: String, blob: RecoveryVaultBlob): Outcome<Unit, VaultError> {
+    override suspend fun uploadBlob(uid: String, blob: RecoveryKeyBackupBlob): Outcome<Unit, VaultError> {
         if (uid.isEmpty()) return Outcome.Failure(VaultError.Unauthorized)
         return try {
             docRef(uid).set(encodeBlob(blob)).await()
@@ -83,7 +83,7 @@ class FirestoreRecoveryKeyVault(
         }
     }
 
-    private fun encodeBlob(blob: RecoveryVaultBlob): Map<String, Any> = mapOf(
+    private fun encodeBlob(blob: RecoveryKeyBackupBlob): Map<String, Any> = mapOf(
         FIELD_SCHEMA_VERSION to blob.schemaVersion,
         FIELD_ALGORITHM to blob.algorithm,
         FIELD_KDF_SALT to Blob.fromBytes(blob.kdfSalt),
@@ -98,7 +98,7 @@ class FirestoreRecoveryKeyVault(
     )
 
     @Suppress("UNCHECKED_CAST")
-    private fun decodeBlob(data: Map<String, Any>): RecoveryVaultBlob? = try {
+    private fun decodeBlob(data: Map<String, Any>): RecoveryKeyBackupBlob? = try {
         val schemaVersion = (data[FIELD_SCHEMA_VERSION] as? Number)?.toInt() ?: return null
         val algorithm = data[FIELD_ALGORITHM] as? String ?: return null
         val kdfSalt = (data[FIELD_KDF_SALT] as? Blob)?.toBytes() ?: return null
@@ -111,7 +111,7 @@ class FirestoreRecoveryKeyVault(
         val wrappedRootKey = (data[FIELD_WRAPPED_ROOT_KEY] as? Blob)?.toBytes() ?: return null
         val nonce = (data[FIELD_NONCE] as? Blob)?.toBytes() ?: return null
         val createdAt = (data[FIELD_CREATED_AT] as? Number)?.toLong() ?: return null
-        RecoveryVaultBlob(
+        RecoveryKeyBackupBlob(
             schemaVersion = schemaVersion,
             algorithm = algorithm,
             kdfSalt = kdfSalt,
@@ -124,7 +124,7 @@ class FirestoreRecoveryKeyVault(
         null
     }
 
-    override suspend fun deleteVault(uid: String): Outcome<Unit, VaultError> {
+    override suspend fun deleteBlob(uid: String): Outcome<Unit, VaultError> {
         if (uid.isEmpty()) return Outcome.Failure(VaultError.Unauthorized)
         return try {
             docRef(uid).delete().await()

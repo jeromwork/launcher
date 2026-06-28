@@ -26,11 +26,11 @@ import family.keys.api.PassphraseKdfParams
  *
  * TODO(future-spec algorithm-migration): при переходе на Argon2id v2 или другую
  * memory-hard функцию (например, scrypt или новую libsodium primitive) добавить:
- *  1. New algorithm string в [family.keys.api.RecoveryVaultBlob.algorithm] (например
+ *  1. New algorithm string в [family.keys.api.RecoveryKeyBackupBlob.algorithm] (например
  *     "argon2id-v2-xchacha20poly1305-v1");
  *  2. Branching в [family.keys.impl.RecoveryFlow.performRecovery] по algorithm
  *     поле для backward-compat read;
- *  3. Re-wrap при successful recovery в новый algorithm + повторный storeVault.
+ *  3. Re-wrap при successful recovery в новый algorithm + повторный uploadBlob.
  */
 class Argon2idPassphraseKdf(
     private val passwordHash: PasswordHash
@@ -40,7 +40,7 @@ class Argon2idPassphraseKdf(
      * Derive 32-byte wrap key из passphrase + kdfSalt + uid.
      *
      * @param passphrase CharArray (caller обнуляет после).
-     * @param kdfSalt 16 байт случайного salt из [RecoveryVaultBlob.kdfSalt].
+     * @param kdfSalt 16 байт случайного salt из [RecoveryKeyBackupBlob.kdfSalt].
      * @param uid Identity stableId для domain separation.
      * @param params Argon2id параметры (memory/iterations/parallelism).
      * @return 32-byte derived key. Caller обнуляет `.fill(0)` после wrap/unwrap (G-1).

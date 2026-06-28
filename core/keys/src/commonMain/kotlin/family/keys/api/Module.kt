@@ -13,8 +13,8 @@ package family.keys.api
  *  - [RootKeyManager] — root key per [AuthIdentity], wraps via
  *    [family.crypto.api.SecureKeyStore]. Used by recovery flow.
  *  - [IdentityProof] — abstraction over F-4 AuthProvider.
- *  - [RecoveryKeyVault] — Firestore-backed passphrase-encrypted root key
- *    vault.
+ *  - [RecoveryKeyBackup] — Firestore-backed passphrase-encrypted root key
+ *    backup.
  *
  * Internal-to-keys SPI (backend adapter contracts):
  *  - [family.keys.api.internal.ConfigCipher2] — hybrid envelope crypto.

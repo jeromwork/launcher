@@ -2,7 +2,7 @@ package family.keys
 
 import family.keys.api.Envelope
 import family.keys.api.PassphraseKdfParams
-import family.keys.api.RecoveryVaultBlob
+import family.keys.api.RecoveryKeyBackupBlob
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
@@ -14,8 +14,8 @@ import kotlin.test.assertTrue
  * JSON wire-format roundtrip sanity check for the surviving `:core:keys`
  * wire types (CLAUDE.md rule 5).
  *
- * Full backward-compat fixture tests for [RecoveryVaultBlob] live in
- * [RecoveryVaultBackwardCompatTest]. The envelope wire format
+ * Full backward-compat fixture tests for [RecoveryKeyBackupBlob] live in
+ * [RecoveryKeyBackupBlobBackwardCompatTest]. The envelope wire format
  * (Envelope) is covered by [EnvelopeConfigCipherRoundtripTest] +
  * [EnvelopeRemoteStorageTest].
  */
@@ -47,8 +47,8 @@ class WireFormatJsonTest {
     }
 
     @Test
-    fun recoveryVaultBlobRoundtrip() {
-        val original = RecoveryVaultBlob(
+    fun recoveryKeyBackupBlobRoundtrip() {
+        val original = RecoveryKeyBackupBlob(
             kdfSalt = ByteArray(16) { 0x42 },
             kdfParams = PassphraseKdfParams(),
             wrappedRootKey = ByteArray(48) { it.toByte() },
@@ -60,7 +60,7 @@ class WireFormatJsonTest {
         assertContains(text, "\"algorithm\":\"argon2id-xchacha20poly1305-v1\"")
         assertContains(text, "\"memoryKib\":65536")
         assertContains(text, "\"iterations\":3")
-        val parsed = json.decodeFromString<RecoveryVaultBlob>(text)
+        val parsed = json.decodeFromString<RecoveryKeyBackupBlob>(text)
         assertEquals(original, parsed)
     }
 
