@@ -159,12 +159,77 @@ For each: surface the issue in one sentence, propose the corrected shape, then c
 - Push after each significant step, not after several piled up.
 - Never use hook-bypassing flags (no-verify, no-gpg-sign, etc.) without explicit user approval.
 - Never commit secrets, signing keys, service-account credentials, or machine-local configuration.
+- **Checklists in chat — red-only summary** (ADR-011). Emit one line per checklist: `checklist-X: N/Total ✓, FAIL: CHK-A (short why), CHK-B (short why)`. Full table stays in `specs/<NNN>/checklists/<name>.md`. Backlog AC carries counts via `[auto:checklist]`. Do not paste full tables in chat — wastes tens of thousands of tokens over a long session.
+- **Change reports — `file:line` markdown links, not diffs** (ADR-011). Emit a list: `- [Foo.kt:42](path/Foo.kt#L42) — one-line description`. Owner does not read code; on demand he opens the link in VSCode (the IDE extension renders `[name.kt:42](path#L42)` natively). Only paste a diff block when the owner explicitly asks for one.
+- **Language by audience** (ADR-011, HARD RULE): write each new artifact in the language of its primary audience. **English** for AI-only files: `CLAUDE.md`, ADRs, `plan.md`, `tasks.md`, `contracts/`, `checklists/`, skill `SKILL.md`, code comments, commit bodies, PR descriptions. **Russian** for owner-facing files: `spec.md`, backlog task descriptions, `vision.md`, `docs/product/use-cases/*`, MENTOR-DETAIL blocks inside sequences, novice TL;DR summaries, chat replies to owner. Reason: English is ~30% denser for AI parsing; Russian in AI-only files wastes tokens with no offsetting value. Do **not** preemptively migrate existing files — apply on next touch.
 - **Tasks.md tick-sync (HARD RULE)**: каждый implementation commit, закрывающий один или несколько `Tnnn` из spec-kit `tasks.md`, ОБЯЗАН в том же diff'е проставить `- [x]` напротив этих task'ов. Refuse to commit без этого.
   - **Один commit может покрывать несколько `Tnnn`** (`phase-N: Tnnn-Tmmm`) — все они должны быть `[x]` в этом же diff'е.
   - **Запрещено**: «потом догонит», «в конце фазы», «ticks отдельным commit'ом». Это создаёт desync, наблюдавшийся на TASK-49 phase 1-4.
   - **Self-check перед commit'ом**: `git diff --cached -- specs/**/tasks.md` должен содержать `[x]` строки, если в diff'е есть код, реализующий task. Иначе stop и проставить tick'и.
   - **Частично сделанный task** — `[ ]` остаётся, в commit message описать что не закрыто. Не ставить `[x]` авансом.
   - **Why**: tasks.md — единственный machine-readable источник правды о прогрессе для `/speckit.analyze`, для будущих сессий Claude и для onboarding. Drift = потеря контекста.
+
+## Sequences in spec.md (ADR-011)
+
+Sequence diagrams live **inline** in `spec.md` under a `## Sequences` heading. Each sequence carries an anchor ID `### SEQ-N: <title>`, two Mermaid diagrams (spec-level and plan-level lifelines), and a MENTOR-DETAIL block for the owner.
+
+### Required structure per sequence
+
+```markdown
+### SEQ-N: <short title>
+
+Pre: <preconditions>. Post: <postconditions>.
+Used-in: spec/<NNN>-slug[, spec/<MMM>-slug ...].
+
+#### Spec-level (behavior)
+\`\`\`mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  participant X as External
+  ...
+\`\`\`
+
+#### Plan-level (architecture)
+\`\`\`mermaid
+sequenceDiagram
+  participant UI as <Composable/Activity>
+  participant VM as <ViewModel>
+  participant UC as <UseCase>
+  participant R as <Repository>
+  participant A as <Adapter>
+  ...
+\`\`\`
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+- <plain-Russian explanation: what each participant is, why each branch exists, what the owner should see on screen>
+<!-- MENTOR-DETAIL:END -->
+```
+
+### Hard rules
+
+- **Dual projection mandatory.** Both Mermaid diagrams are required. Spec-level lifelines = `Owner / System / External (API, FCM, ...)`. Plan-level lifelines = architectural layers from `architecture.md` (arrows only point downward — visual check on rule 1, domain isolation).
+- **MENTOR-DETAIL block mandatory.** Must be present and filled when the sequence is created. Owner-facing — Russian only (per language-by-audience rule).
+- **AI reads MENTOR-DETAIL only on demand.** Default behavior: skip the body of `<!-- MENTOR-DETAIL:BEGIN/END -->` blocks when reading `spec.md`. Read only when (a) owner explicitly asks for an explanation; (b) AI onboards onto the spec for the first time; (c) generating production documentation.
+- **Anchor IDs are spec-local.** `SEQ-1` in spec/A and `SEQ-1` in spec/B may coexist while inline. The containing file disambiguates.
+
+### Reactive extraction into `docs/sequences/`
+
+Do **not** create a sequence catalog preemptively. Trigger for extraction:
+
+1. The same sequence is genuinely needed in **2+ specs**.
+2. Extract into `docs/sequences/SEQ-N-slug.md` (same structure: Pre/Post + Used-in + Spec-level + Plan-level + MENTOR-DETAIL).
+3. Replace the inline block in both specs with a link: `→ [SEQ-N](../../docs/sequences/SEQ-N-slug.md)`.
+4. Once extracted, the SEQ-N ID becomes globally unique (carries the slug).
+
+`docs/sequences/INDEX.md` is created only when the directory holds **≥5 files**.
+
+**Standing candidate**: QR-pairing flow (spec/007 — reused in spec/011 and planned specs on calls / multi-admin). Extract at next touch of those specs, not preemptively.
+
+### Migration
+
+Existing specs (001-020) are **not migrated**. The convention applies to new specs and to old ones on next `/speckit.*` touch.
 
 ## Branching
 
