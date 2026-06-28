@@ -101,4 +101,16 @@ class CloudAvailabilityImplTest {
         auth.forceCurrent(null)
         assertFalse(impl.isCloudAvailableFlow.first())
     }
+
+    @Test
+    fun `huaweiWithoutGms_authProviderReturnsNull_cloudRemainsUnavailable`() = runBlocking {
+        // TODO(physical-device): Verify on physical Huawei device without GMS that AuthProvider returns null and cloud remains unavailable.
+        // DI-override simulation: on devices without GMS, AuthProvider cannot sign in and currentUser remains null.
+        val auth = FakeAuthProvider()
+        val impl = CloudAvailabilityImpl(dataStore, auth, implScope)
+
+        auth.forceCurrent(null)
+
+        assertFalse(impl.isCloudAvailable(), "Cloud should remain unavailable when GMS is missing and AuthProvider emits null")
+    }
 }
