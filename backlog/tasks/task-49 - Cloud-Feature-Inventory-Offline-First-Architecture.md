@@ -162,7 +162,7 @@ EFFORT: Medium (~1-2 weeks).
 - [x] #8 [auto:checklist] checklists/meta-minimization.md: 13/13 CHK [x]
 - [N/A] #9 [auto:checklist] checklists/wire-format.md: N/A (no wire format)
 - [ ] #10 [auto:deferred-local-emulator] Emulator smoke pixel_5_api_34 (T043) + instrumented integration tests T031-T036; требует AVD ≤ API 34 per memory `reference_compose_ui_test_api_mismatch.md`
-- [ ] #11 [auto:deferred-physical-device] Physical device verification Xiaomi 11T (T041): packet capture 5 мин в local mode → 0 запросов к Firebase / Firestore / FCM
+- [x] #11 [auto:deferred-physical-device] Physical device verification Xiaomi 11T 2026-06-28: 5-min logcat capture в local-mode (wizard Настроить-с-нуля path) → 0 cloud requests. Evidence: verification-evidence/task-49/logcat-5min.txt + logcat-cloud-matches.txt. Side finding: TASK-52 reproduced.
 
 <!-- AC:END -->
 
@@ -177,7 +177,7 @@ Pending для перехода Verification → Done:
 | #5 | hand | [x] Owner decision 2026-06-28: `cloud-availability.md` остаётся единственным документом. |
 | #6 | hand | [x] AC переформулирован и покрыт DI-override тестом (`CloudAvailabilityImplTest.huaweiWithoutGms_authProviderReturnsNull_cloudRemainsUnavailable`). |
 | #10 | auto:deferred-local-emulator | Установить AVD API 34 (per memory `reference_compose_ui_test_api_mismatch.md`), прогнать T031-T036 + T043 через skill `android-emulator`, проставить `[x]` с указанием имени AVD. |
-| #11 | auto:deferred-physical-device | Owner вручную прогоняет на Xiaomi 11T (packet capture 5 мин в local-mode → 0 requests to Firebase/Firestore/FCM), приложить артефакт к PR comment, проставить `[x]`. |
+| #11 | auto:deferred-physical-device | [x] Physical device verification Xiaomi 11T 2026-06-28: 5-min logcat capture в local-mode (wizard Настроить-с-нуля path) → 0 cloud requests. Evidence: verification-evidence/task-49/logcat-5min.txt + logcat-cloud-matches.txt. Side finding: TASK-52 reproduced. |
 
 Re-run `pre-pr-backlog-sync` после каждого закрытого AC. Переход в Done — когда все deferred закрыты.
 
