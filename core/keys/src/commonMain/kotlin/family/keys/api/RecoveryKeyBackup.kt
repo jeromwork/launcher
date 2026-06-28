@@ -11,12 +11,12 @@ package family.keys.api
  * docs/dev/server-roadmap.md SRV-RECOVERY-001).
  *
  * **App-agnostic** (FR-022): blob НЕ содержит package name / build version —
- * future multi-app cohabitation (S-2) переиспользует тот же vault namespace.
+ * future multi-app cohabitation (S-2) переиспользует тот же backup namespace.
  *
  * TODO(future-spec V-2/V-3/P-10): cross-app root key sharing via broker pattern —
  * см. docs/product/future/multi-app-cohabitation.md.
  *
- * Per contracts/recovery-vault-v1.md.
+ * Per specs/task-6-root-key-hierarchy-recovery/contracts/recovery-key-backup-v1.md.
  */
 interface RecoveryKeyBackup {
     /**

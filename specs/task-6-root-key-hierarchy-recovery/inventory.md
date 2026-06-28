@@ -134,7 +134,26 @@ New files to be created following actual repository package conventions (`family
 ### D4: `RecoveryKeyVault` → `RecoveryKeyBackup` Rename
 - **Existing Signatures (`main`)**: `RecoveryKeyVault` port, `RecoveryVaultBlob` wire format, `fetchVault` / `storeVault` / `deleteVault` methods.
 - **F-5 Plan Specification**: `RecoveryKeyBackup` port, `RecoveryKeyBackupBlob` wire format, `uploadBlob` / `fetchBlob` / `deleteBlob` methods.
-- **Reconciliation Decision (D4)**: **RENAME NOW**. Per owner backlog decision from 2026-06-23, rename `Vault` to `Backup` across the codebase (~10 files) via `git mv` and `sed`. **Claude will execute this rename as a separate atomic commit before Phase 1 begins.**
+- **Reconciliation Decision (D4)**: **RENAME NOW**. Per owner backlog decision from 2026-06-23, rename `Vault` to `Backup` across the codebase (~24 files) via `git mv` and sed-style import updates. Done in commit `7be001c`.
+
+#### D4 Scope Exclusions (intentional — do NOT rename these)
+
+The following three items retain legacy `vault` spelling by deliberate design decision. Any future rename must go through a separate migration task, not be done during Phase 1:
+
+1. **`firestore.rules` — deployment surface, sync with live rules.**
+   The Firestore security rules file is a deployment artefact — renaming it requires a coordinated live-rules push. Renamed collections/paths would break existing data. Scope exclusion: `firestore.rules` is **frozen at its current vault-named paths** until a dedicated migration window is scheduled with the owner.
+   Reference: `FirestoreRecoveryKeyBackup.kt:149` comment references `isValidRecoveryVaultBlob` function name from `firestore.rules` — correct, do not rename.
+
+2. **`AAD_PREFIX = "f5-recovery-vault-v1"` — FR-018 byte-equal wire compatibility.**
+   Located in `RecoveryFlow.kt:175`. This string is embedded verbatim as Additional Authenticated Data (AAD) in every encrypted ciphertext written under spec 018. Renaming it would break decryption of all existing on-device envelopes (byte-equal AAD mismatch). Scope exclusion: **this constant must never change**. If a new AAD scheme is needed it must be introduced as a new version (`f5-recovery-backup-v2`) with explicit migration logic.
+
+3. **`VaultError` sealed class — migration deferred to T609.**
+   `VaultError.kt` was intentionally NOT renamed during D4. It will be superseded by the new `BackupError` sealed hierarchy introduced in T609 (§(c) ADD files). The migration path at T609 is:
+   - Add `BackupError` as the new public error type for `RecoveryKeyBackup` operations.
+   - Update `RecoveryKeyBackup.fetchBlob/uploadBlob/deleteBlob` signatures from `VaultError` → `BackupError`.
+   - Update call-sites (`FirestoreRecoveryKeyBackup`, `RecoveryFlow`, fakes, contract tests).
+   - Delete `VaultError.kt` only after all call-sites are migrated.
+   Until T609: the intermediate naming inconsistency (`RecoveryKeyBackup` returns `VaultError`) is accepted.
 
 ---
 

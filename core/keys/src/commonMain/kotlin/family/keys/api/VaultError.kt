@@ -3,7 +3,7 @@ package family.keys.api
 /**
  * Ошибки [RecoveryKeyBackup] операций (FR-025).
  *
- * Per contracts/recovery-vault-v1.md:
+ * Per specs/task-6-root-key-hierarchy-recovery/contracts/recovery-key-backup-v1.md:
  *  • [NotFound] — vault для этого UID не существует (новый user).
  *  • [Unauthorized] — Firestore security rules denied (auth.uid != uid).
  *  • [Conflict] — другой client успел записать новый blob (transactional retry).
