@@ -55,18 +55,19 @@ All domain types live under `core/keys/src/commonMain/kotlin/family/keys/api/`.
 
 ## 3. RootKey
 
-**Kind**: opaque value class wrapping a 32-byte (256-bit) secret.
+**Kind**: class wrapping a 32-byte (256-bit) secret byte array with explicit zeroization capability (`wipe()`). Retained from spec 018 per decision D1.
 
-**Constructor**: **private** to `family.keys.api`. Instances are produced only by `RootKeyManager.create()` or `.recover()`.
+**Constructor**: `class RootKey(val bytes: ByteArray)`.
 
 **Fields**:
 
 | Field      | Type       | Notes                                                    |
 |------------|------------|----------------------------------------------------------|
-| (internal) | `ByteArray`| Length **exactly 32**. Not exposed via public accessor.  |
+| `bytes`    | `ByteArray`| Length **exactly 32**. Exposed for derivation/wrapping, must be wiped after use. |
 
 **Invariants**:
-- **NOT serializable**: no `toString()` leaking material, no `copy()` exposing bytes, no `equals()` comparing raw bytes (constant-time check only, or reference identity).
+- **Explicit zeroization**: provides `.wipe()` method to zeroize `bytes` in memory after use.
+- **NOT serializable**: `toString()` is suppressed to avoid leaking key material in logs.
 - Plaintext material lives in RAM only for the duration of a single crypto operation; wrapped via Android Keystore / SecureKeystore for at-rest storage.
 - One `RootKey` per `(stableId, device)` tuple at any given time.
 
@@ -237,14 +238,17 @@ All domain types live under `core/keys/src/commonMain/kotlin/family/keys/api/`.
 
 **Kind**: sealed class.
 
-**Cases** (per FR-003 / spec edge cases):
+**Cases** (per FR-003 / spec edge cases and legacy spec 018 retention per decision D2):
 
-| Case              | Meaning                                                                       |
-|-------------------|-------------------------------------------------------------------------------|
-| `WrongPassphrase` | Argon2id-derived KEK fails to AEAD-unwrap `ciphertext` (auth tag mismatch).   |
-| `CorruptedBlob`   | `RecoveryKeyBackupBlob` parses, but ciphertext fails AEAD even on first attempt (very rare; differs from `WrongPassphrase` semantically — wrong material on server side). |
-| `NoKeystore`      | Android Keystore unavailable (theoretical edge — minSdk=24 always has it). UI: "device unsupported". |
-| `NoIdentity`      | `create()` / `.recover()` called without an `AuthIdentity` (programmer error / race condition during signOut). |
+| Case                  | Meaning                                                                       |
+|-----------------------|-------------------------------------------------------------------------------|
+| `WrongPassphrase`     | Argon2id-derived KEK fails to AEAD-unwrap `ciphertext` (auth tag mismatch).   |
+| `CorruptedBlob`       | `RecoveryKeyBackupBlob` parses, but ciphertext fails AEAD even on first attempt. |
+| `NoKeystore`          | Android Keystore unavailable. UI: "device unsupported".                       |
+| `NoIdentity`          | `create()` / `.recover()` called without an `AuthIdentity`.                   |
+| `KeystoreInvalidated` | Retained from spec 018: Keystore key was invalidated by system/lockscreen change. |
+| `RecoveryRequired`    | Retained from spec 018: Local key missing or corrupted, requiring recovery.   |
+| `StorageFailure`      | Retained from spec 018: Underlying storage/keystore I/O exception occurred.   |
 
 **Invariants**:
 - Each case is exhaustively handled by callers via `when`.

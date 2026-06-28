@@ -62,15 +62,15 @@ core/keys/src/androidMain/kotlin/family/keys/android/
 └── WorkManagerAsyncConfigPushQueue.kt ← KEEP
 ```
 
-**Do tasks.md `T600` FIRST** to produce `inventory.md`. Do not touch any KEEP file. Do not delete anything.
+**Do tasks.md `T600` FIRST** to produce `inventory.md`. Do not touch any KEEP file. Do not delete anything. Note: There are ABI mismatches between existing spec 018 types and F-5 plan (RootKey shape retained with wipe(); RootKeyError and RootKeyManager extended; RecoveryKeyVault renamed to RecoveryKeyBackup). See `inventory.md` §(d) for reconciliation rules.
 
 ### 2. Package conventions (actual, not plan's wording)
 
 - **Domain ports + value types** → `family.keys.api` (Kotlin package). Path: `core/keys/src/commonMain/kotlin/family/keys/api/`.
-- **Internal commonMain impls** → `family.keys.api.internal`. Path: `.../family/keys/api/internal/`.
+- **Common implementations & codecs** → `family.keys.impl` (Kotlin package). Path: `core/keys/src/commonMain/kotlin/family/keys/impl/`.
 - **Android adapters** → `family.keys.android`. Path: `core/keys/src/androidMain/kotlin/family/keys/android/`.
 
-**Plan.md mentions `family/keys/impl/` paths — that's wrong**. New impl files go under `family.keys.android` (Android-specific) or `family.keys.api.internal` (KMP commonMain). When in doubt: if file uses libsodium / Android Keystore → `family.keys.android`. If pure-Kotlin → `family.keys.api.internal`.
+New impl files go under `family.keys.android` (Android-specific) or `family.keys.impl` (KMP commonMain). When in doubt: if file uses libsodium / Android Keystore → `family.keys.android`. If pure-Kotlin → `family.keys.impl`.
 
 ### 3. `AuthProvider` lives in `:core` (main module), not `:core:auth`
 
@@ -201,6 +201,20 @@ Every commit that closes a `Tnnn` task MUST add `[ ]` → `[x]` for that task in
 **❌ NEVER** run `gh pr create`, `gh pr edit --title`, or anything that opens or modifies a PR.
 
 **✅ DO** when all tasks of a phase are complete and tests pass: **STOP and notify Claude**. Claude will: (a) run pre-pr-backlog-sync skill, (b) review the diff, (c) create the PR or hand back changes to fix.
+
+### DZ-13: ABI extension vs replace (Phase 1, T604, T608, T613)
+
+When existing types (`RootKey`, `RootKeyError`, `RootKeyManager`) differ in shape from the plan, follow reconciliation decisions D1-D3 in `inventory.md`.
+
+**❌ NEVER** replace existing types or methods if it breaks backward compatibility with legacy spec 018 consumers.
+**✅ DO** extend existing sealed classes and interfaces alongside existing methods. Keep existing `.wipe()` on `RootKey`.
+
+### DZ-14: Vault → Backup rename policy (Pre-Phase 1)
+
+Per owner decision D4, `RecoveryKeyVault` and `RecoveryVaultBlob` must be renamed to `RecoveryKeyBackup` and `RecoveryKeyBackupBlob` across the codebase.
+
+**❌ NEVER** mix `Vault` and `Backup` naming in new code or duplicate files.
+**✅ DO** assume the rename is executed cleanly before Phase 1 coding starts.
 
 ---
 
