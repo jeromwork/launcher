@@ -20,18 +20,18 @@ package family.keys.api
  */
 interface RecoveryKeyBackup {
     /**
-     * Возвращает blob для UID. Отсутствие → `VaultError.NotFound`.
+     * Возвращает blob для UID. Отсутствие → [BackupError.NotFound].
      */
-    suspend fun fetchBlob(uid: String): Outcome<RecoveryKeyBackupBlob, VaultError>
+    suspend fun fetchBlob(uid: String): Outcome<RecoveryKeyBackupBlob, BackupError>
 
     /**
      * Перезаписывает blob (last-write-wins per current backend; transactional
      * conflict surfacing — backend-specific).
      */
-    suspend fun uploadBlob(uid: String, blob: RecoveryKeyBackupBlob): Outcome<Unit, VaultError>
+    suspend fun uploadBlob(uid: String, blob: RecoveryKeyBackupBlob): Outcome<Unit, BackupError>
 
     /**
      * Удаляет blob (Sign-Out cleanup или recovery reset).
      */
-    suspend fun deleteBlob(uid: String): Outcome<Unit, VaultError>
+    suspend fun deleteBlob(uid: String): Outcome<Unit, BackupError>
 }

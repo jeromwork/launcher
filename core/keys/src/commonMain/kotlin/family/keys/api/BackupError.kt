@@ -3,9 +3,8 @@ package family.keys.api
 /**
  * Ошибки backup-операций для F-5 key hierarchy (FR-004, data-model.md §10).
  *
- * **Lifecycle**: будет использоваться как тип ошибки в [RecoveryKeyBackup] вместо
- * [VaultError] начиная с T609-migration. До завершения миграции оба типа сосуществуют.
- * После миграции [VaultError.kt] будет удалён.
+ * **Lifecycle**: используется как тип ошибки в [RecoveryKeyBackup]. Заменил [VaultError]
+ * в рамках T609-migration.
  *
  * **Mapping из HTTP** (workers/backup/):
  *  - 4xx network + timeout → [NetworkUnavailable]
@@ -17,7 +16,6 @@ package family.keys.api
  *  - schemaVersion > MAX_SUPPORTED_SCHEMA_VERSION → [UnsupportedSchema]
  *
  * @see RecoveryKeyBackup
- * @see VaultError — deprecated predecessor, будет удалён в T609
  */
 sealed class BackupError {
     /**
@@ -62,6 +60,13 @@ sealed class BackupError {
      * @param version Версия схемы из blob.
      */
     data class UnsupportedSchema(val version: Int) : BackupError()
+
+    /**
+     * `fetched.schemaVersion < lastSeenVersion` (TOLU mitigation, H-2).
+     */
+    object SchemaDowngradeDetected : BackupError() {
+        override fun toString(): String = "BackupError.SchemaDowngradeDetected"
+    }
 
     /**
      * Backup не найден для данного stableId — новый пользователь или после wipe.

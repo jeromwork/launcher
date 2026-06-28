@@ -27,6 +27,7 @@ class FakeRootKeyManager : RootKeyManager {
 
     // stableId → root key bytes
     private val store: MutableMap<String, ByteArray> = mutableMapOf()
+    private val passphraseStore: MutableMap<String, String> = mutableMapOf()
     private val _current = MutableStateFlow<RootKey?>(null)
 
     override val current: Flow<RootKey?> = _current.asStateFlow()
@@ -46,6 +47,10 @@ class FakeRootKeyManager : RootKeyManager {
     ): Outcome<RootKey, RootKeyError> {
         val bytes = store[identity.stableId]
             ?: return Outcome.Failure(RootKeyError.RecoveryRequired)
+        val expected = passphraseStore[identity.stableId]
+        if (expected != null && !passphrase.concatToString().equals(expected)) {
+            return Outcome.Failure(RootKeyError.WrongPassphrase)
+        }
         val key = RootKey(bytes.copyOf())
         _current.value = key
         return Outcome.Success(key)
@@ -53,6 +58,7 @@ class FakeRootKeyManager : RootKeyManager {
 
     override suspend fun forget(identity: AuthIdentity): Outcome<Unit, RootKeyError> {
         store.remove(identity.stableId)
+        passphraseStore.remove(identity.stableId)
         _current.value = null
         return Outcome.Success(Unit)
     }
@@ -70,6 +76,7 @@ class FakeRootKeyManager : RootKeyManager {
 
     override suspend fun wipe(identity: AuthIdentity): Outcome<Unit, RootKeyError> {
         store.remove(identity.stableId)
+        passphraseStore.remove(identity.stableId)
         _current.value = null
         return Outcome.Success(Unit)
     }
@@ -80,8 +87,11 @@ class FakeRootKeyManager : RootKeyManager {
     fun hasKey(stableId: String): Boolean = stableId in store
 
     /** Test hook: seed конкретный ключ для recovery сценария. */
-    fun seedKey(stableId: String, bytes: ByteArray) {
+    fun seedKey(stableId: String, bytes: ByteArray, passphrase: String? = null) {
         store[stableId] = bytes.copyOf()
+        if (passphrase != null) {
+            passphraseStore[stableId] = passphrase
+        }
     }
 
     private fun deterministicBytes(prefix: String, stableId: String): ByteArray {

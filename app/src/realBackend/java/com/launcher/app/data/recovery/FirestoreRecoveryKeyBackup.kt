@@ -7,7 +7,7 @@ import family.keys.api.Outcome
 import family.keys.api.PassphraseKdfParams
 import family.keys.api.RecoveryKeyBackup
 import family.keys.api.RecoveryKeyBackupBlob
-import family.keys.api.VaultError
+import family.keys.api.BackupError
 import kotlinx.coroutines.tasks.await
 
 /**
@@ -46,40 +46,40 @@ class FirestoreRecoveryKeyBackup(
         firestore.collection(COLLECTION_USERS).document(uid)
             .collection(COLLECTION_RECOVERY).document(DOCUMENT_MAIN)
 
-    override suspend fun fetchBlob(uid: String): Outcome<RecoveryKeyBackupBlob, VaultError> {
-        if (uid.isEmpty()) return Outcome.Failure(VaultError.Unauthorized)
+    override suspend fun fetchBlob(uid: String): Outcome<RecoveryKeyBackupBlob, BackupError> {
+        if (uid.isEmpty()) return Outcome.Failure(BackupError.AuthExpired)
         return try {
             val snap = docRef(uid).get().await()
-            if (!snap.exists()) return Outcome.Failure(VaultError.NotFound)
+            if (!snap.exists()) return Outcome.Failure(BackupError.NotFound)
             val blob = decodeBlob(snap.data ?: emptyMap())
-                ?: return Outcome.Failure(VaultError.Malformed)
+                ?: return Outcome.Failure(BackupError.Malformed)
             Outcome.Success(blob)
         } catch (e: FirebaseFirestoreException) {
             when (e.code) {
                 FirebaseFirestoreException.Code.PERMISSION_DENIED ->
-                    Outcome.Failure(VaultError.Unauthorized)
+                    Outcome.Failure(BackupError.AuthExpired)
                 FirebaseFirestoreException.Code.UNAVAILABLE ->
-                    Outcome.Failure(VaultError.Network(e))
-                else -> Outcome.Failure(VaultError.Network(e))
+                    Outcome.Failure(BackupError.NetworkUnavailable(e))
+                else -> Outcome.Failure(BackupError.NetworkUnavailable(e))
             }
         } catch (t: Throwable) {
-            Outcome.Failure(VaultError.Malformed)
+            Outcome.Failure(BackupError.Malformed)
         }
     }
 
-    override suspend fun uploadBlob(uid: String, blob: RecoveryKeyBackupBlob): Outcome<Unit, VaultError> {
-        if (uid.isEmpty()) return Outcome.Failure(VaultError.Unauthorized)
+    override suspend fun uploadBlob(uid: String, blob: RecoveryKeyBackupBlob): Outcome<Unit, BackupError> {
+        if (uid.isEmpty()) return Outcome.Failure(BackupError.AuthExpired)
         return try {
             docRef(uid).set(encodeBlob(blob)).await()
             Outcome.Success(Unit)
         } catch (e: FirebaseFirestoreException) {
             if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                Outcome.Failure(VaultError.Unauthorized)
+                Outcome.Failure(BackupError.AuthExpired)
             } else {
-                Outcome.Failure(VaultError.Network(e))
+                Outcome.Failure(BackupError.NetworkUnavailable(e))
             }
         } catch (t: Throwable) {
-            Outcome.Failure(VaultError.Network(t))
+            Outcome.Failure(BackupError.NetworkUnavailable(t))
         }
     }
 
@@ -124,19 +124,19 @@ class FirestoreRecoveryKeyBackup(
         null
     }
 
-    override suspend fun deleteBlob(uid: String): Outcome<Unit, VaultError> {
-        if (uid.isEmpty()) return Outcome.Failure(VaultError.Unauthorized)
+    override suspend fun deleteBlob(uid: String): Outcome<Unit, BackupError> {
+        if (uid.isEmpty()) return Outcome.Failure(BackupError.AuthExpired)
         return try {
             docRef(uid).delete().await()
             Outcome.Success(Unit)
         } catch (e: FirebaseFirestoreException) {
             if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                Outcome.Failure(VaultError.Unauthorized)
+                Outcome.Failure(BackupError.AuthExpired)
             } else {
-                Outcome.Failure(VaultError.Network(e))
+                Outcome.Failure(BackupError.NetworkUnavailable(e))
             }
         } catch (t: Throwable) {
-            Outcome.Failure(VaultError.Network(t))
+            Outcome.Failure(BackupError.NetworkUnavailable(t))
         }
     }
 

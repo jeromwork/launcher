@@ -13,7 +13,7 @@ import family.keys.api.RecoveryError
 import family.keys.api.RecoveryKeyBackup
 import family.keys.api.RecoveryKeyBackupBlob
 import family.keys.api.RootKey
-import family.keys.api.VaultError
+import family.keys.api.BackupError
 import kotlinx.datetime.Clock
 
 /**
@@ -112,9 +112,10 @@ class RecoveryFlow(
         val blob = when (val fetch = backup.fetchBlob(identity.stableId)) {
             is Outcome.Success -> fetch.value
             is Outcome.Failure -> return when (fetch.error) {
-                VaultError.NotFound -> Outcome.Failure(RecoveryError.NoVaultPresent)
-                VaultError.Malformed -> Outcome.Failure(RecoveryError.MalformedVault)
-                VaultError.SchemaDowngradeDetected -> Outcome.Failure(RecoveryError.MalformedVault)
+                BackupError.NotFound -> Outcome.Failure(RecoveryError.NoVaultPresent)
+                BackupError.Malformed -> Outcome.Failure(RecoveryError.MalformedVault)
+                is BackupError.UnsupportedSchema -> Outcome.Failure(RecoveryError.MalformedVault)
+                BackupError.SchemaDowngradeDetected -> Outcome.Failure(RecoveryError.MalformedVault)
                 else -> Outcome.Failure(RecoveryError.NoVaultPresent)
             }
         }

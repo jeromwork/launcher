@@ -60,12 +60,8 @@ class RootKeyManagerImpl(
     }
 
     override suspend fun recover(identity: AuthIdentity, passphrase: CharArray): Outcome<RootKey, RootKeyError> {
-        // Stub: full passphrase-based Argon2id recovery lives in RecoveryFlow (RecoveryFlow.performRecovery).
-        // This method will be wired through RecoveryFlow in Phase 3 ViewModel.
-        // For now: try to load from local Keystore (simulates "re-login on same device").
-        val result = getOrCreate(identity)
-        if (result is Outcome.Success) _current.value = result.value
-        return result
+        // TODO(T633): real implementation. Fail-loud until Phase 2 Argon2RootKeyManager adapter lands.
+        return Outcome.Failure(RootKeyError.RecoveryRequired)
     }
 
     override suspend fun forget(identity: AuthIdentity): Outcome<Unit, RootKeyError> {

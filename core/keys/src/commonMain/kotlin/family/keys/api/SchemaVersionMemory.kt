@@ -5,7 +5,7 @@ package family.keys.api
  *
  * Запоминает максимальную увиденную schemaVersion per (uid, blobKind). При чтении
  * нового blob'а сравниваем `fetched.schemaVersion >= lastSeenVersion`. Если меньше —
- * `SchemaDowngradeDetected` ([VaultError.SchemaDowngradeDetected] или
+ * `SchemaDowngradeDetected` ([BackupError.SchemaDowngradeDetected] или
  * [CipherError.SchemaDowngradeDetected]).
  *
  * **Why TOLU**: client'ы пишут только monotonically increasing version. Attacker

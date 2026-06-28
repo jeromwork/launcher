@@ -3,7 +3,7 @@ package family.keys.contracts
 import family.keys.api.Outcome
 import family.keys.api.PassphraseKdfParams
 import family.keys.api.RecoveryKeyBackupBlob
-import family.keys.api.VaultError
+import family.keys.api.BackupError
 import family.keys.fakes.FakeRecoveryKeyBackup
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -41,8 +41,8 @@ class RecoveryKeyBackupContractTest {
     fun fetchUnknownUidReturnsNotFound() = runTest {
         val backup = FakeRecoveryKeyBackup()
         val fetch = backup.fetchBlob("nonexistent-uid")
-        assertIs<Outcome.Failure<VaultError>>(fetch)
-        assertEquals(VaultError.NotFound, fetch.error)
+        assertIs<Outcome.Failure<BackupError>>(fetch)
+        assertEquals(BackupError.NotFound, fetch.error)
     }
 
     @Test
@@ -55,8 +55,8 @@ class RecoveryKeyBackupContractTest {
         assertIs<Outcome.Success<Unit>>(del)
 
         val fetch = backup.fetchBlob(uid)
-        assertIs<Outcome.Failure<VaultError>>(fetch)
-        assertEquals(VaultError.NotFound, fetch.error)
+        assertIs<Outcome.Failure<BackupError>>(fetch)
+        assertEquals(BackupError.NotFound, fetch.error)
     }
 
     @Test
