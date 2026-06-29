@@ -13,16 +13,23 @@ import kotlin.test.assertTrue
 /**
  * Contract test: RootKey forget flow (T627, FR-019, SC-012).
  *
- * После RootKeyManager.forget():
- *  - KeyRegistry.list(stableId) returns empty (cascade wipe)
- *  - RootKeyManager.current emits null
+ * **Cascade semantics (R-post-review clarification)**: cascade wipe is
+ * **caller-orchestrated**, not automatic — [RootKeyManager.forget] wipes only
+ * the root-key surface; the caller must also invoke
+ * [family.keys.api.KeyRegistry.wipeAll] and
+ * [family.keys.api.RecoveryKeyBackup.deleteBlob] (see KDoc on
+ * `RootKeyManager.forget`). The tests below exercise that orchestration end-to-end
+ * rather than implying that `forget()` alone empties the registry.
+ *
+ *  - `forget()` + `registry.wipeAll()` → `KeyRegistry.list(stableId)` returns empty
+ *  - `forget()` alone → `RootKeyManager.current` emits null
  */
 class RootKeyForgetFlowTest {
 
     private val identity = AuthIdentity("00000000-0000-4000-8000-000000000001", null, null)
 
     @Test
-    fun forgetWipesKeyRegistryNamespace() = runTest {
+    fun forgetWithCallerOrchestratedRegistryWipeClearsNamespace() = runTest {
         val registry = FakeKeyRegistry()
         val rootMgr = FakeRootKeyManager()
 

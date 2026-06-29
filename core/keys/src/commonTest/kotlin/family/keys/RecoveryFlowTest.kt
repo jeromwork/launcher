@@ -237,7 +237,14 @@ class RecoveryFlowTest {
     }
 
     @Test
-    fun recoveryFromCorruptedBlobReturnsMalformedVault() = runTest {
+    fun recoveryFromCorruptedCiphertextSurfacesWrongPassphrase() = runTest {
+        // Ciphertext замещён 48 байтами 0xFF (правильный размер, неверные байты).
+        // AEAD-decryption провалит Poly1305 auth check → CryptoException.DecryptionFailed
+        // → handler в RecoveryFlow возвращает WrongPassphrase (counter += 1).
+        // Это сознательный выбор: с точки зрения user'а corrupted blob и неверный
+        // passphrase неотличимы (та же subjective ошибка «не подошло»), поэтому
+        // surface'им один и тот же RecoveryError. MalformedVault зарезервирован
+        // для случая когда blob не парсится (см. RecoveryKeyBackupBlobUnsupportedSchemaTest).
         val sA = makeSetup()
         val rootA = (sA.rootMgr.getOrCreate(identity) as Outcome.Success<RootKey>).value
         sA.prompter.enqueueSetup("correct-pw")
@@ -245,16 +252,19 @@ class RecoveryFlowTest {
         val blob = (sA.backup.fetchBlob(uid) as Outcome.Success<RecoveryKeyBackupBlob>).value
 
         val sB = makeSetup()
-        // Corrupt: replace ciphertext with garbage bytes (min size 48).
         val corrupted = blob.copy(ciphertext = ByteArray(48) { 0xFF.toByte() })
         sB.backup.seed(uid, corrupted)
         sB.prompter.enqueueRecovery("correct-pw")
 
         val r = sB.flow.performRecovery(identity)
         assertIs<Outcome.Failure<RecoveryError>>(r)
-        // Может быть либо MalformedVault (если decode fails) либо WrongPassphrase (если decrypt fails).
-        // Главное — не crash и не Success.
-        assertTrue(r.error == RecoveryError.MalformedVault || r.error == RecoveryError.WrongPassphrase)
+        assertEquals(
+            RecoveryError.WrongPassphrase,
+            r.error,
+            "Corrupted ciphertext MUST surface as WrongPassphrase " +
+                "(Poly1305 auth fail), not MalformedVault"
+        )
+        assertEquals(1, sB.counter.currentCount(uid), "Failed AEAD MUST count toward attempt limit")
     }
 
     @Test
@@ -268,18 +278,11 @@ class RecoveryFlowTest {
         assertContentEquals(root.bytes, second.bytes)
     }
 
-    @Test
-    fun passphraseZeroizedAfterDerive() = runTest {
-        // T088 memory hygiene: после performSetup CharArray prompt'а заполнен ' '.
-        val s = makeSetup()
-        val root = (s.rootMgr.getOrCreate(identity) as Outcome.Success<RootKey>).value
-        val sentinel = "ZZZZZZZZZZ".toCharArray()
-        s.prompter.enqueueSetup(String(sentinel))
-        s.flow.performSetup(identity, root)
-        // CharArray возвращённый prompter'у — это новая copy, проверить
-        // что .fill(' ') действительно вызывался невозможно без instrumentation.
-        // Этот тест документирует invariant; реальная verification — в инспекции
-        // RecoveryFlow.performSetup finally блока + manual code review.
-        assertTrue(true, "Invariant: passphrase.fill(' ') в finally — see RecoveryFlow.performSetup")
-    }
+    // NOTE (R11 post-review): `passphraseZeroizedAfterDerive` removed — it was a
+    // no-op `assertTrue(true)` because the test could not observe the CharArray
+    // after `performSetup` consumed it. The wipe invariant is verified by code
+    // inspection of [RecoveryFlow.performSetup] / [performRecovery] finally blocks
+    // (CLAUDE.md rule 11 / ImportRestrictionsFitnessTest covers the linter side).
+    // A real probe would require a custom FakePassphrasePrompter that retains the
+    // post-call buffer reference; deferred until we have a concrete bug to chase.
 }

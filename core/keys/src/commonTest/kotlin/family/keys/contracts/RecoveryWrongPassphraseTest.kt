@@ -10,7 +10,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
 /**
- * Contract test: recover() fails with [RootKeyError.WrongPassphrase] when given an incorrect passphrase (A3).
+ * **Fake-adapter contract test.** Verifies that [FakeRootKeyManager] correctly
+ * signals [RootKeyError.WrongPassphrase] / Success based on its string-compared
+ * seeded passphrase. The *cryptographic* WrongPassphrase invariant (Poly1305 auth
+ * fail under real libsodium AEAD) is covered by
+ * [family.keys.RecoveryFlowTest.recoveryWrongPassphraseReturnsWrongPassphrase].
+ *
+ * (T627, FR-019, A3)
  */
 class RecoveryWrongPassphraseTest {
 

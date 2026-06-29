@@ -126,6 +126,13 @@ class RecoveryFlow(
             return Outcome.Failure(RecoveryError.MalformedVault)
         }
 
+        // Algorithm guard (DZ-10, R16 post-review): blob carries kdfParams.algorithm;
+        // we must refuse blobs whose algorithm we do not implement, instead of silently
+        // applying the wrong KDF and surfacing the failure as WrongPassphrase.
+        if (blob.kdfParams.algorithm != KdfParams.ALGORITHM_ARGON2ID) {
+            return Outcome.Failure(RecoveryError.MalformedVault)
+        }
+
         // Attempt counter check (H-1).
         attemptCounter.resetIfExpired(identity.stableId)
         if (attemptCounter.currentCount(identity.stableId) >= attemptCounter.maxAttempts) {
@@ -174,6 +181,14 @@ class RecoveryFlow(
          * AAD bytes mixed into AEAD computation. Wire-format constant — renaming would
          * change ciphertext bytes for any blob produced before/after the rename, breaking
          * roundtrip even within v1. Legacy name retained per inventory.md §D4 scope-exclusion.
+         *
+         * **Versioning policy (R17 post-review)**: when this string must change (e.g.
+         * after audit guidance to align with the `recovery-backup` rename, or when a new
+         * AEAD primitive is adopted), bump [RecoveryKeyBackupBlob.SCHEMA_VERSION_V1] to v2
+         * and keep reading v1 blobs with the legacy AAD for one major release. The codec
+         * already routes by `schemaVersion`, so adding a second AAD branch is additive,
+         * not a rewrite. Until then there is no migration cost because no production
+         * blobs exist yet.
          */
         const val AAD_PREFIX: String = "f5-recovery-vault-v1"
     }

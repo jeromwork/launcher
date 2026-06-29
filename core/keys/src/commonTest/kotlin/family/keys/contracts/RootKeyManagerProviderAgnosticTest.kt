@@ -39,17 +39,26 @@ class RootKeyManagerProviderAgnosticTest {
         assertIs<Outcome.Success<RootKey>>(result, "create() MUST succeed when provider is available")
     }
 
+    /**
+     * Verifies that the provider-agnostic `RootKeyManager.recover()` surface returns
+     * a Success Outcome through a fake adapter — i.e. the **API shape** is reachable
+     * without any Google/Firebase dependency.
+     *
+     * **NOT a cryptographic recovery test.** Real US-2 byte-equal cross-device
+     * recovery (Argon2id derive → AEAD unwrap → seedFromRecovery → byte-equal root)
+     * lives in [family.keys.RecoveryFlowTest.recoveryRoundtripBytewise].
+     * This test would still pass if `recover()` were a constant `Success` — its only
+     * job is to prove the port can be hit through the fake adapter.
+     */
     @Test
-    fun us2RecoverRootKeyWithFakeBackup() = runTest {
+    fun recoverIsReachableThroughProviderAgnosticFakeApi() = runTest {
         val rootMgr = FakeRootKeyManager()
 
-        // US-1: setup on device A.
         val createResult = rootMgr.create(aliceId)
         assertIs<Outcome.Success<RootKey>>(createResult)
 
-        // US-2: recover on device B (same manager, same store, simulating cross-device via seed).
         val recoverResult = rootMgr.recover(aliceId, charArrayOf('p', 'a', 's', 's'))
-        assertIs<Outcome.Success<RootKey>>(recoverResult, "recover() MUST succeed with seeded key")
+        assertIs<Outcome.Success<RootKey>>(recoverResult, "recover() MUST be callable through fake adapter")
     }
 
     @Test
