@@ -45,6 +45,23 @@ android {
         buildConfigField("boolean", "USE_FIREBASE_EMULATOR", useEmulator.toString())
         buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"$emulatorHost\"")
 
+        // F-5 (task-6) — Cloudflare Worker URL for recovery-key-backup R2 storage.
+        // Debug: `10.0.2.2` (AVD loopback) on `:8787` (wrangler dev default).
+        // For real device on USB: `adb reverse tcp:8787 tcp:8787` then build debug.
+        // Release: read from gradle.properties / -PRECOVERY_BACKUP_WORKER_URL=...
+        // (placeholder URL until deploy lands — Phase 4 T666).
+        //
+        // TODO(server-roadmap SRV-RECOVERY-001): replace `*.workers.dev` with our
+        // own domain once we move off the free Cloudflare tier.
+        val recoveryWorkerUrl = (project.findProperty("RECOVERY_BACKUP_WORKER_URL") as? String)
+            ?.takeIf { it.isNotBlank() }
+            ?: "https://recovery-backup.placeholder.workers.dev"
+        buildConfigField(
+            "String",
+            "RECOVERY_BACKUP_WORKER_URL",
+            "\"$recoveryWorkerUrl\""
+        )
+
         // F-5b E2E instrumented tests (CloudConfigEncryptionE2ETest).
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -85,6 +102,20 @@ android {
     // Defense-in-depth alongside the Detekt rule (compile-time) and
     // assertNoFakeCryptoInRelease (runtime).
     buildTypes {
+        getByName("debug") {
+            // Local Worker dev: `cd workers/backup && wrangler dev` exposes :8787 on
+            // host. Emulator reaches it via `10.0.2.2`; real device via `adb reverse
+            // tcp:8787 tcp:8787`. Overridable via `-PRECOVERY_BACKUP_WORKER_URL=...`
+            // on the gradle command line.
+            val debugRecoveryUrl = (project.findProperty("RECOVERY_BACKUP_WORKER_URL") as? String)
+                ?.takeIf { it.isNotBlank() }
+                ?: "http://10.0.2.2:8787"
+            buildConfigField(
+                "String",
+                "RECOVERY_BACKUP_WORKER_URL",
+                "\"$debugRecoveryUrl\""
+            )
+        }
         getByName("release") {
             isMinifyEnabled = true
             proguardFiles(
