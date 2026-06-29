@@ -137,6 +137,7 @@ dependencies {
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.datetime)
     implementation(libs.androidx.datastore.preferences)
 
     implementation(libs.koin.android)
