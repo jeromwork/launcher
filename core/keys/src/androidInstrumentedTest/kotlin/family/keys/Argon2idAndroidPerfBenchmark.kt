@@ -3,7 +3,7 @@ package family.keys
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ionspin.kotlin.crypto.LibsodiumInitializer
 import cryptokit.crypto.libsodium.LibsodiumArgon2idPasswordHash
-import family.keys.api.PassphraseKdfParams
+import family.keys.api.KdfParams
 import family.keys.impl.Argon2idPassphraseKdf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertTrue
@@ -32,9 +32,9 @@ class Argon2idAndroidPerfBenchmark {
         if (!LibsodiumInitializer.isInitialized()) LibsodiumInitializer.initialize()
         val kdf = Argon2idPassphraseKdf(LibsodiumArgon2idPasswordHash())
         val passphrase = "test-passphrase-for-benchmark".toCharArray()
-        val salt = ByteArray(16) { it.toByte() }
+        val salt = ByteArray(32) { it.toByte() }
         val uid = "perf-test-uid"
-        val params = PassphraseKdfParams() // = interactive defaults (64MB, 3, 1).
+        val params = KdfParams() // = interactive defaults (64MB, 3, 1).
 
         // Warmup — первый вызов включает JNI init, не считаем.
         kdf.derive(passphrase.copyOf(), salt, uid, params)
@@ -60,12 +60,12 @@ class Argon2idAndroidPerfBenchmark {
         // Sanity check: lightweight params (8 MiB / 1 pass) для тестов.
         if (!LibsodiumInitializer.isInitialized()) LibsodiumInitializer.initialize()
         val kdf = Argon2idPassphraseKdf(LibsodiumArgon2idPasswordHash())
-        val params = PassphraseKdfParams(memoryKib = 8192, iterations = 1)
+        val params = KdfParams(memoryKb = 8192, iterations = 1)
         // Warmup.
-        kdf.derive("warmup".toCharArray(), ByteArray(16) { 0x42 }, "uid", params)
+        kdf.derive("warmup".toCharArray(), ByteArray(32) { 0x42 }, "uid", params)
 
         val timing = measureTime {
-            kdf.derive("benchmark".toCharArray(), ByteArray(16) { 0x55 }, "uid", params)
+            kdf.derive("benchmark".toCharArray(), ByteArray(32) { 0x55 }, "uid", params)
         }
         println("Argon2id fast params timing: $timing")
         assertTrue("Fast params should be < 500ms (got $timing)", timing < 500.milliseconds)

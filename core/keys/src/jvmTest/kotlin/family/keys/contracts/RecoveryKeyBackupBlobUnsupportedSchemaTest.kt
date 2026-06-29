@@ -32,7 +32,7 @@ class RecoveryKeyBackupBlobUnsupportedSchemaTest {
 
     @Test
     fun missingSchemaVersionReturnsMalformed() {
-        val json = """{"algorithm":"argon2id-xchacha20poly1305-v1","kdfSalt":"AAAA","wrappedRootKey":"AAAA","nonce":"AAAA","createdAt":0}"""
+        val json = """{"stableId":"00000000-0000-4000-8000-000000000001","salt":"AAAA","kdfParams":{"algorithm":"Argon2id","iterations":3,"memoryKb":65536,"parallelism":1},"ciphertext":"AAAA","nonce":"AAAA","createdAt":"2026-06-28T10:00:00Z"}"""
         val result = RecoveryBlobCodec.decode(json)
         assertIs<Outcome.Failure<BackupError>>(result)
         assertIs<BackupError.Malformed>(result.error, "Missing schemaVersion MUST return Malformed")

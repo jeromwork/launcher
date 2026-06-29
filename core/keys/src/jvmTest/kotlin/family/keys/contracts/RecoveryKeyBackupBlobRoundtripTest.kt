@@ -2,8 +2,9 @@ package family.keys.contracts
 
 import family.keys.api.Outcome
 import family.keys.api.RecoveryKeyBackupBlob
-import family.keys.api.PassphraseKdfParams
+import family.keys.api.KdfParams
 import family.keys.impl.RecoveryBlobCodec
+import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -18,11 +19,12 @@ import kotlin.test.assertTrue
 class RecoveryKeyBackupBlobRoundtripTest {
 
     private fun sampleBlob(seed: Byte = 0x42) = RecoveryKeyBackupBlob(
-        kdfSalt = ByteArray(16) { seed },
-        kdfParams = PassphraseKdfParams(),
-        wrappedRootKey = ByteArray(48) { (seed + it).toByte() },
+        stableId = "00000000-0000-4000-8000-000000000001",
+        salt = ByteArray(32) { seed },
+        kdfParams = KdfParams(),
+        ciphertext = ByteArray(48) { (seed + it).toByte() },
         nonce = ByteArray(24) { (seed - it).toByte() },
-        createdAt = 1_700_000_000L
+        createdAt = Instant.parse("2026-06-28T10:00:00Z")
     )
 
     @Test
@@ -51,12 +53,12 @@ class RecoveryKeyBackupBlobRoundtripTest {
         val decoded = (RecoveryBlobCodec.decode(json) as Outcome.Success).value
 
         assertTrue(
-            original.kdfSalt.contentEquals(decoded.kdfSalt),
-            "kdfSalt MUST round-trip byte-exact"
+            original.salt.contentEquals(decoded.salt),
+            "salt MUST round-trip byte-exact"
         )
         assertTrue(
-            original.wrappedRootKey.contentEquals(decoded.wrappedRootKey),
-            "wrappedRootKey MUST round-trip byte-exact"
+            original.ciphertext.contentEquals(decoded.ciphertext),
+            "ciphertext MUST round-trip byte-exact"
         )
         assertTrue(
             original.nonce.contentEquals(decoded.nonce),

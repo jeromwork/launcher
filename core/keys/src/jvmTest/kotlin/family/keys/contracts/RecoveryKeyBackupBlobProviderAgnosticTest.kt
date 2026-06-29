@@ -9,7 +9,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import family.keys.api.Outcome
 import family.keys.api.RecoveryKeyBackupBlob
-import family.keys.api.PassphraseKdfParams
+import family.keys.api.KdfParams
+import kotlinx.datetime.Instant
 
 /**
  * Contract test: RecoveryKeyBackupBlob provider-agnostic JSON schema (T624, SC-008, FR-023).
@@ -40,11 +41,12 @@ class RecoveryKeyBackupBlobProviderAgnosticTest {
     @Test
     fun encodedBlobHasNoForbiddenFields() {
         val blob = RecoveryKeyBackupBlob(
-            kdfSalt = ByteArray(16) { 0x42 },
-            kdfParams = PassphraseKdfParams(),
-            wrappedRootKey = ByteArray(48) { it.toByte() },
+            stableId = "00000000-0000-4000-8000-000000000001",
+            salt = ByteArray(32) { 0x42 },
+            kdfParams = KdfParams(),
+            ciphertext = ByteArray(48) { it.toByte() },
             nonce = ByteArray(24) { it.toByte() },
-            createdAt = 1_700_000_000L
+            createdAt = Instant.parse("2026-06-28T10:00:00Z")
         )
         val json = RecoveryBlobCodec.encode(blob)
         assertNoForbiddenFields(json)

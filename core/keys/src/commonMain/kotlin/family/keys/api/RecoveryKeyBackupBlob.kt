@@ -1,71 +1,72 @@
 package family.keys.api
 
 import family.keys.api.internal.ByteArrayBase64Serializer
+import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 
 /**
- * Wire-format для passphrase-wrapped root key, хранимого в Firestore по пути
- * `users/{uid}/recovery-key` (spec 018 FR-009, FR-010).
+ * Wire-format для passphrase-wrapped root key (contracts/recovery-key-backup-v1.md §3).
  *
  * **Lifecycle**:
  *  • Setup: client generates root → user picks passphrase → derive wrapKey
- *    через Argon2id (memory-hard) → AEAD wrap root key → upload blob в Firestore.
+ *    через Argon2id (memory-hard) → AEAD wrap root key → upload blob в Cloudflare Worker.
  *  • Recovery: client signs in same UID → fetch blob → prompt passphrase →
  *    derive wrapKey same params (params живут внутри blob'а) → AEAD unwrap.
  *
  * **Versioning** (per CLAUDE.md rule 5):
  *  • `schemaVersion` — для backward-compat reads.
- *  • `algorithm` — `"argon2id-xchacha20poly1305-v1"` в v1; позволяет смену primitives
- *    без breaking schemaVersion.
- *  • `kdfParams` — Argon2id memory/iterations/parallelism (см. [PassphraseKdfParams]).
- *    Хранятся IN blob'е (не глобальные константы) чтобы tuning params в будущем
- *    не сломал старые vault'ы.
- *
- * **App-agnostic** (FR-022): blob НЕ содержит app package name, build version,
- * device identifiers — только криптографические primitives. Это enables future
- * multi-app cohabitation (S-2) без cross-app vault leak'ов.
+ *  • `stableId` — required UUID v4 для provider-agnostic идентификации.
+ *  • `salt` — 32 bytes raw (XChaCha20 standard).
+ *  • `kdfParams` — Argon2id memoryKb/iterations/parallelism (см. [KdfParams]).
+ *  • `ciphertext` — AEAD output ≥ 48 bytes.
+ *  • `nonce` — 24 bytes raw.
+ *  • `createdAt` — ISO-8601 Instant.
  */
 @Serializable
 data class RecoveryKeyBackupBlob(
-    val schemaVersion: Int = SCHEMA_VERSION,
-    val algorithm: String = ALGORITHM_V1,
+    val schemaVersion: Int = SCHEMA_VERSION_V1,
+    val stableId: StableId,
     @Serializable(with = ByteArrayBase64Serializer::class)
-    val kdfSalt: ByteArray,
-    val kdfParams: PassphraseKdfParams = PassphraseKdfParams(),
+    val salt: ByteArray,
+    val kdfParams: KdfParams,
     @Serializable(with = ByteArrayBase64Serializer::class)
-    val wrappedRootKey: ByteArray,
+    val ciphertext: ByteArray,
     @Serializable(with = ByteArrayBase64Serializer::class)
     val nonce: ByteArray,
-    val createdAt: Long
+    val createdAt: Instant,
 ) {
+    init {
+        require(salt.size == 32) { "salt MUST be exactly 32 bytes (XChaCha20 spec)" }
+        require(nonce.size == 24) { "nonce MUST be exactly 24 bytes (XChaCha20 nonce width)" }
+        require(ciphertext.size >= 48) { "ciphertext MUST be >= 48 bytes (32 key + 16 Poly1305 tag)" }
+        require(stableId.isNotEmpty()) { "stableId MUST be non-empty UUID v4" }
+    }
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is RecoveryKeyBackupBlob) return false
         return schemaVersion == other.schemaVersion &&
-            algorithm == other.algorithm &&
-            kdfSalt.contentEquals(other.kdfSalt) &&
+            stableId == other.stableId &&
+            salt.contentEquals(other.salt) &&
             kdfParams == other.kdfParams &&
-            wrappedRootKey.contentEquals(other.wrappedRootKey) &&
+            ciphertext.contentEquals(other.ciphertext) &&
             nonce.contentEquals(other.nonce) &&
             createdAt == other.createdAt
     }
 
     override fun hashCode(): Int {
         var result = schemaVersion
-        result = 31 * result + algorithm.hashCode()
-        result = 31 * result + kdfSalt.contentHashCode()
+        result = 31 * result + stableId.hashCode()
+        result = 31 * result + salt.contentHashCode()
         result = 31 * result + kdfParams.hashCode()
-        result = 31 * result + wrappedRootKey.contentHashCode()
+        result = 31 * result + ciphertext.contentHashCode()
         result = 31 * result + nonce.contentHashCode()
         result = 31 * result + createdAt.hashCode()
         return result
     }
 
     companion object {
-        /** Wire format version (contracts/recovery-key-backup-v1.md §1). */
         const val SCHEMA_VERSION_V1: Int = 1
-        /** Alias for backward compatibility with RecoveryBlobCodec. */
         const val SCHEMA_VERSION: Int = SCHEMA_VERSION_V1
-        const val ALGORITHM_V1: String = "argon2id-xchacha20poly1305-v1"
     }
 }

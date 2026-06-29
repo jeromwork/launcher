@@ -13,7 +13,7 @@ import family.keys.api.RecoveryKeyBackupBlob
 import family.keys.api.RootKey
 import family.keys.fakes.FakePassphrasePrompter
 import family.keys.fakes.FakeRecoveryKeyBackup
-import family.keys.api.PassphraseKdfParams
+import family.keys.api.KdfParams
 import family.keys.fakes.InMemoryAttemptCounter
 import family.keys.impl.Argon2idPassphraseKdf
 import family.keys.impl.RecoveryFlow
@@ -41,7 +41,7 @@ class RecoveryFlowTest {
 
     /** Lightweight Argon2id params для test speed (8 MiB / 1 pass) — full interactive
      *  validation покрывается T122b emulator benchmark. */
-    private val fastParams = PassphraseKdfParams(memoryKib = 8192, iterations = 1)
+    private val fastParams = KdfParams(memoryKb = 8192, iterations = 1)
 
     private suspend fun makeSetup(): Setup {
         if (!LibsodiumInitializer.isInitialized()) LibsodiumInitializer.initialize()
@@ -86,10 +86,9 @@ class RecoveryFlowTest {
         assertTrue(s.backup.has(uid))
         val blob = (s.backup.fetchBlob(uid) as Outcome.Success<RecoveryKeyBackupBlob>).value
         assertEquals(1, blob.schemaVersion)
-        assertEquals("argon2id-xchacha20poly1305-v1", blob.algorithm)
-        assertEquals(16, blob.kdfSalt.size)
+        assertEquals(32, blob.salt.size)
         assertEquals(24, blob.nonce.size)
-        assertTrue(blob.wrappedRootKey.isNotEmpty())
+        assertTrue(blob.ciphertext.isNotEmpty())
     }
 
     @Test
@@ -210,13 +209,13 @@ class RecoveryFlowTest {
 
         val blobAlice = (sA.backup.fetchBlob("uid-alice") as Outcome.Success<RecoveryKeyBackupBlob>).value
         val blobBob = (sA.backup.fetchBlob("uid-bob") as Outcome.Success<RecoveryKeyBackupBlob>).value
-        // FR-021 domain separation: same passphrase + different UID → different wrappedRootKey.
+        // FR-021 domain separation: same passphrase + different UID → different ciphertext.
         assertTrue(
-            !blobAlice.wrappedRootKey.contentEquals(blobBob.wrappedRootKey),
+            !blobAlice.ciphertext.contentEquals(blobBob.ciphertext),
             "Same passphrase under different UIDs MUST produce different vault blobs (FR-021)"
         )
         // Также вообще разные root key → разные wrap'ы, sanity check.
-        assertNotEquals(blobAlice.kdfSalt.toList(), blobBob.kdfSalt.toList())
+        assertNotEquals(blobAlice.salt.toList(), blobBob.salt.toList())
     }
 
     @Test
@@ -246,8 +245,8 @@ class RecoveryFlowTest {
         val blob = (sA.backup.fetchBlob(uid) as Outcome.Success<RecoveryKeyBackupBlob>).value
 
         val sB = makeSetup()
-        // Corrupt: truncate wrappedRootKey до 5 байт (вместо 48).
-        val corrupted = blob.copy(wrappedRootKey = ByteArray(5) { 0xFF.toByte() })
+        // Corrupt: replace ciphertext with garbage bytes (min size 48).
+        val corrupted = blob.copy(ciphertext = ByteArray(48) { 0xFF.toByte() })
         sB.backup.seed(uid, corrupted)
         sB.prompter.enqueueRecovery("correct-pw")
 

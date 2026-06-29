@@ -42,10 +42,11 @@ class RecoveryKeyBackupBlobContractBackwardCompatTest {
         val blob = (RecoveryBlobCodec.decode(json) as Outcome.Success).value
 
         // All required fields must be non-null and non-empty.
-        assertTrue(blob.kdfSalt.isNotEmpty(), "kdfSalt MUST be present")
-        assertTrue(blob.wrappedRootKey.isNotEmpty(), "wrappedRootKey (ciphertext) MUST be present")
+        assertTrue(blob.stableId.isNotEmpty(), "stableId MUST be present")
+        assertTrue(blob.salt.isNotEmpty(), "salt MUST be present")
+        assertTrue(blob.ciphertext.isNotEmpty(), "ciphertext MUST be present")
         assertTrue(blob.nonce.isNotEmpty(), "nonce MUST be present")
-        assertTrue(blob.createdAt > 0, "createdAt MUST be non-zero")
+        assertTrue(blob.createdAt.toEpochMilliseconds() > 0, "createdAt MUST be valid")
     }
 
     @Test
@@ -53,9 +54,9 @@ class RecoveryKeyBackupBlobContractBackwardCompatTest {
         val json = loadFixture("recovery-blob-v1-sample.json")
         val blob = (RecoveryBlobCodec.decode(json) as Outcome.Success).value
         assertEquals(
-            "argon2id-xchacha20poly1305-v1",
-            blob.algorithm,
-            "v1 fixture algorithm MUST be 'argon2id-xchacha20poly1305-v1'"
+            "Argon2id",
+            blob.kdfParams.algorithm,
+            "v1 fixture kdfParams algorithm MUST be 'Argon2id'"
         )
     }
 

@@ -7,7 +7,7 @@ import cryptokit.crypto.exception.CryptoException
 import family.keys.api.AuthIdentity
 import family.keys.api.Outcome
 import family.keys.api.PassphraseAttemptCounter
-import family.keys.api.PassphraseKdfParams
+import family.keys.api.KdfParams
 import family.keys.api.PassphrasePrompter
 import family.keys.api.RecoveryError
 import family.keys.api.RecoveryKeyBackup
@@ -47,7 +47,7 @@ class RecoveryFlow(
     private val attemptCounter: PassphraseAttemptCounter,
     private val clock: Clock = Clock.System,
     /** KDF params для setup. Default = interactive из spec 018 FR-030. */
-    private val setupKdfParams: PassphraseKdfParams = PassphraseKdfParams()
+    private val setupKdfParams: KdfParams = KdfParams()
 ) {
 
     /**
@@ -65,25 +65,26 @@ class RecoveryFlow(
             is Outcome.Success -> r.value
             is Outcome.Failure -> return Outcome.Failure(r.error)
         }
-        val kdfSalt = random.nextBytes(16)
+        val salt = random.nextBytes(32)
         val params = setupKdfParams
         var wrapKey: ByteArray? = null
         try {
             if (passphrase.size < 8) {
                 return Outcome.Failure(RecoveryError.Cancelled)
             }
-            wrapKey = kdf.derive(passphrase, kdfSalt, identity.stableId, params)
+            wrapKey = kdf.derive(passphrase, salt, identity.stableId, params)
             // AAD = "f5-recovery-vault-v1" — domain-separated от ConfigCipher AAD.
             val aad = AAD_PREFIX.encodeToByteArray()
             val ct: Ciphertext = aead.encrypt(rootKey.bytes, wrapKey, aad)
             val nonce = ct.bytes.copyOfRange(0, 24)
             val cipherPart = ct.bytes.copyOfRange(24, ct.bytes.size)
             val blob = RecoveryKeyBackupBlob(
-                kdfSalt = kdfSalt,
+                stableId = identity.stableId,
+                salt = salt,
                 kdfParams = params,
-                wrappedRootKey = cipherPart,
+                ciphertext = cipherPart,
                 nonce = nonce,
-                createdAt = clock.now().toEpochMilliseconds()
+                createdAt = clock.now()
             )
             return when (val s = backup.uploadBlob(identity.stableId, blob)) {
                 is Outcome.Success -> Outcome.Success(Unit)
@@ -124,9 +125,6 @@ class RecoveryFlow(
         if (blob.schemaVersion > RecoveryKeyBackupBlob.SCHEMA_VERSION) {
             return Outcome.Failure(RecoveryError.MalformedVault)
         }
-        if (blob.algorithm != RecoveryKeyBackupBlob.ALGORITHM_V1) {
-            return Outcome.Failure(RecoveryError.MalformedVault)
-        }
 
         // Attempt counter check (H-1).
         attemptCounter.resetIfExpired(identity.stableId)
@@ -142,9 +140,9 @@ class RecoveryFlow(
         var wrapKey: ByteArray? = null
         var plaintext: ByteArray? = null
         try {
-            wrapKey = kdf.derive(passphrase, blob.kdfSalt, identity.stableId, blob.kdfParams)
+            wrapKey = kdf.derive(passphrase, blob.salt, identity.stableId, blob.kdfParams)
             val aad = AAD_PREFIX.encodeToByteArray()
-            val envelope = blob.nonce + blob.wrappedRootKey
+            val envelope = blob.nonce + blob.ciphertext
             plaintext = try {
                 aead.decrypt(Ciphertext(envelope), wrapKey, aad)
             } catch (e: CryptoException.DecryptionFailed) {
@@ -172,7 +170,11 @@ class RecoveryFlow(
     }
 
     companion object {
-        /** AAD prefix для recovery vault wrap — domain separation от ConfigCipher AAD. */
+        /**
+         * AAD bytes mixed into AEAD computation. Wire-format constant — renaming would
+         * change ciphertext bytes for any blob produced before/after the rename, breaking
+         * roundtrip even within v1. Legacy name retained per inventory.md §D4 scope-exclusion.
+         */
         const val AAD_PREFIX: String = "f5-recovery-vault-v1"
     }
 }

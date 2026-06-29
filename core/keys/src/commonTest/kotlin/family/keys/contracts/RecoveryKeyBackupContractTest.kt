@@ -1,11 +1,12 @@
 package family.keys.contracts
 
 import family.keys.api.Outcome
-import family.keys.api.PassphraseKdfParams
+import family.keys.api.KdfParams
 import family.keys.api.RecoveryKeyBackupBlob
 import family.keys.api.BackupError
 import family.keys.fakes.FakeRecoveryKeyBackup
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -16,11 +17,12 @@ import kotlin.test.assertIs
 class RecoveryKeyBackupContractTest {
 
     private fun sampleBlob(seed: Byte = 0x42) = RecoveryKeyBackupBlob(
-        kdfSalt = ByteArray(16) { seed },
-        kdfParams = PassphraseKdfParams(),
-        wrappedRootKey = ByteArray(48) { (seed + it).toByte() },
+        stableId = "00000000-0000-4000-8000-000000000001",
+        salt = ByteArray(32) { seed },
+        kdfParams = KdfParams(),
+        ciphertext = ByteArray(48) { (seed + it).toByte() },
         nonce = ByteArray(24) { (seed - it).toByte() },
-        createdAt = 1_700_000_000L
+        createdAt = Instant.parse("2026-06-28T10:00:00Z")
     )
 
     @Test

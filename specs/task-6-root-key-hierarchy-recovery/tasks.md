@@ -26,7 +26,7 @@ ID numbering: `T6NN` consistent with task-6 (spec 003 used T3NN; spec task-49 us
 
 ### Phase 0.5 — A1 Wire-format alignment (mandatory pre-Phase-2 blocker)
 
-- [ ] **T600.5** **A1 resolution — wire-format alignment**: implement Variant 2 per [a1-resolution.md](./a1-resolution.md). Restructures `RecoveryKeyBackupBlob` to match contract `recovery-key-backup-v1.md` shape (adds `stableId`, renames `kdfSalt`→`salt`, `wrappedRootKey`→`ciphertext`, drops top-level `algorithm`, `createdAt: Long`→`Instant`). Consolidates `PassphraseKdfParams`→`KdfParams`. Regenerates v1/v2 fixtures. Updates 4 production + 7 test files. Preserves `AAD_PREFIX` (D4 scope exclusion). **Phase 2 blocked until this is green.** (A1 STOP-block resolution — owner decision 2026-06-28)
+- [x] **T600.5** **A1 resolution — wire-format alignment**: implement Variant 2 per [a1-resolution.md](./a1-resolution.md). Restructures `RecoveryKeyBackupBlob` to match contract `recovery-key-backup-v1.md` shape (adds `stableId`, renames `kdfSalt`→`salt`, `wrappedRootKey`→`ciphertext`, drops top-level `algorithm`, `createdAt: Long`→`Instant`). Consolidates `PassphraseKdfParams`→`KdfParams`. Regenerates v1/v2 fixtures. Updates 4 production + 7 test files. Preserves `AAD_PREFIX` (D4 scope exclusion). **Phase 2 blocked until this is green.** (A1 STOP-block resolution — owner decision 2026-06-28)
 
 ### Setup
 
