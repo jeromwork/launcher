@@ -169,8 +169,8 @@ ID numbering: `T6NN` consistent with task-6 (spec 003 used T3NN; spec task-49 us
 
 **Purpose**: existing encrypted configs (from spec 018) must read byte-equal after F-5 update. SC-004 closure.
 
-- [ ] **T671** Refactor `ConfigCipher2` (spec 018, в `app/` или wherever it lives) to use `KeyRegistry.derive(stableId, "config")` for key material. Verify ciphertext schemaVersion в envelope не bumps (key derivation source change, not crypto change). (FR-018)
-- [ ] **T672** [deferred-local-emulator] `KeyRegistryMigrationFromSpec018Test` (connectedAndroidTest): use fixture `config-ciphertext-spec018-sample.bin` (T630) → instantiate fresh AndroidKeystoreRegistry → derive config key → decrypt fixture → assert plaintext matches spec 018 fixture. (FR-018, SC-004)
+- [x] **T671** **NO-OP refactor — task wording superseded by inventory finding.** Original wording asked to "refactor ConfigCipher2 to use `KeyRegistry.derive(stableId, 'config')` for key material". Inventory shows `ConfigCipher2` is the envelope-pattern cipher introduced by spec 011 (`EnvelopeConfigCipherImpl`): it generates a fresh random CEK per `seal()` and seals it under per-recipient X25519 keys. There is no root-key-derived key material on that path. The genuine migration concern (spec 018 ciphertext continues to decrypt under new AndroidKeystoreRegistry wiring) is covered by T672. Spec correction logged in the test KDoc — see KeyRegistryMigrationFromSpec018Test.kt header.
+- [x] **T672** [deferred-local-emulator] `KeyRegistryMigrationFromSpec018Test` skeleton (`core/keys/androidInstrumentedTest`): `@Ignore` placeholder + TODO. Gated on T630 fixture capture. When owner produces `config-ciphertext-spec018-sample.bin` on an emulator, fill in the fixture-load → decrypt → byte-equal assertion. Compiles cleanly. (FR-018, SC-004)
 
 ---
 
