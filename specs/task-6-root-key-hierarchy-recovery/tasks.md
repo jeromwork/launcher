@@ -105,8 +105,8 @@ ID numbering: `T6NN` consistent with task-6 (spec 003 used T3NN; spec task-49 us
 
 ### Adapter tests requiring Android runtime
 
-- [ ] **T642** [deferred-local-emulator] `AndroidKeystoreRegistryTest` (connectedAndroidTest): real Keystore, derivation determinism + isolation cross-restart. Requires AVD API ≤ 34. (FR-008, memory `reference_compose_ui_test_api_mismatch`)
-- [ ] **T643** [deferred-physical-device] `Argon2BenchmarkTest` (androidx.benchmark): timing P50/P95/P99 на Xiaomi 11T. Target SC-010 ≤ 3s P95. Owner runs manually. (SC-010, memory `reference_testing_environment`)
+- [x] **T642** [deferred-local-emulator] `AndroidKeystoreRegistryTest` (androidInstrumentedTest): 5 tests against real Keystore + LibsodiumKeyDerivation. Covers derivation determinism, cross-purpose isolation, cross-stableId isolation, wipe semantics, multi-identity wipe scoping. **Compiles**; owner runs on emulator pixel_5_api_34 or Xiaomi 11T. (FR-008, memory `reference_compose_ui_test_api_mismatch`)
+- [x] **T643** [deferred-physical-device] `Argon2idAndroidPerfBenchmark` (androidInstrumentedTest): pre-existing from spec 018 Batch 7 (T122b). Verifies SC-010 (≤1500ms updated threshold per 2026-06-19 owner approval) using real libsodium Argon2id. **Compiles**; owner runs on Xiaomi 11T. (SC-010, memory `reference_testing_environment`)
 
 ---
 
