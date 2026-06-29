@@ -62,6 +62,20 @@ android {
             "\"$recoveryWorkerUrl\""
         )
 
+        // F-5 task-6 Track C — identity-init Worker URL (separate Worker per
+        // DZ-5 microservice boundary). One-time call after first Sign-In to
+        // bind UUID v4 stableId to the Firebase uid.
+        // TODO(server-roadmap SRV-IDENTITY-001): replace *.workers.dev with
+        //   our own domain when off the free tier.
+        val identityWorkerUrl = (project.findProperty("IDENTITY_INIT_CLAIM_WORKER_URL") as? String)
+            ?.takeIf { it.isNotBlank() }
+            ?: "https://identity-init.placeholder.workers.dev"
+        buildConfigField(
+            "String",
+            "IDENTITY_INIT_CLAIM_WORKER_URL",
+            "\"$identityWorkerUrl\""
+        )
+
         // F-5b E2E instrumented tests (CloudConfigEncryptionE2ETest).
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -114,6 +128,17 @@ android {
                 "String",
                 "RECOVERY_BACKUP_WORKER_URL",
                 "\"$debugRecoveryUrl\""
+            )
+
+            // Identity worker default port 8788 (Track B). adb reverse for
+            // physical devices: `adb reverse tcp:8788 tcp:8788`.
+            val debugIdentityUrl = (project.findProperty("IDENTITY_INIT_CLAIM_WORKER_URL") as? String)
+                ?.takeIf { it.isNotBlank() }
+                ?: "http://10.0.2.2:8788"
+            buildConfigField(
+                "String",
+                "IDENTITY_INIT_CLAIM_WORKER_URL",
+                "\"$debugIdentityUrl\""
             )
         }
         getByName("release") {
