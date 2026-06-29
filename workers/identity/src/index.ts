@@ -18,6 +18,7 @@
 import { verifyFirebaseIdToken, type JwksCacheKv, type Claims } from "@familycare/auth-jwt";
 import type { Env } from "./env.js";
 import { type FirebaseAdmin } from "./firebase-admin.js";
+import { RestFirebaseAdmin } from "./rest-firebase-admin.js";
 
 export type AuthVerifier = (
   token: string,
@@ -33,19 +34,31 @@ const defaultVerifier: AuthVerifier = async (token, projectId, kv) => {
 
 export interface HandlerDeps {
   readonly verify?: AuthVerifier;
-  readonly firebaseAdmin: FirebaseAdmin;
+  /**
+   * Optional override for tests (InMemoryFirebaseAdmin). When absent,
+   * production code constructs a {@link RestFirebaseAdmin} from
+   * `env.FIREBASE_SA_JSON`.
+   */
+  readonly firebaseAdmin?: FirebaseAdmin;
   readonly newUuid?: () => string;
 }
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    return handle(request, env);
+  },
+};
 
 export async function handle(
   request: Request,
   env: Env,
-  deps: HandlerDeps,
+  deps: HandlerDeps = {},
 ): Promise<Response> {
   const verify = deps.verify ?? defaultVerifier;
   const newUuid = deps.newUuid ?? generateUuidV4;
+  const admin = deps.firebaseAdmin ?? new RestFirebaseAdmin({ saJson: env.FIREBASE_SA_JSON });
   try {
-    return await routeRequest(request, env, verify, deps.firebaseAdmin, newUuid);
+    return await routeRequest(request, env, verify, admin, newUuid);
   } catch (e) {
     const err = e as Error;
     console.error("Unhandled error", err.name, err.message, err.stack);

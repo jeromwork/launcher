@@ -56,3 +56,4 @@ google-services.json
 tmp/
 firestore-tests/test-*.mjs
 
+.tmp/

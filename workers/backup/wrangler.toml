@@ -15,8 +15,8 @@ name = "launcher-backup-v1"
 main = "src/index.ts"
 compatibility_date = "2025-05-11"
 
-# TODO(setup): account_id assigned by owner before deploy.
-# account_id = "<copy from existing push worker after Phase 4 wiring>"
+# Owner Cloudflare account (gpt1.jeromwork@gmail.com), 2026-06-29.
+account_id = "c8f9c8c59e930e0283d713b91c01fb13"
 
 [vars]
 # Public — same Firebase project as push worker (shared identity surface).
@@ -27,17 +27,21 @@ FIREBASE_PROJECT_ID = "launcher-old-dev"
 # schema rolls to v2.
 MAX_SUPPORTED_SCHEMA_VERSION = "1"
 
-# R2 binding — bucket holds blob JSON under path `backup/{stableId}/v1.json`.
-[[r2_buckets]]
+# Storage decision 2026-06-29: Workers KV instead of R2.
+# Blob = ~500 bytes JSON, one per identity per install. KV's 25 MiB-per-value
+# cap + 1k/day write quota (free tier) is far above our needs, and KV does
+# not require enabling R2 / payment-method binding. See
+# docs/dev/server-roadmap.md SRV-RECOVERY-001 for the migration target.
+[[kv_namespaces]]
 binding = "RECOVERY_BLOBS"
-bucket_name = "launcher-recovery-blobs"
-# preview_bucket_name omitted — vitest tests use the in-memory R2 mock.
+# Created via `wrangler kv namespace create RECOVERY_BLOBS` 2026-06-29.
+id = "13e77e09a77a4faba6e743f1a59feff0"
 
-# KV namespace — shared JWKS cache (same as push worker once provisioned).
-# TODO(setup): bind to same JWKS_CACHE namespace as push worker.
-# [[kv_namespaces]]
-# binding = "JWKS_CACHE"
-# id = "8e23d27757bc49a190471c0091cecc1b"
+# JWKS cache — shared with push worker. ID provisioned 2026-06-22 (see
+# workers/push/wrangler.toml `JWKS_CACHE`).
+[[kv_namespaces]]
+binding = "JWKS_CACHE"
+id = "8e23d27757bc49a190471c0091cecc1b"
 
 # Routes — *.workers.dev for MVP. Custom domain after server-roadmap exit.
 # TODO(TODO-ARCH-001): uncomment when own domain is provisioned.

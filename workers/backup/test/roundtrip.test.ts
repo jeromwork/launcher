@@ -4,7 +4,7 @@ import { InMemoryIdempotencyCache } from "../src/idempotency.js";
 import { InMemoryRateLimiter } from "../src/ratelimit.js";
 import { fakeAuth, makeEnv, sampleBlobJson } from "./fixtures.js";
 
-describe("T659 POST → GET → DELETE round-trip via R2 mock", () => {
+describe("T659 POST → GET → DELETE round-trip via KV mock", () => {
   it("upload then fetch returns the stored blob byte-equal", async () => {
     const env = makeEnv();
     const body = sampleBlobJson("uid-1");

@@ -16,8 +16,8 @@ name = "launcher-identity-v1"
 main = "src/index.ts"
 compatibility_date = "2025-05-11"
 
-# TODO(setup): account_id by owner before first deploy.
-# account_id = "<copy from workers/push/ after Phase 4>"
+# Owner Cloudflare account (gpt1.jeromwork@gmail.com), 2026-06-29.
+account_id = "c8f9c8c59e930e0283d713b91c01fb13"
 
 [vars]
 # Same Firebase project as backup + push workers.
@@ -27,10 +27,11 @@ FIREBASE_PROJECT_ID = "launcher-old-dev"
 #   FIREBASE_SA_JSON — service-account JSON for Identity Toolkit + Firestore
 #                       admin access. See docs/dev/secrets-cloudflare-worker.md.
 
-# JWKS cache — shared with backup + push workers when bound.
-# [[kv_namespaces]]
-# binding = "JWKS_CACHE"
-# id = "8e23d27757bc49a190471c0091cecc1b"
+# JWKS cache — shared with backup + push workers. Same namespace ID across
+# all three Workers so a JWKS refresh by one is visible to the others.
+[[kv_namespaces]]
+binding = "JWKS_CACHE"
+id = "8e23d27757bc49a190471c0091cecc1b"
 
 # Routes — *.workers.dev for MVP.
 # [[routes]]

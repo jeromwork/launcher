@@ -4,24 +4,17 @@ import type { Env } from "../src/env.js";
 import type { AuthVerifier } from "../src/index.js";
 
 /**
- * Minimal in-memory R2 mock — implements only the subset of R2Bucket the
+ * Minimal in-memory KV mock — implements only the subset of KVNamespace the
  * Worker actually calls (`get`, `put`, `delete`).
  */
-export class InMemoryR2 {
+export class InMemoryKV {
   readonly objects = new Map<string, string>();
 
-  async get(key: string): Promise<R2ObjectBody | null> {
-    const value = this.objects.get(key);
-    if (value === undefined) return null;
-    return {
-      text: async () => value,
-    } as unknown as R2ObjectBody;
+  async get(key: string): Promise<string | null> {
+    return this.objects.get(key) ?? null;
   }
 
-  async put(key: string, value: string | ReadableStream | ArrayBuffer): Promise<void> {
-    if (typeof value !== "string") {
-      throw new Error("Test R2 mock supports string puts only");
-    }
+  async put(key: string, value: string): Promise<void> {
     this.objects.set(key, value);
   }
 
@@ -31,15 +24,15 @@ export class InMemoryR2 {
 }
 
 export interface TestEnv extends Env {
-  RECOVERY_BLOBS: InMemoryR2 & R2Bucket;
+  RECOVERY_BLOBS: InMemoryKV & KVNamespace;
 }
 
 export function makeEnv(overrides: Partial<TestEnv> = {}): TestEnv {
-  const r2 = new InMemoryR2() as InMemoryR2 & R2Bucket;
+  const kv = new InMemoryKV() as InMemoryKV & KVNamespace;
   return {
     FIREBASE_PROJECT_ID: "test-project",
     MAX_SUPPORTED_SCHEMA_VERSION: "1",
-    RECOVERY_BLOBS: r2,
+    RECOVERY_BLOBS: kv,
     ...overrides,
   };
 }

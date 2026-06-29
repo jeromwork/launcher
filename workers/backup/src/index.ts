@@ -186,9 +186,7 @@ async function handleUpload(
     });
   }
 
-  await env.RECOVERY_BLOBS.put(blobObjectKey(authed.stableId), bodyText, {
-    httpMetadata: { contentType: "application/json; charset=utf-8" },
-  });
+  await env.RECOVERY_BLOBS.put(blobObjectKey(authed.stableId), bodyText);
   const responseBody = JSON.stringify({
     status: "stored",
     createdAt: typeof blob["createdAt"] === "string" ? blob["createdAt"] : null,
@@ -216,11 +214,10 @@ async function handleFetch(
   if (!rlDecision.allowed) {
     return rateLimitResponse(rlDecision.retryAfterSeconds!);
   }
-  const obj = await env.RECOVERY_BLOBS.get(blobObjectKey(pathStableId));
-  if (obj === null) {
+  const text = await env.RECOVERY_BLOBS.get(blobObjectKey(pathStableId));
+  if (text === null) {
     return jsonResponse(404, { error: "NOT_FOUND" });
   }
-  const text = await obj.text();
   return new Response(text, {
     status: 200,
     headers: { "Content-Type": "application/json; charset=utf-8" },
