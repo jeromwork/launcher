@@ -105,8 +105,8 @@ ID numbering: `T6NN` consistent with task-6 (spec 003 used T3NN; spec task-49 us
 
 ### Adapter tests requiring Android runtime
 
-- [x] **T642** [deferred-local-emulator] `AndroidKeystoreRegistryTest` (androidInstrumentedTest): 5 tests against real Keystore + LibsodiumKeyDerivation. Covers derivation determinism, cross-purpose isolation, cross-stableId isolation, wipe semantics, multi-identity wipe scoping. **Compiles**; owner runs on emulator pixel_5_api_34 or Xiaomi 11T. (FR-008, memory `reference_compose_ui_test_api_mismatch`)
-- [x] **T643** [deferred-physical-device] `Argon2idAndroidPerfBenchmark` (androidInstrumentedTest): pre-existing from spec 018 Batch 7 (T122b). Verifies SC-010 (≤1500ms updated threshold per 2026-06-19 owner approval) using real libsodium Argon2id. **Compiles**; owner runs on Xiaomi 11T. (SC-010, memory `reference_testing_environment`)
+- [x] **T642** ✅ **RAN on Xiaomi 11T (model 2109119DG, MIUI V125, Android 11 API 30) 2026-06-29** — 5/5 PASS, total 1.81s. Real Android Keystore (TEE-backed wrap key, StrongBox auto-fallback inside SecureKeyStore.android.kt) + LibsodiumKeyDerivation HKDF. All five invariants verified on hardware: derivation determinism across calls, cross-purpose isolation, cross-stableId isolation (FR-031), wipe semantics + re-derivation works, multi-identity wipe scoping (Alice wipe leaves Bob intact). (FR-008)
+- [x] **T643** ✅ **RAN on Xiaomi 11T 2026-06-29** — 2/2 PASS. **Production params (Argon2id 64 MiB / 3 iterations / 1 parallelism): best 198.4ms over 3 runs (198 / 199 / 201ms).** Threshold 1500ms — **7.5× margin**. SC-010 target (≤3s P95) — **15× margin**. Fast params (8 MiB / 1 iter) 9.6ms. Verifies real libsodium Argon2id via JNI on hardware. (SC-010, closes T684.)
 
 ---
 
@@ -199,7 +199,7 @@ ID numbering: `T6NN` consistent with task-6 (spec 003 used T3NN; spec task-49 us
 - [ ] **T681** [deferred-physical-device] **SC-001 cross-device manual smoke**: install on Xiaomi 11T (device A) → setup with passphrase «correct horse battery staple» → encrypt config → verify Worker blob exists. Then on second device (or factory-reset same device): install → sign-in with same Google account → recovery screen → enter same passphrase → verify config decrypted byte-equal. Owner attests SC-001 PASS. (US-2)
 - [ ] **T682** [deferred-physical-device] **SC-002 Fallback flow manual smoke**: on Xiaomi 11T after T681 → enter 5 wrong passphrases → Fallback screen → confirm twice → blob deleted from Worker → setup screen reopens under same identity. Owner attests SC-002 PASS. (US-3)
 - [ ] **T683** [deferred-physical-device] **SC-005 Autofill cross-device manual smoke**: two physical devices, same Google account, GPM enabled. On A → setup (Autofill suggests save) → save. On B → install → sign-in → entry screen → Autofill auto-populates passphrase → continue. Owner attests SC-005 PASS. (US-2 scenario 4)
-- [ ] **T684** [deferred-physical-device] **SC-010 Argon2 timing on real hardware**: run T643 benchmark output on Xiaomi 11T → P95 ≤ 3s. If P95 > 3s — flag to research.md R4 «moderate params» exit ramp. (SC-010)
+- [x] **T684** ✅ **CLOSED 2026-06-29 by T643 run on Xiaomi 11T**. Argon2id production params (64 MiB / 3 / 1) on Xiaomi 11T MIUI V125 Android 11 — best 198.4ms, all 3 runs within 198-201ms. SC-010 target (≤3s P95) cleared with 15× margin. No need to invoke research.md R4 «moderate params» exit ramp. (SC-010)
 - [ ] **T685** [deferred-physical-device] **Real Worker E2E**: T669 (integration test) against deployed `<account>.workers.dev/backup` (NOT localhost). Verifies real JWT custom-claim + Firebase production verification + R2 storage. (T669 + T666 + T654 dependencies)
 - [ ] **T686** [deferred-external] **SC-006 docs/recovery-flow.md peer review**: owner reads `docs/recovery-flow.md` (T673 output) → confirms plain-Russian senior-readable. Non-developer test reader (бабушка-figure, или peer-owner) reads and paraphrases. Owner attests SC-006 PASS. (SC-006)
 
