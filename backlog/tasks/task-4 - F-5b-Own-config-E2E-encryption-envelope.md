@@ -1,10 +1,10 @@
 ---
 id: TASK-4
 title: Own config E2E encryption (envelope)
-status: Verification
+status: Done
 assignee: []
 created_date: '2026-06-23 05:01'
-updated_date: '2026-06-24 14:40'
+updated_date: '2026-06-28 19:00'
 labels:
   - phase-1
   - F-feature
@@ -35,8 +35,7 @@ ConfigDocument E2E encryption через hybrid envelope (Curve25519 + AEAD). F-
 - [x] #4 [hand] Backward-compat read test для envelope (spec 018 fixture) — реализован в EnvelopeBackwardCompatTest.kt
 <!-- AC:END -->
 
-## Verification Pending
-<!-- SECTION:VERIFICATION_PENDING:BEGIN -->
-Все `[hand]` AC успешно верифицированы.
-- **AC #4**: Реализован `EnvelopeBackwardCompatTest.kt` в `core/keys/src/jvmTest/kotlin/family/keys/` с зафиксированным v1 JSON fixture. Тест подтверждает стабильность wire format'а и корректную десериализацию/расшифровку.
-<!-- SECTION:VERIFICATION_PENDING:END -->
+## Final Summary
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+All 4 [hand] AC verified and closed (2026-06-28 pre-pr-backlog-sync). ConfigCipher2 envelope wire format schemaVersion=1 shipped per spec 018. AC #4 closed by EnvelopeBackwardCompatTest with frozen v1 JSON fixture proving wire-format stability and correct deserialization+decryption. No deferred gates remaining.
+<!-- SECTION:FINAL_SUMMARY:END -->

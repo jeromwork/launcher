@@ -1,10 +1,10 @@
 ---
 id: TASK-3
 title: AuthProvider + Google Sign-In
-status: Verification
+status: Done
 assignee: []
 created_date: '2026-06-23 05:00'
-updated_date: '2026-06-24 14:40'
+updated_date: '2026-06-28 19:00'
 labels:
   - phase-1
   - F-feature
@@ -34,8 +34,8 @@ AuthProvider port + Google Sign-In adapter. Anonymous Firebase Auth удалён
 - [x] #4 [hand] Sign-out preserves Keystore для recovery (GoogleSignInAuthAdapterSignOutTest проверен)
 <!-- AC:END -->
 
-## Verification Pending
-<!-- SECTION:VERIFICATION_PENDING:BEGIN -->
-Все [hand] AC проверены и закрыты (AC #2 обновлен по spec 017 Q5; AC #4 покрыт тестом GoogleSignInAuthAdapterSignOutTest).
-<!-- SECTION:VERIFICATION_PENDING:END -->
+## Final Summary
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+All 4 [hand] AC verified and closed (2026-06-28 pre-pr-backlog-sync). AuthProvider port + GoogleSignInAuthAdapter shipped per spec 017. AC #4 closed by GoogleSignInAuthAdapterSignOutTest (sign-out preserves Keystore for TASK-6 recovery). No deferred gates remaining.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
