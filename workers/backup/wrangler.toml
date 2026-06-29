@@ -1,0 +1,46 @@
+# workers/backup — Recovery-key-backup Worker (Spec task-6 F-5).
+#
+# R2-backed storage for RecoveryKeyBackupBlob. Endpoints:
+#   POST   /backup
+#   GET    /backup/{stableId}
+#   DELETE /backup/{stableId}
+#
+# TODO(server-roadmap SRV-RECOVERY-001 d): in-memory rate-limit + idempotency
+#   migration to persistent store (KV or own-server DB) when off the free tier.
+#
+# TODO(setup): account_id + R2 bucket creation + secret rotation must happen
+#   BEFORE first `wrangler deploy`. Owner has Cloudflare credentials.
+
+name = "launcher-backup-v1"
+main = "src/index.ts"
+compatibility_date = "2025-05-11"
+
+# TODO(setup): account_id assigned by owner before deploy.
+# account_id = "<copy from existing push worker after Phase 4 wiring>"
+
+[vars]
+# Public — same Firebase project as push worker (shared identity surface).
+FIREBASE_PROJECT_ID = "launcher-old-dev"
+
+# Maximum recovery-blob wire-format schema supported by this Worker. Mirrors
+# Kotlin const RecoveryKeyBackupBlob.SCHEMA_VERSION_V1. Bump together when
+# schema rolls to v2.
+MAX_SUPPORTED_SCHEMA_VERSION = "1"
+
+# R2 binding — bucket holds blob JSON under path `backup/{stableId}/v1.json`.
+[[r2_buckets]]
+binding = "RECOVERY_BLOBS"
+bucket_name = "launcher-recovery-blobs"
+# preview_bucket_name omitted — vitest tests use the in-memory R2 mock.
+
+# KV namespace — shared JWKS cache (same as push worker once provisioned).
+# TODO(setup): bind to same JWKS_CACHE namespace as push worker.
+# [[kv_namespaces]]
+# binding = "JWKS_CACHE"
+# id = "8e23d27757bc49a190471c0091cecc1b"
+
+# Routes — *.workers.dev for MVP. Custom domain after server-roadmap exit.
+# TODO(TODO-ARCH-001): uncomment when own domain is provisioned.
+# [[routes]]
+# pattern = "backup.<our-domain>/backup/*"
+# custom_domain = true
