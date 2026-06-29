@@ -188,7 +188,7 @@ ID numbering: `T6NN` consistent with task-6 (spec 003 used T3NN; spec task-49 us
 
 ### Backlog AC format migration (one-time, per CLAUDE.md hybrid model)
 
-- [ ] **T680** Update [backlog/tasks/task-6 - F-5-Root-Key-Hierarchy-Owner-Recovery.md](../../backlog/tasks/task-6%20-%20F-5-Root-Key-Hierarchy-Owner-Recovery.md) `## Acceptance Criteria` block to hybrid format: mark existing 6 AC as `[hand]`. Skill `pre-pr-backlog-sync` will add `[auto:checklist]` and `[auto:deferred-*]` rows on next invocation. (CLAUDE.md Portfolio tracker §AC hybrid model)
+- [x] **T680** Updated `backlog/tasks/task-6 - F-5-Root-Key-Hierarchy-Owner-Recovery.md`: marked all 6 owner-written AC as `[hand]`. AC #6 (docs/recovery-flow.md) flipped to `[x]` since T673 landed in this branch. AC #1-#5 remain `[ ]` pending owner physical-device verification (T681-T685). `pre-pr-backlog-sync` skill will add `[auto:checklist]` and `[auto:deferred-*]` rows before PR open. (CLAUDE.md Portfolio tracker §AC hybrid model)
 
 ---
 
