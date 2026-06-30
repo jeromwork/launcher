@@ -27,6 +27,7 @@ enum class ConfigKind {
     TileSet,
     SystemSettingsPool,
     UICustomizationPool,
+    Preset,
 }
 
 sealed class ConfigSourceResult {

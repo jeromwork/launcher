@@ -41,4 +41,8 @@ sealed class CheckSpec {
     @Serializable
     @SerialName("android-package-home")
     data class AndroidPackageHome(val packageName: String? = null) : CheckSpec()
+
+    @Serializable
+    @SerialName("ui-font")
+    data class UIFont(val minScale: Float) : CheckSpec()
 }

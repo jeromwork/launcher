@@ -15,16 +15,16 @@
 
 > Verifies existing code state and prepares ground. **All other phases depend on this.**
 
-- [ ] **T600** Inventory `core/src/commonMain/kotlin/com/launcher/api/ProfileModels.kt` (`ProfileSnapshot`, `EffectiveProfile`, `DegradationRecord`) — grep all consumers; decide: rename to `Resolved*` (if alive) or delete (if dead). Document decision in `plan.md` § R2 result. (Plan §2.1, Risk «existing ProfileSnapshot decision»)
+- [x] **T600** Inventory `core/src/commonMain/kotlin/com/launcher/api/ProfileModels.kt` (`ProfileSnapshot`, `EffectiveProfile`, `DegradationRecord`) — grep all consumers; decide: rename to `Resolved*` (if alive) or delete (if dead). Document decision in `plan.md` § R2 result. (Plan §2.1, Risk «existing ProfileSnapshot decision»)
        Acceptance: decision committed в plan.md; either grep returns 0 consumers (→ delete in T640) or 1+ consumers (→ rename in T640).
 
-- [ ] **T601** Confirm `androidx.datastore.preferences` (1.1.1) in `libs.versions.toml`. (Plan §5.1)
+- [x] **T601** Confirm `androidx.datastore.preferences` (1.1.1) in `libs.versions.toml`. (Plan §5.1)
        Acceptance: `grep datastore c:/work/launcher/gradle/libs.versions.toml` shows `datastore = "1.1.1"` and `androidx-datastore-preferences` binding.
 
-- [ ] **T602** Confirm `kotlinx.serialization.json` available in `core/build.gradle.kts` commonMain. (Plan §5.1)
+- [x] **T602** Confirm `kotlinx.serialization.json` available in `core/build.gradle.kts` commonMain. (Plan §5.1)
        Acceptance: `grep "kotlinx-serialization-json" c:/work/launcher/core/build.gradle.kts` returns the dep.
 
-- [ ] **T603** Confirm existing `ConfigSource.kt`, `WizardEngine.kt`, `CheckSpec.kt`, `ApplySpec.kt`, `BundledConfigSource.kt` are present and parsable. (Plan §2.1 existing-code reuse)
+- [x] **T603** Confirm existing `ConfigSource.kt`, `WizardEngine.kt`, `CheckSpec.kt`, `ApplySpec.kt`, `BundledConfigSource.kt` are present and parsable. (Plan §2.1 existing-code reuse)
        Acceptance: all 5 files exist at paths from plan §2.1.
 
 ---
@@ -33,43 +33,43 @@
 
 > Pure data types. No Android, no DI, no behaviour. Should compile in commonMain unit tests.
 
-- [ ] **T610 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/preset/PresetRef.kt` — `data class PresetRef(uid: String, version: Int)` с `init` validations (uid non-blank, no `::`, version ≥ 1) + `toCompositeKey()` + `parseCompositeKey()` companion. (FR-001, R3)
+- [x] **T610 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/preset/PresetRef.kt` — `data class PresetRef(uid: String, version: Int)` с `init` validations (uid non-blank, no `::`, version ≥ 1) + `toCompositeKey()` + `parseCompositeKey()` companion. (FR-001, R3)
        Acceptance: `./gradlew :core:test --tests "*PresetRefTest"` (placeholder green after T660).
 
-- [ ] **T611 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/preset/Preset.kt` — `@Serializable data class Preset(schemaVersion, uid, version, slug, label, description, configs, abstractProfile?, requiredModules, optionalModules, pickEnabled)` + `val ref: PresetRef` extension + `const val PRESET_SCHEMA_VERSION = 1`. (FR-001)
+- [x] **T611 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/preset/Preset.kt` — `@Serializable data class Preset(schemaVersion, uid, version, slug, label, description, configs, abstractProfile?, requiredModules, optionalModules, pickEnabled)` + `val ref: PresetRef` extension + `const val PRESET_SCHEMA_VERSION = 1`. (FR-001)
        Acceptance: file compiles in commonMain.
 
-- [ ] **T612 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/preset/Config.kt` — `@Serializable data class Config(id, poolId, poolVersion, entryId, title, description, check: CheckSpec, apply: ApplySpec, criticality: Criticality, defaultValue?, hideInWizard, showInSettings)` + `enum class Criticality { Required, Optional }`. (FR-001, Clarification #8)
+- [x] **T612 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/preset/Config.kt` — `@Serializable data class Config(id, poolId, poolVersion, entryId, title, description, check: CheckSpec, apply: ApplySpec, criticality: Criticality, defaultValue?, hideInWizard, showInSettings)` + `enum class Criticality { Required, Optional }`. (FR-001, Clarification #8)
        Acceptance: file compiles.
 
-- [ ] **T613 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/preset/AbstractProfile.kt` — `@Serializable data class AbstractProfile(layout: Layout, bindings: List<Binding>)`. (FR-001, Clarification #8)
+- [x] **T613 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/preset/AbstractProfile.kt` — `@Serializable data class AbstractProfile(layout: Layout, bindings: List<Binding>)`. (FR-001, Clarification #8)
        Acceptance: file compiles (requires T620, T621 — see Phase 2 reorder note).
 
-- [ ] **T614 [P]** Add `ConfigKind.Preset` variant to existing `ConfigSource.kt`. (FR-004, Article VII §10 evolution)
+- [x] **T614 [P]** Add `ConfigKind.Preset` variant to existing `ConfigSource.kt`. (FR-004, Article VII §10 evolution)
        Acceptance: enum has 6 values; existing tests still green.
 
-- [ ] **T615 [P]** Add `CheckSpec.UIFont(minScale: Float)` variant to existing `core/src/commonMain/kotlin/com/launcher/api/wizard/data/CheckSpec.kt` (sealed extension per Article VII §16). (FR-024)
+- [x] **T615 [P]** Add `CheckSpec.UIFont(minScale: Float)` variant to existing `core/src/commonMain/kotlin/com/launcher/api/wizard/data/CheckSpec.kt` (sealed extension per Article VII §16). (FR-024)
        Acceptance: file compiles; existing `CheckSpec` tests green.
 
-- [ ] **T616 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/profile/Layout.kt` — `Layout`, `Screen`, `Grid`, `Slot` (`@Serializable data class` each) + `Layout.empty()` companion. `Slot.kind: String? = null` (hook per Clarification #11). (FR-017)
+- [x] **T616 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/profile/Layout.kt` — `Layout`, `Screen`, `Grid`, `Slot` (`@Serializable data class` each) + `Layout.empty()` companion. `Slot.kind: String? = null` (hook per Clarification #11). (FR-017)
        Acceptance: file compiles.
 
-- [ ] **T617 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/profile/Binding.kt` — `@Serializable data class Binding(slotPosition, targetPackage?, contactRef?, url?, intentExtras)`. (FR-017, Clarification #12 hook)
+- [x] **T617 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/profile/Binding.kt` — `@Serializable data class Binding(slotPosition, targetPackage?, contactRef?, url?, intentExtras)`. (FR-017, Clarification #12 hook)
        Acceptance: file compiles.
 
-- [ ] **T618 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/profile/AppliedState.kt` — `@Serializable sealed class AppliedState` with `NotApplied`, `Applied`, `WithValue(value: String)`, `Indeterminate` variants. (FR-017, Article VII §15 graceful)
+- [x] **T618 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/profile/AppliedState.kt` — `@Serializable sealed class AppliedState` with `NotApplied`, `Applied`, `WithValue(value: String)`, `Indeterminate` variants. (FR-017, Article VII §15 graceful)
        Acceptance: file compiles.
 
-- [ ] **T619 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/profile/SettingEntry.kt` — `@Serializable data class SettingEntry(config: Config, state: AppliedState = NotApplied)`. (FR-017)
+- [x] **T619 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/profile/SettingEntry.kt` — `@Serializable data class SettingEntry(config: Config, state: AppliedState = NotApplied)`. (FR-017)
        Acceptance: file compiles.
 
-- [ ] **T61A [P]** Create `core/src/commonMain/kotlin/com/launcher/api/profile/ProfileData.kt` — `@Serializable data class ProfileData(layout, bindings, settings, unassigned)`. (FR-017, Clarification #9, Slot.kind/unassigned hooks)
+- [x] **T61A [P]** Create `core/src/commonMain/kotlin/com/launcher/api/profile/ProfileData.kt` — `@Serializable data class ProfileData(layout, bindings, settings, unassigned)`. (FR-017, Clarification #9, Slot.kind/unassigned hooks)
        Acceptance: file compiles.
 
-- [ ] **T61B [P]** Create `core/src/commonMain/kotlin/com/launcher/api/profile/ProfileStoreState.kt` — `@Serializable data class ProfileStoreState(schemaVersion, activePresetRef?, profiles: Map<String, ProfileData>)` + `const val PROFILE_STORE_SCHEMA_VERSION = 1`. (FR-018, R3)
+- [x] **T61B [P]** Create `core/src/commonMain/kotlin/com/launcher/api/profile/ProfileStoreState.kt` — `@Serializable data class ProfileStoreState(schemaVersion, activePresetRef?, profiles: Map<String, ProfileData>)` + `const val PROFILE_STORE_SCHEMA_VERSION = 1`. (FR-018, R3)
        Acceptance: file compiles; Map key documented as composite `"uid::version"`.
 
-- [ ] **T61C** Create `core/src/commonMain/kotlin/com/launcher/api/profile/ProfileStore.kt` — `interface ProfileStore { load(); save(); getActive(); putProfile(); setActive() }`. (FR-018)
+- [x] **T61C** Create `core/src/commonMain/kotlin/com/launcher/api/profile/ProfileStore.kt` — `interface ProfileStore { load(); save(); getActive(); putProfile(); setActive() }`. (FR-018)
        Acceptance: file compiles.
        Depends: T61B.
 
@@ -77,18 +77,18 @@
 
 ## Phase 2 — Ports + default strategies (commonMain)
 
-- [ ] **T620 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/pools/Pool.kt` — `@Serializable data class Pool(id, schemaVersion, entries: List<PoolEntry>)` + `data class PoolEntry(id, title, description, check, apply, criticality, defaultValue?, deprecated)`. (FR-005, contracts/pool-naming.md)
+- [x] **T620 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/pools/Pool.kt` — `@Serializable data class Pool(id, schemaVersion, entries: List<PoolEntry>)` + `data class PoolEntry(id, title, description, check, apply, criticality, defaultValue?, deprecated)`. (FR-005, contracts/pool-naming.md)
        Acceptance: file compiles.
 
-- [ ] **T621 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/pools/PoolSource.kt` — `interface PoolSource { load(poolId); version(poolId); listEntries(poolId) }`. (FR-005)
+- [x] **T621 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/pools/PoolSource.kt` — `interface PoolSource { load(poolId); version(poolId); listEntries(poolId) }`. (FR-005)
        Acceptance: file compiles.
        Depends: T620.
 
-- [ ] **T622** Create `core/src/commonMain/kotlin/com/launcher/api/switchstrategy/ProfileSwitchStrategy.kt` — `interface ProfileSwitchStrategy { migrate(from: ProfileData?, toPreset: Preset): ProfileData }`. (FR-019)
+- [x] **T622** Create `core/src/commonMain/kotlin/com/launcher/api/switchstrategy/ProfileSwitchStrategy.kt` — `interface ProfileSwitchStrategy { migrate(from: ProfileData?, toPreset: Preset): ProfileData }`. (FR-019)
        Acceptance: file compiles.
        Depends: T611, T61A.
 
-- [ ] **T623** Create `core/src/commonMain/kotlin/com/launcher/api/switchstrategy/CopyOnActivateStrategy.kt` — default adapter: `from` ignored; returns `ProfileData(layout = toPreset.abstractProfile?.layout ?: Layout.empty(), bindings = toPreset.abstractProfile?.bindings ?: [], settings = toPreset.configs.map { SettingEntry(it, NotApplied) })`. (FR-019)
+- [x] **T623** Create `core/src/commonMain/kotlin/com/launcher/api/switchstrategy/CopyOnActivateStrategy.kt` — default adapter: `from` ignored; returns `ProfileData(layout = toPreset.abstractProfile?.layout ?: Layout.empty(), bindings = toPreset.abstractProfile?.bindings ?: [], settings = toPreset.configs.map { SettingEntry(it, NotApplied) })`. (FR-019)
        Acceptance: unit test (T660 — Phase 6) covers happy path + null abstractProfile case.
        Depends: T622, T611, T612, T61A, T619.
 
