@@ -16,6 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import com.launcher.api.localization.StringResolver
+import androidx.lifecycle.lifecycleScope
+import com.launcher.api.FlowPreset
+import com.launcher.api.PresetRepository
 import com.launcher.api.wizard.ConfigKind
 import com.launcher.api.wizard.ConfigSource
 import com.launcher.api.wizard.ConfigSourceResult
@@ -45,6 +48,7 @@ class WizardActivity : ComponentActivity() {
     private val configSource: ConfigSource by inject()
     private val stringResolver: StringResolver by inject()
     private val userPreferencesStore: UserPreferencesStore by inject()
+    private val presetRepository: PresetRepository by inject()
     private val uiChoiceHost: StepHost by inject(named("uiChoiceHost"))
     private val systemSettingHost: StepHost by inject(named("systemSettingHost"))
     private val tutorialHintHost: StepHost by inject(named("tutorialHintHost"))
@@ -122,12 +126,18 @@ class WizardActivity : ComponentActivity() {
     }
 
     private fun routeToHome() {
-        startActivity(
-            Intent(this, HomeActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
-            },
-        )
-        finish()
+        lifecycleScope.launch {
+            if (presetRepository.getActivePreset() == null) {
+                // wizard без выбора пресета = senior default
+                presetRepository.setActivePreset(FlowPreset.SIMPLE_LAUNCHER)
+            }
+            startActivity(
+                Intent(this@WizardActivity, HomeActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
+                },
+            )
+            finish()
+        }
     }
 
     private suspend fun applyLanguageOverride() {
