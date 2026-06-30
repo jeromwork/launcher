@@ -1,51 +1,49 @@
-# Checklist: dev-experience — TASK-65 Preset Composition Foundation v2
+# Checklist: dev-experience — TASK-65 (re-run after revised model)
 
-Applied: 2026-06-30.
+Applied: 2026-06-30 (2nd pass).
 
 ## Local-test path
 
-- [x] CHK001 Local Test Path filled — **yes**. Detailed section в spec.md с emulator preset, fakes list, fixtures, verification commands.
-- [x] CHK002 Verification commands exact — **yes**. 8 точных команд (`./gradlew :core:test --tests "*PresetComposition*"`, `./gradlew detektFoundation`, etc.).
-- [ ] CHK003 Verification под 5 минут на laptop (cold cycle) — **NEEDS PLAN VALIDATION**. Spec не оценивает время. **Surface to plan** (skill `procedure-constitution-check` Gate 7 проверит).
-- [x] CHK004 At least one path verifiable без emulator — **yes**. JVM unit tests для domain logic (`PoolSourceRoundtripTest`, `EngineGenericityFitnessTest`, Detekt rule tests).
-- [x] CHK005 Emulator preset named — **yes**. `pixel_5_api_34` через skill `android-emulator`.
+- [x] CHK001 Local Test Path filled — **yes**.
+- [x] CHK002 Verification commands exact — **yes**.
+- [ ] CHK003 Verification под 5 min — **defer to plan**. **NEW concern**: boot-time settings check (FR-029) adds N callbacks to boot — must benchmark to confirm SC-007 (≤1.5s) holds.
+- [x] CHK004 At least one path без emulator — **yes**.
+- [x] CHK005 Emulator preset named — **yes**.
 
 ## Fake adapters
 
-- [x] CHK006 Every external port has fake — **yes**. `FakeConfigSource`, `FakePoolSource`, `FakeUserPreferencesStore`, `FakeSystemSettingPort` listed in Local Test Path.
-- [x] CHK007 Tests не требуют real Firebase / Cloudflare / FCM — **yes**. TASK-65 isolated от backend (per Constitution Gates → rule 8 N/A).
-- [x] CHK008 DI picks fakes for debug/test — **partial**. **NEEDS PLAN DETAIL**: build flavor configuration для swap. Existing project уже имеет `mockBackend` / `realBackend` flavors — TASK-65 наследует.
+- [x] CHK006 Every external port has fake — **yes**. Added need для `FakePresetRefRegistry` / `FakeProfileStore` (with composite Map key). **Surface to plan**.
+- [x] CHK007 Tests без real Firebase — **yes**.
+- [x] CHK008 DI picks fakes for debug/test — **partial** (defer to plan).
 
 ## Fixtures
 
-- [x] CHK009 Test data in checked-in fixture — **yes**. `test-preset.json`, `wizard-simple-launcher-golden.json` (FR-018/020/023/025).
-- [x] CHK010 Fixtures stable — **yes**. Fixed JSON files, никаких `Random()`/`now()` в их генерации.
-- [x] CHK011 Cross-version fixtures для wire format — **partial**. `wizard-simple-launcher-golden.json` (current) есть, **pre-TASK-65 wizard.manifest fixture с `appFamilyId`** для backward-compat test — surface to plan (см. wire-format CHK011).
+- [x] CHK009 Test data in fixture — **yes**.
+- [x] CHK010 Fixtures stable — **yes**.
+- [x] CHK011 Cross-version fixtures — **partial**. **NEW gap**: pre-TASK-65 wizard.manifest fixture (with appFamilyId) для backward-compat test. **Surface to plan**.
 
 ## Cannot-test-locally gaps
 
-- [x] CHK012 Gaps explicitly listed — **yes**. OEM Matrix + Local Test Path → Cannot-test-locally gaps subsection: Xiaomi MIUI (`TODO(physical-device)`), Samsung One UI, Huawei EMUI.
-- [x] CHK013 Each gap has inline TODO — **yes** в spec.md. **Surface to plan**: убедиться что TODOs попали в реальный код когда implementation начнётся.
-- [x] CHK014 No gap «we'll test in prod» — **yes**. Все gaps в TODO(physical-device) с конкретными verification targets.
+- [x] CHK012-014 Gaps listed + TODO(physical-device) — **yes**.
 
 ## Build cycle
 
-- [ ] CHK015 Clean-build time +30s — **NEEDS PLAN VALIDATION**. Detekt rules + new packages — minor увеличение. **Surface to plan** (Gradle build time profiling).
-- [x] CHK016 One-time manual setup documented — **N/A**. TASK-65 не требует manual setup beyond standard `./gradlew` + `android-emulator` skill.
-- [x] CHK017 No new credentials/API keys для debug builds — **yes**. TASK-65 isolated от backend, no credentials needed.
+- [ ] CHK015 +30s build time — **defer to plan**.
+- [x] CHK016 No manual setup — **yes**.
+- [x] CHK017 No new credentials — **yes**.
 
 ## Crash + log diagnostics
 
-- [ ] CHK018 Sufficient log signal — **NEEDS PLAN DETAIL**. Spec не уточняет logging strategy. **Surface to plan**: Logcat tags для `PresetSwitchService`, `PresetBootRouter`, `ConfigSource`, `PoolSource`.
-- [ ] CHK019 Silent crash modes have opt-in log — **NEEDS PLAN DETAIL**. Background coroutines в reminder check, profile switch persistence — нужны failure logs. **Surface to plan**.
-- [x] CHK020 Runtime feature flags loggable — **N/A**. TASK-65 не вводит runtime flags (только Gradle build flavor для PoolSource swap, statically logged at startup).
+- [ ] CHK018 Sufficient log signal — **defer to plan**. **NEW need**: boot-time callback failures must log (which entry failed, why) to diagnose degraded boot.
+- [ ] CHK019 Silent crash modes have log — **defer to plan**. **NEW need**: `PresetReminderService` (banner display + mini-wizard launch) — failure modes (banner click during Activity recreate, mini-wizard process kill) must log.
+- [x] CHK020 N/A (no runtime flags).
 
 ## Cross-developer reproducibility
 
-- [x] CHK021 No developer-machine-specific paths — **yes**. Spec generic, не embed personal paths.
-- [x] CHK022 Onboarding ≤1 page — **partial**. Existing project имеет `docs/dev/dev-environment.md`; TASK-65 не добавляет нового setup beyond Detekt config. **Surface to plan**: добавить Detekt setup инструкцию в onboarding если ещё нет.
+- [x] CHK021 No machine-specific paths — **yes**.
+- [x] CHK022 Onboarding ≤1 page — **partial**. Detekt setup доку — defer to plan.
 
 ---
 
-**Total**: 15/22 ✓, 7 «surface to plan» / «needs plan detail»
-**Red-only summary**: dev-experience: 15/22 ✓, FAIL: CHK003 (cold cycle time), CHK008 (DI flavor swap detail), CHK011 (pre-TASK-65 fixture missing), CHK015 (build time impact), CHK018 (Logcat tags), CHK019 (background coroutine crash logs), CHK022 (onboarding Detekt setup). Все — defer to /speckit.plan, не блокеры spec.
+**Total**: 16/22 ✓, 6 «defer to plan»
+**Red-only summary**: dev-experience: 16/22 ✓, FAIL: CHK003 (boot benchmark needed для FR-029), CHK006 (FakeProfileStore с PresetRef key), CHK008 (DI flavor swap detail), CHK011 (pre-TASK-65 fixture для appFamilyId), CHK015 (build time impact), CHK018 (callback failure logs), CHK019 (PresetReminderService failure logs), CHK022 (Detekt onboarding setup). Все defer to /speckit.plan.

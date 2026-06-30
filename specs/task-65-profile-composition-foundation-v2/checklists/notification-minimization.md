@@ -1,42 +1,48 @@
-# Checklist: notification-minimization — TASK-65 Preset Composition Foundation v2
+# Checklist: notification-minimization — TASK-65 (re-run after revised model)
 
-Applied: 2026-06-30. TASK-65 explicitly не вводит push notifications. Single relevant event: missing requirements reminders (USER STORY 4).
+Applied: 2026-06-30 (2nd pass). **Critical re-check**: revised model adds **NEW boot-time banner** (FR-030) — нужно валидировать что это not push.
 
 ## Inventory
 
-- [x] CHK001 Every notification event listed — **yes**. Один event: «missing requirement reminder» (USER STORY 4 + FR-016). Push не вводится.
-- [x] CHK002 Tier declared — **yes**. Explicitly **in-app indicator** (banner-карточка в Settings activity), не push. FR-016 цитирует rule 10.
+- [x] CHK001 Every notification event listed — **yes**. Two events:
+  - Settings reminders (SEQ-4, FR-016).
+  - **NEW: Boot-time critical-missing banner** (SEQ-3, FR-030).
+- [x] CHK002 Tier declared — **yes**. **Оба** = in-app indicator, not push:
+  - Settings reminders = banner-карточки в SettingsActivity.
+  - Boot-time banner = banner на top of HomeActivity (revised SEQ-3).
 
 ## System push justification
 
-- [x] CHK003-008 — **N/A**. **No push events introduced in TASK-65**. Spec явно («Не строит push notifications для missing requirements — per rule 10 используем in-app reminders»). Future push events — Out of Scope, отдельные tasks решают самостоятельно.
+- [x] CHK003-008 — **N/A**. **No push events.** Spec explicitly excludes push для missing requirements (Out of Scope + rule 10 justification).
 
 ## In-app indicators
 
-- [x] CHK009 Low-urgency events route to in-app indicator — **yes**. Missing requirements (ROLE_HOME отозван, font scale изменился) — banner в Settings.
-- [x] CHK010 Indicator placement declared — **yes**. FR-016: «banner-карточки в Settings activity», USER STORY 4 sequence — top of Settings list.
-- [x] CHK011 Indicators dismissible without forced acknowledgement — **partial**. Banner появляется при `onResume` и исчезает при fix. **NEEDS PLAN DETAIL**: можно ли banner временно dismiss («не сейчас») — spec не уточняет. **Surface to plan**.
+- [x] CHK009 Low-urgency events → in-app indicator — **yes**.
+- [x] CHK010 Indicator placement declared — **yes** для обоих.
+- [x] CHK011 Indicators dismissible — **partial — NEW concern**.
+  - Settings reminder banner: dismissible? **NEEDS PLAN DETAIL**.
+  - **NEW: Boot banner на HomeActivity**: dismissible? Should be (per принцип «никакого forced flow» MENTOR-DETAIL SEQ-3 explicit). **Surface to plan**: confirm banner has dismiss button or auto-hide on next boot если ничего не изменилось.
 
 ## In-app notification center
 
-- [x] CHK012-013 — **N/A**. TASK-65 не вводит accumulated low-urgency events. Все события — point-in-time check on Settings onResume.
+- [x] CHK012-013 — **N/A**.
 
 ## Edge handling
 
-- [x] CHK014 System push fails handling — **N/A** (no push).
-- [x] CHK015 Critical events non-push fallbacks — **N/A**. Missing requirements не критичны (приложение продолжает работать, просто часть функциональности деградирует, что и есть feature USER STORY 4).
-- [x] CHK016 POST_NOTIFICATIONS not required — **yes**. Banner — in-app UI, не зависит от notification permission.
+- [x] CHK014 N/A (no push).
+- [x] CHK015 Critical events non-push fallbacks — **N/A** + **NEW reflection**: boot banner для critical missing — это **сам и есть** non-push альтернатива (user видит критический missing без push). ✓
+- [x] CHK016 POST_NOTIFICATIONS not required — **yes**.
 
 ## Privacy / lock-screen
 
-- [x] CHK017-018 — **N/A** (no push, no lock-screen visibility).
+- [x] CHK017-018 — **N/A**.
 
 ## Acceptance evidence
 
-- [x] CHK019 Notification matrix — **simplified**. Single event documented через FR-016 + USER STORY 4 sequence. Полная матрица — не нужна для одного event'а.
-- [x] CHK020 Push permission denied path tested — **N/A** (no push).
+- [x] CHK019 Notification matrix — **partial**. Single matrix simplified. **NEW need**: добавить boot banner row.
+- [x] CHK020 Push permission denied path — **N/A**.
 
 ---
 
-**Total**: 9/9 applicable ✓, 11 N/A (correct — no push), 1 partial (CHK011 banner dismissibility — defer to plan)
-**Red-only summary**: notification-minimization: 20/20 ✓ (9 applied + 11 N/A correctly + CHK011 partial dismissibility defer to plan).
+**Total**: 9/9 applicable ✓, 11 N/A
+**Red-only summary**: notification-minimization: 20/20 ✓ (no push events; boot-time banner — in-app indicator per rule 10; CHK011 banner dismissibility detail defer to plan).
