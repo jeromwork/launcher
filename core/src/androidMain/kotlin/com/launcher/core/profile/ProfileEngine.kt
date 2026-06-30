@@ -2,8 +2,8 @@ package com.launcher.core.profile
 
 import android.content.Context
 import com.launcher.api.DegradationReason
-import com.launcher.api.EffectiveProfile
-import com.launcher.api.ProfileSnapshot
+import com.launcher.api.EffectivePreset
+import com.launcher.api.ResolvedPresetSnapshot
 import com.launcher.core.events.EventRouter
 import com.launcher.core.modules.ModuleRegistry
 import com.launcher.api.ProjectEvent
@@ -27,14 +27,14 @@ class ProfileEngine(
     private val assetPath: String = ASSET_DEFAULT_PROFILE,
 ) {
     private var generationCounter = 0
-    private val _effectiveProfile = MutableStateFlow(fallbackEffective(ProfileSnapshot(
+    private val _effectiveProfile = MutableStateFlow(fallbackEffective(ResolvedPresetSnapshot(
         schemaVersion = SUPPORTED_SCHEMA,
         id = "builtin-fallback",
         moduleFlags = emptyMap(),
         accessibilityPreset = null,
         layoutHints = emptyMap(),
     ), gen = 0))
-    val effectiveProfile: StateFlow<EffectiveProfile> = _effectiveProfile.asStateFlow()
+    val effectiveProfile: StateFlow<EffectivePreset> = _effectiveProfile.asStateFlow()
 
     fun loadFromAssets() {
         val rawJson = readAsset(assetPath)
@@ -51,7 +51,7 @@ class ProfileEngine(
         applySnapshot(snapshot, reasons)
     }
 
-    private fun applySnapshot(snapshot: ProfileSnapshot, extraReasons: List<DegradationReason>) {
+    private fun applySnapshot(snapshot: ResolvedPresetSnapshot, extraReasons: List<DegradationReason>) {
         val gen = generationCounter + 1
         generationCounter = gen
         var effective = CompositionResolver.resolve(snapshot, gen, moduleRegistry.resolutionStates())
@@ -66,7 +66,7 @@ class ProfileEngine(
         eventRouter.emit(ProjectEvent.ProfileChanged(profileGeneration = gen))
     }
 
-    private fun fallbackEffective(snapshot: ProfileSnapshot, gen: Int): EffectiveProfile =
+    private fun fallbackEffective(snapshot: ResolvedPresetSnapshot, gen: Int): EffectivePreset =
         CompositionResolver.resolve(snapshot, gen, moduleRegistry.resolutionStates())
 
     private fun readAsset(path: String): String? =
@@ -76,16 +76,16 @@ class ProfileEngine(
             }
         }.getOrNull()
 
-    private fun loadBundledDefaultSnapshot(): ProfileSnapshot {
+    private fun loadBundledDefaultSnapshot(): ResolvedPresetSnapshot {
         val json = readAsset(ASSET_DEFAULT_PROFILE)
-            ?: return ProfileSnapshot(
+            ?: return ResolvedPresetSnapshot(
                 schemaVersion = SUPPORTED_SCHEMA,
                 id = "default",
                 moduleFlags = emptyMap(),
                 accessibilityPreset = null,
                 layoutHints = emptyMap(),
             )
-        return parseProfile(json) ?: ProfileSnapshot(
+        return parseProfile(json) ?: ResolvedPresetSnapshot(
             schemaVersion = SUPPORTED_SCHEMA,
             id = "default",
             moduleFlags = emptyMap(),
@@ -94,7 +94,7 @@ class ProfileEngine(
         )
     }
 
-    private fun parseProfile(jsonText: String): ProfileSnapshot? =
+    private fun parseProfile(jsonText: String): ResolvedPresetSnapshot? =
         runCatching {
             val o = JSONObject(jsonText)
             if (!o.has("schemaVersion")) return null
@@ -124,7 +124,7 @@ class ProfileEngine(
                     hints[k] = lo.getString(k)
                 }
             }
-            ProfileSnapshot(
+            ResolvedPresetSnapshot(
                 schemaVersion = schema,
                 id = id,
                 moduleFlags = flags,

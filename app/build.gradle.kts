@@ -78,6 +78,13 @@ android {
 
         // F-5b E2E instrumented tests (CloudConfigEncryptionE2ETest).
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // TASK-65 (T632) — switch PoolSource adapter at build time:
+        //   ./gradlew :app:assembleDebug                  → HardcodedPoolSource (default)
+        //   ./gradlew :app:assembleDebug -Ppools.json=true → JsonAssetPoolSource scaffold
+        val poolsJson = (project.findProperty("pools.json") as? String)
+            ?.toBooleanStrictOrNull() ?: false
+        buildConfigField("boolean", "POOLS_JSON", poolsJson.toString())
     }
 
     // Spec 007 product flavors (FR-034). `realBackend` wires Firebase + Cloudflare Worker;

@@ -96,15 +96,15 @@
 
 ## Phase 3 — PoolSource adapters (androidMain)
 
-- [ ] **T630** Create `core/src/androidMain/kotlin/com/launcher/adapters/pools/HardcodedPoolSource.kt` — implements `PoolSource` via Kotlin `const val POOL_*` constants for `system-settings` and `ui-customization` pools. Initial entries: `android.role.home`, `android.permission.POST_NOTIFICATIONS`, `ui.font.large` (uses CheckSpec.UIFont from T615). (FR-006, contracts/pool-naming.md)
+- [x] **T630** Create `core/src/androidMain/kotlin/com/launcher/adapters/pools/HardcodedPoolSource.kt` — implements `PoolSource` via Kotlin `const val POOL_*` constants for `system-settings` and `ui-customization` pools. Initial entries: `android.role.home`, `android.permission.POST_NOTIFICATIONS`, `ui.font.large` (uses CheckSpec.UIFont from T615). (FR-006, contracts/pool-naming.md)
        Acceptance: instance answers `load("system-settings")` and `load("ui-customization")` без throw; `listEntries` returns ≥3 total entries.
        Depends: T620, T621, T615.
 
-- [ ] **T631 [P]** Create `core/src/androidMain/kotlin/com/launcher/adapters/pools/JsonAssetPoolSource.kt` — **scaffold**: implements `PoolSource` interface; methods throw `NotImplementedError("scaffold — see TASK-65 plan R3")`. Inline TODO. (FR-007)
+- [x] **T631 [P]** Create `core/src/androidMain/kotlin/com/launcher/adapters/pools/JsonAssetPoolSource.kt` — **scaffold**: implements `PoolSource` interface; methods throw `NotImplementedError("scaffold — see TASK-65 plan R3")`. Inline TODO. (FR-007)
        Acceptance: file compiles; integration не нужна (scaffold).
        Depends: T621.
 
-- [ ] **T632** Set up DI binding switching `HardcodedPoolSource` ↔ `JsonAssetPoolSource` via Gradle property `-Ppools.json=true` or build flavor. Default: Hardcoded. (FR-008)
+- [x] **T632** Set up DI binding switching `HardcodedPoolSource` ↔ `JsonAssetPoolSource` via Gradle property `-Ppools.json=true` or build flavor. Default: Hardcoded. (FR-008)
        Acceptance: `./gradlew :app:assembleDebug` uses Hardcoded by default; `./gradlew :app:assembleDebug -Ppools.json=true` switches binding (build succeeds; runtime would throw NotImplementedError from scaffold — expected).
        Depends: T630, T631.
 
@@ -112,37 +112,37 @@
 
 ## Phase 4 — Persistence + Migration
 
-- [ ] **T640** Apply T600 decision: either `git mv ProfileModels.kt → ResolvedPresetModels.kt` + rename types `ProfileSnapshot → ResolvedPresetSnapshot`, `EffectiveProfile → EffectivePreset`, etc., **OR** `git rm` ProfileModels.kt + remove consumers. Update all import sites. (Plan §2.1, R2)
+- [x] **T640** Apply T600 decision: either `git mv ProfileModels.kt → ResolvedPresetModels.kt` + rename types `ProfileSnapshot → ResolvedPresetSnapshot`, `EffectiveProfile → EffectivePreset`, etc., **OR** `git rm` ProfileModels.kt + remove consumers. Update all import sites. (Plan §2.1, R2)
        Acceptance: build green; `git grep ProfileSnapshot` returns 0 OR only renamed references.
        Depends: T600.
 
-- [ ] **T641** Extend `core/src/commonMain/kotlin/com/launcher/api/wizard/ConfigSource.kt` to support `ConfigKind.Preset`: `load(Preset, presetId)` returns `Preset` object. Update `ConfigSummary` to include `slug` field for preset summaries. (FR-009)
+- [x] **T641** Extend `core/src/commonMain/kotlin/com/launcher/api/wizard/ConfigSource.kt` to support `ConfigKind.Preset`: `load(Preset, presetId)` returns `Preset` object. Update `ConfigSummary` to include `slug` field for preset summaries. (FR-009)
        Acceptance: existing tests green; new test in T660 covers Preset load.
        Depends: T611, T614.
 
-- [ ] **T642** Extend `core/src/androidMain/kotlin/com/launcher/adapters/wizard/BundledConfigSource.kt` (existing) to read `assets/presets/<slug>.preset.json` files. (FR-009)
+- [x] **T642** Extend `core/src/androidMain/kotlin/com/launcher/adapters/wizard/BundledConfigSource.kt` (existing) to read `assets/presets/<slug>.preset.json` files. (FR-009)
        Acceptance: instance answers `load(Preset, "simple-launcher")` returns parsed `Preset` (test T660 verifies).
        Depends: T641.
 
-- [ ] **T643** Create `core/src/commonMain/kotlin/com/launcher/api/wizard/data/ConfigParser.kt` extension — `migrateLegacyWizardManifest(json: JsonObject): JsonObject` scoped function (removes `appFamilyId` from body, bumps `schemaVersion: 1 → 2`). Per R6. (FR-002)
+- [x] **T643** Create `core/src/commonMain/kotlin/com/launcher/api/wizard/data/ConfigParser.kt` extension — `migrateLegacyWizardManifest(json: JsonObject): JsonObject` scoped function (removes `appFamilyId` from body, bumps `schemaVersion: 1 → 2`). Per R6. (FR-002)
        Acceptance: unit test T665 covers v1 → v2 transform.
 
-- [ ] **T644** Update existing `core/src/commonMain/kotlin/com/launcher/api/wizard/data/WizardManifest.kt` parser to: (a) read `schemaVersion` first; (b) if `version == 1` → invoke `migrateLegacyWizardManifest`; (c) if `version > 2` → return `IncompatibleVersion`; (d) deserialize after migration. (FR-002, R6)
+- [x] **T644** Update existing `core/src/commonMain/kotlin/com/launcher/api/wizard/data/WizardManifest.kt` parser to: (a) read `schemaVersion` first; (b) if `version == 1` → invoke `migrateLegacyWizardManifest`; (c) if `version > 2` → return `IncompatibleVersion`; (d) deserialize after migration. (FR-002, R6)
        Acceptance: existing TASK-7 tests still green (manifest now v2); legacy v1 fixture parses to v2 structure via migrator.
        Depends: T643.
 
-- [ ] **T645** Edit `core/src/androidMain/assets/wizard/wizard-manifests/simple-launcher.json` — remove `body.appFamilyId` field, bump `"schemaVersion": 1 → 2`. (FR-002)
+- [x] **T645** Edit `core/src/androidMain/assets/wizard/wizard-manifests/simple-launcher.json` — remove `body.appFamilyId` field, bump `"schemaVersion": 1 → 2`. (FR-002)
        Acceptance: `grep appFamilyId c:/work/launcher/core/src/androidMain/assets/wizard/wizard-manifests/simple-launcher.json` returns 0.
        Depends: T644.
 
-- [ ] **T646** Create fixture `core/src/androidTest/assets/wizard-manifests/legacy-with-app-family-id.json` — pre-TASK-65 simple-launcher.json (with `appFamilyId`, `schemaVersion: 1`). (R6, plan §6.1, CHK011 wire-format)
+- [x] **T646** Create fixture `core/src/androidTest/assets/wizard-manifests/legacy-with-app-family-id.json` — pre-TASK-65 simple-launcher.json (with `appFamilyId`, `schemaVersion: 1`). (R6, plan §6.1, CHK011 wire-format)
        Acceptance: file exists; parsable as legacy JSON.
 
-- [ ] **T647** Create `core/src/androidMain/kotlin/com/launcher/adapters/profile/PreferencesProfileStore.kt` — implements `ProfileStore` port using `androidx.datastore.preferences` single key `profile.store.json` containing `Json.encodeToString(ProfileStoreState)`. Composite Map keys per R3. Includes `appFamilyId` legacy migration (FR-015). (FR-018, R3, R6 idempotent)
+- [x] **T647** Create `core/src/androidMain/kotlin/com/launcher/adapters/profile/PreferencesProfileStore.kt` — implements `ProfileStore` port using `androidx.datastore.preferences` single key `profile.store.json` containing `Json.encodeToString(ProfileStoreState)`. Composite Map keys per R3. Includes `appFamilyId` legacy migration (FR-015). (FR-018, R3, R6 idempotent)
        Acceptance: test T661 covers roundtrip + legacy migration.
        Depends: T61B, T61C.
 
-- [ ] **T648** Update DI module wiring `ProfileStore` → `PreferencesProfileStore` in androidMain. (Plan §2.1)
+- [x] **T648** Update DI module wiring `ProfileStore` → `PreferencesProfileStore` in androidMain. (Plan §2.1)
        Acceptance: `./gradlew :app:assembleDebug` succeeds.
        Depends: T647.
 

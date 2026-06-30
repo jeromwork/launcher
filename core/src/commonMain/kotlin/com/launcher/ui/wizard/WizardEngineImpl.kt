@@ -227,7 +227,10 @@ class WizardEngineImpl(
             userPreferences = nextPreferences(answers),
         )
         userPreferencesStore.save(outcome.userPreferences)
-        userPreferencesStore.markWizardCompleted(manifest.appFamilyId)
+        // TASK-65 FR-002: appFamilyId removed in manifest v2; fall back to
+        // manifest.id (stable across versions) so legacy markWizardCompleted
+        // contract still holds during migration period.
+        userPreferencesStore.markWizardCompleted(manifest.appFamilyId ?: manifest.id)
         checkpointStore.clear(manifest.id)
         diagnostics.emit(DiagnosticEvent.WizardCompleted(manifest.id))
         _state.value = WizardState.Completed(outcome)
