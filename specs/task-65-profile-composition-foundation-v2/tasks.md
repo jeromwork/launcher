@@ -243,27 +243,27 @@
 
 ### 6b — Wire format contract tests
 
-- [ ] **T666 [P]** Create `core/src/test/kotlin/com/launcher/api/preset/PresetWireFormatRoundtripTest.kt` — JVM unit. Write `Preset` (with PresetRef = `com.launcher.preset.test::2`, configs[2], abstractProfile) → JSON via `Json.encodeToString` → read via `Json.decodeFromString<Preset>` → `assertEquals(original, parsed)`. Covers PresetRef serialization. (FR-001, CHK010 wire-format)
+- [x] **T666 [P]** Create `core/src/test/kotlin/com/launcher/api/preset/PresetWireFormatRoundtripTest.kt` — JVM unit. Write `Preset` (with PresetRef = `com.launcher.preset.test::2`, configs[2], abstractProfile) → JSON via `Json.encodeToString` → read via `Json.decodeFromString<Preset>` → `assertEquals(original, parsed)`. Covers PresetRef serialization. (FR-001, CHK010 wire-format)
        Acceptance: test green.
        Depends: T611, T610.
 
-- [ ] **T667 [P]** Create `core/src/test/kotlin/com/launcher/api/preset/PresetRefValidationTest.kt` — JVM unit. Verifies `PresetRef.init` rejects: blank uid, uid containing `::`, version < 1. Covers `parseCompositeKey` round-trip + invalid input throws. (R3, FR-001)
+- [x] **T667 [P]** Create `core/src/test/kotlin/com/launcher/api/preset/PresetRefValidationTest.kt` — JVM unit. Verifies `PresetRef.init` rejects: blank uid, uid containing `::`, version < 1. Covers `parseCompositeKey` round-trip + invalid input throws. (R3, FR-001)
        Acceptance: test green.
        Depends: T610.
 
-- [ ] **T668 [P]** Create `core/src/test/kotlin/com/launcher/api/profile/ProfileStoreSerializationTest.kt` — JVM unit. Write `ProfileStoreState` with ≥2 entries in `profiles` Map (different PresetRef) + all 4 AppliedState variants in settings → JSON → read → assertEquals. Verifies composite key format `"uid::version"` per R3. (FR-018, CHK010)
+- [x] **T668 [P]** Create `core/src/test/kotlin/com/launcher/api/profile/ProfileStoreSerializationTest.kt` — JVM unit. Write `ProfileStoreState` with ≥2 entries in `profiles` Map (different PresetRef) + all 4 AppliedState variants in settings → JSON → read → assertEquals. Verifies composite key format `"uid::version"` per R3. (FR-018, CHK010)
        Acceptance: test green.
        Depends: T61A, T61B, T618.
 
-- [ ] **T669 [P]** Create `core/src/test/kotlin/com/launcher/api/preset/BundledPresetsParseTest.kt` — build-time check: every `*.preset.json` in `core/src/androidMain/assets/presets/` parses successfully + has unique PresetRef + i18n keys present (validates against `strings_wizard.xml`). (FR-004, plan §6.4)
+- [x] **T669 [P]** Create `core/src/test/kotlin/com/launcher/api/preset/BundledPresetsParseTest.kt` — build-time check: every `*.preset.json` in `core/src/androidMain/assets/presets/` parses successfully + has unique PresetRef + i18n keys present (validates against `strings_wizard.xml`). (FR-004, plan §6.4)
        Acceptance: test green; future-proof against malformed preset additions.
        Depends: T650, T651, T652, T65E.
 
-- [ ] **T66A [P]** Create `core/src/test/kotlin/com/launcher/api/wizard/data/WizardManifestBackwardCompatTest.kt` — read fixture `legacy-with-app-family-id.json` (T646) → assert: migrator removed `appFamilyId`, bumped to `schemaVersion=2`, rest of fields intact. (FR-002, R6, CHK011 wire-format)
+- [x] **T66A [P]** Create `core/src/test/kotlin/com/launcher/api/wizard/data/WizardManifestBackwardCompatTest.kt` — read fixture `legacy-with-app-family-id.json` (T646) → assert: migrator removed `appFamilyId`, bumped to `schemaVersion=2`, rest of fields intact. (FR-002, R6, CHK011 wire-format)
        Acceptance: test green.
        Depends: T643, T646.
 
-- [ ] **T66B [P]** Create `core/src/test/kotlin/com/launcher/api/wizard/SettingsCallbackThrowsTest.kt` — JVM unit с `FakeSystemSettingPort` whose check throws. `WizardEngine.computePending` should treat entry as `Indeterminate` (graceful per Article VII §15), not crash. (Edge case CHK011, plan §6.5)
+- [x] **T66B [P]** Create `core/src/test/kotlin/com/launcher/api/wizard/SettingsCallbackThrowsTest.kt` — JVM unit с `FakeSystemSettingPort` whose check throws. `WizardEngine.computePending` should treat entry as `Indeterminate` (graceful per Article VII §15), not crash. (Edge case CHK011, plan §6.5)
        Acceptance: test green; no exception bubbles.
        Depends: T618.
 
