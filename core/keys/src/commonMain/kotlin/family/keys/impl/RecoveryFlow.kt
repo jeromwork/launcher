@@ -7,13 +7,13 @@ import cryptokit.crypto.exception.CryptoException
 import family.keys.api.AuthIdentity
 import family.keys.api.Outcome
 import family.keys.api.PassphraseAttemptCounter
-import family.keys.api.PassphraseKdfParams
+import family.keys.api.KdfParams
 import family.keys.api.PassphrasePrompter
 import family.keys.api.RecoveryError
-import family.keys.api.RecoveryKeyVault
-import family.keys.api.RecoveryVaultBlob
+import family.keys.api.RecoveryKeyBackup
+import family.keys.api.RecoveryKeyBackupBlob
 import family.keys.api.RootKey
-import family.keys.api.VaultError
+import family.keys.api.BackupError
 import kotlinx.datetime.Clock
 
 /**
@@ -22,10 +22,10 @@ import kotlinx.datetime.Clock
  * **Setup flow** ([performSetup]): после генерации root key (через
  * [RootKeyManagerImpl.getOrCreate]) — запросить passphrase у user'а →
  * derive Argon2id wrapKey → AEAD-wrap root key → upload blob в
- * [RecoveryKeyVault].
+ * [RecoveryKeyBackup].
  *
  * **Recovery flow** ([performRecovery]): на новом устройстве после Sign-In —
- * fetchVault → prompt passphrase → derive wrapKey → AEAD-unwrap root → seed
+ * fetchBlob → prompt passphrase → derive wrapKey → AEAD-unwrap root → seed
  * RootKeyManager local cache + persistent SecureKeyStore через
  * `RootKeyManagerImpl.seedFromRecovery`.
  *
@@ -39,7 +39,7 @@ import kotlinx.datetime.Clock
  */
 class RecoveryFlow(
     private val rootKeyManager: RootKeyManagerImpl,
-    private val vault: RecoveryKeyVault,
+    private val backup: RecoveryKeyBackup,
     private val kdf: Argon2idPassphraseKdf,
     private val aead: AeadCipher,
     private val random: RandomSource,
@@ -47,11 +47,11 @@ class RecoveryFlow(
     private val attemptCounter: PassphraseAttemptCounter,
     private val clock: Clock = Clock.System,
     /** KDF params для setup. Default = interactive из spec 018 FR-030. */
-    private val setupKdfParams: PassphraseKdfParams = PassphraseKdfParams()
+    private val setupKdfParams: KdfParams = KdfParams()
 ) {
 
     /**
-     * Создаёт RecoveryVaultBlob и upload'ит в Vault. Вызывается сразу после
+     * Создаёт RecoveryKeyBackupBlob и upload'ит в Backup. Вызывается сразу после
      * генерации root key через [RootKeyManagerImpl.getOrCreate].
      *
      * Идемпотентно: повторный setup для same UID — overwrite blob (rotation
@@ -65,27 +65,28 @@ class RecoveryFlow(
             is Outcome.Success -> r.value
             is Outcome.Failure -> return Outcome.Failure(r.error)
         }
-        val kdfSalt = random.nextBytes(16)
+        val salt = random.nextBytes(32)
         val params = setupKdfParams
         var wrapKey: ByteArray? = null
         try {
             if (passphrase.size < 8) {
                 return Outcome.Failure(RecoveryError.Cancelled)
             }
-            wrapKey = kdf.derive(passphrase, kdfSalt, identity.stableId, params)
+            wrapKey = kdf.derive(passphrase, salt, identity.stableId, params)
             // AAD = "f5-recovery-vault-v1" — domain-separated от ConfigCipher AAD.
             val aad = AAD_PREFIX.encodeToByteArray()
             val ct: Ciphertext = aead.encrypt(rootKey.bytes, wrapKey, aad)
             val nonce = ct.bytes.copyOfRange(0, 24)
             val cipherPart = ct.bytes.copyOfRange(24, ct.bytes.size)
-            val blob = RecoveryVaultBlob(
-                kdfSalt = kdfSalt,
+            val blob = RecoveryKeyBackupBlob(
+                stableId = identity.stableId,
+                salt = salt,
                 kdfParams = params,
-                wrappedRootKey = cipherPart,
+                ciphertext = cipherPart,
                 nonce = nonce,
-                createdAt = clock.now().toEpochMilliseconds()
+                createdAt = clock.now()
             )
-            return when (val s = vault.storeVault(identity.stableId, blob)) {
+            return when (val s = backup.uploadBlob(identity.stableId, blob)) {
                 is Outcome.Success -> Outcome.Success(Unit)
                 is Outcome.Failure -> Outcome.Failure(RecoveryError.MalformedVault) // upstream error surfaced as broad
             }
@@ -100,7 +101,7 @@ class RecoveryFlow(
      * `RootKeyManagerImpl.getOrCreate` ранее вернул `RecoveryRequired`
      * (Keystore пуст для этой identity).
      *
-     * Step 1: fetchVault. Если NotFound → NoVaultPresent.
+     * Step 1: fetchBlob. Если NotFound → NoVaultPresent.
      * Step 2: check attempt counter (persistent, H-1). Если ≥ maxAttempts → TooManyAttempts.
      * Step 3: prompt passphrase.
      * Step 4: derive wrapKey + AEAD-unwrap. AeadAuthFailed → WrongPassphrase + record attempt.
@@ -109,21 +110,26 @@ class RecoveryFlow(
     suspend fun performRecovery(identity: AuthIdentity): Outcome<RootKey, RecoveryError> {
         require(identity.stableId.isNotEmpty())
 
-        val blob = when (val fetch = vault.fetchVault(identity.stableId)) {
+        val blob = when (val fetch = backup.fetchBlob(identity.stableId)) {
             is Outcome.Success -> fetch.value
             is Outcome.Failure -> return when (fetch.error) {
-                VaultError.NotFound -> Outcome.Failure(RecoveryError.NoVaultPresent)
-                VaultError.Malformed -> Outcome.Failure(RecoveryError.MalformedVault)
-                VaultError.SchemaDowngradeDetected -> Outcome.Failure(RecoveryError.MalformedVault)
+                BackupError.NotFound -> Outcome.Failure(RecoveryError.NoVaultPresent)
+                BackupError.Malformed -> Outcome.Failure(RecoveryError.MalformedVault)
+                is BackupError.UnsupportedSchema -> Outcome.Failure(RecoveryError.MalformedVault)
+                BackupError.SchemaDowngradeDetected -> Outcome.Failure(RecoveryError.MalformedVault)
                 else -> Outcome.Failure(RecoveryError.NoVaultPresent)
             }
         }
 
         // Schema-version validation (H-3 analog для recovery blob).
-        if (blob.schemaVersion > RecoveryVaultBlob.SCHEMA_VERSION) {
+        if (blob.schemaVersion > RecoveryKeyBackupBlob.SCHEMA_VERSION) {
             return Outcome.Failure(RecoveryError.MalformedVault)
         }
-        if (blob.algorithm != RecoveryVaultBlob.ALGORITHM_V1) {
+
+        // Algorithm guard (DZ-10, R16 post-review): blob carries kdfParams.algorithm;
+        // we must refuse blobs whose algorithm we do not implement, instead of silently
+        // applying the wrong KDF and surfacing the failure as WrongPassphrase.
+        if (blob.kdfParams.algorithm != KdfParams.ALGORITHM_ARGON2ID) {
             return Outcome.Failure(RecoveryError.MalformedVault)
         }
 
@@ -141,9 +147,9 @@ class RecoveryFlow(
         var wrapKey: ByteArray? = null
         var plaintext: ByteArray? = null
         try {
-            wrapKey = kdf.derive(passphrase, blob.kdfSalt, identity.stableId, blob.kdfParams)
+            wrapKey = kdf.derive(passphrase, blob.salt, identity.stableId, blob.kdfParams)
             val aad = AAD_PREFIX.encodeToByteArray()
-            val envelope = blob.nonce + blob.wrappedRootKey
+            val envelope = blob.nonce + blob.ciphertext
             plaintext = try {
                 aead.decrypt(Ciphertext(envelope), wrapKey, aad)
             } catch (e: CryptoException.DecryptionFailed) {
@@ -171,7 +177,19 @@ class RecoveryFlow(
     }
 
     companion object {
-        /** AAD prefix для recovery vault wrap — domain separation от ConfigCipher AAD. */
+        /**
+         * AAD bytes mixed into AEAD computation. Wire-format constant — renaming would
+         * change ciphertext bytes for any blob produced before/after the rename, breaking
+         * roundtrip even within v1. Legacy name retained per inventory.md §D4 scope-exclusion.
+         *
+         * **Versioning policy (R17 post-review)**: when this string must change (e.g.
+         * after audit guidance to align with the `recovery-backup` rename, or when a new
+         * AEAD primitive is adopted), bump [RecoveryKeyBackupBlob.SCHEMA_VERSION_V1] to v2
+         * and keep reading v1 blobs with the legacy AAD for one major release. The codec
+         * already routes by `schemaVersion`, so adding a second AAD branch is additive,
+         * not a rewrite. Until then there is no migration cost because no production
+         * blobs exist yet.
+         */
         const val AAD_PREFIX: String = "f5-recovery-vault-v1"
     }
 }

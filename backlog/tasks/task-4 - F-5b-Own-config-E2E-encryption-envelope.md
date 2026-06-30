@@ -1,10 +1,10 @@
 ---
 id: TASK-4
 title: Own config E2E encryption (envelope)
-status: Verification
+status: Done
 assignee: []
 created_date: '2026-06-23 05:01'
-updated_date: '2026-06-24 14:40'
+updated_date: '2026-06-28 19:00'
 labels:
   - phase-1
   - F-feature
@@ -32,15 +32,10 @@ ConfigDocument E2E encryption через hybrid envelope (Curve25519 + AEAD). F-
 - [x] #1 [hand] ConfigCipher2 envelope-формат с schemaVersion=1 (Envelope.kt + WireFormatJsonTest)
 - [x] #2 [hand] Round-trip byte-equal на Xiaomi 11T — CloudConfigEncryptionE2ETest (commits 25bd5b6, dc1001b)
 - [x] #3 [hand] PublicKeyDirectoryRecipientResolver в core/keys/impl
-- [ ] #4 [hand] Backward-compat read test для envelope (spec 018 fixture) — есть только RecoveryVaultBackwardCompatTest, envelope-specific теста нет; per CLAUDE.md rule 5 обязателен
+- [x] #4 [hand] Backward-compat read test для envelope (spec 018 fixture) — реализован в EnvelopeBackwardCompatTest.kt
 <!-- AC:END -->
 
-## Verification Pending
-<!-- SECTION:VERIFICATION_PENDING:BEGIN -->
-PR #22 merged 2026-06-23. Retroactive sync 2026-06-24 (per CLAUDE.md rule 14 + B+3 hybrid AC model) выявил 1 непокрытый `[hand]` AC:
-- **AC #4**: создать fixture v1 envelope blob → decode test → assert decryption успешен на текущем коде (например `core/keys/src/commonTest/.../EnvelopeBackwardCompatTest.kt`). Per CLAUDE.md rule 5 это обязательно для любого wire format'а, пересекающего device boundary.
-
-Spec 018 не имеет `checklists/` папки → `[auto:checklist]` AC отсутствуют. spec 018 tasks.md не использует `[deferred-*]` маркеры → `[auto:deferred-*]` AC отсутствуют. Реализация была верифицирована на физическом устройстве (Xiaomi 11T) до того как hybrid модель появилась, поэтому physical-device гейт уже закрыт `[x]` через `[hand]` AC #2.
-
-Снять Verification → добавить EnvelopeBackwardCompatTest, проставить `[x]`, повторно вызвать `pre-pr-backlog-sync` → Done.
-<!-- SECTION:VERIFICATION_PENDING:END -->
+## Final Summary
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+All 4 [hand] AC verified and closed (2026-06-28 pre-pr-backlog-sync). ConfigCipher2 envelope wire format schemaVersion=1 shipped per spec 018. AC #4 closed by EnvelopeBackwardCompatTest with frozen v1 JSON fixture proving wire-format stability and correct deserialization+decryption. No deferred gates remaining.
+<!-- SECTION:FINAL_SUMMARY:END -->

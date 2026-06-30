@@ -6,6 +6,8 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.launcher.app.auth.FcmTokenRegistrationGuard
 import com.launcher.app.di.CLOUD_SCOPE_QUALIFIER
 import com.launcher.app.push.FcmTokenBootstrapPublisher
+import com.launcher.adapters.push.FirebaseTokenSupplier
+import com.launcher.app.data.identity.IdentityCacheInvalidator
 import com.launcher.app.push.FcmTokenPublisherImpl
 import com.launcher.app.push.FirebaseIdTokenProviderAdapter
 import com.launcher.app.push.PushTriggerConfigChangeNotifier
@@ -42,7 +44,22 @@ import org.koin.dsl.module
  */
 val f019PushBackendModule = module {
 
-    single<IdTokenProvider> { FirebaseIdTokenProviderAdapter() }
+    // task-6 wiring 2026-06-30: shared FirebaseTokenSupplier singleton so the
+    // post-Sign-In invalidate() hook in LauncherApplication evicts the same
+    // cache the IdTokenProvider reads from. Without this, two distinct
+    // instances would diverge — invalidate() would no-op and the next backup
+    // upload would still send the stale token without claims.stableId.
+    single { FirebaseTokenSupplier() }
+
+    single<IdTokenProvider> { FirebaseIdTokenProviderAdapter(tokenSupplier = get()) }
+
+    // task-6 wiring 2026-06-30 (T681-FOLLOWUP) — bridge from the IdentityCache-
+    // Invalidator port (consumed in app/src/main by LauncherApplication's
+    // post-Sign-In hook) onto the same FirebaseTokenSupplier singleton above.
+    single<IdentityCacheInvalidator> {
+        val supplier = get<FirebaseTokenSupplier>()
+        IdentityCacheInvalidator { supplier.invalidate() }
+    }
 
     single<PushTrigger> {
         HttpPushTrigger.create(idTokenProvider = get<IdTokenProvider>())

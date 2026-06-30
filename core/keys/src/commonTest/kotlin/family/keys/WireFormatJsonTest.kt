@@ -1,8 +1,9 @@
 package family.keys
 
 import family.keys.api.Envelope
-import family.keys.api.PassphraseKdfParams
-import family.keys.api.RecoveryVaultBlob
+import family.keys.api.KdfParams
+import family.keys.api.RecoveryKeyBackupBlob
+import kotlinx.datetime.Instant
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
@@ -14,8 +15,8 @@ import kotlin.test.assertTrue
  * JSON wire-format roundtrip sanity check for the surviving `:core:keys`
  * wire types (CLAUDE.md rule 5).
  *
- * Full backward-compat fixture tests for [RecoveryVaultBlob] live in
- * [RecoveryVaultBackwardCompatTest]. The envelope wire format
+ * Full backward-compat fixture tests for [RecoveryKeyBackupBlob] live in
+ * [RecoveryKeyBackupBlobContractBackwardCompatTest]. The envelope wire format
  * (Envelope) is covered by [EnvelopeConfigCipherRoundtripTest] +
  * [EnvelopeRemoteStorageTest].
  */
@@ -47,20 +48,21 @@ class WireFormatJsonTest {
     }
 
     @Test
-    fun recoveryVaultBlobRoundtrip() {
-        val original = RecoveryVaultBlob(
-            kdfSalt = ByteArray(16) { 0x42 },
-            kdfParams = PassphraseKdfParams(),
-            wrappedRootKey = ByteArray(48) { it.toByte() },
+    fun recoveryKeyBackupBlobRoundtrip() {
+        val original = RecoveryKeyBackupBlob(
+            stableId = "00000000-0000-4000-8000-000000000001",
+            salt = ByteArray(32) { 0x42 },
+            kdfParams = KdfParams(),
+            ciphertext = ByteArray(48) { it.toByte() },
             nonce = ByteArray(24) { (it + 50).toByte() },
-            createdAt = 1_700_000_000L
+            createdAt = Instant.parse("2026-06-28T10:00:00Z")
         )
         val text = json.encodeToString(original)
         assertContains(text, "\"schemaVersion\":1")
-        assertContains(text, "\"algorithm\":\"argon2id-xchacha20poly1305-v1\"")
-        assertContains(text, "\"memoryKib\":65536")
+        assertContains(text, "\"stableId\":\"00000000-0000-4000-8000-000000000001\"")
+        assertContains(text, "\"memoryKb\":65536")
         assertContains(text, "\"iterations\":3")
-        val parsed = json.decodeFromString<RecoveryVaultBlob>(text)
+        val parsed = json.decodeFromString<RecoveryKeyBackupBlob>(text)
         assertEquals(original, parsed)
     }
 

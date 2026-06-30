@@ -1,14 +1,14 @@
 package family.keys.impl
 
 import cryptokit.crypto.api.PasswordHash
-import family.keys.api.PassphraseKdfParams
+import family.keys.api.KdfParams
 
 /**
  * Wrapper над F-CRYPTO [PasswordHash] (Argon2id) для F-5 recovery flow (T060, FR-021, FR-030).
  *
  * Зачем wrapper:
- *  • Domain separation через info-string (FR-021): salt = `kdfSalt`, info bytes
- *    включают UID, чтобы один и тот же passphrase + same kdfSalt под разными
+ *  • Domain separation через info-string (FR-021): salt = `salt`, info bytes
+ *    включают UID, чтобы один и тот же passphrase + same salt под разными
  *    identities выводил разные keys.
  *  • Caller обязан CharArray.fill(' ') passphrase сразу после `derive` (FR-013).
  *  • Output ByteArray (32 байта) тоже sensitive — caller обязан `.fill(0)` после
@@ -16,8 +16,8 @@ import family.keys.api.PassphraseKdfParams
  *
  * **libsodium API ограничение**: ionspin `PasswordHash.pwhash` принимает только
  * password (String) и salt (UByteArray). НЕТ explicit `info` parameter. Поэтому
- * domain separation мы делаем через **`salt = combinedSalt(kdfSalt, uid)`**
- * (HKDF-style mix): создаём deterministic производный salt из (kdfSalt || uid bytes)
+ * domain separation мы делаем через **`salt = combinedSalt(salt, uid)`**
+ * (HKDF-style mix): создаём deterministic производный salt из (salt || uid bytes)
  * и truncate'им до 16 bytes (libsodium salt size).
  *
  * Это работает потому что Argon2id deterministic относительно salt — для recovery
@@ -26,21 +26,21 @@ import family.keys.api.PassphraseKdfParams
  *
  * TODO(future-spec algorithm-migration): при переходе на Argon2id v2 или другую
  * memory-hard функцию (например, scrypt или новую libsodium primitive) добавить:
- *  1. New algorithm string в [family.keys.api.RecoveryVaultBlob.algorithm] (например
+ *  1. New algorithm string в [family.keys.api.KdfParams.algorithm] (например
  *     "argon2id-v2-xchacha20poly1305-v1");
  *  2. Branching в [family.keys.impl.RecoveryFlow.performRecovery] по algorithm
  *     поле для backward-compat read;
- *  3. Re-wrap при successful recovery в новый algorithm + повторный storeVault.
+ *  3. Re-wrap при successful recovery в новый algorithm + повторный uploadBlob.
  */
 class Argon2idPassphraseKdf(
     private val passwordHash: PasswordHash
 ) {
 
     /**
-     * Derive 32-byte wrap key из passphrase + kdfSalt + uid.
+     * Derive 32-byte wrap key из passphrase + salt + uid.
      *
      * @param passphrase CharArray (caller обнуляет после).
-     * @param kdfSalt 16 байт случайного salt из [RecoveryVaultBlob.kdfSalt].
+     * @param kdfSalt 32 байта случайного salt из [RecoveryKeyBackupBlob.salt].
      * @param uid Identity stableId для domain separation.
      * @param params Argon2id параметры (memory/iterations/parallelism).
      * @return 32-byte derived key. Caller обнуляет `.fill(0)` после wrap/unwrap (G-1).
@@ -49,15 +49,15 @@ class Argon2idPassphraseKdf(
         passphrase: CharArray,
         kdfSalt: ByteArray,
         uid: String,
-        params: PassphraseKdfParams = PassphraseKdfParams()
+        params: KdfParams = KdfParams()
     ): ByteArray {
-        require(kdfSalt.size >= 16) { "kdfSalt must be ≥ 16 bytes" }
+        require(kdfSalt.size >= 16) { "kdfSalt must be >= 16 bytes" }
         require(uid.isNotEmpty()) { "uid must not be empty (FR-021 domain separation)" }
         val combined = combineSalt(kdfSalt, uid)
         return passwordHash.deriveFromPassphrase(
             password = passphrase,
             salt = combined,
-            memoryKib = params.memoryKib,
+            memoryKib = params.memoryKb,
             iterations = params.iterations,
             outputLength = 32
         )

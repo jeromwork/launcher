@@ -1,0 +1,50 @@
+# workers/backup — Recovery-key-backup Worker (Spec task-6 F-5).
+#
+# R2-backed storage for RecoveryKeyBackupBlob. Endpoints:
+#   POST   /backup
+#   GET    /backup/{stableId}
+#   DELETE /backup/{stableId}
+#
+# TODO(server-roadmap SRV-RECOVERY-001 d): in-memory rate-limit + idempotency
+#   migration to persistent store (KV or own-server DB) when off the free tier.
+#
+# TODO(setup): account_id + R2 bucket creation + secret rotation must happen
+#   BEFORE first `wrangler deploy`. Owner has Cloudflare credentials.
+
+name = "launcher-backup-v1"
+main = "src/index.ts"
+compatibility_date = "2025-05-11"
+
+# Owner Cloudflare account (gpt1.jeromwork@gmail.com), 2026-06-29.
+account_id = "c8f9c8c59e930e0283d713b91c01fb13"
+
+[vars]
+# Public — same Firebase project as push worker (shared identity surface).
+FIREBASE_PROJECT_ID = "launcher-old-dev"
+
+# Maximum recovery-blob wire-format schema supported by this Worker. Mirrors
+# Kotlin const RecoveryKeyBackupBlob.SCHEMA_VERSION_V1. Bump together when
+# schema rolls to v2.
+MAX_SUPPORTED_SCHEMA_VERSION = "1"
+
+# Storage decision 2026-06-29: Workers KV instead of R2.
+# Blob = ~500 bytes JSON, one per identity per install. KV's 25 MiB-per-value
+# cap + 1k/day write quota (free tier) is far above our needs, and KV does
+# not require enabling R2 / payment-method binding. See
+# docs/dev/server-roadmap.md SRV-RECOVERY-001 for the migration target.
+[[kv_namespaces]]
+binding = "RECOVERY_BLOBS"
+# Created via `wrangler kv namespace create RECOVERY_BLOBS` 2026-06-29.
+id = "13e77e09a77a4faba6e743f1a59feff0"
+
+# JWKS cache — shared with push worker. ID provisioned 2026-06-22 (see
+# workers/push/wrangler.toml `JWKS_CACHE`).
+[[kv_namespaces]]
+binding = "JWKS_CACHE"
+id = "8e23d27757bc49a190471c0091cecc1b"
+
+# Routes — *.workers.dev for MVP. Custom domain after server-roadmap exit.
+# TODO(TODO-ARCH-001): uncomment when own domain is provisioned.
+# [[routes]]
+# pattern = "backup.<our-domain>/backup/*"
+# custom_domain = true

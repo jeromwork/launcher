@@ -1,0 +1,39 @@
+# workers/identity — Identity-init Worker (Spec task-6 F-5 Phase 4 Track B).
+#
+# Single endpoint: POST /init-claim
+#   Body: { uid: string }
+#   Auth: Firebase ID-token Bearer; claims.uid MUST match body.uid.
+#   Behaviour: idempotent — generates UUID v4 stableId on first call,
+#     persists in Firestore `/identity-links/{uid}`, sets Firebase custom
+#     claim via Identity Toolkit REST API. Subsequent calls return the
+#     existing stableId without re-setting the claim.
+#
+# Two-Worker boundary (DZ-5): MUST NOT share state with workers/backup/.
+# Each Worker owns its own R2/KV bindings; cross-Worker calls go through
+# the public HTTP surface, not through shared module state.
+
+name = "launcher-identity-v1"
+main = "src/index.ts"
+compatibility_date = "2025-05-11"
+
+# Owner Cloudflare account (gpt1.jeromwork@gmail.com), 2026-06-29.
+account_id = "c8f9c8c59e930e0283d713b91c01fb13"
+
+[vars]
+# Same Firebase project as backup + push workers.
+FIREBASE_PROJECT_ID = "launcher-old-dev"
+
+# TODO(setup secrets): owner runs `wrangler secret put` for:
+#   FIREBASE_SA_JSON — service-account JSON for Identity Toolkit + Firestore
+#                       admin access. See docs/dev/secrets-cloudflare-worker.md.
+
+# JWKS cache — shared with backup + push workers. Same namespace ID across
+# all three Workers so a JWKS refresh by one is visible to the others.
+[[kv_namespaces]]
+binding = "JWKS_CACHE"
+id = "8e23d27757bc49a190471c0091cecc1b"
+
+# Routes — *.workers.dev for MVP.
+# [[routes]]
+# pattern = "identity.<our-domain>/init-claim"
+# custom_domain = true

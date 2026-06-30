@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "stableId": "00000000-0000-4000-8000-000000000001",
+  "salt": "Tx5LqK8mZ3JpV2cBgWQpA9Fk1tR8nXmYzQwLpEsT2cE=",
+  "kdfParams": {
+    "algorithm": "Argon2id",
+    "iterations": 3,
+    "memoryKb": 65536,
+    "parallelism": 1
+  },
+  "ciphertext": "P3vG2X5n0K8mZ3JpV2cBgWQpA9Fk1tR8nXmYzQwLpEsT2cD5fHaB+cD/eFgHiJkLmNoPqRsTuVwXyZ0123==",
+  "nonce": "B+gWQpA9Fk1tR8nXmYzQwLpEsT2cD5fH",
+  "createdAt": "2026-06-28T10:00:00Z"
+}

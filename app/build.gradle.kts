@@ -45,6 +45,37 @@ android {
         buildConfigField("boolean", "USE_FIREBASE_EMULATOR", useEmulator.toString())
         buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"$emulatorHost\"")
 
+        // F-5 (task-6) — Cloudflare Worker URL for recovery-key-backup R2 storage.
+        // Debug: `10.0.2.2` (AVD loopback) on `:8787` (wrangler dev default).
+        // For real device on USB: `adb reverse tcp:8787 tcp:8787` then build debug.
+        // Release: read from gradle.properties / -PRECOVERY_BACKUP_WORKER_URL=...
+        // (placeholder URL until deploy lands — Phase 4 T666).
+        //
+        // TODO(server-roadmap SRV-RECOVERY-001): replace `*.workers.dev` with our
+        // own domain once we move off the free Cloudflare tier.
+        val recoveryWorkerUrl = (project.findProperty("RECOVERY_BACKUP_WORKER_URL") as? String)
+            ?.takeIf { it.isNotBlank() }
+            ?: "https://recovery-backup.placeholder.workers.dev"
+        buildConfigField(
+            "String",
+            "RECOVERY_BACKUP_WORKER_URL",
+            "\"$recoveryWorkerUrl\""
+        )
+
+        // F-5 task-6 Track C — identity-init Worker URL (separate Worker per
+        // DZ-5 microservice boundary). One-time call after first Sign-In to
+        // bind UUID v4 stableId to the Firebase uid.
+        // TODO(server-roadmap SRV-IDENTITY-001): replace *.workers.dev with
+        //   our own domain when off the free tier.
+        val identityWorkerUrl = (project.findProperty("IDENTITY_INIT_CLAIM_WORKER_URL") as? String)
+            ?.takeIf { it.isNotBlank() }
+            ?: "https://identity-init.placeholder.workers.dev"
+        buildConfigField(
+            "String",
+            "IDENTITY_INIT_CLAIM_WORKER_URL",
+            "\"$identityWorkerUrl\""
+        )
+
         // F-5b E2E instrumented tests (CloudConfigEncryptionE2ETest).
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -85,6 +116,31 @@ android {
     // Defense-in-depth alongside the Detekt rule (compile-time) and
     // assertNoFakeCryptoInRelease (runtime).
     buildTypes {
+        getByName("debug") {
+            // Local Worker dev: `cd workers/backup && wrangler dev` exposes :8787 on
+            // host. Emulator reaches it via `10.0.2.2`; real device via `adb reverse
+            // tcp:8787 tcp:8787`. Overridable via `-PRECOVERY_BACKUP_WORKER_URL=...`
+            // on the gradle command line.
+            val debugRecoveryUrl = (project.findProperty("RECOVERY_BACKUP_WORKER_URL") as? String)
+                ?.takeIf { it.isNotBlank() }
+                ?: "http://10.0.2.2:8787"
+            buildConfigField(
+                "String",
+                "RECOVERY_BACKUP_WORKER_URL",
+                "\"$debugRecoveryUrl\""
+            )
+
+            // Identity worker default port 8788 (Track B). adb reverse for
+            // physical devices: `adb reverse tcp:8788 tcp:8788`.
+            val debugIdentityUrl = (project.findProperty("IDENTITY_INIT_CLAIM_WORKER_URL") as? String)
+                ?.takeIf { it.isNotBlank() }
+                ?: "http://10.0.2.2:8788"
+            buildConfigField(
+                "String",
+                "IDENTITY_INIT_CLAIM_WORKER_URL",
+                "\"$debugIdentityUrl\""
+            )
+        }
         getByName("release") {
             isMinifyEnabled = true
             proguardFiles(
@@ -137,6 +193,7 @@ dependencies {
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.datetime)
     implementation(libs.androidx.datastore.preferences)
 
     implementation(libs.koin.android)
@@ -184,7 +241,7 @@ dependencies {
     "realBackendImplementation"("com.google.guava:guava:33.4.0-android")
 
     // Firebase SDKs needed by realBackend adapters (FirestoreEnvelopeStorage,
-    // FirestorePublicKeyDirectory, FirestoreRecoveryKeyVault, FirebaseEmulatorWiring).
+    // FirestorePublicKeyDirectory, FirestoreRecoveryKeyBackup, FirebaseEmulatorWiring).
     "realBackendImplementation"(platform(libs.firebase.bom))
     "realBackendImplementation"(libs.firebase.firestore.ktx)
     "realBackendImplementation"(libs.firebase.auth.ktx)

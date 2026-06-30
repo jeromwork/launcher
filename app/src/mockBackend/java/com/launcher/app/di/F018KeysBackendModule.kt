@@ -2,7 +2,7 @@ package com.launcher.app.di
 
 import com.launcher.app.data.envelope.InMemoryEnvelopeStorage
 import com.launcher.app.data.envelope.InMemoryPublicKeyDirectory
-import com.launcher.app.data.recovery.NoOpRecoveryKeyVault
+import com.launcher.app.data.recovery.NoOpRecoveryKeyBackup
 import cryptokit.crypto.api.AeadCipher
 import cryptokit.crypto.api.AsymmetricCrypto
 import cryptokit.crypto.api.RandomSource
@@ -13,7 +13,7 @@ import family.keys.api.AsyncConfigPushQueue
 import family.keys.api.ConfigSaver
 import family.keys.api.EnvelopeBootstrap
 import family.keys.api.IdentityProof
-import family.keys.api.RecoveryKeyVault
+import family.keys.api.RecoveryKeyBackup
 import family.keys.api.RemoteStorage
 import family.keys.api.internal.DeviceIdentity
 import family.keys.api.internal.EnvelopeStorage
@@ -31,7 +31,7 @@ import org.koin.dsl.module
  * Spec 018 (F-5 + F-5b) backend wiring — **mockBackend flavor**.
  *
  * F-5 bindings:
- *  - [RecoveryKeyVault] → [NoOpRecoveryKeyVault] (no cloud recovery in mockBackend).
+ *  - [RecoveryKeyBackup] → [NoOpRecoveryKeyBackup] (no cloud recovery in mockBackend).
  *
  * F-5b envelope-storage bindings (Batch 4):
  *  - [DeviceIdentity] → [AndroidDeviceIdentity] (same as realBackend; uses Keystore,
@@ -44,7 +44,7 @@ import org.koin.dsl.module
  *  - [RemoteStorage] → [EnvelopeRemoteStorage] (facade).
  */
 val f018KeysBackendModule = module {
-    single<RecoveryKeyVault> { NoOpRecoveryKeyVault() }
+    single<RecoveryKeyBackup> { NoOpRecoveryKeyBackup() }
 
     single<DeviceIdentity> {
         AndroidDeviceIdentity(

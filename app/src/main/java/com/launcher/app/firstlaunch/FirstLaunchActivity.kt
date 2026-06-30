@@ -24,6 +24,7 @@ import com.launcher.app.BuildConfig
 import com.launcher.app.HomeActivity
 import com.launcher.app.R
 import com.launcher.app.setup.GmsHardBlockActivity
+import com.launcher.app.ui.recovery.RecoveryPassphraseSetupScreen
 import com.launcher.ui.screens.FirstLaunchScreen
 import com.launcher.ui.screens.PresetUiModel
 import com.launcher.ui.setup.AuthChoiceStep
@@ -31,6 +32,20 @@ import com.launcher.ui.setup.PostNotificationsStep
 import com.launcher.ui.setup.RoleHomeStep
 import com.launcher.ui.setup.WizardProgressIndicator
 import com.launcher.ui.theme.LauncherTheme
+import cryptokit.crypto.api.AeadCipher
+import cryptokit.crypto.api.RandomSource
+import family.keys.api.IdentityProof
+import family.keys.api.Outcome
+import family.keys.api.PassphraseAttemptCounter
+import family.keys.api.PassphrasePrompter
+import family.keys.api.RecoveryError
+import family.keys.api.RecoveryKeyBackup
+import family.keys.api.RootKey
+import family.keys.impl.Argon2idPassphraseKdf
+import family.keys.impl.RecoveryFlow
+import family.keys.impl.RootKeyManagerImpl
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 
@@ -59,6 +74,16 @@ class FirstLaunchActivity : ComponentActivity() {
     private val gmsAvailability: GmsAvailabilityPort by inject()
     private val userPreferencesStore: com.launcher.api.wizard.UserPreferencesStore by inject()
     private val authProvider: AuthProvider by inject()
+
+    // task-6 wiring 2026-06-30: dependencies for the F-5 Setup-passphrase step
+    // that runs once between Sign-In success and ROLE_HOME prompt.
+    private val rootKeyManager: RootKeyManagerImpl by inject()
+    private val identityProof: IdentityProof by inject()
+    private val recoveryKeyBackup: RecoveryKeyBackup by inject()
+    private val argon2idKdf: Argon2idPassphraseKdf by inject()
+    private val aead: AeadCipher by inject()
+    private val random: RandomSource by inject()
+    private val attemptCounter: PassphraseAttemptCounter by inject()
 
     private var pickedPreset: FlowPreset? = null
 
@@ -181,7 +206,7 @@ class FirstLaunchActivity : ComponentActivity() {
                 AuthChoiceStep(
                     authProvider = authProvider,
                     onSkip = ::renderRoleHomeStep,
-                    onSignedIn = ::renderRoleHomeStep,
+                    onSignedIn = ::renderRecoverySetupStep,
                     topContent = {
                         WizardProgressIndicator(
                             currentStep = 2,
@@ -191,6 +216,96 @@ class FirstLaunchActivity : ComponentActivity() {
                     },
                 )
             }
+        }
+    }
+
+    /**
+     * task-6 wiring 2026-06-30: F-5 recovery-passphrase Setup step.
+     *
+     * Runs ONLY on the signed-in branch (`AuthChoiceStep.onSignedIn`). The
+     * skip-Sign-In path bypasses this step — there's no identity to back up,
+     * so [renderRoleHomeStep] is the next step in the skipped flow.
+     *
+     * On submit:
+     *  1. Get or generate the root key via [RootKeyManagerImpl.getOrCreate].
+     *  2. Construct an ad-hoc [RecoveryFlow] with a one-shot
+     *     [PassphrasePrompter] that returns the just-entered CharArray.
+     *  3. `performSetup` derives the Argon2id wrap key, AEAD-wraps the root,
+     *     uploads the blob via [RecoveryKeyBackup] (= WorkerRecoveryKeyBackup
+     *     in realBackend) and returns.
+     *  4. Advance to ROLE_HOME regardless of upload outcome — we log failure
+     *     but do not block the wizard; the user can retry from Settings later
+     *     (deferred-flag pattern per FR-014).
+     */
+    private fun renderRecoverySetupStep() {
+        setContent {
+            LauncherTheme(preset = pickedPreset?.slug) {
+                RecoveryPassphraseSetupScreen(
+                    onSubmit = { passphrase ->
+                        lifecycleScope.launch {
+                            runRecoverySetup(passphrase)
+                            renderRoleHomeStep()
+                        }
+                    },
+                    onCancel = ::renderRoleHomeStep,
+                )
+            }
+        }
+    }
+
+    private suspend fun runRecoverySetup(passphrase: CharArray) {
+        val identity = identityProof.identityFlow.firstOrNull()
+        if (identity == null) {
+            android.util.Log.w(
+                "F5Setup",
+                "no identity at setup screen — skipping setup, advancing wizard",
+            )
+            passphrase.fill(' ')
+            return
+        }
+
+        when (val rkResult = rootKeyManager.getOrCreate(identity)) {
+            is Outcome.Success -> {
+                val rootKey: RootKey = rkResult.value
+                val flow = RecoveryFlow(
+                    rootKeyManager = rootKeyManager,
+                    backup = recoveryKeyBackup,
+                    kdf = argon2idKdf,
+                    aead = aead,
+                    random = random,
+                    prompter = OneShotPassphrasePrompter(passphrase),
+                    attemptCounter = attemptCounter,
+                )
+                when (val r = flow.performSetup(identity, rootKey)) {
+                    is Outcome.Success -> android.util.Log.i(
+                        "F5Setup",
+                        "recovery blob uploaded to Worker for stableId=${identity.stableId}",
+                    )
+                    is Outcome.Failure -> android.util.Log.w(
+                        "F5Setup",
+                        "recovery setup failed: ${r.error} — user can retry from Settings",
+                    )
+                }
+            }
+            is Outcome.Failure -> {
+                android.util.Log.w("F5Setup", "rootKey getOrCreate failed: ${rkResult.error}")
+                passphrase.fill(' ')
+            }
+        }
+    }
+
+    /** One-shot prompter — returns the wizard-provided CharArray to RecoveryFlow. */
+    private class OneShotPassphrasePrompter(
+        private val passphrase: CharArray,
+    ) : PassphrasePrompter {
+        override suspend fun requestSetupPassphrase(): Outcome<CharArray, RecoveryError> {
+            if (passphrase.isEmpty()) return Outcome.Failure(RecoveryError.Cancelled)
+            return Outcome.Success(passphrase)
+        }
+
+        override suspend fun requestRecoveryPassphrase(): Outcome<CharArray, RecoveryError> {
+            // Not used in wizard Setup flow.
+            return Outcome.Failure(RecoveryError.Cancelled)
         }
     }
 

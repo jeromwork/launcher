@@ -1,0 +1,26 @@
+{
+  "name": "launcher-identity-v1",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Identity-init Worker — sets Firebase custom claim `stableId` (UUID v4) on first sign-in, persists the uid ↔ stableId binding in Firestore. Spec task-6 F-5 (Phase 4 Track B). Single endpoint POST /init-claim. Two-Worker boundary per DZ-5 — must NOT share state with workers/backup/.",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@familycare/auth-jwt": "file:../_shared/auth-jwt",
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.5.40",
+    "@cloudflare/workers-types": "^4.20241218.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
+    "wrangler": "^3.99.0"
+  }
+}

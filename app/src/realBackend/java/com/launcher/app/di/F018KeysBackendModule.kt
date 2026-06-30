@@ -1,9 +1,12 @@
 package com.launcher.app.di
 
 import com.google.firebase.firestore.FirebaseFirestore
+import com.launcher.app.BuildConfig
 import com.launcher.app.data.envelope.FirestoreEnvelopeStorage
 import com.launcher.app.data.envelope.FirestorePublicKeyDirectory
-import com.launcher.app.data.recovery.FirestoreRecoveryKeyVault
+import com.launcher.app.data.identity.IdentityCacheInvalidator
+import com.launcher.app.data.identity.InitClaimClient
+import com.launcher.app.data.recovery.WorkerRecoveryKeyBackup
 import cryptokit.crypto.api.AeadCipher
 import cryptokit.crypto.api.AsymmetricCrypto
 import cryptokit.crypto.api.RandomSource
@@ -14,7 +17,7 @@ import family.keys.api.AsyncConfigPushQueue
 import family.keys.api.ConfigSaver
 import family.keys.api.EnvelopeBootstrap
 import family.keys.api.IdentityProof
-import family.keys.api.RecoveryKeyVault
+import family.keys.api.RecoveryKeyBackup
 import family.keys.api.RemoteStorage
 import family.keys.api.internal.DeviceIdentity
 import family.keys.api.internal.EnvelopeStorage
@@ -25,14 +28,20 @@ import family.keys.impl.EnvelopeConfigCipherImpl
 import family.keys.impl.EnvelopeRemoteStorage
 import family.keys.impl.LocalFirstConfigSaver
 import family.keys.impl.PublicKeyDirectoryRecipientResolver
+import family.push.api.IdTokenProvider
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 /**
  * Spec 018 (F-5 + F-5b) backend wiring — **realBackend flavor**.
  *
- * F-5 bindings:
- *  - [RecoveryKeyVault] → [FirestoreRecoveryKeyVault]
+ * F-5 bindings (task-6 wiring, 2026-06-30):
+ *  - [RecoveryKeyBackup] → [WorkerRecoveryKeyBackup] against
+ *    `BuildConfig.RECOVERY_BACKUP_WORKER_URL` (Cloudflare Worker live URL,
+ *    backed by Workers KV). Replaces the spec-018 `FirestoreRecoveryKeyBackup`
+ *    binding now that the dedicated recovery-key-backup Worker is deployed.
+ *  - `FirestoreRecoveryKeyBackup` class kept in source for the spec-018
+ *    migration test (T672) but no longer wired in DI.
  *
  * F-5b envelope-storage bindings (Batch 4):
  *  - [DeviceIdentity] → [AndroidDeviceIdentity]
@@ -46,8 +55,24 @@ import org.koin.dsl.module
  * into domain or UI layers.
  */
 val f018KeysBackendModule = module {
-    single<RecoveryKeyVault> {
-        FirestoreRecoveryKeyVault(firestore = FirebaseFirestore.getInstance())
+    single<RecoveryKeyBackup> {
+        val invalidator = get<IdentityCacheInvalidator>()
+        WorkerRecoveryKeyBackup(
+            workerBaseUrl = BuildConfig.RECOVERY_BACKUP_WORKER_URL,
+            idTokenProvider = get<IdTokenProvider>(),
+            invalidateTokenCache = { invalidator.invalidate() },
+        )
+    }
+
+    // task-6 Track B/C wiring 2026-06-30: identity-init Worker client, invoked
+    // once on first Sign-In by [com.launcher.app.LauncherApplication] via
+    // Koin.getOrNull (mockBackend flavor omits this binding and the call is
+    // a no-op there).
+    single {
+        InitClaimClient(
+            workerBaseUrl = BuildConfig.IDENTITY_INIT_CLAIM_WORKER_URL,
+            idTokenProvider = get<IdTokenProvider>(),
+        )
     }
 
     single<DeviceIdentity> {

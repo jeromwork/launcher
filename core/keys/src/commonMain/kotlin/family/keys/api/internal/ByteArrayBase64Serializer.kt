@@ -9,7 +9,7 @@ import kotlinx.serialization.encoding.Encoder
 
 /**
  * KMP-portable Base64 codec для ByteArray полей в wire-format типах
- * ([family.keys.api.SealedConfig], [family.keys.api.RecoveryVaultBlob],
+ * ([family.keys.api.SealedConfig], [family.keys.api.RecoveryKeyBackupBlob],
  * [family.keys.api.WrappedDek]).
  *
  * Скопирован из `:core:crypto/.../ByteArrayBase64Serializer.kt` (internal там)
