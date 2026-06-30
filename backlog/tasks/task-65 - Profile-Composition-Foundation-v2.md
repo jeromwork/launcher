@@ -4,7 +4,7 @@ title: Profile Composition Foundation v2
 status: In Progress
 assignee: []
 created_date: '2026-06-28 18:30'
-updated_date: '2026-06-30 21:00'
+updated_date: '2026-06-30 22:00'
 labels:
   - phase-2
   - foundation
@@ -21,51 +21,96 @@ ordinal: 65000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-> **Про роли в этой задаче.** Эта задача — чисто **архитектурная инфраструктура**. Никаких ролей, никаких сценариев конкретного пользователя. Подготавливает почву для будущих профилей (`workspace`, `clinic-patient`, `self-care`), но сама не приносит новой user-facing функциональности — только регрессионно сохраняет `simple-launcher` через generic composition.
+> **Про роли в этой задаче.** Чисто **архитектурная инфраструктура**. Никаких ролей, никаких сценариев конкретного пользователя. Подготавливает почву для будущих preset'ов (`workspace`, `clinic-patient`, `self-care`) и для cross-app reuse (messenger TASK-27, photo TASK-28) — добавляет три bundled preset'а (`simple-launcher`, `launcher`, `workspace`) через generic composition.
 
 ## Что это простыми словами
 
-Превращаем «один профиль захардкожен» в «любой профиль = JSON-пик из каталога настроек». После этой задачи приложение знает, как **выбирать** профиль один раз при установке, **переключать** через настройки, и **никогда не проверять** профиль при boot'е.
+Превращаем «один лаунчер захардкожен» в «вариант приложения = самосодержащий JSON, который шарится». После TASK-65 приложение умеет **выбирать вариант** один раз при установке через picker (3 карточки: simple-launcher / launcher / workspace), **переключать** через Settings с сохранением истории настроек, и **проверять** на boot'е реальное состояние Android — если что-то критическое не настроено, появляется banner.
+
+**Терминология (важно — изменилась в clarify-фазе, constitution amendment 1.11)**:
+- **Preset** — самосодержащий шарящийся JSON (`preset.json`). Имена: `simple-launcher`, `launcher`, `workspace`. Identity = composite `PresetRef(uid, version)`. Не содержит личных данных.
+- **Profile** — per-device personal data на этом телефоне. Содержит: applied preset reference + layout + bindings (контакты в плитках) + settings cache (применённые Android-настройки). Хранится `Map<PresetRef, ProfileData>` — история всех preset'ов которые когда-либо активировал. Синхронизируется зашифрованно на сервер (TASK-70 для admin remote management).
 
 **Что происходит по шагам (новая установка):**
 1. Пользователь устанавливает APK, открывает.
-2. Видит экран выбора профиля (как в Telegram при первом запуске выбираешь язык). Сейчас один вариант — `simple-launcher`. После TASK-68 появится второй — `workspace`.
-3. Выбрал → запускается визард (как сейчас в TASK-7), но шаги собираются **из профиля**: профиль говорит «мне нужны эти 3 настройки», движок берёт описание шагов из `system-settings.pool.json` и собирает их в порядке.
-4. Прошёл визард → приложение работает. Профиль записан в DataStore. **Никаких проверок на boot'е больше нет.**
+2. Видит picker с **3 карточками** (simple-launcher / launcher / workspace) — как в Telegram при первом запуске выбираешь язык.
+3. Тапает → запускается wizard, шаги собираются из `preset.configs[]` (что preset требует) + проверка реального Android-состояния.
+4. Прошёл wizard → ProfileData персистится в `ProfileStore.profiles[ref]`, `activePresetRef` записан.
 
-**Что происходит при переключении профиля:**
-1. Зашёл в Settings → «Сменить профиль» → выбрал новый.
-2. Движок сравнивает «что требует новый профиль» и «что сейчас настроено в системе». Делает diff.
-3. Если есть несоответствия (например, новый профиль не должен быть HOME launcher'ом, а сейчас является) — запускает мини-визард только из недостающих шагов.
-4. Прошёл → новый профиль активен. Старые данные (контакты, темы, pairing) — на месте.
+**При переключении preset'а (Settings → Сменить preset):**
+1. Snapshot текущего Profile сохраняется в `Map[oldRef]`.
+2. Если для нового preset уже есть ProfileData в Map (был раньше активирован) → restore целиком (bindings, layout, settings — всё на месте).
+3. Иначе → CopyOnActivateStrategy создаёт новый ProfileData из preset.abstractProfile + preset.configs.
+4. Wizard показывает только diff (что не настроено).
+5. После — commit, Activity recreate.
+
+**При boot'е (revised axiom — clarify pass 2)**: callback каждой settings entry проверяет реальное Android-состояние. Если **critical missing** (например HOME role отозван другим приложением между запусками) → HomeActivity показывает сверху banner «приложение работает не как надо — настроить?». Tap → mini-wizard со всеми critical missing. **Non-critical missing** (font size) — silent, видны только в Settings reminders.
 
 ## Зачем
 
-Сейчас `simple-launcher` захардкожен: его id вписан в манифест визарда (`appFamilyId: "simple-launcher"`), его шаги ссылаются на pool по жёстким id. Если добавить второй профиль (`workspace` для admin-сценария) — сейчас это означает форк кода. Конституция Article VII §3 явно запрещает форки профилей: profiles are **data, not forks**. Эта задача исправляет нарушение и открывает дорогу для всех будущих профилей (workspace, clinic-patient, self-care) без переписывания кода.
+Сейчас `simple-launcher` захардкожен (поле `appFamilyId: "simple-launcher"` в wizard.manifest). Конституция Article VII §3 запрещает форки профилей: profiles are **data, not forks**. TASK-65 исправляет нарушение, открывает дорогу для всех будущих preset'ов без переписывания кода + закладывает foundation для cross-app vision (тот же engine переиспользуется messenger / photo app).
 
 ## Что входит технически (для AI-агента)
 
-- **Удалить** `appFamilyId: "simple-launcher"` из `wizard-manifests/simple-launcher.json` body — это profile-leakage в wizard format. Manifest не знает о профиле; профиль ссылается на manifest по file id.
-- **`Profile` wire format** — новый JSON документ `profile.json` `schemaVersion=1`. Содержит только picks по pool entry id + `requires:` array обязательных pool entries (любого kind'а, не только Android system).
-- **`ConfigSource` port** (CLAUDE.md rule 9) — абстракция источника профилей. `BundledConfigSource` (первый адаптер) грузит из `assets/profiles/*.json`. Future: `NetworkProfileSource`, `ShareIntentProfileSource`.
-- **`RequirementsChecker` port** — generic диспатчер. Принимает `List<CheckSpec>` (требования профиля), для каждого entry выбирает правильный checker по `kind` (android-role, android-permission, ui-font, ui-contrast, accessibility-pref, ...), возвращает `CheckResult(missing, satisfied)`. Расширяемо additively через новые `CheckSpec` variants — engine не меняется.
-- **First-launch profile picker** — Compose screen в `core/profiles/`, читает список доступных профилей через `ConfigSource`, рендерит карточки с label/description (из i18n keys в profile JSON).
-- **Profile switch flow** — в Settings entry «Сменить профиль», запускает diff-engine: `RequirementsChecker.check(newProfile.requires)` → строит wizard из недостающих pool entries.
-- **In-app Settings reminders** — баннеры в `SettingsActivity` для missing requirements (SEQ-4). Re-check на `onResume`. Tap → mini-wizard. Per rule 10 — in-app indicator, не push.
-- **`CheckSpec` / `ApplySpec` расширение** — новые variants `AuthState` / `RequestSignIn` для будущего sign-in step; demonstration `UIFont` variant (для extension-proof теста) — используется в test-profile.json fitness.
-- **Pool naming convention spec** — namespaced immutable IDs `<pool>.<domain>.<subject>` (например `tile.pairing.list`, `wizard.step.google-sign-in`). Documented в `contracts/pool-naming.md`. Per rule 5: id immutable, можно `deprecated: true`, нельзя delete или rename.
-- **Lint rule (no profile-id branching)** — fitness function, ловит `if (profileId == "...")` / `when (profileId)` / `appFamilyId == ...` в business logic. Pre-commit hook. Per Article VII §13.
-- **Lint rule (extraction-readiness)** — fitness function, запрещает launcher-specific imports (`com.launcher.app.*`, references на tiles/contacts/home-launcher domain types) в модулях `core/profiles/`, `core/wizard/`, `core/pools/`. Обеспечивает что foundation готов к extraction в sub-repo / shared library когда придёт второе family-приложение (messenger / photo). Exit ramp для cross-app vision.
-- **Fitness test** — dummy `test-profile.json` (минимальный, с **non-Android** требованием `ui.font.large` для демонстрации generic-ности RequirementsChecker), грузится в test-time DI, проверяет что engine generic (не падает на неизвестное profile id, корректно строит wizard из его requires:).
-- **Regression test** — `simple-launcher` через composition выдаёт идентичный wizard и UX как до TASK-65.
+**Wire formats**:
+- **`preset.json` schemaVersion=1** (новый): self-contained с composite identity `PresetRef(uid, version)`, slug (display, NOT identity), embedded `configs[]` (UX hints inline) + optional `abstractProfile` (initial layout/bindings, без личных данных).
+- **`wizard.manifest` schemaVersion=2** (bump from v1): удаляется поле `appFamilyId` из body. Migration writer `migrateLegacyWizardManifest` (scoped function) ships в том же commit.
+- **`ProfileStore` DataStore Preferences** (single key `profile.store.json`, JSON-сериализация со composite Map keys `"uid::version"`). Sync target для TASK-70 (зашифровано через pairing keys).
+
+**Ports + adapters**:
+- **`PoolSource`** port + 2 adapter'а: `HardcodedPoolSource` (live) + `JsonAssetPoolSource` (scaffold с TODO + roundtrip test gate). DI swap.
+- **`ProfileSwitchStrategy`** port + `CopyOnActivateStrategy` default adapter (port готов для будущих `KindMatchSwitchStrategy` / `SandboxSwitchStrategy`).
+- **`ConfigKind.Preset`** — 6-й variant existing enum. **НЕ создаём** дублирующий `RequirementsChecker` port — переиспользуем `WizardEngine.computePending` (per rule 4 MVA).
+- **`CheckSpec.UIFont(minScale)`** + `UIFontChecker` handler — extension существующей sealed hierarchy. Используется в `test-preset.json` для proof of generic-ness.
+
+**UI + services**:
+- **`PresetPickerScreen`** (Compose) reused first-launch + Settings switch.
+- **`PresetBootRouter`** — Activity router (boot path с settings check + classification critical/optional).
+- **`HomeBanner`** Compose — critical-missing banner с CTA «Настроить» + dismiss «Позже» (per CLAUDE.md rule 10 in-app indicator, НЕ push).
+- **`PresetSelectionService`, `PresetSwitchService`, `PresetReminderService`** — domain services orchestration.
+- **3 bundled preset'а** + 1 fixture: `simple-launcher.preset.json`, `launcher.preset.json`, `workspace.preset.json`, `test-preset.json` (androidTest).
+- **Settings entry** «Сменить preset» + boot-time + onResume reminders.
+
+**Fitness functions (Detekt — новый `lint-rules/` Gradle module)**:
+- **`PresetIdBranchingDetector`** — ловит `if (presetId == "...")`, `when (appFamilyId)` вне whitelisted `core/preset/` packages.
+- **`ExtractionReadinessDetector`** — запрещает launcher-specific imports (`com.launcher.app.tiles.*`) в foundation packages — обеспечивает cross-app extraction готовность.
+- Pre-commit hook script + `detektFoundation` Gradle alias.
+
+**Тесты (21 task в Phase 6)**:
+- Contract roundtrip: `PresetWireFormatRoundtripTest`, `ProfileStoreSerializationTest`, `PresetRefValidationTest`, `PoolSourceRoundtripTest`.
+- Backward-compat: `WizardManifestBackwardCompatTest` с pre-TASK-65 fixture.
+- Migration: `PreferencesProfileStoreTest` (legacy migration + idempotency).
+- Fitness: `EngineGenericityFitnessTest` (UIFont dispatch), `BundledPresetsParseTest` (build-time validation).
+- Regression: `SimpleLauncherCompositionRegressionTest` (golden snapshot).
+- Edge case: `SettingsCallbackThrowsTest` (Indeterminate per Article VII §15).
+- Lint rule tests: `PresetIdBranchingDetectorTest`, `ExtractionReadinessDetectorTest`.
+- E2E (instrumentation, pixel_5_api_34): FirstLaunchPicker, PresetSwitch, Migration, SettingsReminders, BootCriticalMissingBanner, BootBenchmark.
+
+**Constitution amendment 1.11** применён к `.specify/memory/constitution.md` — naming inversion preset/profile + `appFamilyId` deprecation + `ConfigKind.preset` 6-й kind.
+
+## Что НЕ входит (явно вынесено в follow-up tasks)
+
+- **Settings UI как view на Profile** (динамическая генерация из preset.configs) → **TASK-69**.
+- **Profile sync на server + multi-profile-capable storage** (admin'ский app для нескольких managed primary users) → **TASK-70**.
+- **Wizard hidden steps + defaults** (preset author может скрыть шаг и применить дефолт автоматически) → **TASK-71**.
+- **Pool browser UI** (opportunistic preset authoring для продвинутых users / AI agents) → **TASK-72**.
+- **`KindMatchSwitchStrategy`** (smart binding migration по Slot.kind), **`SandboxSwitchStrategy`** (примерить preset без commit'а) — port готов, adapters — future tasks.
+- **Server-fetched / file-imported presets** → additively через новые ConfigSource adapters позже.
+- **`CheckSpec.AuthState` / `ApplySpec.RequestSignIn`** — clarify pass решил вынести в TASK-3 / TASK-49 (там реально нужно для Sign-In flow).
 
 ## Состояние
 
-**Planned.** Foundation для TASK-66/59/60 и всех будущих профилей. Должна быть закрыта до start работ над workspace.
+**In Progress** (clarify pass 2 завершён 2026-06-30). Spec-kit pipeline complete: specify → clarify (13 clarifications) → scenarios (5 sequences ADR-011) → plan (Constitution Check 8/8 PASS) → tasks (50 tasks T600-T67M, 7 phases) → analyze (READY-WITH-CAVEATS — 3 UI-impl-phase smoke items defer).
+
+Foundation для TASK-66/67/68 + всех будущих preset'ов. Должна быть закрыта до start работ над workspace (TASK-68).
+
+Следующий шаг: `/speckit.implement` (Phase 0 inventory → Phase 6 fitness).
 
 ---
 
-## Готовый промт для `/speckit.specify`
+## Готовый промт для `/speckit.specify` (historical — pre-clarify model)
+
+> **Historical artifact.** Этот промт описывает initial scope до clarify-фазы (когда terminology была «profile»/`profile.json`/`RequirementsChecker port`). После clarify pass 2 модель эволюционировала к Preset/Profile inversion + PresetRef composite identity + revised boot axiom + reuse WizardEngine.computePending вместо нового RequirementsChecker. Финальный scope — см. выше + spec.md.
 
 ```
 Реализуй F-?? (TBD): Profile Composition Foundation v2.
