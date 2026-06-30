@@ -88,4 +88,22 @@
     <string name="home_reset_dialog_cancel">Отмена</string>
     <string name="home_loading_in_progress">Загрузка…</string>
 
+    <!-- TASK-65 (T65E) — preset picker, settings reminders, boot banner -->
+    <string name="preset_simple_launcher_label">Простой лаунчер</string>
+    <string name="preset_simple_launcher_description">Крупные плитки, минимум кнопок — удобно для пожилых и всех, кто хочет тихий главный экран.</string>
+    <string name="preset_launcher_label">Классический лаунчер</string>
+    <string name="preset_launcher_description">Обычная сетка как в Android: все приложения на главном экране.</string>
+    <string name="preset_workspace_label">Рабочее пространство</string>
+    <string name="preset_workspace_description">Несколько экранов для рабочих инструментов и быстрых ссылок.</string>
+    <string name="settings_role_home_title">Сделать это приложение лаунчером по умолчанию</string>
+    <string name="settings_role_home_description">Нужно, чтобы кнопка «Домой» открывала именно это приложение.</string>
+    <string name="settings_post_notifications_title">Разрешить уведомления</string>
+    <string name="settings_post_notifications_description">Чтобы не пропустить сообщения от семьи и важные напоминания.</string>
+    <string name="settings_font_large_title">Использовать крупный текст</string>
+    <string name="settings_font_large_description">Рекомендуемый размер для комфортного чтения.</string>
+    <string name="home_banner_critical_missing_title">Не настроено важное</string>
+    <string name="home_banner_critical_missing_cta">Настроить</string>
+    <string name="home_banner_dismiss_later">Позже</string>
+    <string name="settings_change_preset_label">Сменить preset</string>
+
 </resources>

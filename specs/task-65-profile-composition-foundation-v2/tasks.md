@@ -150,62 +150,62 @@
 
 ## Phase 5 — UI + Services (androidMain)
 
-- [ ] **T650** Create bundled preset `core/src/androidMain/assets/presets/simple-launcher.preset.json` — schemaVersion=1, uid=`com.launcher.preset.simple-launcher`, version=1, slug=`simple-launcher`, configs reference: `android.role.home` (Required), `android.permission.POST_NOTIFICATIONS` (Optional); abstractProfile: 1-screen 2x3 grid, bottom toolbar [settings, sos], no bindings. (FR-001)
+- [x] **T650** Create bundled preset `core/src/androidMain/assets/presets/simple-launcher.preset.json` — schemaVersion=1, uid=`com.launcher.preset.simple-launcher`, version=1, slug=`simple-launcher`, configs reference: `android.role.home` (Required), `android.permission.POST_NOTIFICATIONS` (Optional); abstractProfile: 1-screen 2x3 grid, bottom toolbar [settings, sos], no bindings. (FR-001)
        Acceptance: parses via T642; T669 fitness build-time validation passes.
        Depends: T642.
 
-- [ ] **T651** Create bundled preset `core/src/androidMain/assets/presets/launcher.preset.json` — classic launcher variant: uid=`com.launcher.preset.launcher`, similar configs to simple-launcher but with larger grid (3x4), no bottom toolbar (default Android-like). (FR-001)
+- [x] **T651** Create bundled preset `core/src/androidMain/assets/presets/launcher.preset.json` — classic launcher variant: uid=`com.launcher.preset.launcher`, similar configs to simple-launcher but with larger grid (3x4), no bottom toolbar (default Android-like). (FR-001)
        Acceptance: parses; appears in picker (test T67E).
        Depends: T642.
 
-- [ ] **T652** Create bundled preset `core/src/androidMain/assets/presets/workspace.preset.json` — admin/work variant: uid=`com.launcher.preset.workspace`, configs reference: `android.role.home` (Optional, NOT Required), POST_NOTIFICATIONS (Required); abstractProfile: 3-screen 3x3 grid с placeholder bindings (`com.google.android.youtube`, `com.android.chrome`). (FR-001)
+- [x] **T652** Create bundled preset `core/src/androidMain/assets/presets/workspace.preset.json` — admin/work variant: uid=`com.launcher.preset.workspace`, configs reference: `android.role.home` (Optional, NOT Required), POST_NOTIFICATIONS (Required); abstractProfile: 3-screen 3x3 grid с placeholder bindings (`com.google.android.youtube`, `com.android.chrome`). (FR-001)
        Acceptance: parses; appears in picker.
        Depends: T642.
 
-- [ ] **T653 [P]** Create test fixture `core/src/androidTest/assets/presets/test-preset.json` — schemaVersion=1, uid=`com.launcher.preset.test`, version=1, configs: [`ui.font.large` (Required, uses CheckSpec.UIFont)]; abstractProfile: minimal 1-slot layout. Used by `EngineGenericityFitnessTest` (T66D). (FR-023, FR-026)
+- [x] **T653 [P]** Create test fixture `core/src/androidTest/assets/presets/test-preset.json` — schemaVersion=1, uid=`com.launcher.preset.test`, version=1, configs: [`ui.font.large` (Required, uses CheckSpec.UIFont)]; abstractProfile: minimal 1-slot layout. Used by `EngineGenericityFitnessTest` (T66D). (FR-023, FR-026)
        Acceptance: file exists; parses.
 
-- [ ] **T654** Create `core/src/androidMain/kotlin/com/launcher/adapters/wizard/UIFontChecker.kt` — handler for `CheckSpec.UIFont`. Reads `context.resources.configuration.fontScale`, returns `Applied` if ≥ `minScale`, else `NotApplied`. (FR-024)
+- [x] **T654** Create `core/src/androidMain/kotlin/com/launcher/adapters/wizard/UIFontChecker.kt` — handler for `CheckSpec.UIFont`. Reads `context.resources.configuration.fontScale`, returns `Applied` if ≥ `minScale`, else `NotApplied`. (FR-024)
        Acceptance: test T66D covers Applied + NotApplied transitions.
        Depends: T615.
 
-- [ ] **T655** Register `UIFontChecker` in DI as handler for `CheckSpec.UIFont` kind. (FR-024)
+- [x] **T655** Register `UIFontChecker` in DI as handler for `CheckSpec.UIFont` kind. (FR-024)
        Acceptance: instance available via DI; `WizardEngine.computePending` with CheckSpec.UIFont entry dispatches to UIFontChecker (test T66D verifies).
        Depends: T654.
 
-- [ ] **T656** Create `core/src/androidMain/kotlin/com/launcher/adapters/preset/PresetSelectionService.kt` — `class PresetSelectionService { suspend fun beginSetup(presetRef: PresetRef) }`: loads preset via ConfigSource, applies CopyOnActivateStrategy, persists ProfileData to ProfileStore, sets activePresetRef. (FR-009, US-1)
+- [x] **T656** Create `core/src/androidMain/kotlin/com/launcher/adapters/preset/PresetSelectionService.kt` — `class PresetSelectionService { suspend fun beginSetup(presetRef: PresetRef) }`: loads preset via ConfigSource, applies CopyOnActivateStrategy, persists ProfileData to ProfileStore, sets activePresetRef. (FR-009, US-1)
        Acceptance: test (in T67E E2E) covers fresh install → setup flow.
        Depends: T623, T642, T648.
 
-- [ ] **T657** Create `core/src/androidMain/kotlin/com/launcher/adapters/preset/PresetSwitchService.kt` — `class PresetSwitchService { suspend fun switchTo(newPresetRef: PresetRef): SwitchOutcome }`. Snapshot current → load new preset → if `profiles[newRef]` exists restore, else CopyOnActivateStrategy → `WizardEngine.computePending` → if empty commit, else launch mini-wizard → re-check → commit OR keep old. (FR-014, US-2)
+- [x] **T657** Create `core/src/androidMain/kotlin/com/launcher/adapters/preset/PresetSwitchService.kt` — `class PresetSwitchService { suspend fun switchTo(newPresetRef: PresetRef): SwitchOutcome }`. Snapshot current → load new preset → if `profiles[newRef]` exists restore, else CopyOnActivateStrategy → `WizardEngine.computePending` → if empty commit, else launch mini-wizard → re-check → commit OR keep old. (FR-014, US-2)
        Acceptance: test (T67F) covers switch + restore from history.
        Depends: T623, T642, T648.
 
-- [ ] **T658** Create `core/src/androidMain/kotlin/com/launcher/adapters/preset/PresetReminderService.kt` — `class PresetReminderService { suspend fun computeCriticalMissing(profile: ProfileData): List<SettingEntry>; suspend fun computeAllMissing(profile: ProfileData): List<SettingEntry> }`. Internally calls `WizardEngine.computePending(profile.settings)` + filters by `Criticality`. Used by PresetBootRouter (critical) и SettingsActivity onResume (all). (FR-016, FR-030, FR-031)
+- [x] **T658** Create `core/src/androidMain/kotlin/com/launcher/adapters/preset/PresetReminderService.kt` — `class PresetReminderService { suspend fun computeCriticalMissing(profile: ProfileData): List<SettingEntry>; suspend fun computeAllMissing(profile: ProfileData): List<SettingEntry> }`. Internally calls `WizardEngine.computePending(profile.settings)` + filters by `Criticality`. Used by PresetBootRouter (critical) и SettingsActivity onResume (all). (FR-016, FR-030, FR-031)
        Acceptance: tests in T66B + T67H verify critical vs all classification.
        Depends: T648.
 
-- [ ] **T659** Create `core/src/androidMain/kotlin/com/launcher/ui/PresetBootRouter.kt` — Activity router. Reads activePresetRef from ProfileStore; if null AND `wizardDone` legacy flag absent → start FirstLaunchActivity (picker); if null AND legacy flag set → migration via PreferencesProfileStore (FR-015); if active set → load Preset, computeCriticalMissing, start HomeActivity (with BannerData if critical non-empty). (FR-029, FR-030, FR-031, US-3, US-7)
+- [x] **T659** Create `core/src/androidMain/kotlin/com/launcher/ui/PresetBootRouter.kt` — Activity router. Reads activePresetRef from ProfileStore; if null AND `wizardDone` legacy flag absent → start FirstLaunchActivity (picker); if null AND legacy flag set → migration via PreferencesProfileStore (FR-015); if active set → load Preset, computeCriticalMissing, start HomeActivity (with BannerData if critical non-empty). (FR-029, FR-030, FR-031, US-3, US-7)
        Acceptance: test T67G covers boot path + classification + banner pass-through.
        Depends: T648, T642, T658.
 
-- [ ] **T65A** Create `core/src/androidMain/kotlin/com/launcher/ui/PresetPickerScreen.kt` — Compose: reads `ConfigSource.list(ConfigKind.Preset)`, renders Material3 cards (label + description i18n), tap callback with `PresetRef`. Tap target ≥ 56dp, contrast ≥ 4.5:1, TalkBack contentDescription per card (Gate 5 accessibility partial). Fallback safety net if list empty → log warning + use hardcoded `simple-launcher`. (FR-012, US-1)
+- [x] **T65A** Create `core/src/androidMain/kotlin/com/launcher/ui/PresetPickerScreen.kt` — Compose: reads `ConfigSource.list(ConfigKind.Preset)`, renders Material3 cards (label + description i18n), tap callback with `PresetRef`. Tap target ≥ 56dp, contrast ≥ 4.5:1, TalkBack contentDescription per card (Gate 5 accessibility partial). Fallback safety net if list empty → log warning + use hardcoded `simple-launcher`. (FR-012, US-1)
        Acceptance: smoke screenshot via android-emulator skill (T67E).
        Depends: T642.
 
-- [ ] **T65B** Create `core/src/androidMain/kotlin/com/launcher/ui/HomeBanner.kt` — Compose: banner card на top of HomeActivity for critical missing requirements. Contains: title (i18n `home_banner_critical_missing_title`), CTA button «Настроить» (i18n `home_banner_critical_missing_cta`), dismiss button «Позже». Tap → callback to launch mini-wizard with all critical missing. Tap target ≥ 56dp. Dismiss = hide until next boot OR state change (in ViewModel `lifecycleScope`, not persisted). (FR-030, R4, US-7, Gate 5 partial)
+- [x] **T65B** Create `core/src/androidMain/kotlin/com/launcher/ui/HomeBanner.kt` — Compose: banner card на top of HomeActivity for critical missing requirements. Contains: title (i18n `home_banner_critical_missing_title`), CTA button «Настроить» (i18n `home_banner_critical_missing_cta`), dismiss button «Позже». Tap → callback to launch mini-wizard with all critical missing. Tap target ≥ 56dp. Dismiss = hide until next boot OR state change (in ViewModel `lifecycleScope`, not persisted). (FR-030, R4, US-7, Gate 5 partial)
        Acceptance: smoke screenshot via android-emulator skill (T67I).
        Depends: T658.
 
-- [ ] **T65C** Update existing `app/src/main/kotlin/com/launcher/app/FirstLaunchActivity.kt` to route through `PresetBootRouter`. If picker needed → host `PresetPickerScreen`; on pick → `PresetSelectionService.beginSetup(ref)` → launch WizardActivity. (FR-011)
+- [x] **T65C** Update existing `app/src/main/kotlin/com/launcher/app/FirstLaunchActivity.kt` to route through `PresetBootRouter`. If picker needed → host `PresetPickerScreen`; on pick → `PresetSelectionService.beginSetup(ref)` → launch WizardActivity. (FR-011)
        Acceptance: instrumentation test T67E (FirstLaunchPicker) green.
        Depends: T659, T65A, T656.
 
-- [ ] **T65D** Update existing `SettingsActivity` (search exact path in app/ module) to: (a) add «Сменить preset» entry → launches PresetSwitchActivity (reuses PresetPickerScreen with current marked); (b) in `onResume()` → call `PresetReminderService.computeAllMissing(currentProfile)` → render banner cards for each missing entry; tap banner → mini-wizard for that one entry. (FR-013, FR-016)
+- [x] **T65D** Update existing `SettingsActivity` (search exact path in app/ module) to: (a) add «Сменить preset» entry → launches PresetSwitchActivity (reuses PresetPickerScreen with current marked); (b) in `onResume()` → call `PresetReminderService.computeAllMissing(currentProfile)` → render banner cards for each missing entry; tap banner → mini-wizard for that one entry. (FR-013, FR-016)
        Acceptance: instrumentation test T67H (SettingsReminders) green.
        Depends: T657, T658, T65A.
 
-- [ ] **T65E** Add i18n string keys to `core/src/commonMain/composeResources/values/strings_wizard.xml` (English base): `preset_simple_launcher_label`, `preset_simple_launcher_description`, `preset_launcher_label`, `preset_launcher_description`, `preset_workspace_label`, `preset_workspace_description`, `settings_role_home_title`, `settings_role_home_description`, `settings_post_notifications_title`, `settings_post_notifications_description`, `settings_font_large_title`, `settings_font_large_description`, `home_banner_critical_missing_title`, `home_banner_critical_missing_cta`, `home_banner_dismiss_later`, `settings_change_preset_label`. (FR-001, FR-016, FR-030)
+- [x] **T65E** Add i18n string keys to `core/src/commonMain/composeResources/values/strings_wizard.xml` (English base): `preset_simple_launcher_label`, `preset_simple_launcher_description`, `preset_launcher_label`, `preset_launcher_description`, `preset_workspace_label`, `preset_workspace_description`, `settings_role_home_title`, `settings_role_home_description`, `settings_post_notifications_title`, `settings_post_notifications_description`, `settings_font_large_title`, `settings_font_large_description`, `home_banner_critical_missing_title`, `home_banner_critical_missing_cta`, `home_banner_dismiss_later`, `settings_change_preset_label`. (FR-001, FR-016, FR-030)
        Acceptance: 16 new keys present; RU manual translation in `values-ru/strings_wizard.xml` (per memory `feedback_language_russian` — RU manual, not auto).
 
 - [ ] **T65F** Run `procedure-translate-spec-strings` skill to auto-translate the 16 new keys into 9 locales (ES/ZH/AR/HI/PT/DE/FR/JA/KK-Latn). RU NOT touched per FR-031a (spec 015). (T65E artifacts)
