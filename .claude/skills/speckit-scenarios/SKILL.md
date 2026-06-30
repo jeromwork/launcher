@@ -1,13 +1,22 @@
 ---
 name: speckit-scenarios
-description: Spec-kit scenario verification step — generates plain-language user-flow sequences from a clarified spec.md and weaves them into a `## Сценарии использования` section. Runs BETWEEN /speckit.clarify and /speckit.plan. User finds these sequences convenient to verify "is the spec heading the right direction" before planning. Owner mandate 2026-06-16 — proactively suggest this skill after every clarify, since user forgets.
+description: Spec-kit sequence generation step — writes inline Mermaid sequence diagrams (spec-level behaviour + plan-level architecture) with MENTOR-DETAIL blocks into spec.md per ADR-011 + CLAUDE.md «Sequences in spec.md» section. Runs BETWEEN /speckit.clarify and /speckit.plan. Sequences let the owner verify "is the spec heading the right direction" before plan'у, AND give plan.md ready-made architectural lifelines to cite.
 ---
 
 # Orchestrator: speckit-scenarios
 
-Bridges **clarify → plan**. Grounds abstract FRs in concrete user behaviour — so a non-technical owner can read the sequences and verify "yes, that's what I want" before committing to implementation planning.
+Bridges **clarify → plan**. Produces inline sequence diagrams in `spec.md` under `## Sequences` heading. Each sequence has:
+- Anchor ID `### SEQ-N: <title>`.
+- Pre/Post conditions + Used-in.
+- **Two Mermaid diagrams**: spec-level (behaviour, lifelines `Owner / System / External`) + plan-level (architecture, lifelines `UI / VM / UseCase / Repository / Adapter`).
+- **MENTOR-DETAIL block** в HTML-комментариях — plain Russian explanation для владельца.
 
-Output language — Russian (`feedback_language_russian.md`); code, commands, identifiers — as-is.
+This is the **canonical format** per ADR-011 (2026-XX-XX, see [docs/adr/ADR-011-ai-owner-collaboration-conventions.md](../../../docs/adr/ADR-011-ai-owner-collaboration-conventions.md)) and CLAUDE.md «Sequences in spec.md» section. **Do NOT** write plain numbered prose lists — that was the older format (mandate 2026-06-16/18), superseded by ADR-011.
+
+Output language:
+- Mermaid diagrams + structural markdown — English.
+- MENTOR-DETAIL block content — **Russian** (per language-by-audience rule: owner-facing → RU, AI-only → EN).
+- Anchor IDs (`SEQ-N`) and `Pre:`/`Post:`/`Used-in:` keywords — English.
 
 ---
 
@@ -15,112 +24,155 @@ Output language — Russian (`feedback_language_russian.md`); code, commands, id
 
 - A `specs/<id>/spec.md` has been through `/speckit.clarify` (Clarifications section exists, checklists ran).
 - No `plan.md` yet.
-- User has not yet explicitly said "skip scenarios for this spec" (some specs are too small to need them).
-- **PROACTIVE**: after `speckit-clarify` finishes, **suggest this skill explicitly** to the user. Don't wait for them to remember (per memory `feedback_speckit_scenarios_proactive.md`).
+- Section `## Sequences` does not exist in spec.md, OR user explicitly asks to regenerate / add SEQ-N.
+- **PROACTIVE**: after `speckit-clarify` finishes, **suggest this skill explicitly** to the user.
 
 ## When NOT to invoke
 
 - spec.md doesn't exist or has no User Stories yet (need /speckit.specify first).
-- Section `## Сценарии использования` уже existing в spec.md (skill already ran). To re-run, user must explicitly say "regenerate scenarios".
-- Spec is trivial (< 50 lines, single FR) — overkill.
+- Section `## Sequences` already exists и user not asking to regenerate. To add a new SEQ-N — user must explicitly say so.
+- Spec is trivial (< 50 lines, single FR, no interesting flows) — overkill. Document the skip in spec.
 
 ---
 
 ## Procedure
 
-### Step 1 — Identify scenario categories
+### Step 1 — Identify sequence candidates
 
-Read spec.md and let the **content of the spec** drive the scenario count — not a target number. A two-FR spec needs 2-3 scenarios; a 70+ FR foundation spec may need 12-15. Stop when every US, every critical SC, and every edge case from the Edge Cases section is covered by either a top-level scenario or a trouble case inside one.
+Read spec.md (особенно User Stories, Edge Cases, FRs). For each candidate flow ask:
 
-Identify candidate categories from the spec — include only those the spec actually has FRs/SCs/edge cases for:
+1. **Is there an interesting interaction** between ≥2 participants (Owner ↔ System ↔ External)? If single-actor — может не нуждаться в sequence.
+2. **Does the flow involve a state transition or boundary crossing** that's hard to explain in prose? Sequence helps.
+3. **Is the flow load-bearing для architecture** (plan.md будет на него ссылаться)? Mandatory sequence.
 
-- **Happy paths**: primary user journeys (success). Usually one per User Story. If two US share the same flow shape, fold them into one scenario instead of duplicating.
-- **Failure / edge cases**: only those the spec explicitly addresses (look in Edge Cases section + FR error paths). Common candidates — include only when the spec covers them:
-  - Process kill / Activity recreation
-  - Network / external service unavailable
-  - Permission denied
-  - Bundled data corrupt / unknown version
-  - User abandons mid-flow
-  - Locale change / dynamic config change
-- **Evolution paths**: only when the spec carries wire-format / migration / extensibility FRs:
-  - App update with new step / new field
-  - Adjacent app added (ecosystem reuse)
-  - Forward/backward compat reads
+**Typical sequence candidates** (include only those the spec actually has FRs/USs/SCs for):
 
-**Anti-padding rule**: do NOT invent a failure scenario the spec doesn't have an FR for, just to hit a count. Better five tight scenarios than nine with two filler.
+- **First-time user flow** (install → onboarding → main screen). Usually mandatory.
+- **Critical state transitions** (switch, migration, restore). Usually mandatory.
+- **Boot path / cold start invariant** ("nothing checked on boot" axiom). Mandatory if spec has such invariant.
+- **External-trigger flows** (push received, deep-link opened, paired device pushed update). Mandatory if spec touches.
+- **Recovery / failure paths** (process killed mid-flow, network drop, permission denied) — only if spec has explicit FR for recovery behaviour.
+- **Migration / upgrade paths** — if spec has wire-format change or schema bump.
 
-### Step 2 — Draft scenarios in plain Russian
+**Anti-padding rule**: do NOT invent a sequence for trivial flows (single function call, pure CRUD, no state transition). Better four tight sequences than seven with three filler.
 
-For each scenario:
-- **Title**: «Сценарий N — короткое имя» (e.g., «Сценарий 3 — App update с новым шагом»)
-- **Context**: 1 line setup («Контекст: …»)
-- **Steps**: numbered list, plain language, NO code / NO Android API names
-  - Step describes "what app does" + "what user observes/does"
-  - Use **★ обязательный** / **☆ опциональный** markers for wizard steps where applicable
-- **What it covers**: 1 line ref to FRs / SCs that close this scenario
-- **Trouble cases (sub-scenarios)**: «Trouble case N.b: …» — variations within same scenario
+### Step 2 — Draft each sequence
 
-### Step 3 — Self-check coverage
+For each candidate, write a complete sequence block (template below). Iteratively for each — don't try to draft all simultaneously.
 
-Walk all User Stories (US-1, US-2, ...) — every US must appear in at least one scenario. If a US is missing — add a scenario for it.
+**Template** (copy this structure exactly):
 
-Walk Success Criteria (SC-001, SC-002, ...) — every SC measurable outcome should correspond to a scenario step. If a critical SC is unscenario'd — add a scenario.
+````markdown
+### SEQ-N: <short title>
 
-Walk Edge Cases section — every edge case = either own scenario or trouble case within an existing scenario.
+Pre: <preconditions — what's true before this sequence starts>.
+Post: <postconditions — what's true after this sequence ends>.
+Used-in: spec/<NNN-slug> [, spec/<MMM-slug> if reused].
 
-### Step 4 — Show to user for validation
+#### Spec-level (behavior)
 
-Present scenarios as one cohesive block. Ask:
-- «Эти сценарии покрывают то, что ты ожидаешь?»
-- «Какие сценарии добавить или убрать?»
-- «Какие шаги внутри сценариев непонятны / технически перегружены?»
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  participant X as External
+  U->>S: <high-level action>
+  S->>S: <internal decision>
+  S->>X: <external interaction, if any>
+  X-->>S: <response>
+  S-->>U: <visible outcome>
+```
 
-If user wants changes — iterate. Keep brief.
+#### Plan-level (architecture)
 
-### Step 5 — Write to spec.md
+```mermaid
+sequenceDiagram
+  participant UI as <ActivityName / Composable>
+  participant VM as <ViewModel>
+  participant UC as <UseCase / DomainService>
+  participant R as <Repository / Port>
+  participant A as <Adapter / SDK wrapper>
+  UI->>VM: onAction()
+  VM->>UC: invoke()
+  UC->>R: read/write
+  R->>A: delegate
+  A-->>R: result
+  R-->>UC: domain result
+  UC-->>VM: state
+  VM-->>UI: render
+```
 
-Add (or replace) section `## Сценарии использования` near top of spec.md (after `## Контекст и цель спека`, before `## User Scenarios & Testing`). Format:
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- <plain-Russian explanation: что делает каждый участник, почему есть каждая ветка, что владелец увидит на экране>
+- <2-5 bullet points>
+- <Reference relevant constitution articles / rules if applicable>
+<!-- MENTOR-DETAIL:END -->
+````
+
+### Step 3 — Verify hard rules from CLAUDE.md «Sequences in spec.md»
+
+For each sequence, check:
+
+- **Dual projection mandatory.** Both Mermaid diagrams present. Spec-level lifelines = `Owner / System / External (API, FCM, ...)`. Plan-level lifelines = architectural layers from `architecture.md` (arrows only point downward — visual check on rule 1, domain isolation).
+- **MENTOR-DETAIL block mandatory.** Must be present and filled at creation time. Russian only.
+- **Anchor IDs spec-local.** `SEQ-1` in this spec can coexist with `SEQ-1` in other inline-spec. The containing file disambiguates. Globally unique IDs only when extracted to `docs/sequences/` (Step 5 below).
+- **Arrows in plan-level diagram** flow **only downward** through architectural layers (UI → VM → UseCase → Repository → Adapter). If you see an upward arrow (e.g., Repository calling back to UI directly) — that's a rule 1 violation. Flag in the spec, don't paper over with the diagram.
+
+If any rule fails — fix the sequence, don't write incomplete sequences "to come back to later".
+
+### Step 4 — Insert into spec.md
+
+Add (or extend) section `## Sequences` in spec.md. Placement:
+- **After** `## User Scenarios & Testing` (because sequences elaborate the User Stories).
+- **Before** `## Requirements` (because FRs may reference SEQ-N).
+
+If section `## Sequences` already exists и you're adding new SEQ-N — insert in numerical order.
+
+If section doesn't exist — add the section with introductory paragraph:
 
 ```markdown
-## Сценарии использования
+## Sequences
 
-> Эти сценарии — концентрированный взгляд «как это будет работать в реальной жизни». 
-> Читая их, можно проверить, движется ли спека в правильном направлении, 
-> без необходимости погружаться в FRs.
-> Каждый сценарий соответствует одному или нескольким FRs (помечено в конце сценария).
+Sequence diagrams elaborate critical flows from User Stories. Each sequence has:
+- Pre/Post conditions and reuse pointer.
+- Spec-level diagram (behaviour, owner-readable).
+- Plan-level diagram (architecture, plan.md cites these lifelines).
+- MENTOR-DETAIL block (plain-Russian explanation for non-developer owner).
 
-### Сценарий 1 — [Title]
-
-**Контекст**: …
-
-1. …
-2. …
-3. …
-
-**Что закрывает**: FR-NNN, SC-NNN.
-
-**Trouble case 1.b**: …
+Per [CLAUDE.md «Sequences in spec.md»](../../../CLAUDE.md) section and [ADR-011](../../../docs/adr/ADR-011-ai-owner-collaboration-conventions.md).
 
 ---
 
-### Сценарий 2 — …
+### SEQ-1: ...
 ```
 
-### Step 6 — Verify cross-references
+### Step 5 — Reactive extraction (skip on first pass)
 
-After writing, do a final sanity pass:
-- Every scenario has `**Что закрывает**` line citing concrete FR/SC IDs.
-- No scenario invents behaviour not present in FRs.
-- No scenario references concepts outside this spec's scope (those are cross-spec dependencies — note them explicitly).
+Do **NOT** create `docs/sequences/SEQ-N.md` files preemptively. Only extract when:
+
+1. The same sequence is genuinely needed in **2+ specs**.
+2. Then: create `docs/sequences/SEQ-N-slug.md` with same structure.
+3. Replace inline block in both specs with link: `→ [SEQ-N](../../docs/sequences/SEQ-N-slug.md)`.
+
+`docs/sequences/INDEX.md` created only when directory holds **≥5 files**.
+
+**Standing extraction candidate** (per CLAUDE.md): QR-pairing flow (spec/007 reused in spec/011 + future call / multi-admin specs). Extract at next touch of those specs, not preemptively.
+
+### Step 6 — Cross-reference back to User Stories / FRs
+
+After writing sequences, do a final pass:
+- Every sequence cites which US / FR / Edge Case it elaborates (in MENTOR-DETAIL or via Pre/Post wording).
+- Every critical US has a sequence (or explicit note in spec why it doesn't need one — e.g., «US-5 is dev-tool only, no runtime sequence»).
 
 ### Step 7 — Report
 
 ```
 SPECKIT-SCENARIOS for specs/<id>/spec.md:
-  Scenarios written: N (M happy, K failure, L evolution)
-  All US covered: yes/no
-  All critical SC covered: yes/no
-  Cross-spec dependencies noted: [spec-X behaviour, ...]
+  Sequences written: N (SEQ-1..SEQ-N)
+  All critical US covered: yes/no
+  Extraction needed (≥2 specs reuse): [SEQ-X if any]
   Next step: /speckit.plan
 ```
 
@@ -128,37 +180,42 @@ SPECKIT-SCENARIOS for specs/<id>/spec.md:
 
 ## Heuristics
 
-- **Plain language only.** No `WizardCheckpointStore.load()`, no `Intent.startActivity()`. Translate every code-like reference to "what app does" prose.
-- **Не visual диаграммы.** Owner mandate 2026-06-18: scenarios это **просто пронумерованные шаги текстом**, не Mermaid sequence diagrams, не PlantUML, не ASCII boxes. Если хочется визуальной диаграммы — она в plan.md, не здесь.
-- **Уровень абстракции — UX и cross-app interaction.** Шаги описывают «что пользователь делает», «что приложение показывает», «что одна часть приложения посылает другой части на смысловом уровне». **НЕ** «какая функция вызывается», «какой класс инстанцируется», «какой API SDK дёргается». Если в шаге появляется имя класса, метода, SDK или техническая абстракция (Flow, coroutine, port, adapter) — переписать в plain Russian. Owner — non-developer, scenarios должны читаться как описание use case'а.
-- **Brevity.** 5-10 sentences per scenario. Owner reads these to orient — long scenarios defeat the purpose.
-- **Scenario count is derived, not prescribed.** Count is whatever the spec needs: every US covered, every critical SC measurable from a step, every edge case from the Edge Cases section addressed. Could be 3 for a small spec, 12 for a foundation spec. Do not pad to hit a number; do not trim if coverage is real.
-- **Trouble cases preferred over new scenarios.** If a variation can fit inside existing scenario as "trouble case N.b" — do that. A trouble case is cheaper to read and keeps related behaviour co-located.
-- **Senior-friendly framing.** If app has senior persona (бабушка), scenarios should mention them naturally; setup-time scenarios mention admin where setup is done by admin.
-- **Required/Optional markers.** For any wizard / multi-step flow, use ★ / ☆ markers so owner sees the criticality structure.
+- **Two diagrams always.** Spec-level for behaviour, plan-level for architecture. If you only write one — that's a bug, not a shortcut.
+- **MENTOR-DETAIL is non-optional.** Owner reads spec.md primarily через MENTOR-DETAIL блоки — they're the bridge from technical diagrams to plain understanding. Skipping these = breaking the contract with the owner.
+- **Plan-level uses real class/port names**, not placeholders. If you don't know what the class will be called — that's a sign clarify-фаза was incomplete; surface it, don't fake a name.
+- **Spec-level stays abstract**. `Owner / System / External` — not `Бабушка / Лаунчер / Firebase`. The specifics live in MENTOR-DETAIL.
+- **Arrows downward in plan-level.** Visual fitness function for domain isolation (rule 1). If you find yourself drawing an upward arrow — pause, the architecture has a problem.
+- **Brevity in MENTOR-DETAIL.** 3-7 bullet points typically. Owner reads to orient, not to learn architecture.
+- **Don't write sequences for trivial flows.** Pure CRUD, single state read — no sequence needed. Reserve sequences for interesting transitions / boundary crossings / multi-actor flows.
 
 ---
 
 ## Output
 
-- Updated `specs/<id>/spec.md` with `## Сценарии использования` section.
-- Short report at end of orchestrator run.
-- No separate file — section lives in spec.md.
+- Updated `specs/<id>/spec.md` with `## Sequences` section (new or extended).
+- No separate file (unless Step 5 extraction triggered).
+- Short report at end.
 
 ---
 
 ## Relationship to other skills
 
-- **`speckit-clarify`** — runs before. Produces clarified spec with Clarifications section.
-- **`speckit-plan`** — runs after. Reads sequences as grounding for implementation plan.
-- **`speckit-analyze`** — final gate. Can use scenarios as additional check: every scenario step traced to FR + test.
+- **`speckit-clarify`** — runs before. Produces clarified spec.
+- **`speckit-plan`** — runs after. **Cites sequences** for architectural decisions (plan-level diagrams should match plan.md architectural choices; if mismatch — sequence was wrong or plan deviates, surface it).
+- **`speckit-analyze`** — final gate. Verifies every sequence step traces to FR + test.
 
 ---
 
 ## Proactive invocation pattern
 
-Per memory `feedback_speckit_scenarios_proactive.md`:
-- After `speckit-clarify` completion: end response with «Следующий рекомендуемый шаг — `/speckit.scenarios`. Запустить?»
-- After major spec.md update: same prompt.
-- If user says «давай сразу `/speckit.plan`» — flag once, but don't block: «ОК, plan без сценариев. Если потом захочешь — `/speckit.scenarios` можно запустить позже.»
-- Skip the prompt if `## Сценарии использования` section already exists in spec.md.
+After `speckit-clarify` completion: end response with «Следующий рекомендуемый шаг — `/speckit.scenarios` (inline Mermaid sequences с MENTOR-DETAIL, per ADR-011). Запустить?»
+
+If user says «давай сразу `/speckit.plan`» — flag once, but don't block: «ОК, plan без sequences. Если потом захочешь — `/speckit.scenarios` добавит секцию `## Sequences` в spec.md.»
+
+Skip the prompt if `## Sequences` section already exists и владелец не просит regenerate.
+
+---
+
+## History note
+
+This skill was rewritten 2026-06-30 to align with ADR-011 + CLAUDE.md «Sequences in spec.md» section. The pre-2026-06-30 version produced plain numbered prose sentences under `## Сценарии использования` heading — that format is **deprecated**. Existing specs with the old format will be migrated on next `/speckit.*` touch (per CLAUDE.md «do not preemptively migrate existing files» rule).
