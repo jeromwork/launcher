@@ -75,6 +75,18 @@ class PreferencesProfileStore(
         save(state.copy(activePresetRef = ref))
     }
 
+    /**
+     * Test-only seam (T67G MigrationE2ETest): clears the persisted blob and
+     * writes the legacy `wizard_done` marker so the next [load] triggers
+     * [maybeMigrateLegacy] (FR-015). Production code never calls this.
+     */
+    suspend fun seedLegacyWizardDoneForTest() {
+        context.profileDataStore.edit { prefs ->
+            prefs.clear()
+            prefs[stringPreferencesKey("wizard_done")] = "true"
+        }
+    }
+
     private fun maybeMigrateLegacy(prefs: Preferences): ProfileStoreState? {
         val wizardDone = prefs[LEGACY_WIZARD_DONE]
         if (wizardDone.isNullOrEmpty()) return null

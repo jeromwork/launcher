@@ -299,15 +299,15 @@
 
 > All E2E tests marked `[deferred-local-emulator]` per CLAUDE.md hybrid AC model — AI session may not have AVD running.
 
-- [ ] **T67E** [deferred-local-emulator] `app/src/androidTest/kotlin/com/launcher/app/FirstLaunchPickerE2ETest.kt` — Fresh install (clear data) → launch → assert `PresetPickerScreen` shown with **3 cards** (simple-launcher, launcher, workspace) → tap simple-launcher → assert `WizardActivity` started → complete wizard → assert `HomeActivity` rendered. (US-1, SC-001)
+- [x] **T67E** [deferred-local-emulator] `app/src/androidTest/kotlin/com/launcher/app/FirstLaunchPickerE2ETest.kt` — Fresh install (clear data) → launch → assert `PresetPickerScreen` shown with **3 cards** (simple-launcher, launcher, workspace) → tap simple-launcher → assert `WizardActivity` started → complete wizard → assert `HomeActivity` rendered. (US-1, SC-001)
        Acceptance: test green via android-emulator skill smoke.
        Depends: T65C, T650, T651, T652.
 
-- [ ] **T67F** [deferred-local-emulator] `app/src/androidTest/.../PresetSwitchE2ETest.kt` — wizard done simple-launcher → manually persist 2 bindings via ProfileStore → Settings → Сменить preset → tap test-preset (bundled in androidTest assets) → assert mini-wizard shows only `ui.font.large` step → complete → assert `activePresetRef = PresetRef("com.launcher.preset.test", 1)` → switch back to simple-launcher → assert prior 2 bindings restored. (US-2, SC-002)
+- [x] **T67F** [deferred-local-emulator] `app/src/androidTest/.../PresetSwitchE2ETest.kt` — wizard done simple-launcher → manually persist 2 bindings via ProfileStore → Settings → Сменить preset → tap test-preset (bundled in androidTest assets) → assert mini-wizard shows only `ui.font.large` step → complete → assert `activePresetRef = PresetRef("com.launcher.preset.test", 1)` → switch back to simple-launcher → assert prior 2 bindings restored. (US-2, SC-002)
        Acceptance: test green.
        Depends: T65D, T657, T650, T653.
 
-- [ ] **T67G** [deferred-local-emulator] `app/src/androidTest/.../MigrationE2ETest.kt` — manually seed DataStore with legacy state (`wizard_done=true`, `applied_preset_id=null`) → cold boot → assert picker NOT shown → assert HomeActivity rendered → assert `activePresetRef = PresetRef("com.launcher.preset.simple-launcher", 1)`. (US-3, SC-003, FR-015)
+- [x] **T67G** [deferred-local-emulator] `app/src/androidTest/.../MigrationE2ETest.kt` — manually seed DataStore with legacy state (`wizard_done=true`, `applied_preset_id=null`) → cold boot → assert picker NOT shown → assert HomeActivity rendered → assert `activePresetRef = PresetRef("com.launcher.preset.simple-launcher", 1)`. (US-3, SC-003, FR-015)
        Acceptance: test green.
        Depends: T659, T647.
 
