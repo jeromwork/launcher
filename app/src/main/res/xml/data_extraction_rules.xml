@@ -65,6 +65,17 @@
           flow ломается. Лучше fresh keypair при reinstall.
         -->
         <exclude domain="file" path="datastore/device_identity_v1.preferences_pb" />
+        <!--
+          Spec task-6 (F-5 Root Key Hierarchy) — device_key_namespace_v1
+          хранит UUID v4 используемый как StableId-эквивалент в local-only mode
+          (US-4, нет GMS). Backup → restore на другом устройстве дал бы тот
+          же namespace UUID на двух физических девайсах с разными root keys
+          в их Keystores → второе устройство деривилось бы DerivedKey из
+          (foreign UUID, своего root key) и НЕ смогло бы расшифровать данные
+          первого. Эффект для user'а — local data loss после restore.
+          Безопаснее: пусть новое устройство сгенерирует свой namespace.
+        -->
+        <exclude domain="file" path="datastore/device_key_namespace_v1.preferences_pb" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="file" path="datastore/com.launcher.capability.snapshot_v1.preferences_pb" />
@@ -81,5 +92,7 @@
         <!-- Spec 018 (F-5b) — device_identity_v1 (DeviceId + Pub_X25519) MUST NOT
              travel device-to-device transfer either — fresh keypair после migration. -->
         <exclude domain="file" path="datastore/device_identity_v1.preferences_pb" />
+        <!-- Spec task-6 (F-5) — see cloud-backup comment for device_key_namespace_v1. -->
+        <exclude domain="file" path="datastore/device_key_namespace_v1.preferences_pb" />
     </device-transfer>
 </data-extraction-rules>

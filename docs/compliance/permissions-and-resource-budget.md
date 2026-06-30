@@ -249,3 +249,56 @@ Cross-checked against shipped manifests:
   - T107 macrobenchmark cold-start ≤ 1 sec p95.
   - T106 OEM matrix smoke (Samsung One UI / Xiaomi MIUI / Pixel) — verify FR-020b exception path on Xiaomi.
   - All 13 checklists re-run clean at `/speckit.analyze` Phase 8.
+
+### spec task-6: root-key-hierarchy-recovery **(F-5, in implementation)**
+
+- **Permissions added**: **none new**. F-5 reuses `INTERNET` (inherited from
+  spec 007 realBackend flavor) for Cloudflare Worker calls
+  (`workers/backup/`, `workers/identity/`). No new manifest permission.
+- **Specifically NOT used** (CHK018 security checklist confirmation):
+  - **`android.permission.GET_ACCOUNTS`** — F-5 reads `AuthIdentity.stableId`
+    from F-4's `AuthProvider`, not from Account Manager directly.
+  - **`drive.appdata` Google OAuth scope** — recovery blob lives on
+    Cloudflare R2, NOT in the user's Google Drive AppData folder. F-5 sees a
+    Firebase ID-token, not a Drive token; no scope upgrade dialog.
+  - **`com.google.android.gms.auth.api.credentials`** — Autofill goes through
+    standard Android Autofill framework
+    (`autofillHints = [AutofillHints.NEW_PASSWORD]`), NOT Smart Lock /
+    Credential Manager.
+- **Why each permission is needed / fallback if denied**:
+  - `INTERNET` — Worker calls for backup upload / fetch / delete + identity
+    init-claim. Fallback: `BackupError.NetworkUnavailable` surfaces in the
+    UI; the user is offered retry, can resume later (per FR-010).
+- **Background/runtime impact**: zero. Recovery operations are triggered by
+  explicit user UI actions (Setup screen submit, Entry screen submit,
+  Fallback confirm). No `WorkManager`, no periodic schedule, no broadcast
+  receiver.
+- **Startup impact**: zero. F-5 ports are constructed lazily inside the
+  recovery flow; cold-start path is untouched.
+- **Memory/storage impact**:
+  - `datastore/passphrase_attempts_v1.preferences_pb` — already accounted in
+    spec 018 budget.
+  - `datastore/device_key_namespace_v1.preferences_pb` — new in task-6,
+    < 1 KB (single UUID v4 string). Excluded from auto-backup
+    (`data_extraction_rules.xml`) to prevent cross-device namespace leak.
+  - Android Keystore aliases under `key-registry/{stableId}/{purpose}` —
+    inherits TEE storage, not counted in app heap.
+- **Network impact**: 3 endpoint families, all infrequent.
+  - `POST /init-claim` (workers/identity/) — once per identity per install,
+    after first Sign-In.
+  - `POST /backup` (workers/backup/) — once per Setup, once per Fallback
+    re-Setup. NOT on every config save.
+  - `GET /backup/{stableId}` — once per recovery (new device or new
+    install).
+  - `DELETE /backup/{stableId}` — once per Fallback wipe.
+  All retries cap at 3 with exponential backoff (100ms / 400ms / 1600ms).
+- **Privacy classification**:
+  - `stableId` is a provider-agnostic UUID v4 — NOT Firebase UID, NOT email,
+    NOT phone. `workers/backup/` logs see only `stableId`.
+  - The passphrase never leaves the device in plaintext — the Argon2id wrap
+    key is computed locally; only the ciphertext + Argon2id params travel.
+  - No new PII surfaces.
+- **Decision**: 🟡 in implementation. Pre-merge gates:
+  - Owner runs T681-T685 manual verification on Xiaomi 11T.
+  - Workers deployed (T666 — owner Cloudflare credentials).
+  - Docs read by a peer (T686 SC-006 peer-review).

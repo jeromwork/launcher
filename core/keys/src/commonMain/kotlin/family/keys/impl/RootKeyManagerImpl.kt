@@ -10,6 +10,9 @@ import family.keys.api.AuthIdentity
 import family.keys.api.Outcome
 import family.keys.api.RootKey
 import family.keys.api.RootKeyError
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -30,7 +33,7 @@ import kotlinx.coroutines.sync.withLock
  * `MutableMap`; thread-safety через [mutex].
  *
  * **Wipe semantics**: `wipe(identity)` удаляет из SecureKeyStore + обнуляет
- * cached instance. НЕ удаляет Firestore vault (RecoveryKeyVault.deleteVault —
+ * cached instance. НЕ удаляет Firestore backup (RecoveryKeyBackup.deleteBlob —
  * отдельный вызов).
  */
 class RootKeyManagerImpl(
@@ -41,6 +44,58 @@ class RootKeyManagerImpl(
 
     private val mutex = Mutex()
     private val cache = mutableMapOf<String, RootKey>()
+    private val _current = MutableStateFlow<RootKey?>(null)
+
+    /**
+     * Recovery delegate, set once at DI bootstrap via [bindRecoveryDelegate].
+     * Indirection breaks the circular construction between this class and
+     * [family.keys.impl.RecoveryFlow] (RecoveryFlow takes a `RootKeyManagerImpl`
+     * in its constructor; if this class also took a RecoveryFlow, neither could
+     * be built first). Kept package-internal so only the DI wiring can rebind.
+     */
+    @Volatile private var recoveryDelegate: RecoveryDelegate? = null
+
+    /**
+     * DI hook (T633): wire a [RecoveryFlow]-backed delegate after both
+     * RootKeyManagerImpl and RecoveryFlow have been constructed. Calling twice
+     * replaces the previous binding (last-writer-wins) — DI should call this
+     * exactly once per app process.
+     */
+    fun bindRecoveryDelegate(delegate: RecoveryDelegate) {
+        this.recoveryDelegate = delegate
+    }
+
+    // --- F-5 API (T613, D3) ---
+
+    override val current: Flow<RootKey?> = _current.asStateFlow()
+
+    override suspend fun create(identity: AuthIdentity): Outcome<RootKey, RootKeyError> {
+        // Delegate to getOrCreate — F-5 `create()` semantics are «generate if
+        // absent, return current if present», identical to spec 018's
+        // getOrCreate(). The distinction in [family.keys.api.RootKeyManager]
+        // is documentation-level (call sites that mean «I expect first-time
+        // creation»), not algorithmic.
+        val result = getOrCreate(identity)
+        if (result is Outcome.Success) _current.value = result.value
+        return result
+    }
+
+    override suspend fun recover(identity: AuthIdentity, passphrase: CharArray): Outcome<RootKey, RootKeyError> {
+        // T633: delegate to RecoveryFlow when bound. Passphrase wipe is the
+        // delegate's responsibility (RecoveryFlow.performRecovery owns the
+        // CharArray once it crosses this boundary, per FR-013).
+        val delegate = recoveryDelegate
+            ?: return Outcome.Failure(RootKeyError.RecoveryRequired)
+        val result = delegate.recover(identity, passphrase)
+        if (result is Outcome.Success) _current.value = result.value
+        return result
+    }
+
+    override suspend fun forget(identity: AuthIdentity): Outcome<Unit, RootKeyError> {
+        val result = wipe(identity)
+        if (result is Outcome.Success) _current.value = null
+        return result
+    }
 
     override suspend fun getOrCreate(identity: AuthIdentity): Outcome<RootKey, RootKeyError> {
         require(identity.stableId.isNotEmpty()) {
@@ -118,4 +173,21 @@ class RootKeyManagerImpl(
     companion object {
         const val NAMESPACE_PREFIX: String = "config-root"
     }
+}
+
+/**
+ * Indirection boundary between [RootKeyManagerImpl.recover] and the recovery
+ * implementation (currently [family.keys.impl.RecoveryFlow.performRecovery]).
+ *
+ * Exists only to break the circular construction described on
+ * [RootKeyManagerImpl.recoveryDelegate]. App-side DI provides an adapter that
+ * forwards into RecoveryFlow and maps [family.keys.api.RecoveryError] →
+ * [family.keys.api.RootKeyError].
+ *
+ * Not meant to be exposed beyond the `:core:keys` impl layer — call sites
+ * should depend on [family.keys.api.RootKeyManager] or [RecoveryFlow], not on
+ * this interface.
+ */
+interface RecoveryDelegate {
+    suspend fun recover(identity: AuthIdentity, passphrase: CharArray): Outcome<RootKey, RootKeyError>
 }
