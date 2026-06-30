@@ -1,5 +1,5 @@
 ---
-id: TASK-64
+id: TASK-68
 title: workspace profile preset (JSON content)
 status: Draft
 assignee: []
@@ -11,17 +11,17 @@ labels:
   - workspace
 milestone: m-1
 dependencies:
-  - TASK-61
-  - TASK-63
+  - TASK-65
+  - TASK-67
   - TASK-3
 priority: high
-ordinal: 64000
+ordinal: 68000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-> **Про роли в этой задаче.** `workspace` — это **профиль** для устройства, которое **управляет другими** (типичный сценарий: дочка с workspace профилем управляет маминым simple-launcher; или врач workspace профилем управляет пациентами; или IT-support workspace профилем управляет рабочими телефонами сотрудников). Профиль — **только данные**, ни одной строки Kotlin. Если для workspace понадобится Kotlin-код — это значит TASK-61/58/59 не доделаны, возвращаемся туда.
+> **Про роли в этой задаче.** `workspace` — это **профиль** для устройства, которое **управляет другими** (типичный сценарий: дочка с workspace профилем управляет маминым simple-launcher; или врач workspace профилем управляет пациентами; или IT-support workspace профилем управляет рабочими телефонами сотрудников). Профиль — **только данные**, ни одной строки Kotlin. Если для workspace понадобится Kotlin-код — это значит TASK-65/58/59 не доделаны, возвращаемся туда.
 
 ## Что это простыми словами
 
@@ -42,13 +42,13 @@ ordinal: 64000
 **Что происходит по шагам (использование):**
 1. Открыл приложение → видит список спаренных устройств с их статусом (online / offline / last sync).
 2. Нажал «Добавить устройство» → QR-код для нового pairing'а.
-3. Все edges/devices/configs — переживают потерю телефона (recovery через TASK-6/TASK-62).
+3. Все edges/devices/configs — переживают потерю телефона (recovery через TASK-6/TASK-66).
 
 ## Зачем
 
-Это **первая реальная фича**, которую видит конечный пользователь после TASK-61/58/59 foundation. Без TASK-64 foundation существует, но никто не пользуется. С TASK-64 — admin-сценарий («дочка управляет маминым телефоном за 200 км») закрыт и работает.
+Это **первая реальная фича**, которую видит конечный пользователь после TASK-65/58/59 foundation. Без TASK-68 foundation существует, но никто не пользуется. С TASK-68 — admin-сценарий («дочка управляет маминым телефоном за 200 км») закрыт и работает.
 
-Также это **проверка правильности foundation**: если для workspace профиля **не потребовалось** ни одной строки Kotlin — значит TASK-61/58/59 действительно generic. Если потребовалось — баг foundation, возвращаемся.
+Также это **проверка правильности foundation**: если для workspace профиля **не потребовалось** ни одной строки Kotlin — значит TASK-65/58/59 действительно generic. Если потребовалось — баг foundation, возвращаемся.
 
 ## Что входит технически (для AI-агента)
 
@@ -61,8 +61,8 @@ ordinal: 64000
   - `requires`: array обязательных system settings (НЕ-HOME role, например).
   - `excludes` (опционально): pool entries которые НЕ должны быть активны (например, simple-launcher-специфичные).
 - **`workspace.wizard.manifest.json`** — последовательность шагов:
-  - Step 1: `wizard.step.google-sign-in` (через `CheckSpec.AuthState` / `ApplySpec.RequestSignIn` из TASK-61).
-  - Step 2: `wizard.step.pair-device` (через TASK-63).
+  - Step 1: `wizard.step.google-sign-in` (через `CheckSpec.AuthState` / `ApplySpec.RequestSignIn` из TASK-65).
+  - Step 2: `wizard.step.pair-device` (через TASK-67).
   - Step 3 (optional): tile customization.
 - **`workspace.screen.layout.json`** — layout главного экрана: paired-devices dashboard (полный экран, список карточек).
 - **`workspace.tile.set.json`** — picks плиток: `tile.pairing.list` (главная), `tile.pairing.add` (FAB), `tile.settings`.
@@ -74,11 +74,11 @@ ordinal: 64000
 **Что НЕ входит:**
 - Config editor UI (когда тапаешь на paired device и хочешь поправить его контакты / темы) — TASK-13 Phase 2.
 - Cloud sync UI поверх paired devices (статус «online», time of last sync) — TASK-24 Phase 4.
-- Любой Kotlin код. Если AI-агент чувствует «надо бы добавить Kotlin» — **STOP**, это сигнал что TASK-61/58/59 не доделаны, возвращаемся туда.
+- Любой Kotlin код. Если AI-агент чувствует «надо бы добавить Kotlin» — **STOP**, это сигнал что TASK-65/58/59 не доделаны, возвращаемся туда.
 
 ## Состояние
 
-**Planned.** Закрывается последней в цепочке TASK-61 → TASK-62 → TASK-63 → TASK-64. Финальный deliverable, превращающий foundation в видимую фичу.
+**Planned.** Закрывается последней в цепочке TASK-65 → TASK-66 → TASK-67 → TASK-68. Финальный deliverable, превращающий foundation в видимую фичу.
 
 ---
 
@@ -89,11 +89,11 @@ ordinal: 64000
 
 ЧТО СТРОИМ:
 Второй профиль приложения — workspace. Pure JSON content, ни одной строки Kotlin.
-Бандлится при build, появляется в first-launch picker (TASK-61) как второй вариант.
+Бандлится при build, появляется в first-launch picker (TASK-65) как второй вариант.
 Wizard: Google sign-in → pair device → готово. Main screen: paired devices dashboard.
 
 ЗАЧЕМ:
-Первая видимая фича после foundation TASK-61/58/59. Закрывает сценарий «дочка управляет
+Первая видимая фича после foundation TASK-65/58/59. Закрывает сценарий «дочка управляет
 телефоном бабушки за 200 км». Также — проверка что foundation действительно generic
 (если потребовался Kotlin — баг foundation).
 
@@ -113,18 +113,18 @@ SCOPE НЕ ВКЛЮЧАЕТ:
 - ЛЮБОЙ Kotlin код. Это hard gate.
 
 DEPENDENCIES:
-- TASK-61 (Profile Composition Foundation v2) — first-launch picker + sign-in pool entries.
-- TASK-63 (Pairing Feature) — pairing pool entries (tile.pairing.list, wizard.step.pair-device).
-- TASK-3 (AuthProvider) — Verification, через TASK-61 wizard.step.google-sign-in.
+- TASK-65 (Profile Composition Foundation v2) — first-launch picker + sign-in pool entries.
+- TASK-67 (Pairing Feature) — pairing pool entries (tile.pairing.list, wizard.step.pair-device).
+- TASK-3 (AuthProvider) — Verification, через TASK-65 wizard.step.google-sign-in.
 
 ACCEPTANCE CRITERIA:
 - Установил APK с чистого листа → first-launch picker показал две карточки → выбрал workspace.
 - Wizard прошёл: Google sign-in → pair device (показал QR) → done.
 - Главный экран: список paired devices (пустой если ничего не спарилось, появляется element после pairing).
-- Спарил с simple-launcher устройством (TASK-63 flow) → у workspace в списке появилось → у simple-launcher в settings/pairing-list появилось.
+- Спарил с simple-launcher устройством (TASK-67 flow) → у workspace в списке появилось → у simple-launcher в settings/pairing-list появилось.
 - Workspace устройство НЕ является HOME launcher'ом (можно установить рядом с другим лаунчером).
 - На том же APK другой пользователь выбирает simple-launcher → работает идентично TASK-7 (regression).
-- Recovery на новом устройстве workspace профиля → paired devices автоматически восстановлены через TASK-62.
+- Recovery на новом устройстве workspace профиля → paired devices автоматически восстановлены через TASK-66.
 - Integration test проходит на pixel_5_api_34.
 
 LOCAL TEST PATH:
@@ -133,7 +133,7 @@ LOCAL TEST PATH:
 
 CONSTITUTION GATES:
 - Article VII §3 (profiles = data, not forks): pure JSON, никакого Kotlin.
-- Article VII §13 (no if-profileId): пройдено fitness function из TASK-61.
+- Article VII §13 (no if-profileId): пройдено fitness function из TASK-65.
 - Rule 5 (wire format): profile.json schemaVersion=1.
 - Rule 9 (shareability): workspace.profile.json — shareable artifact, без identity-bound полей.
 
