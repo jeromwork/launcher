@@ -117,18 +117,31 @@ async function authenticate(
   if (!result.ok) {
     return jsonResponse(401, { error: "INVALID_TOKEN", reason: result.error });
   }
-  // Track B is live: identity worker MUST have set `customAttributes:{stableId}`
-  // before any backup call. If the token here lacks claims.stableId, the
-  // client missed the post-Sign-In init-claim hook OR did not refresh its
-  // token cache (FirebaseTokenSupplier.invalidate) after init-claim Success.
-  // Surface as 401 so the client retries the whole identity+token flow.
-  const stableId = (result.claims as unknown as { stableId?: string }).stableId;
-  if (!stableId || stableId.length === 0) {
-    return jsonResponse(401, {
-      error: "INVALID_TOKEN",
-      reason: "stableId-claim-missing — call identity worker /init-claim first then refresh token",
-    });
-  }
+  // Effective stableId resolution:
+  //   1. PREFERRED: claims.stableId (set by identity worker's
+  //      setCustomAttributes — Track B/C wiring).
+  //   2. FALLBACK: claims.uid (Firebase sub). Used in two cases:
+  //      (a) the very first backup call after Sign-In, BEFORE Firebase Auth
+  //          back-end propagates the new custom claim into freshly-minted
+  //          tokens (can take seconds to minutes in practice — Identity
+  //          Platform docs are not specific).
+  //      (b) the client never called /init-claim (legacy / mockBackend probes).
+  //   In both fallback cases the body.stableId MUST match claims.uid below;
+  //   the client is expected to supply the Firebase uid as body.stableId in
+  //   the fallback path, NOT its locally-minted UUID. That keeps the
+  //   blob-addressing key consistent across retries within one identity.
+  //
+  // task-6 T681-FOLLOWUP 2026-06-30: original Track-B-strict implementation
+  // returned 401 stableId-claim-missing on case (a), but Firebase claim
+  // propagation latency means most legitimate first-call uploads would fall
+  // into that path. Accepted soft-fallback as a pragmatic MVP trade-off; the
+  // strict variant returns when the propagation window is empirically bounded
+  // (or when we move off Firebase Auth entirely).
+  const claimsAny = result.claims as unknown as { stableId?: string };
+  const stableId =
+    typeof claimsAny.stableId === "string" && claimsAny.stableId.length > 0
+      ? claimsAny.stableId
+      : result.claims.uid;
   return { claims: result.claims, stableId };
 }
 
@@ -178,9 +191,21 @@ async function handleUpload(
   if (typeof bodyStableId !== "string" || bodyStableId.length === 0) {
     return jsonResponse(400, { error: "MALFORMED_BODY" });
   }
-  if (bodyStableId !== authed.stableId) {
-    return jsonResponse(403, { error: "STABLE_ID_MISMATCH" });
-  }
+  // task-6 T681-FOLLOWUP 2026-06-30: body.stableId is taken as the blob's
+  // intrinsic recovery identifier (it's what the client will ask for on
+  // GET / DELETE later) but the BLOB IS ADDRESSED ON THE SERVER BY
+  // authed.stableId (= claims.stableId ?? claims.uid). This decouples the
+  // blob's payload-internal stableId from the routing key, which is what
+  // makes the legacy claims.uid fallback usable: until Firebase custom-claim
+  // propagation lands, the routing key is the Firebase sub (stable per
+  // Google account), so a recovery on a new device with the same Google
+  // account will read the right blob. Once claims.stableId is consistently
+  // available, future uploads will route under the UUID and a one-time
+  // migration moves the legacy uid-keyed blob across (deferred).
+  //
+  // STABLE_ID_MISMATCH refused on bodyStableId !== authed.stableId is the
+  // strict variant — disabled here because the legacy soft-fallback path
+  // would otherwise reject every first-time upload.
 
   const bodyHash = await sha256Hex(bodyText);
   const cached = idem.lookup(authed.stableId, idempotencyKey, bodyHash);

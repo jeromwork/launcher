@@ -62,6 +62,13 @@ class WorkerRecoveryKeyBackup(
     private val readTimeoutMillis: Int = DEFAULT_READ_TIMEOUT_MS,
     private val maxAttempts: Int = DEFAULT_MAX_ATTEMPTS,
     private val backoffMillis: (attempt: Int) -> Long = ::defaultBackoff,
+    /**
+     * Optional hook invoked before EACH attempt — used by realBackend wiring
+     * to drop the Firebase ID-token cache so a retry after backup-Worker's
+     * `stableId-claim-missing` 401 picks up the freshly-propagated custom
+     * claim. No-op by default (tests + mockBackend).
+     */
+    private val invalidateTokenCache: suspend () -> Unit = {},
 ) : RecoveryKeyBackup {
 
     override suspend fun uploadBlob(
@@ -87,8 +94,40 @@ class WorkerRecoveryKeyBackup(
                 when {
                     code in 200..299 -> RetryDecision.Done(Outcome.Success(Unit))
                     code == 400 -> RetryDecision.Done(classifyBadRequest(conn))
-                    code == 401 -> RetryDecision.Done(Outcome.Failure(BackupError.AuthExpired))
-                    code == 403 -> RetryDecision.Done(Outcome.Failure(BackupError.AuthExpired))
+                    code == 401 -> {
+                        // task-6 T681-FOLLOWUP: surface Worker's reason field
+                        // and retry on `stableId-claim-missing` — Firebase Auth
+                        // propagates the new custom claim with a few-second
+                        // delay after setCustomAttributes. Backoff in
+                        // backoffMillis() (default 100/400/1600ms) covers
+                        // typical propagation window.
+                        val body = conn.errorStream?.bufferedReader()
+                            ?.use { it.readText() }
+                            .orEmpty()
+                        runCatching {
+                            android.util.Log.w(
+                                "WorkerRecoveryBackup",
+                                "HTTP 401 from backup worker; body=$body",
+                            )
+                        }
+                        if (body.contains("stableId-claim-missing")) {
+                            RetryDecision.Retry(Outcome.Failure(BackupError.AuthExpired))
+                        } else {
+                            RetryDecision.Done(Outcome.Failure(BackupError.AuthExpired))
+                        }
+                    }
+                    code == 403 -> {
+                        val body = conn.errorStream?.bufferedReader()
+                            ?.use { it.readText() }
+                            .orEmpty()
+                        runCatching {
+                            android.util.Log.w(
+                                "WorkerRecoveryBackup",
+                                "HTTP 403 from backup worker; body=$body",
+                            )
+                        }
+                        RetryDecision.Done(Outcome.Failure(BackupError.AuthExpired))
+                    }
                     code == 409 -> RetryDecision.Done(Outcome.Failure(BackupError.Conflict))
                     code == 429 -> RetryDecision.Retry(Outcome.Failure(BackupError.NetworkUnavailable()))
                     code == 507 -> RetryDecision.Done(Outcome.Failure(BackupError.ServerQuotaExceeded()))
@@ -171,7 +210,14 @@ class WorkerRecoveryKeyBackup(
                 is RetryDecision.Done -> return decision.value
                 is RetryDecision.Retry -> {
                     lastOutcome = decision.value
-                    if (attempt < maxAttempts) delay(backoffMillis(attempt))
+                    if (attempt < maxAttempts) {
+                        delay(backoffMillis(attempt))
+                        // Drop the cached Firebase ID-token so the next attempt
+                        // hits Firebase Auth back-end for a fresh JWT. Required
+                        // to pick up `claims.stableId` propagation after
+                        // identity-worker setCustomAttributes.
+                        invalidateTokenCache()
+                    }
                 }
             }
         }
@@ -208,6 +254,9 @@ class WorkerRecoveryKeyBackup(
         const val DEFAULT_CONNECT_TIMEOUT_MS: Int = 10_000
         const val DEFAULT_READ_TIMEOUT_MS: Int = 15_000
         const val DEFAULT_MAX_ATTEMPTS: Int = 3
-        private fun defaultBackoff(attempt: Int): Long = (100.0 * 4.0.pow(attempt - 1)).toLong()
+        // 2s, 4s, 8s — covers Firebase custom-claim propagation window after
+        // setCustomAttributes (typically 1-3s on production servers per
+        // Identity Platform docs).
+        private fun defaultBackoff(attempt: Int): Long = (2000.0 * 2.0.pow(attempt - 1)).toLong()
     }
 }

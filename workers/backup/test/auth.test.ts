@@ -29,20 +29,28 @@ describe("T657 auth (JWT signature + claims)", () => {
     expect(res.status).toBe(401);
   });
 
-  it("subject-ownership mismatch on POST → 403 STABLE_ID_MISMATCH", async () => {
-    const verify = fakeAuth("uid-attacker");
+  it("POST routes blob by authed stableId, ignores body.stableId for routing (T681-FOLLOWUP)", async () => {
+    // Pre-2026-06-30 the worker refused this with 403 STABLE_ID_MISMATCH. Now
+    // the soft-fallback path (claims.stableId ?? claims.uid) makes the
+    // routing key authed.stableId regardless of body.stableId. Blob is
+    // accepted and stored under authed.stableId.
+    const env = makeEnv();
+    const verify = fakeAuth("authed-stable-id");
     const res = await handle(
       new Request("https://example.com/backup", {
         method: "POST",
         headers: { Authorization: "Bearer X", "Idempotency-Key": "k1" },
-        body: sampleBlobJson("uid-victim"),
+        body: sampleBlobJson("different-body-stable-id"),
       }),
-      makeEnv(),
+      env,
       { verify },
     );
-    expect(res.status).toBe(403);
-    const body = await res.json();
-    expect((body as Record<string, unknown>)["error"]).toBe("STABLE_ID_MISMATCH");
+    expect(res.status).toBe(200);
+    // Blob lands under authed.stableId, not body's stableId.
+    expect(env.RECOVERY_BLOBS.objects.get("backup/authed-stable-id/v1.json")).toBe(
+      sampleBlobJson("different-body-stable-id"),
+    );
+    expect(env.RECOVERY_BLOBS.objects.get("backup/different-body-stable-id/v1.json")).toBeUndefined();
   });
 
   it("subject-ownership mismatch on GET → 403", async () => {

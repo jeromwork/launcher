@@ -4,6 +4,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.launcher.app.BuildConfig
 import com.launcher.app.data.envelope.FirestoreEnvelopeStorage
 import com.launcher.app.data.envelope.FirestorePublicKeyDirectory
+import com.launcher.app.data.identity.IdentityCacheInvalidator
 import com.launcher.app.data.identity.InitClaimClient
 import com.launcher.app.data.recovery.WorkerRecoveryKeyBackup
 import cryptokit.crypto.api.AeadCipher
@@ -55,9 +56,11 @@ import org.koin.dsl.module
  */
 val f018KeysBackendModule = module {
     single<RecoveryKeyBackup> {
+        val invalidator = get<IdentityCacheInvalidator>()
         WorkerRecoveryKeyBackup(
             workerBaseUrl = BuildConfig.RECOVERY_BACKUP_WORKER_URL,
             idTokenProvider = get<IdTokenProvider>(),
+            invalidateTokenCache = { invalidator.invalidate() },
         )
     }
 
