@@ -96,4 +96,13 @@
     <string name="wizard_walkthrough_keep">Keep</string>
     <string name="wizard_walkthrough_change">Change</string>
 
+    <!-- TASK-52 — Home screen loading error UI and reset dialog -->
+    <string name="home_loading_error_title">Failed to load settings</string>
+    <string name="home_loading_error_retry">Try again</string>
+    <string name="home_loading_error_reset">Reset settings and start over</string>
+    <string name="home_reset_dialog_message">All settings will be erased. Continue?</string>
+    <string name="home_reset_dialog_confirm">Reset</string>
+    <string name="home_reset_dialog_cancel">Cancel</string>
+    <string name="home_loading_in_progress">Loading…</string>
+
 </resources>

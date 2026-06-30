@@ -1,577 +1,423 @@
-# Server Requirements — что launcher ожидает от backend'а
+# Server Requirements — Zero-Knowledge модель
 
-**Назначение**: единый список **функциональных и нефункциональных требований** launcher-клиента к серверной части. Уровень абстракции — «что должно делать», не «как реализовано» и не «когда мигрируем». Файл standalone — можно подгружать AI-агенту для дизайн-обсуждений серверной архитектуры без чтения остального проекта.
-
-**Связь с другими документами**:
-- [server-roadmap.md](server-roadmap.md) — operational план миграции (когда что мигрировать, что workaround сейчас, exit ramps). Источник правды по каждой `SRV-*` задаче.
-- [server-context-for-ai-agent.md](server-context-for-ai-agent.md) — расширенный брифинг с текущей инфраструктурой и open architectural questions.
-- Этот файл — **спецификация интерфейса** между launcher'ом и сервером.
+**Назначение**: единый список **функциональных и нефункциональных требований** launcher-клиента к серверной части, спроектированный по **zero-knowledge / sealed-server** принципу. Уровень абстракции — «что должно делать», не «как реализовано». Файл standalone — можно подгружать AI-агенту для дизайн-обсуждений серверной архитектуры без чтения остального проекта.
 
 **Snapshot date**: 2026-06-26.
+**Версия**: v2 (zero-knowledge rewrite, заменяет v1 «smart server»).
+
+**Связь с другими документами**:
+- [server-roadmap.md](server-roadmap.md) — operational план миграции (SRV-* задачи).
+- [client-requirements-for-zero-knowledge-server.md](client-requirements-for-zero-knowledge-server.md) — что добавить в launcher-клиент, чтобы сервер мог быть тупым.
+- [server-context-for-ai-agent.md](server-context-for-ai-agent.md) — расширенный брифинг.
 
 ---
 
-## 1. Auth + identity
+## Threat model — что мы защищаем
 
-**Требование**: server-issued session JWT (не Firebase ID-token напрямую), глобально-уникальный stable UUID на пользователя независимо от провайдера identity.
-
-```
-POST /auth/google-signin
-  body: { idToken: <Google ID Token> }
-  response: { sessionJwt, stableId }
-```
-
-- Server верифицирует Google ID Token через JWKS, сам выпускает наш JWT с claim `stableId`.
-- **Identity-links table**: atomic lookup-or-create `(providerKind, providerAccountId) → stableId UUID`. Race-safe. При повторном входе — **тот же UUID** (иначе ломается delegation и pair-key).
-- Custom claim `googleSub` для downstream authorization.
-
-**Связано**: SRV-AUTH-001, SRV-AUTH-IDENTITY-001, SRV-AUTH-IDENTITY-002.
+| Угроза | Защита |
+|---|---|
+| **Server stolen / DB dump** | Сервер не знает контент blob'ов (E2E); metadata минимизирован до opaque IDs; sealed-at-rest (см. Tier 2 §T4). |
+| **Hosting provider insider** | Hardware attestation + threshold unsealing; metadata минимален. |
+| **Network sniffing** | TLS + E2E внутри payload (двойное шифрование push payload, body требований). |
+| **Compromised account at provider** | Sealed-at-rest требует M-of-N shards с distributed custody — provider один не может unseal. |
+| **Member kicked from group** | Forward unsharing полностью client-coordinated (re-key + re-encrypt + новый keyring); сервер просто принимает signed write. |
+| **Ghost device attack** | Out-of-band fingerprint verification (Safety Number) — client-side, сервер не валидирует кто кому. |
+| **Replay attacks** | Nonce внутри encrypted payload + client-side dedup; сервер не отслеживает «доставлено или нет». |
+| **Brute-force passphrase** | **Единственное место Tier 2**: atomic server-side counter на recovery vault (закрывает Clear App Data / factory reset / root bypass). |
 
 ---
 
-## 2. Envelope storage (encrypted config data)
+## Принцип tiering — что сервер знает
 
-**Требование**: arbitrary key-value store зашифрованных envelope'ов per-user namespace. Server не видит plaintext.
+Каждый endpoint классифицируется в один из 3 tier'ов. **Tier 0 — default**, повышение tier'а требует доказательства «почему нельзя ниже».
 
-```
-PUT    /users/{namespace}/data/{key}        body: envelope JSON
-GET    /users/{namespace}/data/{key}
-LIST   /users/{namespace}/data?prefix={p}
-DELETE /users/{namespace}/data/{key}
-```
+### Tier 0 — Sealed storage
 
-- Server-side validation: `schemaVersion` monotonic increase (downgrade defence).
-- Envelope shape валидируется (Maps/Blobs typed), содержимое — нет.
+- Сервер видит: opaque namespace ID + opaque key + ciphertext blob + signing pubkey владельца namespace.
+- Сервер НЕ видит: контент, owner UID, тип данных, граф связей, кто кому отправляет.
+- Authorization: signed write (Ed25519 signature от namespace-owner key), сервер проверяет подпись против записанного при namespace setup.
+- **80% endpoint'ов сюда.**
 
-**Связано**: SRV-STORAGE-001.
+### Tier 1 — Minimal directory
 
----
+- Сервер видит: opaque ID → public key bytes (или FCM token bytes).
+- Сервер НЕ видит: связи между ID, content, ownership graph.
+- Industry pattern: Signal Identity Server, X3DH prekey directory.
+- **Применяется только когда async setup невозможен без directory** (Alice оффлайн, Bob хочет послать).
 
-## 3. Public Key Directory + access grants
+### Tier 2 — Server-required logic
 
-**Требование**: каждое устройство публикует свой X25519 pub-key; access-grant'ы между UID'ами; atomic create/revoke.
-
-```
-PUT    /users/{uid}/devices/{deviceId}/pub-key       body: X25519 pub bytes
-GET    /users/{uid}/devices                          → list (deviceId, pubKey) с grant check
-GET    /users/{uid}/access-grants
-PUT    /users/{ownerUid}/access-grants/{helperUid}   atomic
-DELETE /users/{ownerUid}/access-grants/{helperUid}   atomic revoke
-```
-
-Server enforces:
-- Owner-only write своей pub-key entry.
-- Helper read of owner devices iff non-revoked grant.
-- Atomic transactional grant create/revoke (race-free).
-
-**Связано**: SRV-PKD-001.
+- Сервер выполняет логику, не имея plaintext данных, но имея side-effect knowledge (counter, timer).
+- **Допускается только** когда client-side bypass возможен через Clear App Data / factory reset / root.
+- Единственные кейсы: atomic anti-brute-force counter, subscription entitlement timer, JWT issuance.
 
 ---
 
-## 4. DeviceId allocation
+## Industry baseline reference
 
-**Требование**: collision-resistant deviceId allocation внутри UID-namespace.
+Эта модель опирается на проверенные production patterns:
 
-```
-POST /users/{uid}/devices/allocate          → returns unique deviceId
-```
-ИЛИ (cheaper):
-```
-POST /users/{uid}/devices/{deviceId}       409 Conflict если занят
-```
-
-**Связано**: SRV-DEVICEID-001.
+- **Signal Sender Keys / Sealed Sender** — group messaging без membership graph на сервере. [Whitepaper](https://signal.org/docs/specifications/sesame/).
+- **MLS (RFC 9420)** — Messaging Layer Security, новый IETF стандарт group E2E, формальное доказательство security. Used by Cisco Webex, Wire, Discord.
+- **Tresorit envelope wrapping** — file key wrapped under each user pub-key, server видит ciphertext + opaque sharing relationships. [Whitepaper](https://tresorit.com/files/tresoritwhitepaper.pdf).
+- **WhatsApp E2E Encrypted Backup** — backup ciphertext + HSM-protected key derivation. [Engineering paper](https://engineering.fb.com/2021/09/10/security/messenger-encrypted-backup/).
+- **Bitwarden vault sharing** — open-source реализация envelope encryption pattern.
 
 ---
 
-## 5. Push trigger (generic)
+## Core data model на сервере
 
-**Требование**: один generic endpoint для триггера push-уведомлений из app в app внутри family group. Event type whitelist'ится на сервере.
+```
+Namespace (opaque UUID)              — единица ownership (личный namespace, group namespace)
+├── ownerSigningPubKey: bytes        — Ed25519, прибит при namespace создании, immutable
+├── blobs/{opaque-key}/              — Tier 0 storage
+│   ├── ciphertext: bytes
+│   ├── signature: bytes             — Ed25519 sig от ownerSigningPubKey
+│   ├── version: int                 — optimistic locking
+│   └── createdAt: timestamp         — для cron retention (НЕ для бизнес-логики)
+└── (всё; ничего другого)
+
+PubKeyEntry (Tier 1 directory)       — отдельная сущность, НЕ привязана к namespace
+├── lookupId: opaque                 — opaque ID (UUID или hash от identity)
+├── encryptionPubKey: bytes          — X25519 для async encrypt-for-recipient
+├── signingPubKey: bytes             — Ed25519
+└── prekeys: [bytes]                 — ephemeral X25519 для X3DH (опционально)
+
+PushChannel (Tier 1)                 — opaque FCM-token directory
+├── tokenId: opaque                  — UUID
+└── fcmToken: bytes                  — owner sам подписывает обновление
+
+RecoveryCounter (Tier 2)             — anti-brute-force
+├── vaultId: opaque
+├── attemptsSinceWindow: int
+└── windowStart: timestamp
+```
+
+**Сервер НЕ хранит**:
+- `userUid → namespaces` mapping (клиент сам помнит свои namespaces).
+- `namespace → members` (membership — клиентская кухня в keyring blob'е внутри namespace).
+- `namespace → namespace` связи (pairing graph).
+- Тип данных blob'а (config / photo / message / token-list — всё opaque).
+
+---
+
+## Tier 0 endpoints — opaque storage
+
+### S0. Blob storage (универсальный)
+
+Заменяет: §2 envelope storage, §6 blob storage, §7 config history, §14 user preferences, §15 algorithm migration, §22 shared contacts, §23 named configs из v1.
+
+```
+PUT    /namespaces/{nsId}/blobs/{key}
+  Header: X-Sig: <base64 Ed25519 sig от ownerSigningPubKey над (nsId|key|version|ciphertext)>
+  Header: X-Version: <int, optimistic locking>
+  body: <opaque ciphertext>
+  → 200 OK | 409 Conflict (version mismatch) | 403 Bad signature
+
+GET    /namespaces/{nsId}/blobs/{key}
+  → 200 {ciphertext, version, createdAt} | 404
+
+LIST   /namespaces/{nsId}/blobs?prefix={opaque}
+  → 200 [{key, version, createdAt}, ...]
+
+DELETE /namespaces/{nsId}/blobs/{key}
+  Header: X-Sig: <signature над (nsId|key|delete-marker)>
+  → 200 OK
+```
+
+**Сервер делает**:
+1. Verifies signature against ownerSigningPubKey записанный при `POST /namespaces` (см. S1).
+2. Stores opaque ciphertext.
+3. Optimistic locking через version field.
+4. Cron retention — клиент сам указывает TTL при PUT (`X-TTL: <seconds>`), сервер удаляет по timeout. Дефолт — без TTL.
+
+**Сервер НЕ делает**:
+- Не понимает что внутри ciphertext.
+- Не знает чей это namespace (только ownerSigningPubKey, не привязан к userUid).
+- Не делает schema validation (только byte size limit).
+- Не делает «history rotation», «keep last 10» — клиент сам LIST + DELETE старых.
+- Не resolve'ит recipients, не понимает grants.
+
+**Что переехало в клиент**: config history rotation, schema transformers, contact refcount, named configs invariants, algorithm migration logic, recovery vault payload structure.
+
+### S1. Namespace lifecycle
+
+```
+POST /namespaces
+  body: {ownerSigningPubKey: bytes}
+  → 200 {nsId: opaque-UUID}
+
+DELETE /namespaces/{nsId}
+  Header: X-Sig: <signature над (nsId|delete-marker|timestamp)>
+  → 200 (cascade delete всех blob'ов в namespace)
+```
+
+**Сервер делает**: создаёт opaque namespace, привязывает к Ed25519 signing pubkey. Cascade delete по подписи owner'а.
+
+**Сервер НЕ делает**: не привязывает namespace к userUid, не знает сколько у одного user'а namespaces.
+
+### S2. Push delivery (sealed)
+
+Заменяет: §5 push trigger из v1 (убрали eventType registry, target scope, access grants).
 
 ```
 POST /push
-  Header: Authorization: Bearer <session JWT>
-  Header: Idempotency-Key: <UUID v4>
+  Header: Authorization: Bearer <session JWT>          — anti-abuse, не для routing
+  Header: Idempotency-Key: <UUID>
   body: {
-    schemaVersion: 1,
-    eventType: "config-updated" | "sos-triggered" | "health-critical" | "entitlement-expired" | "pairing" | "messenger-msg" | "album-update" | "caregiver-invite" | "config-rewrite",
-    targetScope: "own-devices" | "own-and-grants",
-    ownerUid: <uid>,
-    payload: { ... }
+    targetTokens: [opaque-token-id-1, opaque-token-id-2, ...],
+    encryptedPayload: <ciphertext под group key, ≤4KB FCM limit>,
+    collapseKey: <opaque hash, для FCM dedup>
   }
+  → 200 {delivered: N, failed: [{tokenId, reason}]}
 ```
 
-Server:
-1. JWT validate.
-2. EventType whitelist + per-event authz (config-updated = owner∨grant-holder; sos-triggered = owner; entitlement-expired = server-internal only).
-3. Per-event rate-limit (config-updated 60/min, sos-triggered 10/min, etc.).
-4. Idempotency dedupe (10-min TTL).
-5. Recipient resolution per targetScope (devices + grants).
-6. FCM dispatch с `collapse_key: "{eventType}:{ownerUid}:{contextKey}"`.
-7. Bounded retry FCM 3× (500ms / 2s / 8s).
+**Сервер делает**:
+1. JWT validate (anti-abuse: rate-limit, abuse detection — не для маршрутизации).
+2. Lookup `tokenId → fcmToken` в Tier 1 directory.
+3. Forward в FCM HTTP v1 API с `{data: {p: encryptedPayload}, collapse_key}`.
+4. Bounded retry FCM 3× (500ms / 2s / 8s) на 429/5xx.
+5. Idempotency dedupe 10-min TTL.
+6. Rate-limit per-JWT-uid (anti-abuse only, не per-event).
 
-**Связано**: SRV-PUSH-FOUNDATION.
+**Сервер НЕ делает**:
+- Не знает eventType (config-updated / sos-triggered / etc) — это **внутри encrypted payload**.
+- Не знает кто получатель (только opaque tokenIds, не привязаны к userUid).
+- Не resolve'ит группы — клиент-отправитель сам tickает blob с keyring группы (где список tokenIds членов).
+- Не делает per-event rate-limit — клиент сам respect'ит quota.
+
+**Что переехало в клиент**: eventType dispatching, target scope resolution, group membership lookup, FCM token freshness check.
 
 ---
 
-## 6. Blob storage (encrypted media)
+## Tier 1 endpoints — minimal directory
 
-**Требование**: opaque ciphertext storage с reference counting; server не видит plaintext, не знает recipient'ов.
+### D1. Public key directory
 
 ```
-POST   /links/{linkId}/blobs/{uuid}              upload envelope
-GET    /links/{linkId}/blobs/{uuid}              download
-DELETE /links/{linkId}/blobs/{uuid}              cleanup
-PUT    /links/{linkId}/devices/{deviceId}/pubkey
-GET    /links/{linkId}/devices/{deviceId}/pubkey
+PUT  /pubkeys/{lookupId}
+  body: {encryptionPubKey, signingPubKey, prekeys: [...]}
+  Header: X-Sig: <Ed25519 self-sig над body>
+  → 200 OK
+
+GET  /pubkeys/{lookupId}
+  → 200 {encryptionPubKey, signingPubKey, prekey: <single ephemeral, consumed>} | 404
 ```
 
-- Server-side reference counting через ACID transaction (refCount = 0 → реально удалить).
-- Auth: link-membership check на каждый запрос.
-- Storage backend: S3-compatible (для drop-in замены провайдера).
+**Сервер делает**: хранит mapping `lookupId → pubkeys`. При GET выдаёт один prekey (X3DH async setup), удаляет его (one-time use).
 
-**Связано**: SRV-CRYPTO-001.
+**Сервер НЕ делает**:
+- Не связывает lookupId с userUid.
+- Не знает, кто запрашивает pubkey (anonymous lookup допустим).
+- Не знает граф «кто кому послал prekey».
+
+**lookupId** — opaque UUID, **не** равен userUid. Клиент сам помнит свои lookupIds. Sharing — клиент out-of-band передаёт recipient'у `lookupId` (через QR pairing).
+
+**Industry reference**: Signal Identity Server + Prekey Server (X3DH).
+
+### D2. Push token directory
+
+```
+PUT  /push-tokens/{tokenId}
+  body: {fcmToken: bytes}
+  Header: X-Sig: <Ed25519 sig от signing key, записанного при первом PUT>
+  → 200 OK
+
+DELETE /push-tokens/{tokenId}
+  Header: X-Sig: <sig>
+  → 200 OK
+```
+
+**Сервер делает**: хранит `tokenId → fcmToken`. Owner sам обновляет (token refresh при app reinstall).
+
+**Сервер НЕ делает**:
+- Не связывает tokenId с userUid.
+- Не знает, в какие группы tokenId входит.
+- Не знает FCM-результаты доставки (push code на отправителе).
+
+**Distribution tokenId**: клиент при join в группу шифрует свой `tokenId` под group key и записывает в keyring blob группы (Tier 0). Отправитель скачивает keyring → видит tokenIds → шлёт `POST /push`.
 
 ---
 
-## 7. Config history + atomic writes
+## Tier 2 endpoints — server-required logic
 
-**Требование**: atomic «новый current + старый current → history» одним write'ом; retention; lazy schema migration; app version compatibility.
+Каждый Tier 2 endpoint сопровождается **доказательством «почему нельзя Tier 0/1»**.
+
+### T1. Auth — JWT issuance
 
 ```
-POST /users/{uid}/config                         atomic write
-GET  /users/{uid}/config/current
-GET  /users/{uid}/config/history?limit={n}
-POST /users/{uid}/config/rollback?version={v}
+POST /auth/google-signin
+  body: {idToken: <Google ID Token>}
+  → 200 {sessionJwt, anonymousId}
+
+POST /auth/refresh
+  Header: Authorization: Bearer <expiring JWT>
+  → 200 {sessionJwt}
 ```
 
-- ACID transaction (заменяет client-side two-write race).
-- Cron retention: cleanup snapshots > 10 per linkId, hourly.
-- Schema transformers при чтении: `vN → vCurrent` chain.
-- Reject writes если `managedAppVersion < required` (compatibility).
+**Почему Tier 2**: JWT issuance требует verification Google ID Token против Google JWKS — клиент сделать это **может**, но тогда JWT issuer = клиент, и сервер не сможет rate-limit / abuse-detect по JWT. JWT нужен для anti-abuse Tier 0/1 endpoints.
 
-**Связано**: SRV-CONFIG-001, SRV-CONFIG-002, SRV-CONFIG-003, SRV-CONFIG-004.
+**Что сервер знает**: `googleSub → anonymousId` mapping. `anonymousId` — opaque UUID, **не** привязан к namespaces / pubkeys / push-tokens (клиент сам помнит свои opaque IDs локально). При reinstall клиент re-fetch'ит свои IDs из локального backup или recovery flow.
+
+**Что сервер НЕ знает**:
+- Какие namespaces принадлежат этому anonymousId.
+- Какие pubkeys / push-tokens принадлежат.
+- Email пользователя (только googleSub hash).
+
+**Industry reference**: Signal phone number → registration ID pattern (Signal не помнит email/phone после registration в Sealed Sender mode).
+
+### T2. Recovery vault — atomic counter
+
+```
+PUT  /vaults/{vaultId}
+  body: <opaque ciphertext blob>
+  Header: X-Sig: <Ed25519 sig owner signing key>
+  → 200 OK
+
+POST /vaults/{vaultId}/attempt
+  body: {proofBytes: bytes}                  — client proof (HMAC of derived key)
+  → 200 {blob: ciphertext, remaining: N} | 429 (rate-limited) | 403 (counter exceeded)
+```
+
+**Почему Tier 2**: anti-brute-force counter **должен быть** server-side, иначе обходится через Clear App Data / factory reset / root. Client-side counter в DataStore — bypass'ится физически. Это единственный mandatory metadata leak.
+
+**Что сервер делает**:
+1. Atomic counter increment per vaultId (window: 3 attempts / hour sliding).
+2. Client отправляет `proofBytes` = HMAC(derived_key, vaultId) → сервер проверяет против заранее записанного `expectedProof` → выдаёт blob или отказывает.
+3. Counter сбрасывается только при successful unlock (proof matches).
+
+**Что сервер НЕ знает**:
+- Plaintext root key (vault ciphertext opaque).
+- Passphrase (only HMAC proof).
+- Кто owner (vaultId opaque).
+
+**Industry reference**: Signal SVR (Secure Value Recovery) — server hosts vault + counter в Intel SGX enclave; WhatsApp E2E Backup — counter в HSM.
+
+### T3. Subscription entitlement
+
+```
+GET  /entitlement
+  Header: Authorization: Bearer <session JWT>
+  → 200 {tier: "free"|"premium", expiresAt: timestamp, signature: bytes}
+```
+
+**Почему Tier 2**: subscription validity **должна** проверяться сервером, иначе клиент-side flag обходится. Server-side timer для expiration.
+
+**Что сервер знает**: `anonymousId → entitlement tier + expiresAt`. Сигнатура entitlement — клиент проверяет offline.
+
+**Что сервер НЕ знает**: за что подписался (just tier label).
+
+### T4. Sealed unsealing (server bootstrap)
+
+Это **внутренняя operation**, не клиентский endpoint. См. SRV-SEC-006 в server-roadmap.md — Shamir N-of-M threshold unsealing master key через `POST /ops/unseal` (mTLS, IP allowlist, operator-only).
+
+Клиент не видит этого endpoint'а. При `sealed` state получает 503 → exponential backoff retry.
 
 ---
 
-## 8. Recovery key vault (single-owner E2E recovery)
+## Cross-cutting requirements (на всех endpoint'ах)
 
-**Требование**: encrypted root key blob storage + **server-side atomic brute-force counter** (закрывает H-1: нельзя обойти через Clear App Data / factory reset / root).
-
-```
-PUT  /users/{uid}/recovery-vault                 upload AEAD blob
-GET  /users/{uid}/recovery-vault
-POST /users/{uid}/recovery-vault/attempt         atomic counter inc + verify
-```
-
-- Atomic counter persistent (per-UID, не per-device).
-- Schema-version downgrade defence.
-- Audit log access.
-
-**Связано**: SRV-RECOVERY-001.
+- **JWT auth** (Tier 0/1 — anti-abuse; Tier 2 — primary auth).
+- **Idempotency-Key** на всех state-mutating endpoints.
+- **Rate-limit** per-JWT (anti-abuse only, не для business logic).
+- **Signature verification** на write endpoints (Ed25519 against stored signing pubkey).
+- **TLS 1.3** обязательно.
+- **CORS** запрещён (никаких web origins кроме явного admin panel).
+- **При sealed state**: 503 + Retry-After header на всё кроме `/health` + `/ops/unseal`.
+- **Audit log** server-side для administrative операций (unseal, key rotation) — не для пользовательских.
 
 ---
 
-## 9. Subscription entitlement
+## Что **НЕ делает** сервер (явный список не-функционала)
 
-**Требование**: server-validated entitlement, **не** client-computed flag (anti-tamper для paid tier).
+Каждый пункт — потенциальный искушённый «давайте на сервере сделаем», который **отвергнут** в пользу клиентского решения.
 
-```
-GET  /users/{uid}/entitlement                    → {tier, expiresAt}
-POST /users/{uid}/entitlement/check              → JWT с entitlement claims
-```
-
-- `entitlement-expired` push event — server-internal only (не от клиента).
-- Server-side timer для подписок.
-
-**Связано**: TASK-15 (Subscription Server Timer).
-
----
-
-## 10. GDPR / 152-ФЗ compliance
-
-**Требование**: subject-driven export и deletion, ≤30 дней.
-
-```
-GET    /users/{uid}/export                       → all user data JSON
-DELETE /users/{uid}                              → полное удаление
-```
-
-- Может быть инициировано самим пользователем (без admin'а).
-- Audit log на каждый запрос.
-
-**Связано**: SRV-SEC-003.
+| Не-функционал | Альтернатива на клиенте | Почему сервер не должен |
+|---|---|---|
+| Resolve recipients для push | Клиент скачивает keyring группы (Tier 0 blob), видит tokenIds, шлёт explicit list | Иначе сервер знает membership graph |
+| Schema transformers `vN → vCurrent` | Клиент при чтении видит schemaVersion → транслирует | Иначе сервер видит plaintext полей |
+| Config history rotation (keep last 10) | Клиент LIST + DELETE старых | Иначе сервер понимает «это config history» |
+| Forward unsharing при kick member | Existing member ротирует groupKey, перешифровывает keyring + blobs, signed write новой версии | Иначе сервер знает membership |
+| Atomic membership transactions | Single-writer группы (один из членов делает edit, остальные принимают signed update) | Иначе ACID cross-document на сервере |
+| Drift detection contacts | Полностью client-side (контакты не уходят на сервер) | Privacy |
+| Validation `managedAppVersion >= required` | Клиент при чтении blob'а проверяет version в plaintext payload, отказывается читать если несовместимо | Иначе сервер видит app version |
+| Eventtype dispatching push | encryptedPayload содержит eventType в plaintext (после расшифровки на receiver'е) | Иначе сервер видит тип события |
+| Health critical → auto-push admin | Health критическое триггерит client-side → клиент сам шлёт `POST /push` группе | Иначе сервер listens на health state |
+| Wearable sensor ingest | Sensor data → encrypted → клиент сам пушит в Tier 0 blob | Иначе server видит time-series данные |
+| Refcount blob references | Client-side garbage collector (раз в N месяцев scan + delete unreferenced) | Иначе сервер понимает «эти blob'ы связаны» |
+| `entitlement-expired` server-internal push | Receiver сам poll'ит `GET /entitlement` при app open | Tier 2 ограничен issuance, не push |
+| Translation cache | Build-time только; не нужен runtime endpoint | Не пользовательский endpoint |
+| Audit log пользовательских операций | Client-side append-only encrypted log в Tier 0 blob | Иначе сервер видит «admin изменил config» |
+| GDPR export | Client-side — пользователь decrypt'ит свои blob'ы локально → export. Server только удаляет blob'ы по запросу владельца | Сервер у нас и так ничего не знает что экспортировать |
+| Algorithm migration coordinator | Каждый client при open vault'а сам видит старый algorithm → re-wrap → uploads new | Иначе сервер видит algorithm |
+| NetworkConfigSource (signed manifests) | **Это публикация, отдельный сервис** — выносим в CDN с подписанными manifest'ами. Не часть user-data сервера. | Разделение concerns |
 
 ---
 
-## 11. Audit log
+## Соответствие старым SRV-задачам
 
-**Требование**: лог всех write-операций для compliance + forensics.
+| v1 SRV ID | v2 решение | Что изменилось |
+|---|---|---|
+| SRV-AUTH-001 | T1 | Anti-abuse focus, не identity provider |
+| SRV-AUTH-IDENTITY-001 | T1 | `googleSub → anonymousId`, без namespace связи |
+| SRV-STORAGE-001 | S0 | Generic blob storage, без `users/{namespace}/data/{key}` смысла |
+| SRV-PKD-001 | D1 | Pubkey directory anonymous lookup, без grants |
+| SRV-DEVICEID-001 | client-side | Клиент сам генерит, server collision-resistance не нужен (deviceId внутри namespace, namespace opaque) |
+| SRV-PUSH-FOUNDATION | S2 | Sealed push, без eventType registry на сервере |
+| SRV-CRYPTO-001 (blobs) | S0 | Generic blob storage, без linkId |
+| SRV-CONFIG-001..004 | S0 + client | History — клиент LIST + сам обрезает; transformers — клиент; version compat — клиент |
+| SRV-RECOVERY-001 | T2 | Counter остаётся server-side |
+| TASK-15 entitlement | T3 | Server-validated, JWT-signed |
+| SRV-SEC-003 GDPR | client-side delete + S1 cascade | Клиент удаляет namespace = всё стёрто |
+| SRV-SEC-002 audit | client-side blob | Audit log в собственный namespace владельца |
+| SRV-CMD-001 commands | client-side push | Команды = encrypted push payload |
+| SRV-CONFIG-001 (F-3 manifests) | **отдельный CDN** | Не часть user-server |
+| SRV-PREFS-001 | S0 | Внутри блоба user preferences |
+| SRV-CRYPTO-008 algorithm migration | client-side | Каждый client мигрирует при open |
+| SRV-CRYPTO-006 forward unsharing | client-side | Member-coordinated re-key |
+| SRV-CRYPTO-005 Safety Number | client-side | Pubkey fingerprint сравнение |
+| SRV-CRYPTO-004 social recovery | S0 + T2 | Backup blob в S0, attempt counter в T2 |
+| SRV-SEC-001 App Check | cross-cutting | Middleware на всех Tier 0/1 endpoints |
+| SRV-MONITOR-001 health push | client-side push | Health critical → client triggers `POST /push` |
+| SRV-MONITOR-002 sensor ingest | S0 | Sensor data → encrypted blob |
+| SRV-CONTACTS-002 shared contacts | S0 | Shared contacts blob внутри group namespace |
+| SRV-CFG-006 named configs | S0 | Named config blobs внутри namespace |
+| SRV-CRYPTO-002 key rotation | client-side | Client coordinates re-wrap |
+| SRV-TRANSLATE-001 | build-time | Не серверный endpoint |
+| SRV-SEC-006 sealed-at-rest | T4 | Threshold unsealing (отдельный operator concern) |
 
-```
-GET /users/{uid}/audit-log?from={ts}&to={ts}    (admin/owner only)
-```
-
-- Записи: UID + timestamp + operation + payload hash. Retention 90 дней.
-- Server пишет автоматически на каждый mutating endpoint.
-- Append-only, tamper-evident через hash chain (см. §26 §audit_key).
-
-**Связано**: SRV-SEC-002.
-
----
-
-## 12. Admin-to-Managed runtime commands
-
-**Требование**: command queue с TTL + retry + ack.
-
-```
-POST /links/{linkId}/commands                    admin queues
-GET  /links/{linkId}/commands                    Managed polls (или push)
-POST /links/{linkId}/commands/{id}/ack
-```
-
-- Queue с TTL.
-- Push trigger на Managed при enqueue.
-- Server удаляет на ack или TTL expiry.
-
-**Связано**: SRV-CMD-001.
-
----
-
-## 13. NetworkConfigSource (signed manifests)
-
-**Требование**: подписанные wizard manifests / tile sets / themes без app update.
-
-```
-GET /v1/configs/{kind}/{id}                      → signed manifest envelope
-```
-
-- Ed25519 signed, client verifies против pinned public key.
-- `BundledConfigSource` остаётся offline fallback.
-
-**Связано**: SRV-CONFIG-001 (F-3 variant).
+**Result**: с 26 функциональных требований v1 → **2 storage + 2 directory + 3 logic = 7 endpoint категорий v2.** Остальное переехало на клиент.
 
 ---
 
-## 14. UserPreferences cloud sync
+## Открытые вопросы (для дизайн-обсуждения)
 
-**Требование**: theme, fontScale, languageOverride, wizardCompletedAppFamilies синхронизируются между устройствами одного владельца.
+1. **anonymousId — нужен ли вообще?** Если JWT issuance делает Google напрямую (Firebase Auth), а наш сервер только verifie'ет — anonymousId исчезает. Trade-off: тогда rate-limit per Google sub, что чуть менее private.
 
-Реализуется как slot внутри `/users/{uid}/data/userPreferences` (использует §2 envelope storage), отдельных endpoint'ов не требует.
+2. **Prekey directory (D1) — opt-in или mandatory?** X3DH async setup нужен для pairing flow когда recipient оффлайн. Если pairing всегда online (QR code in person) — prekeys не нужны, D1 упрощается до одного pubkey без prekey list.
 
-**Связано**: SRV-PREFS-001.
+3. **Subscription Tier 2 — отдельный endpoint или часть JWT?** Можно entitlement встроить в session JWT claims (refresh JWT раз в час с свежим entitlement). Тогда T3 исчезает как отдельный endpoint.
 
----
+4. **Sealed unsealing для small deployment** — Shamir overhead неоправдан для < 100 users. Phase 1 (env var через secret manager) — допустим без threshold.
 
-## 15. Algorithm migration (crypto rotation)
-
-**Требование**: server-triggered batch job для re-wrap старых vault'ов и re-encrypt envelope'ов под новый AEAD/KDF.
-
-```
-POST /users/{uid}/recovery-vault/rewrap-request  (server-initiated)
-GET  /users/{uid}/migration-status               → {phase, deadline}
-POST /admin/migration/force-deadline             (admin only)
-```
-
-- 3 фазы: coexistence → auto-migration → deprecation/forced update (WhatsApp E2E backup pattern).
-- Requires client participation (passphrase для decrypt старого).
-
-**Связано**: SRV-CRYPTO-008.
+5. **NetworkConfigSource** — выносим в отдельный CDN сервис или встраиваем в user-server как отдельный Tier 0 namespace «published» (с server-known signing pubkey)? Лично я за отдельный CDN — меньше путаницы.
 
 ---
 
-## 16. Forward unsharing
+## Industry pattern catalogue (для AI-агента — куда смотреть)
 
-**Требование**: при unpair admin'а — re-encryption всех existing config snapshots под новым CEK без removed recipient.
-
-```
-POST /links/{linkId}/unshare                     body: { removedDeviceId }
-```
-
-- Server coordinates re-encryption (requires client cooperation для CEK rewrap).
-
-**Связано**: SRV-CRYPTO-006.
-
----
-
-## 17. Safety Number (out-of-band fingerprint)
-
-**Требование**: verified pubkey publication (signed by owner private key, server validates signature) + UI flow для голосовой сверки fingerprint.
-
-```
-PUT /users/{uid}/devices/{deviceId}/pub-key/signed   body: {pubKey, sig}
-GET /users/{uid}/devices/{deviceId}/fingerprint      → SHA-256 первые 24 бит
-```
-
-**Связано**: SRV-CRYPTO-005.
+| Наш Tier | Industry pattern | Production system |
+|---|---|---|
+| S0 blob storage | Envelope encryption + signed writes | Bitwarden vault, Tresorit |
+| S1 namespace lifecycle | Anonymous registration | Signal registration |
+| S2 sealed push | Sealed Sender + opaque targeting | Signal Sealed Sender |
+| D1 pubkey directory | X3DH prekey server | Signal Identity Server |
+| D2 push token directory | FCM-token anonymous registry | WhatsApp push routing |
+| T1 JWT issuance | OAuth proxy без identity disclosure | Apple Hide My Email pattern |
+| T2 vault counter | HSM-protected attempt counter | Signal SVR, WhatsApp E2E Backup |
+| T3 entitlement | Server-signed offline-verifiable token | Apple App Store receipts, Google Play Billing |
+| T4 sealed unseal | Threshold cryptography | HashiCorp Vault Shamir unseal |
 
 ---
 
-## 18. Social recovery (multi-device recovery)
-
-**Требование**: 3-факторное recovery (PIN + email/password + 2FA от trusted peer), encrypted backup storage.
-
-```
-PUT  /users/{uid}/recovery-backup                upload encrypted blob
-GET  /users/{uid}/recovery-backup
-POST /users/{uid}/recovery-attempt               initiates 2FA push to peer
-POST /users/{uid}/recovery-attempt/{id}/approve  peer approves
-POST /users/{uid}/recovery-attempt/{id}/verify   new device submits PIN-derived proof
-```
-
-- Atomic counter на attempts (rate-limit, см. §8).
-- Push trigger к trusted peer.
-- Atomic activation новых ключей + invalidation старых.
-- Опционально multi-peer Shamir N-of-M (future).
-
-**Связано**: SRV-CRYPTO-004, ADR-008.
-
----
-
-## 19. App Check validation
-
-**Требование**: validate `X-Firebase-AppCheck` (или эквивалент) header на каждом write endpoint — anti-abuse.
-
-Не отдельный endpoint, middleware на всех mutating endpoints.
-
-**Связано**: SRV-SEC-001.
-
----
-
-## 20. Critical health → push admin
-
-**Требование**: server listens на изменения health-state Managed device → детект Critical transition → дедуплицирует → push admin'у.
-
-```
-PUT /links/{linkId}/health                       Managed publishes
-                                                  (server-side trigger → push admin)
-```
-
-- Деduplicate per-incident.
-
-**Связано**: SRV-MONITOR-001.
-
----
-
-## 21. Wearable / security sensor ingest
-
-**Требование**: time-series ingest для часов (HRV, BP, steps) и охранных датчиков (motion, door, smoke); alerts по threshold.
-
-```
-POST /links/{linkId}/sensors/{kind}              body: time-series data
-GET  /links/{linkId}/sensors/{kind}/timeline?from={ts}&to={ts}
-POST /links/{linkId}/sensors/{kind}/thresholds   admin sets
-```
-
-- Triggers push в зависимости от severity.
-
-**Связано**: SRV-MONITOR-002.
-
----
-
-## 22. Shared admin contact book
-
-**Требование**: контакты per-admin, ссылки из config по UUID.
-
-```
-PUT    /admins/{adminUid}/contacts/{contactUuid}
-GET    /admins/{adminUid}/contacts
-DELETE /admins/{adminUid}/contacts/{contactUuid}
-```
-
-- Atomic refcount при добавлении/удалении ссылки из config.
-
-**Связано**: SRV-CONTACTS-002.
-
----
-
-## 23. Named configs persistence (admin self-configs backup)
-
-**Требование**: backup admin'ских named configurations (для cross-device + auto-delete orphans).
-
-```
-PUT    /admin-self-configs/{adminUid}/configs/{configName}/current
-GET    /admin-self-configs/{adminUid}/configs/{configName}/current
-LIST   /admin-self-configs/{adminUid}/configs
-DELETE /admin-self-configs/{adminUid}/configs/{configName}
-```
-
-- Atomic single-default invariant через transaction.
-- Cron auto-delete orphan configs (нет ссылок из активного config).
-
-**Связано**: SRV-CFG-006.
-
----
-
-## 24. Manual key rotation
-
-**Требование**: on-demand rotation identity-ключа admin'а с re-wrap всех envelope wrappers под new pub.
-
-```
-POST /users/{uid}/keys/rotate                    initiates flow
-GET  /users/{uid}/keys/rotation-status
-POST /users/{uid}/keys/rotation/complete         atomic switch
-```
-
-- Re-encrypt на client после download (server не видит plaintext).
-- Atomic switch identity reference + invalidation old priv references.
-
-**Связано**: SRV-CRYPTO-002.
-
----
-
-## 25. Translation cache (dev tool, low priority)
-
-**Требование**: shared translation cache для разработчиков (один shared API key + human review queue).
-
-```
-POST /api/translate                              body: {source, target_locale, key, context_hash}
-GET  /api/translate/queue                        human reviewer pulls
-POST /api/translate/queue/{id}/approve
-```
-
-**Связано**: SRV-TRANSLATE-001.
-
----
-
-## 26. Server-at-rest encryption + threshold unsealing + remote attestation
-
-**Требование**: защита всего server-side metadata (identity-links, public keys, access-grants, audit log, recovery vault ciphertext, envelope storage, blob references) от sценариев:
-- **TM-1 stolen DB dump** — украденная копия Postgres.
-- **TM-2 stolen running server** — атакующий получает live VM с decrypted master key in-memory.
-- **TM-3 compromised hosting provider / insider** — admin провайдера может dump memory или modify binary.
-- **TM-4 long-term forward compromise** — master key compromised → все данные читаемы.
-
-E2E inviolable (client-side encryption) защищает только пользовательский plaintext; metadata должна защищаться отдельно server-side.
-
-### 26.1 At-rest encryption всего metadata
-
-- **Field-level encryption** для sensitive columns (recovery vault ciphertext, audit log payload hash, identity-links — всё, что не нужно для index lookup).
-- **Disk-level encryption** (LUKS / cloud-provider TDE) как defence-in-depth, **не как primary**.
-- Encryption key = `master_data_key`, derived from `master_unseal_key`.
-
-### 26.2 Threshold unsealing (Shamir N-of-M)
-
-- `master_unseal_key` разделён на **N shards** через Shamir's Secret Sharing.
-- Server при boot ожидает **M-of-N shards** (recommendation: 3-of-5 production, 2-of-3 MVP).
-- Shards вводятся через secure channel:
-
-```
-POST /ops/unseal                       (mTLS + IP allowlist)
-  body: { shardIndex: int, shardValue: <base64> }
-```
-
-- До unseal'а: server в `sealed` state — отвечает только на `/health` и `/ops/unseal`, отбрасывает все остальные requests с 503.
-- После M shards: derives `master_unseal_key` in-memory → derives `master_data_key` → открывает БД.
-- Reference: HashiCorp Vault `vault operator unseal`.
-
-### 26.3 Shard custody policy
-
-- Каждый shard хранится **отдельным operator'ом** (физически разделённые люди / accounts / clouds).
-- Recommended distribution (3-of-5):
-  1. Offline cold storage (paper / metal backup в сейфе).
-  2. Hardware token у владельца.
-  3. Trusted operator (юрист / партнёр).
-  4. Cloud KMS другого провайдера (отличного от hosting).
-  5. Backup в другом geographic region.
-- **Никакие 2 shard'а не лежат вместе**.
-
-### 26.4 Hardware-backed unsealing (preferred path для Phase 3)
-
-- `master_unseal_key` wrapped через **Cloud HSM / KMS** (AWS KMS + Nitro Enclaves, GCP Cloud KMS + Confidential VMs, Azure Key Vault + Confidential Computing).
-- KMS releases key **только** если attestation document от instance проходит verification (PCR measurements / Nitro attestation).
-- Закрывает TM-3 (insider): hosting provider не может dump memory без trip attestation.
-
-### 26.5 Periodic remote attestation
-
-```
-POST /ops/attestation                  (server → external attestation service)
-  body: { binaryHash, configHash, tpmPcr, uptime, bootTimestamp }
-```
-
-- Каждые **6 часов** (recommended) server отправляет attestation document на **external attestation service** (отдельный endpoint, отдельный provider).
-- Attestation service сравнивает с known-good baseline. На mismatch:
-  - Alert (push владельцу + Slack/email).
-  - Auto-shutdown via revoke unseal token.
-- Owner получает push на каждую failed attestation.
-
-### 26.6 Auto re-seal on TTL
-
-- `master_unseal_key` в memory имеет **bounded TTL** (recommendation: 24h).
-- После TTL: server переходит в `sealed` state, требует свежий threshold unsealing.
-- Защищает от long-running compromise.
-
-### 26.7 Master key rotation
-
-- `master_data_key` ротируется раз в **90 дней**.
-- Background job re-encrypts старые ciphertext'ы под новый key.
-- Старый key хранится для read для `re-encryption period + 30 дней`, затем удаляется.
-- Audit log записывает rotation events.
-
-### 26.8 Forensic-safe audit log
-
-- Audit log сам по себе зашифрован под отдельный `audit_key` (не master_data_key).
-- `audit_key` shards распределены по другим operator'ам (отличным от master_unseal_key custody).
-- Append-only structure, tamper-evident через hash chain (каждая запись содержит hash предыдущей).
-
-### 26.9 Phase rollout
-
-- **Phase 1 (single-server, < 100 users)**: `master_unseal_key` в env var через secret manager (Vault / AWS Secrets Manager). LUKS disk encryption. Documented limitation — закрывает только stolen-disk vector.
-- **Phase 2 (production, > 100 users)**: добавить Shamir N-of-M threshold unsealing + `POST /ops/unseal`.
-- **Phase 3 (regulated / GDPR-heavy)**: добавить hardware-backed (Cloud KMS + attestation) + periodic remote attestation + auto re-seal.
-- Migration между phases — additive (port `MasterKeyProvider` остаётся, swap implementation).
-
-### 26.10 Что нужно от launcher-клиента
-
-**Ничего** — это полностью server-side concern. Клиент продолжает работать с REST endpoint'ами как обычно. При server `sealed` state клиент получает 503 → retry с exponential backoff (та же логика, что и для любого server outage).
-
-**Связано**: SRV-SEC-006.
-
-**Industry references**:
-- [HashiCorp Vault — Seal/Unseal](https://developer.hashicorp.com/vault/docs/concepts/seal)
-- [Shamir's Secret Sharing](https://en.wikipedia.org/wiki/Shamir%27s_secret_sharing)
-- [AWS Nitro Enclaves Attestation](https://docs.aws.amazon.com/enclaves/latest/user/nitro-enclave-concepts.html)
-- [GCP Confidential VMs](https://cloud.google.com/confidential-computing/confidential-vm/docs/about-cvm)
-- [Signal — Sealed Sender](https://signal.org/blog/sealed-sender/)
-
----
-
-## Кросс-функциональные требования (на всех endpoint'ах)
-
-- **JWT auth** (server-issued, не Firebase ID-token напрямую) кроме §1.
-- **Idempotency-Key** на всех state-mutating endpoint'ах (UUID v4, server dedupe).
-- **Rate-limit** persistent по dimensions: per-UID, per-linkId, per-IP-hash, per-eventType.
-- **schemaVersion** в payload, monotonic increase enforced server-side.
-- **E2E inviolable**: server никогда не видит plaintext config / media / keys / passphrase.
-- **Audit log** auto-write на каждый mutating endpoint.
-- **App Check** middleware на каждый write.
-- **CORS / CSP** правила (если будет web admin в будущем).
-- **При sealed state** (см. §26): отвечать 503 на всё кроме `/health` + `/ops/unseal`.
-
----
-
-## Что НЕ требуется от сервера (остаётся на клиенте)
-
-- Crypto operations (libsodium на клиенте, server только хранит ciphertext).
-- Private keys (Android Keystore).
-- Envelope serialization (client encodes/decodes).
-- Contact drift detection (privacy: контакты не уходят на сервер).
-- Local UI state, theme application, wizard navigation.
-
----
-
-## Принципы интерфейса launcher ↔ server
-
-1. **Domain port stability**: каждый server endpoint = реализация существующего port'а в `core/*/api/`. Adapter swap, не domain rewrite.
-2. **Wire-format versioning**: каждый payload содержит `schemaVersion`, monotonic increase enforced server-side (downgrade defence).
-3. **E2E inviolable**: server никогда не видит plaintext config / media / keys.
-4. **Substitution-readiness**: каждый Firebase-зависимый компонент — через port, чтобы swap = новый adapter.
-5. **Atomic counters server-side** (§8, §18) — закрывает client-side bypass через Clear App Data / factory reset / root.
-6. **Rate-limit per dimension**: per-UID, per-linkId, per-IP-hash, per-eventType.
-7. **Idempotency keys** на всех state-mutating endpoints (UUID v4 client-generated, server dedupe).
-8. **JWT auth с server-issued session token**, не Firebase ID-token напрямую.
-9. **Server-at-rest защищён threshold unsealing** (§26) — клиент не видит этого, но это требование к серверу.
-
----
-
-**End of requirements.** Источник правды по operational план — `server-roadmap.md`. Этот файл — спецификация интерфейса, regenerate при добавлении новых SRV-задач.
+**End of server requirements.** Источник правды по operational плану — `server-roadmap.md`. Этот файл — спецификация интерфейса для zero-knowledge модели.

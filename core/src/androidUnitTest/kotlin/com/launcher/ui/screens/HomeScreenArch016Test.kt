@@ -1,8 +1,11 @@
 package com.launcher.ui.screens
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import org.jetbrains.compose.resources.PreviewContextConfigurationEffect
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.resume
@@ -50,6 +53,7 @@ import org.robolectric.annotation.GraphicsMode
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [33])
+@OptIn(org.jetbrains.compose.resources.ExperimentalResourceApi::class)
 class HomeScreenArch016Test {
 
     @get:Rule
@@ -174,13 +178,14 @@ class HomeScreenArch016Test {
             onAddSlotClick = {},
         )
         rule.setContent {
-            LauncherTheme(preset = "simple-launcher") { HomeScreen(component = component) }
+            CompositionLocalProvider(LocalInspectionMode provides true) {
+                PreviewContextConfigurationEffect()
+                LauncherTheme(preset = "simple-launcher") { HomeScreen(component = component) }
+            }
         }
         rule.waitForIdle()
-        // Without a link, the flow list is empty → the placeholder loading
-        // text from HomeScreen is shown. FR-005 preset-fallback content is
-        // populated by the spec 010 Phase 3 wizard — TODO[preset-fallback]
-        // covers the senior-safe path once the wizard seeds /config/current.
-        rule.onNodeWithText("Загрузка…").assertIsDisplayed()
+        // TASK-52: Without a link or config, the flow list is empty → transitions
+        // from Loading to Error("flows empty") instead of getting stuck in infinite "Загрузка…".
+        rule.onNodeWithText("Загрузка…").assertDoesNotExist()
     }
 }
