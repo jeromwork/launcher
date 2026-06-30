@@ -1,5 +1,5 @@
 ---
-id: TASK-59
+id: TASK-63
 title: Pairing Feature + pairing-edges bucket
 status: Draft
 assignee: []
@@ -13,11 +13,11 @@ labels:
   - one-way-door
 milestone: m-1
 dependencies:
-  - TASK-57
-  - TASK-58
+  - TASK-61
+  - TASK-62
   - TASK-51
 priority: high
-ordinal: 59000
+ordinal: 63000
 ---
 
 ## Description
@@ -41,13 +41,13 @@ ordinal: 59000
 **Что происходит по шагам (recovery):**
 1. У A сломался телефон, купил новый.
 2. Зашёл через тот же Google + ввёл passphrase (TASK-6 flow).
-3. Root key восстановлен, все buckets автоматически восстановились через TASK-58 — **включая pairing-edges**.
+3. Root key восстановлен, все buckets автоматически восстановились через TASK-62 — **включая pairing-edges**.
 4. У A в списке снова видны все спаренные устройства. Никакого re-pairing.
 
 **Что происходит при разрыве (revoke):**
 1. A решил больше не управлять B (или наоборот).
 2. Открыл список → нажал «Отозвать».
-3. Edge помечается как revoked в bucket (`AddOnlyRevokeOnly` conflict policy из TASK-58). 
+3. Edge помечается как revoked в bucket (`AddOnlyRevokeOnly` conflict policy из TASK-62). 
 4. При следующей синхронизации обе стороны видят отзыв.
 
 ## Зачем
@@ -55,7 +55,7 @@ ordinal: 59000
 Без pairing нет канала между двумя устройствами одного семейного / медицинского / сервисного контура. С pairing — любое устройство в любом профиле может:
 - Принимать удалённое управление настройками (контакты, темы, плитки) от спаренного admin'а.
 - Управлять чужим устройством (своим вторым, родственника, пациента).
-- Получать push-уведомления о событиях на спаренных устройствах (SOS, изменение конфига, через TASK-5 push routing + TASK-58 bucket routing).
+- Получать push-уведомления о событиях на спаренных устройствах (SOS, изменение конфига, через TASK-5 push routing + TASK-62 bucket routing).
 
 Это **общий примитив**, не «admin app». В будущем поверх него поедет: remote config edit, audit log (TASK-32), photo sharing (TASK-11), calls (TASK-27).
 
@@ -68,11 +68,11 @@ ordinal: 59000
   - **`TrustEdge` domain type** — pure data: `{ edgeId, peerIdentity, peerPubKey, role: EdgeRole, createdAt, revokedAt? }`. `EdgeRole` sealed: `ManagedByMe | ManagerOfMe`.
   - **`PairingService`** — оркестратор handshake'а: показать QR → дождаться сканирования → выполнить handshake → положить TrustEdge в `pairing-edges` bucket.
   - **Camera permission handling** — `system.permission.CAMERA` pool entry для QR scanner (вероятно добавляется в pool в рамках этой задачи).
-- **`pairing-edges` bucket** (через TASK-58):
+- **`pairing-edges` bucket** (через TASK-62):
   - `BucketTypeSpec(id="bucket.pairing.edges", conflictPolicy=AddOnlyRevokeOnly, recipientPolicy=SelfOnly, serializer=List<TrustEdge>.serializer())`.
   - Регистрация в `EncryptedBucketRegistry` на app init.
-  - Автоматический recovery через TASK-58 mechanism.
-- **Pool entries** (через TASK-57 composition foundation):
+  - Автоматический recovery через TASK-62 mechanism.
+- **Pool entries** (через TASK-61 composition foundation):
   - `tile.pool.json`: `tile.pairing.list` (показывает edges), `tile.pairing.add` (запускает pairing flow).
   - `wizard-step.pool.json` (или существующий `system-settings.pool.json`): `wizard.step.pair-device`.
   - `system-settings.pool.json`: `android.permission.CAMERA` (если ещё нет).
@@ -89,7 +89,7 @@ ordinal: 59000
 
 ## Состояние
 
-**Planned.** Зависит от TASK-57 (composition foundation для pool entries) + TASK-58 (bucket registry для pairing-edges) + TASK-51 (libsodium ristretto255 — Done).
+**Planned.** Зависит от TASK-61 (composition foundation для pool entries) + TASK-62 (bucket registry для pairing-edges) + TASK-51 (libsodium ristretto255 — Done).
 
 ---
 
@@ -100,7 +100,7 @@ ordinal: 59000
 
 ЧТО СТРОИМ:
 Generic pairing primitive: QR-обмен ключами через Curve25519, две устройства устанавливают
-двустороннюю trust edge. Edge живёт в pairing-edges bucket (через TASK-58 registry),
+двустороннюю trust edge. Edge живёт в pairing-edges bucket (через TASK-62 registry),
 переживает profile switch и recovery. Доступно в любом профиле через pool entries.
 
 ЗАЧЕМ:
@@ -112,7 +112,7 @@ SCOPE ВКЛЮЧАЕТ:
 - Curve25519 X25519 ECDH handshake (через TASK-2 / TASK-51 libsodium).
 - TrustEdge domain type + EdgeRole sealed (ManagedByMe | ManagerOfMe).
 - PairingService оркестратор.
-- pairing-edges bucket через TASK-58 (AddOnlyRevokeOnly, SelfOnly).
+- pairing-edges bucket через TASK-62 (AddOnlyRevokeOnly, SelfOnly).
 - Pool entries: tile.pairing.list, tile.pairing.add, wizard.step.pair-device, system.permission.CAMERA (если нужно).
 - Generic CheckSpec.PairingState + ApplySpec.OpenPairingScreen variants (renamed from Amendment 1.10 PairAdminLink/Intent).
 - simple-launcher manifest получает pair-device step.
@@ -120,13 +120,13 @@ SCOPE ВКЛЮЧАЕТ:
 
 SCOPE НЕ ВКЛЮЧАЕТ:
 - LinkInvitePairingChannel (remote invite через ссылку) — TASK-31 Phase 4.
-- Pairing UI styling под workspace профиль — это TASK-60 (только данные).
+- Pairing UI styling под workspace профиль — это TASK-64 (только данные).
 - Multi-admin/group pairing — отложено.
 - Remote config edit через pairing — TASK-13 Phase 2.
 
 DEPENDENCIES:
-- TASK-57 (Profile Composition Foundation v2) — для pool entries.
-- TASK-58 (Generic Encrypted Bucket Registry) — для pairing-edges bucket.
+- TASK-61 (Profile Composition Foundation v2) — для pool entries.
+- TASK-62 (Generic Encrypted Bucket Registry) — для pairing-edges bucket.
 - TASK-51 (libsodium ristretto255) — Done.
 
 ACCEPTANCE CRITERIA:
@@ -134,9 +134,9 @@ ACCEPTANCE CRITERIA:
 - У A в списке 'кем управляю' — B. У B в списке 'кто управляет мной' — A.
 - В simple-launcher оба списка доступны через 7-tap settings.
 - Revoke edge → обе стороны видят revoked state после синхронизации.
-- Recovery (TASK-6 flow на новом устройстве) → все TrustEdges автоматически восстановлены через TASK-58.
+- Recovery (TASK-6 flow на новом устройстве) → все TrustEdges автоматически восстановлены через TASK-62.
 - Pairing handshake устойчив к обрыву сети (timeout + retry).
-- Никакого admin-specific кода (lint check на TASK-57 правила).
+- Никакого admin-specific кода (lint check на TASK-61 правила).
 - PairingHandshakeBlob JSON round-trip + backward-compat тест.
 
 LOCAL TEST PATH:
@@ -164,5 +164,5 @@ EFFORT: Large (~3 weeks).
 - [ ] #4 Revoke edge → обе стороны видят revoked state после синхронизации
 - [ ] #5 Recovery на новом устройстве (TASK-6 flow) → все TrustEdges автоматически восстановлены, не нужно re-pairing
 - [ ] #6 Pairing handshake устойчив к обрыву сети (timeout + retry)
-- [ ] #7 Никакого admin-specific кода в репе — lint check (правила из TASK-57) проходит
+- [ ] #7 Никакого admin-specific кода в репе — lint check (правила из TASK-61) проходит
 <!-- AC:END -->

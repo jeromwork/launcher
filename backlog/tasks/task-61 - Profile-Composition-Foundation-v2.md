@@ -1,10 +1,10 @@
 ---
-id: TASK-57
+id: TASK-61
 title: Profile Composition Foundation v2
-status: Draft
+status: In Progress
 assignee: []
 created_date: '2026-06-28 18:30'
-updated_date: '2026-06-28 18:30'
+updated_date: '2026-06-30 12:00'
 labels:
   - phase-2
   - foundation
@@ -15,7 +15,7 @@ milestone: m-1
 dependencies:
   - TASK-7
 priority: high
-ordinal: 57000
+ordinal: 61000
 ---
 
 ## Description
@@ -29,7 +29,7 @@ ordinal: 57000
 
 **Что происходит по шагам (новая установка):**
 1. Пользователь устанавливает APK, открывает.
-2. Видит экран выбора профиля (как в Telegram при первом запуске выбираешь язык). Сейчас один вариант — `simple-launcher`. После TASK-60 появится второй — `workspace`.
+2. Видит экран выбора профиля (как в Telegram при первом запуске выбираешь язык). Сейчас один вариант — `simple-launcher`. После TASK-64 появится второй — `workspace`.
 3. Выбрал → запускается визард (как сейчас в TASK-7), но шаги собираются **из профиля**: профиль говорит «мне нужны эти 3 настройки», движок берёт описание шагов из `system-settings.pool.json` и собирает их в порядке.
 4. Прошёл визард → приложение работает. Профиль записан в DataStore. **Никаких проверок на boot'е больше нет.**
 
@@ -57,11 +57,11 @@ ordinal: 57000
 - **Lint rule (no profile-id branching)** — fitness function, ловит `if (profileId == "...")` / `when (profileId)` / `appFamilyId == ...` в business logic. Pre-commit hook. Per Article VII §13.
 - **Lint rule (extraction-readiness)** — fitness function, запрещает launcher-specific imports (`com.launcher.app.*`, references на tiles/contacts/home-launcher domain types) в модулях `core/profiles/`, `core/wizard/`, `core/pools/`. Обеспечивает что foundation готов к extraction в sub-repo / shared library когда придёт второе family-приложение (messenger / photo). Exit ramp для cross-app vision.
 - **Fitness test** — dummy `test-profile.json` (минимальный, с **non-Android** требованием `ui.font.large` для демонстрации generic-ности RequirementsChecker), грузится в test-time DI, проверяет что engine generic (не падает на неизвестное profile id, корректно строит wizard из его requires:).
-- **Regression test** — `simple-launcher` через composition выдаёт идентичный wizard и UX как до TASK-57.
+- **Regression test** — `simple-launcher` через composition выдаёт идентичный wizard и UX как до TASK-61.
 
 ## Состояние
 
-**Planned.** Foundation для TASK-58/59/60 и всех будущих профилей. Должна быть закрыта до start работ над workspace.
+**Planned.** Foundation для TASK-62/59/60 и всех будущих профилей. Должна быть закрыта до start работ над workspace.
 
 ---
 
@@ -101,7 +101,7 @@ SCOPE ВКЛЮЧАЕТ:
 SCOPE НЕ ВКЛЮЧАЕТ:
 - Server-fetched profiles (`NetworkProfileSource`) — добавляется additively позже.
 - Sharing/import profiles — TASK-35 (Marketplace) в Phase 5.
-- Профильно-специфические pool entries (pairing-list — TASK-59, workspace JSON — TASK-60).
+- Профильно-специфические pool entries (pairing-list — TASK-63, workspace JSON — TASK-64).
 - Extraction в sub-repo / shared library — kept в monorepo per rule 4. Trigger: messenger TASK-27 / photo TASK-28.
 - Push notifications для missing requirements — per rule 10 используем in-app reminders, не push.
 
@@ -132,7 +132,7 @@ EFFORT: Medium (~2 weeks).
 
 ## Sequences
 
-> **Одной строкой:** TASK-57 превращает «один профиль захардкожен в коде» в «любой профиль = JSON-пик из каталога, выбирается один раз, дальше boot работает без проверок».
+> **Одной строкой:** TASK-61 превращает «один профиль захардкожен в коде» в «любой профиль = JSON-пик из каталога, выбирается один раз, дальше boot работает без проверок».
 
 ### Данные, которыми мы оперируем (mini-map)
 
@@ -146,7 +146,7 @@ Pools (каталоги — истина):                     Профили (J
 │   ├── tile.contacts                              ├── picks: [tile.dummy]
 │   ├── tile.calls                                 └── requires: [] (ничего не требует)
 │   └── tile.settings
-└── wizard-step.pool.json (новое в TASK-57)
+└── wizard-step.pool.json (новое в TASK-61)
     ├── wizard.step.google-sign-in
     └── wizard.step.choose-tile-set
 ```
@@ -157,7 +157,7 @@ Pools (каталоги — истина):                     Профили (J
 
 Тот же механизм profile + pools + wizard будет переиспользован за пределами лаунчера — у **messenger** и **photo app** (Phase 3+). Core competency family-продукта — **настройки Android + UI customization + elder-friendly UX**. Лаунчер-специфичные pools (`tile.pool`, layout) — application-specific; `system-settings.pool` + `ui-customization.pool` (font size, contrast, tap target) — **shared между всеми family-приложениями**.
 
-**В TASK-57 НЕ извлекаем в sub-repo** (rule 4 — minimum viable architecture). НО соблюдаем **extraction-readiness дисциплину**: lint запрещает launcher-specific imports в `core/profiles`, `core/wizard`, `core/pools`. Когда придёт messenger (TASK-27 P-2) — extraction = `git mv` + dependency swap, не rewrite. Эта инвариантa — fitness function TASK-57.
+**В TASK-61 НЕ извлекаем в sub-repo** (rule 4 — minimum viable architecture). НО соблюдаем **extraction-readiness дисциплину**: lint запрещает launcher-specific imports в `core/profiles`, `core/wizard`, `core/pools`. Когда придёт messenger (TASK-27 P-2) — extraction = `git mv` + dependency swap, не rewrite. Эта инвариантa — fitness function TASK-61.
 
 ### SEQ-1: Первая установка → выбор профиля
 
@@ -397,20 +397,20 @@ sequenceDiagram
 
 - **Это твоя axiom из последнего сообщения:** «в настройках должны висеть напоминалки — смотри вот это и это не настроено, поэтому твое приложение в этом профиле работает некорректно».
 - **Per rule 10 (notification minimization):** banner внутри Settings — **in-app indicator**, не push notification. Push'и не отсылаем — пользователь сам пришёл в Settings, увидел картинку.
-- **RequirementsChecker — тот же** что в SEQ-1 и SEQ-2. Diff-engine один на все 4 потока: install / switch / reminder / on-demand recheck. Это одна из главных архитектурных побед TASK-57.
+- **RequirementsChecker — тот же** что в SEQ-1 и SEQ-2. Diff-engine один на все 4 потока: install / switch / reminder / on-demand recheck. Это одна из главных архитектурных побед TASK-61.
 - **Boot всё ещё не проверяет (SEQ-3).** Проверка происходит только когда Settings открывается — это **explicit user gesture**, не background работа.
 - **Между приложениями (cross-app vision):** messenger / photo app будут иметь свой Settings экран с тем же механизмом — каждый показывает reminders по СВОИМ profile.requires. Shared RC + shared Settings template, app-specific pools.
 <!-- MENTOR-DETAIL:END -->
 
-### Что TASK-57 НЕ делает (явно)
+### Что TASK-61 НЕ делает (явно)
 
-- **НЕ строит pairing** (TASK-59). Pool entries `tile.pairing.*` появятся там.
-- **НЕ строит bucket registry** (TASK-58). Хранение данных под profile'ом — отдельная foundation.
-- **НЕ создаёт workspace профиль** (TASK-60). Создаёт только инфру, чтобы workspace мог появиться как pure JSON.
+- **НЕ строит pairing** (TASK-63). Pool entries `tile.pairing.*` появятся там.
+- **НЕ строит bucket registry** (TASK-62). Хранение данных под profile'ом — отдельная foundation.
+- **НЕ создаёт workspace профиль** (TASK-64). Создаёт только инфру, чтобы workspace мог появиться как pure JSON.
 - **НЕ делает server-fetched profiles.** ConfigSource — port, но только `BundledConfigSource` сейчас реализован. Network — позже, additively.
 - **НЕ извлекает foundation в sub-repo / shared library.** Modules `core/profiles`, `core/wizard`, `core/pools` остаются в monorepo per rule 4 (MVA). Extraction-trigger: появление второго family-приложения (messenger TASK-27 / photo app TASK-28). Exit ramp: extraction-readiness lint обеспечивает, что extraction будет `git mv` + dependency swap, не rewrite.
 
-### Самые важные fitness functions (после TASK-57 они охраняют систему)
+### Самые важные fitness functions (после TASK-61 они охраняют систему)
 
 1. **Lint: no `profileId == "x"`** — никто не сможет добавить ветку по имени профиля, иначе pre-commit падает.
 2. **No `appFamilyId` в wizard manifest** — формат manifest'а не знает о профиле; profile.json ссылается на manifest по id, не наоборот.
