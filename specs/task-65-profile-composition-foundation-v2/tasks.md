@@ -271,7 +271,7 @@
        Acceptance: test marked `@Ignore`; class compiles.
        Depends: T630, T631.
 
-- [ ] **T66D** Create `core/src/test/kotlin/com/launcher/api/wizard/EngineGenericityFitnessTest.kt` — JVM unit. Load `test-preset.json` (T653) via FakeConfigSource → `WizardEngine.computePending(settings)` → verify dispatched handler == `UIFontChecker` (not Android-permission); set fontScale=1.5 via `FakeUserPreferencesStore` → re-check returns missing=[]. (FR-026, US-8)
+- [x] **T66D** Create `core/src/test/kotlin/com/launcher/api/wizard/EngineGenericityFitnessTest.kt` — JVM unit. Load `test-preset.json` (T653) via FakeConfigSource → `WizardEngine.computePending(settings)` → verify dispatched handler == `UIFontChecker` (not Android-permission); set fontScale=1.5 via `FakeUserPreferencesStore` → re-check returns missing=[]. (FR-026, US-8)
        Acceptance: test green.
        Depends: T615, T654, T653.
 
@@ -291,7 +291,7 @@
        Acceptance: first run creates golden file; subsequent runs assert equality.
        Depends: T650, T642, T644.
 
-- [ ] **T66H** Create `core/src/test/kotlin/com/launcher/adapters/profile/PreferencesProfileStoreTest.kt` — covers (a) roundtrip save → load, (b) legacy migration trigger (`wizard_done=true && applied_preset_id=null` → `activePresetRef=PresetRef("com.launcher.preset.simple-launcher", 1)` + ProfileData inserted), (c) idempotent: 2nd migration call no-op. (FR-015, FR-018, US-3)
+- [x] **T66H** Create `core/src/test/kotlin/com/launcher/adapters/profile/PreferencesProfileStoreTest.kt` — covers (a) roundtrip save → load, (b) legacy migration trigger (`wizard_done=true && applied_preset_id=null` → `activePresetRef=PresetRef("com.launcher.preset.simple-launcher", 1)` + ProfileData inserted), (c) idempotent: 2nd migration call no-op. (FR-015, FR-018, US-3)
        Acceptance: 3 sub-tests green.
        Depends: T647.
 
