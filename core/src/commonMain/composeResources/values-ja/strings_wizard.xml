@@ -4,4 +4,22 @@
     <string name="wizard_next">次へ</string>
     <string name="wizard_skip">スキップ</string>
     <string name="wizard_back">戻る</string>
+
+    <!-- TASK-65 (T65F) — preset picker, settings reminders, boot banner -->
+    <string name="preset_simple_launcher_label">シンプルランチャー</string>
+    <string name="preset_simple_launcher_description">大きなタイルと最小限のボタン — 高齢の方や落ち着いたホーム画面を好む方に最適です。</string>
+    <string name="preset_launcher_label">クラシックランチャー</string>
+    <string name="preset_launcher_description">標準的な Android 風のグリッド：すべてのアプリがホーム画面に並びます。</string>
+    <string name="preset_workspace_label">ワークスペース</string>
+    <string name="preset_workspace_description">仕事用ツールとクイックリンク向けの複数画面レイアウト。</string>
+    <string name="settings_role_home_title">このアプリを既定のランチャーに設定</string>
+    <string name="settings_role_home_description">ホームボタンでこのアプリが開くために必要です。</string>
+    <string name="settings_post_notifications_title">通知を許可</string>
+    <string name="settings_post_notifications_description">家族からのメッセージや大切なリマインダーを見逃さないために。</string>
+    <string name="settings_font_large_title">大きな文字を使う</string>
+    <string name="settings_font_large_description">読みやすい推奨サイズです。</string>
+    <string name="home_banner_critical_missing_title">大切な設定が未完了です</string>
+    <string name="home_banner_critical_missing_cta">設定する</string>
+    <string name="home_banner_dismiss_later">あとで</string>
+    <string name="settings_change_preset_label">プリセットを変更</string>
 </resources>

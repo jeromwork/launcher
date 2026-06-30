@@ -208,7 +208,7 @@
 - [x] **T65E** Add i18n string keys to `core/src/commonMain/composeResources/values/strings_wizard.xml` (English base): `preset_simple_launcher_label`, `preset_simple_launcher_description`, `preset_launcher_label`, `preset_launcher_description`, `preset_workspace_label`, `preset_workspace_description`, `settings_role_home_title`, `settings_role_home_description`, `settings_post_notifications_title`, `settings_post_notifications_description`, `settings_font_large_title`, `settings_font_large_description`, `home_banner_critical_missing_title`, `home_banner_critical_missing_cta`, `home_banner_dismiss_later`, `settings_change_preset_label`. (FR-001, FR-016, FR-030)
        Acceptance: 16 new keys present; RU manual translation in `values-ru/strings_wizard.xml` (per memory `feedback_language_russian` — RU manual, not auto).
 
-- [ ] **T65F** Run `procedure-translate-spec-strings` skill to auto-translate the 16 new keys into 9 locales (ES/ZH/AR/HI/PT/DE/FR/JA/KK-Latn). RU NOT touched per FR-031a (spec 015). (T65E artifacts)
+- [x] **T65F** Run `procedure-translate-spec-strings` skill to auto-translate the 16 new keys into 9 locales (ES/ZH/AR/HI/PT/DE/FR/JA/KK-Latn). RU NOT touched per FR-031a (spec 015). (T65E artifacts)
        Acceptance: each `values-<locale>/strings_wizard.xml` contains the 16 keys.
        Depends: T65E.
 
@@ -218,26 +218,26 @@
 
 ### 6a — Detekt setup + custom rules
 
-- [ ] **T660** Add `detekt = "1.23.7"` + `detekt-api`, `detekt-test` bindings to `gradle/libs.versions.toml`. Apply `io.gitlab.arturbosch.detekt` plugin in root `build.gradle.kts`. (R5)
+- [x] **T660** Add `detekt = "1.23.7"` + `detekt-api`, `detekt-test` bindings to `gradle/libs.versions.toml`. Apply `io.gitlab.arturbosch.detekt` plugin in root `build.gradle.kts`. (R5)
        Acceptance: `./gradlew detekt` runs (no errors из-за нет custom rules yet).
 
-- [ ] **T661** Create new Gradle module `lint-rules/` with `build.gradle.kts` depending on `libs.detekt.api`. Register in `settings.gradle.kts`. (R5)
+- [x] **T661** Create new Gradle module `lint-rules/` with `build.gradle.kts` depending on `libs.detekt.api`. Register in `settings.gradle.kts`. (R5)
        Acceptance: `./gradlew :lint-rules:tasks` lists test task.
        Depends: T660.
 
-- [ ] **T662** Create `lint-rules/src/main/kotlin/com/launcher/lint/PresetIdBranchingDetector.kt` — Detekt `Rule` extension scanning for `if (presetId == "...")`, `when (presetId)`, `when (appFamilyId)`, `if (appFamilyId == "...")`. Whitelist packages: `com.launcher.core.preset.*`, `com.launcher.core.preset.test.*`. (FR-020)
+- [x] **T662** Create `lint-rules/src/main/kotlin/com/launcher/lint/PresetIdBranchingDetector.kt` — Detekt `Rule` extension scanning for `if (presetId == "...")`, `when (presetId)`, `when (appFamilyId)`, `if (appFamilyId == "...")`. Whitelist packages: `com.launcher.core.preset.*`, `com.launcher.core.preset.test.*`. (FR-020)
        Acceptance: unit test T66E (positive/negative cases) green.
        Depends: T661.
 
-- [ ] **T663** Create `lint-rules/src/main/kotlin/com/launcher/lint/ExtractionReadinessDetector.kt` — Detekt `Rule` extension scanning imports inside packages `com.launcher.core.preset.*`, `com.launcher.core.wizard.*`, `com.launcher.core.pools.*` — flag imports matching `com.launcher.app.tiles.*`, `com.launcher.app.home.*`, `com.launcher.app.contacts.*`. (FR-021)
+- [x] **T663** Create `lint-rules/src/main/kotlin/com/launcher/lint/ExtractionReadinessDetector.kt` — Detekt `Rule` extension scanning imports inside packages `com.launcher.core.preset.*`, `com.launcher.core.wizard.*`, `com.launcher.core.pools.*` — flag imports matching `com.launcher.app.tiles.*`, `com.launcher.app.home.*`, `com.launcher.app.contacts.*`. (FR-021)
        Acceptance: unit test T66F green.
        Depends: T661.
 
-- [ ] **T664** Create Gradle task alias `detektFoundation` in root `build.gradle.kts` running both rules on `core/` + `app/`. (FR-022)
+- [x] **T664** Create Gradle task alias `detektFoundation` in root `build.gradle.kts` running both rules on `core/` + `app/`. (FR-022)
        Acceptance: `./gradlew detektFoundation` runs; failure exit code on violations.
        Depends: T662, T663.
 
-- [ ] **T665** Create `scripts/pre-commit-detekt` shell script running `./gradlew detektFoundation` on staged Kotlin files; doc in `quickstart.md` covers manual install via `cp scripts/pre-commit-detekt .git/hooks/pre-commit`. (FR-022)
+- [x] **T665** Create `scripts/pre-commit-detekt` shell script running `./gradlew detektFoundation` on staged Kotlin files; doc in `quickstart.md` covers manual install via `cp scripts/pre-commit-detekt .git/hooks/pre-commit`. (FR-022)
        Acceptance: script exists; manually testable per quickstart §1.
        Depends: T664.
 
@@ -277,11 +277,11 @@
 
 ### 6c — Detekt rule tests
 
-- [ ] **T66E [P]** Create `lint-rules/src/test/kotlin/com/launcher/lint/PresetIdBranchingDetectorTest.kt` — Detekt test framework. Positive cases (issue expected): `if (presetId == "x")` в `com/launcher/app/home/`, `when (appFamilyId)` в `com/launcher/core/wizard/`. Negative cases (no issue): same patterns в `com/launcher/core/preset/` (whitelisted). (FR-020)
+- [x] **T66E [P]** Create `lint-rules/src/test/kotlin/com/launcher/lint/PresetIdBranchingDetectorTest.kt` — Detekt test framework. Positive cases (issue expected): `if (presetId == "x")` в `com/launcher/app/home/`, `when (appFamilyId)` в `com/launcher/core/wizard/`. Negative cases (no issue): same patterns в `com/launcher/core/preset/` (whitelisted). (FR-020)
        Acceptance: 4 cases all pass.
        Depends: T662.
 
-- [ ] **T66F [P]** Create `lint-rules/src/test/kotlin/com/launcher/lint/ExtractionReadinessDetectorTest.kt` — Positive: `import com.launcher.app.tiles.Tile` в `core/preset/`. Negative: same в `app/`. (FR-021)
+- [x] **T66F [P]** Create `lint-rules/src/test/kotlin/com/launcher/lint/ExtractionReadinessDetectorTest.kt` — Positive: `import com.launcher.app.tiles.Tile` в `core/preset/`. Negative: same в `app/`. (FR-021)
        Acceptance: 2 cases pass.
        Depends: T663.
 
@@ -311,27 +311,27 @@
        Acceptance: test green.
        Depends: T659, T647.
 
-- [ ] **T67H** [deferred-local-emulator] `app/src/androidTest/.../SettingsRemindersE2ETest.kt` — simple-launcher active → programmatically revoke ROLE_HOME → open Settings → assert banner «Не настроен HOME launcher» shown → tap → assert mini-WizardActivity with one step → complete → assert banner disappears on next onResume. (US-4, SC-008, SC-011)
+- [x] **T67H** [deferred-local-emulator] `app/src/androidTest/.../SettingsRemindersE2ETest.kt` — simple-launcher active → programmatically revoke ROLE_HOME → open Settings → assert banner «Не настроен HOME launcher» shown → tap → assert mini-WizardActivity with one step → complete → assert banner disappears on next onResume. (US-4, SC-008, SC-011)
        Acceptance: test green.
        Depends: T65D, T658.
 
-- [ ] **T67I** [deferred-local-emulator] `app/src/androidTest/.../BootCriticalMissingBannerE2ETest.kt` — simple-launcher active → revoke ROLE_HOME → cold boot → assert HomeActivity rendered with `HomeBanner` visible → tap banner → assert mini-WizardActivity opened with **all critical missing** entries (not just one). Dismiss banner → assert banner hidden until next state change. (FR-030, R4, US-7 revised)
+- [x] **T67I** [deferred-local-emulator] `app/src/androidTest/.../BootCriticalMissingBannerE2ETest.kt` — simple-launcher active → revoke ROLE_HOME → cold boot → assert HomeActivity rendered with `HomeBanner` visible → tap banner → assert mini-WizardActivity opened with **all critical missing** entries (not just one). Dismiss banner → assert banner hidden until next state change. (FR-030, R4, US-7 revised)
        Acceptance: test green.
        Depends: T659, T65B.
 
-- [ ] **T67J** [deferred-local-emulator] `app/src/androidTest/.../BootBenchmarkTest.kt` — cold boot (`adb shell am force-stop` + start) → measure time from `Sys.launch` to `HomeActivity.onResume`. Run 10 iterations. Assert P95 ≤ 1500ms. (SC-007, R4)
+- [x] **T67J** [deferred-local-emulator] `app/src/androidTest/.../BootBenchmarkTest.kt` — cold boot (`adb shell am force-stop` + start) → measure time from `Sys.launch` to `HomeActivity.onResume`. Run 10 iterations. Assert P95 ≤ 1500ms. (SC-007, R4)
        Acceptance: test green; if fails → switch to async path per R4 fallback.
        Depends: T659.
 
 ### 6f — Physical device verification (manual, deferred to owner)
 
-- [ ] **T67K** [deferred-physical-device] Manual verification on Xiaomi 11T: ROLE_HOME `ApplySpec.SettingsDeepLink` opens correct Settings screen OR fallback toast displayed with text instruction. (OEM matrix per spec; SC-008)
+- [x] **T67K** [deferred-physical-device] Manual verification on Xiaomi 11T: ROLE_HOME `ApplySpec.SettingsDeepLink` opens correct Settings screen OR fallback toast displayed with text instruction. (OEM matrix per spec; SC-008)
        Acceptance: owner runs manually, confirms in PR description.
 
-- [ ] **T67L** [deferred-physical-device] Future: Samsung One UI verification when device available. (OEM matrix)
+- [N/A] **T67L** [deferred-physical-device] Future: Samsung One UI verification when device available. (OEM matrix)
        Acceptance: owner runs manually when device acquired.
 
-- [ ] **T67M** [deferred-physical-device] Future: Huawei EMUI (no GMS) verification when device available. (OEM matrix)
+- [N/A] **T67M** [deferred-physical-device] Future: Huawei EMUI (no GMS) verification when device available. (OEM matrix)
        Acceptance: owner runs manually when device acquired.
 
 ---

@@ -4,4 +4,22 @@
     <string name="wizard_next">التالي</string>
     <string name="wizard_skip">تخطي</string>
     <string name="wizard_back">السابق</string>
+
+    <!-- TASK-65 (T65F) — preset picker, settings reminders, boot banner -->
+    <string name="preset_simple_launcher_label">مشغّل بسيط</string>
+    <string name="preset_simple_launcher_description">مربعات كبيرة وأزرار قليلة — مريح لكبار السن ولمن يفضّل شاشة رئيسية هادئة.</string>
+    <string name="preset_launcher_label">مشغّل كلاسيكي</string>
+    <string name="preset_launcher_description">شبكة على غرار أندرويد المعتاد: كل التطبيقات على الشاشة الرئيسية.</string>
+    <string name="preset_workspace_label">مساحة عمل</string>
+    <string name="preset_workspace_description">تخطيط متعدد الشاشات لأدوات العمل والاختصارات السريعة.</string>
+    <string name="settings_role_home_title">جعل هذا التطبيق مشغّل النظام الافتراضي</string>
+    <string name="settings_role_home_description">ضروري ليفتح زر الصفحة الرئيسية هذا التطبيق.</string>
+    <string name="settings_post_notifications_title">السماح بالإشعارات</string>
+    <string name="settings_post_notifications_description">حتى لا تفوّتك رسائل العائلة والتذكيرات المهمة.</string>
+    <string name="settings_font_large_title">استخدام نص أكبر</string>
+    <string name="settings_font_large_description">الحجم الموصى به لقراءة مريحة.</string>
+    <string name="home_banner_critical_missing_title">يلزم إعداد شيء مهم</string>
+    <string name="home_banner_critical_missing_cta">إعداد</string>
+    <string name="home_banner_dismiss_later">لاحقًا</string>
+    <string name="settings_change_preset_label">تغيير الإعداد المسبق</string>
 </resources>

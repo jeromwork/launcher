@@ -4,4 +4,22 @@
     <string name="wizard_next">Próximo</string>
     <string name="wizard_skip">Pular</string>
     <string name="wizard_back">Voltar</string>
+
+    <!-- TASK-65 (T65F) — preset picker, settings reminders, boot banner -->
+    <string name="preset_simple_launcher_label">Lançador simples</string>
+    <string name="preset_simple_launcher_description">Blocos grandes, poucos botões — confortável para idosos e para quem quer uma tela inicial tranquila.</string>
+    <string name="preset_launcher_label">Lançador clássico</string>
+    <string name="preset_launcher_description">Grade no estilo Android: todos os aplicativos na tela inicial.</string>
+    <string name="preset_workspace_label">Espaço de trabalho</string>
+    <string name="preset_workspace_description">Várias telas para ferramentas de trabalho e atalhos rápidos.</string>
+    <string name="settings_role_home_title">Definir este aplicativo como inicializador padrão</string>
+    <string name="settings_role_home_description">Necessário para que o botão Início abra este aplicativo.</string>
+    <string name="settings_post_notifications_title">Permitir notificações</string>
+    <string name="settings_post_notifications_description">Para não perder mensagens da família e lembretes importantes.</string>
+    <string name="settings_font_large_title">Usar texto maior</string>
+    <string name="settings_font_large_description">Tamanho recomendado para leitura confortável.</string>
+    <string name="home_banner_critical_missing_title">Falta configurar algo importante</string>
+    <string name="home_banner_critical_missing_cta">Configurar</string>
+    <string name="home_banner_dismiss_later">Mais tarde</string>
+    <string name="settings_change_preset_label">Mudar predefinição</string>
 </resources>

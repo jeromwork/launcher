@@ -17,6 +17,7 @@ dependencyResolutionManagement {
 rootProject.name = "launcher"
 
 include(":app", ":core", ":core:crypto", ":core:keys", ":core:push", ":core:cloud")
+include(":lint-rules")
 
 // Future feature modules (pattern :feature-* per spec FR-019), e.g.:
 // include(":feature-favorites")

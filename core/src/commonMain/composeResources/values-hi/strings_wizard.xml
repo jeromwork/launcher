@@ -4,4 +4,22 @@
     <string name="wizard_next">अगला</string>
     <string name="wizard_skip">छोड़ें</string>
     <string name="wizard_back">पीछे</string>
+
+    <!-- TASK-65 (T65F) — preset picker, settings reminders, boot banner -->
+    <string name="preset_simple_launcher_label">सरल लॉन्चर</string>
+    <string name="preset_simple_launcher_description">बड़े टाइल और कम बटन — बुज़ुर्गों और शांत होम स्क्रीन पसंद करने वालों के लिए सुविधाजनक।</string>
+    <string name="preset_launcher_label">क्लासिक लॉन्चर</string>
+    <string name="preset_launcher_description">सामान्य Android जैसा ग्रिड: सभी ऐप होम स्क्रीन पर।</string>
+    <string name="preset_workspace_label">वर्कस्पेस</string>
+    <string name="preset_workspace_description">काम के टूल और त्वरित लिंक के लिए कई स्क्रीन वाला लेआउट।</string>
+    <string name="settings_role_home_title">इस ऐप को डिफ़ॉल्ट लॉन्चर बनाएँ</string>
+    <string name="settings_role_home_description">होम बटन से यही ऐप खुले, इसके लिए ज़रूरी है।</string>
+    <string name="settings_post_notifications_title">सूचनाओं की अनुमति दें</string>
+    <string name="settings_post_notifications_description">परिवार के संदेश और ज़रूरी रिमाइंडर मिस न हों।</string>
+    <string name="settings_font_large_title">बड़ा टेक्स्ट इस्तेमाल करें</string>
+    <string name="settings_font_large_description">आरामदायक पढ़ाई के लिए अनुशंसित आकार।</string>
+    <string name="home_banner_critical_missing_title">कुछ ज़रूरी सेटअप बाक़ी है</string>
+    <string name="home_banner_critical_missing_cta">सेट करें</string>
+    <string name="home_banner_dismiss_later">बाद में</string>
+    <string name="settings_change_preset_label">प्रीसेट बदलें</string>
 </resources>

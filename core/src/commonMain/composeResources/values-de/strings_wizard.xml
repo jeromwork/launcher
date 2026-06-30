@@ -4,4 +4,22 @@
     <string name="wizard_next">Weiter</string>
     <string name="wizard_skip">Überspringen</string>
     <string name="wizard_back">Zurück</string>
+
+    <!-- TASK-65 (T65F) — preset picker, settings reminders, boot banner -->
+    <string name="preset_simple_launcher_label">Einfacher Launcher</string>
+    <string name="preset_simple_launcher_description">Große Kacheln, wenige Schaltflächen — bequem für ältere Menschen und alle, die einen ruhigen Startbildschirm bevorzugen.</string>
+    <string name="preset_launcher_label">Klassischer Launcher</string>
+    <string name="preset_launcher_description">Standard-Android-Raster: alle Apps auf dem Startbildschirm.</string>
+    <string name="preset_workspace_label">Arbeitsbereich</string>
+    <string name="preset_workspace_description">Mehrere Bildschirme für Arbeitstools und Schnellverknüpfungen.</string>
+    <string name="settings_role_home_title">Diese App als Standard-Launcher festlegen</string>
+    <string name="settings_role_home_description">Erforderlich, damit die Home-Taste diese App öffnet.</string>
+    <string name="settings_post_notifications_title">Benachrichtigungen erlauben</string>
+    <string name="settings_post_notifications_description">Damit du keine Familiennachrichten und wichtigen Erinnerungen verpasst.</string>
+    <string name="settings_font_large_title">Größeren Text verwenden</string>
+    <string name="settings_font_large_description">Empfohlene Größe für komfortables Lesen.</string>
+    <string name="home_banner_critical_missing_title">Wichtige Einstellung fehlt</string>
+    <string name="home_banner_critical_missing_cta">Einrichten</string>
+    <string name="home_banner_dismiss_later">Später</string>
+    <string name="settings_change_preset_label">Voreinstellung wechseln</string>
 </resources>

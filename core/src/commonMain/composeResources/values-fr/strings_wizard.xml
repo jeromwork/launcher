@@ -4,4 +4,22 @@
     <string name="wizard_next">Suivant</string>
     <string name="wizard_skip">Passer</string>
     <string name="wizard_back">Retour</string>
+
+    <!-- TASK-65 (T65F) — preset picker, settings reminders, boot banner -->
+    <string name="preset_simple_launcher_label">Lanceur simple</string>
+    <string name="preset_simple_launcher_description">Grandes tuiles, peu de boutons — pratique pour les seniors et pour qui souhaite un écran d\'accueil calme.</string>
+    <string name="preset_launcher_label">Lanceur classique</string>
+    <string name="preset_launcher_description">Grille Android standard : toutes les applications sur l\'écran d\'accueil.</string>
+    <string name="preset_workspace_label">Espace de travail</string>
+    <string name="preset_workspace_description">Plusieurs écrans pour les outils de travail et les raccourcis rapides.</string>
+    <string name="settings_role_home_title">Définir cette application comme lanceur par défaut</string>
+    <string name="settings_role_home_description">Nécessaire pour que le bouton Accueil ouvre cette application.</string>
+    <string name="settings_post_notifications_title">Autoriser les notifications</string>
+    <string name="settings_post_notifications_description">Pour ne pas manquer les messages de la famille et les rappels importants.</string>
+    <string name="settings_font_large_title">Utiliser un texte plus grand</string>
+    <string name="settings_font_large_description">Taille recommandée pour une lecture confortable.</string>
+    <string name="home_banner_critical_missing_title">Un réglage important manque</string>
+    <string name="home_banner_critical_missing_cta">Configurer</string>
+    <string name="home_banner_dismiss_later">Plus tard</string>
+    <string name="settings_change_preset_label">Changer de préréglage</string>
 </resources>

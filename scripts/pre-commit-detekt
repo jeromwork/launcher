@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# TASK-65 T665 — pre-commit hook running the 2 custom fitness rules
+# (PresetIdBranching + ExtractionReadiness) against staged .kt files.
+#
+# Install: cp scripts/pre-commit-detekt .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+#
+# Skips silently when no .kt files are staged.
+
+set -e
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep '\.kt$' || true)
+if [ -z "$STAGED" ]; then
+    exit 0
+fi
+
+echo "[pre-commit-detekt] running detektFoundation on staged Kotlin files..."
+./gradlew detektFoundation --quiet
+echo "[pre-commit-detekt] OK"
