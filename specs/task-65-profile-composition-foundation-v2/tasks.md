@@ -267,7 +267,7 @@
        Acceptance: test green; no exception bubbles.
        Depends: T618.
 
-- [ ] **T66C** Create `core/src/test/kotlin/com/launcher/api/pools/PoolSourceRoundtripTest.kt` — JVM unit. `HardcodedPoolSource.listEntries("system-settings")` equality vs `JsonAssetPoolSource.listEntries("system-settings")`. JsonAssetPoolSource throws `NotImplementedError` (scaffold) — test annotated `@Ignore("scaffold, see plan R3 / quickstart")` with TODO. (FR-027)
+- [x] **T66C** Create `core/src/test/kotlin/com/launcher/api/pools/PoolSourceRoundtripTest.kt` — JVM unit. `HardcodedPoolSource.listEntries("system-settings")` equality vs `JsonAssetPoolSource.listEntries("system-settings")`. JsonAssetPoolSource throws `NotImplementedError` (scaffold) — test annotated `@Ignore("scaffold, see plan R3 / quickstart")` with TODO. (FR-027)
        Acceptance: test marked `@Ignore`; class compiles.
        Depends: T630, T631.
 
@@ -287,7 +287,7 @@
 
 ### 6d — Regression + Migration tests
 
-- [ ] **T66G** Create `core/src/test/kotlin/com/launcher/api/preset/SimpleLauncherCompositionRegressionTest.kt` — snapshot test: wizard derived from `simple-launcher.preset.json` (via composition engine) equals golden file `core/src/test/resources/fixtures/wizard-simple-launcher-golden.json`. (FR-025, SC-010)
+- [x] **T66G** Create `core/src/test/kotlin/com/launcher/api/preset/SimpleLauncherCompositionRegressionTest.kt` — snapshot test: wizard derived from `simple-launcher.preset.json` (via composition engine) equals golden file `core/src/test/resources/fixtures/wizard-simple-launcher-golden.json`. (FR-025, SC-010)
        Acceptance: first run creates golden file; subsequent runs assert equality.
        Depends: T650, T642, T644.
 
