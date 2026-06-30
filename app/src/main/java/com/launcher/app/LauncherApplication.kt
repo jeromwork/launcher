@@ -25,6 +25,8 @@ import com.launcher.api.wizard.UserPreferencesStore
 import com.launcher.core.LauncherCore
 import com.launcher.di.backendModule
 import com.launcher.di.setupModule
+import com.launcher.app.data.identity.InitClaimClient
+import com.launcher.app.data.identity.InitClaimResult
 import com.launcher.ui.di.androidPlatformModule
 import com.launcher.ui.di.coreCommonModule
 import family.keys.api.AuthIdentity
@@ -166,12 +168,45 @@ class LauncherApplication : Application(), Configuration.Provider {
             .distinctUntilChangedBy { it?.stableId }
             .onEach { identity ->
                 if (identity != null) {
+                    // task-6 Track B/C wiring 2026-06-30: bind stableId custom
+                    // claim on the Firebase Auth user before any downstream
+                    // bootstrap. Idempotent — the identity Worker short-circuits
+                    // on existing binding without re-allocating UUID. Absent in
+                    // mockBackend (Koin binding lives in F018KeysBackendModule
+                    // realBackend variant only).
+                    ensureIdentityClaim(identity)
                     bootstrapEnvelope(identity)
                 } else {
                     teardownEnvelope()
                 }
             }
             .launchIn(applicationScope)
+    }
+
+    private suspend fun ensureIdentityClaim(identity: AuthIdentity) {
+        val client = org.koin.java.KoinJavaComponent.getKoin().getOrNull<InitClaimClient>()
+        if (client == null) {
+            Log.d(TAG_ENVELOPE, "init-claim skipped (no InitClaimClient in DI — mockBackend?)")
+            return
+        }
+        when (val r = client.initClaim(identity.stableId)) {
+            is InitClaimResult.Success -> Log.i(
+                TAG_ENVELOPE,
+                "init-claim ok for uid=${identity.stableId} stableId=${r.stableId}"
+            )
+            InitClaimResult.AuthExpired -> Log.w(
+                TAG_ENVELOPE,
+                "init-claim AuthExpired for uid=${identity.stableId}"
+            )
+            InitClaimResult.NetworkUnavailable -> Log.w(
+                TAG_ENVELOPE,
+                "init-claim NetworkUnavailable for uid=${identity.stableId} (will retry next launch)"
+            )
+            InitClaimResult.MalformedResponse -> Log.e(
+                TAG_ENVELOPE,
+                "init-claim MalformedResponse for uid=${identity.stableId} — worker contract drift"
+            )
+        }
     }
 
     private fun bootstrapEnvelope(identity: AuthIdentity) {
