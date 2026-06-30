@@ -4,7 +4,7 @@ title: Profile Composition Foundation v2
 status: In Progress
 assignee: []
 created_date: '2026-06-28 18:30'
-updated_date: '2026-06-30 12:00'
+updated_date: '2026-06-30 20:00'
 labels:
   - phase-2
   - foundation
@@ -419,13 +419,15 @@ sequenceDiagram
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Установил APK с чистого листа → увидел экран выбора профиля → выбрал simple-launcher → визард прошёл идентично TASK-7
-- [ ] #2 В Settings → 'Сменить профиль' → переключил на dummy test-profile → визард показал только недостающие шаги → после визарда профиль активен
-- [ ] #3 Существующий simple-launcher пользователь после установки нового APK видит свой профиль автоматически (миграция)
-- [ ] #4 Lint падает на попытке закоммитить код с `if (profileId == "simple-launcher")` или `when (appFamilyId)` в core/ или app/
-- [ ] #5 Документация pool-naming.md написана простым русским, новичок может прочитать и понять как добавить новый pool entry
-- [ ] #6 Boot приложения после первой настройки НЕ проверяет профиль, идёт сразу в last-known-good state
-- [ ] #7 В Settings вижу banner-карточки 'не настроено: X' для каждого missing requirement профиля → тап → mini-wizard для одного шага → после исправления banner исчезает
-- [ ] #8 RequirementsChecker generic: добавил `CheckSpec.UIFont` variant + использовал в test-profile.json → engine корректно проверяет non-Android требование и строит wizard step (демонстрирует cross-platform extensibility)
-- [ ] #9 Extraction-readiness lint падает на попытке импортировать launcher-specific тип (например `com.launcher.app.tiles.Tile`) в `core/profiles/` / `core/wizard/` / `core/pools/`
+- [ ] #1 [hand] Установил APK с чистого листа → увидел экран выбора **preset'а** → выбрал simple-launcher → визард прошёл идентично TASK-7 (SC-001)
+- [ ] #2 [hand] В Settings → 'Сменить preset' → переключил на dummy test-preset → визард показал только недостающие шаги → preset активен. Switch обратно на simple-launcher → прежние bindings восстановились из истории Profile (SC-002)
+- [ ] #3 [hand] Существующий simple-launcher пользователь после установки нового APK видит свой preset автоматически — без picker'а, без re-wizard (SC-003)
+- [ ] #4 [hand] Detekt `PresetIdBranchingDetector` падает на `if (presetId == "simple-launcher")`, `when (appFamilyId)` в core/ или app/ (вне whitelisted `core/presets/`) — SC-004
+- [ ] #5 [hand] Документация `contracts/pool-naming.md` написана простым русским, владелец-новичок может прочитать за <10 минут (SC-006)
+- [ ] #6 [hand] Boot приложения после первой настройки НЕ вызывает `WizardEngine.computePending()` — trace доказывает (SC-007)
+- [ ] #7 [hand] В Settings → отозвал ROLE_HOME руками → banner-карточка 'не настроено: HOME launcher' → тап → mini-wizard с ровно одним шагом → исправил → banner исчезает (SC-008 + SC-011)
+- [ ] #8 [hand] Generic engine: `CheckSpec.UIFont` variant + `test-preset.json` с non-Android требованием → engine корректно диспатчит, строит wizard step, после применения fontScale re-check возвращает missing=[] (SC-009)
+- [ ] #9 [hand] Detekt `ExtractionReadinessDetector` падает на `import com.launcher.app.tiles.Tile` в `core/presets/` / `core/wizard/` / `core/pools/` (SC-005)
+- [ ] #10 [hand] `PoolSource` swap: DI переключение между `HardcodedPoolSource` и `JsonAssetPoolSource` (когда последний реализован) — приложение работает идентично; roundtrip test гарантирует identical entries (SC-012)
+- [ ] #11 [hand] Naming inversion применён: в коде, spec'е, backlog AC используется **Preset** для shareable top-level и **Profile** для per-device personal data. Constitution amendment подготовлен (Article VII §9), требует владелец-approval перед merge
 <!-- AC:END -->
