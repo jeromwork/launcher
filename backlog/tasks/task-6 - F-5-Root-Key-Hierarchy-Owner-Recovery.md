@@ -1,10 +1,10 @@
 ---
 id: TASK-6
 title: Root Key Hierarchy + Owner Recovery
-status: In Progress
+status: Verification
 assignee: []
 created_date: '2026-06-23 05:01'
-updated_date: '2026-06-28 07:16'
+updated_date: '2026-06-30 08:55'
 labels:
   - phase-1
   - F-feature
@@ -138,7 +138,22 @@ EFFORT: Large (~2-3 weeks).
 - [N/A] #4 [hand] Migration со старого варианта шифрования — N/A. MVP, в production никто не пользуется spec-018 ciphertext'ом — мигрировать нечего. Снято.
 - [→ TASK-57 AC #2] #5 [hand] Android Autofill cross-device — **перенесён в TASK-57** (требует два физических устройства).
 - [x] #6 [hand] Документация recovery-flow.md написана простым русским, бабушка-админ может прочитать и понять — DONE (T673 committed 2026-06-29).
+- [x] #7 [auto:deferred-local-emulator] tasks.md 14/14 emulator-gated tasks — все закрыты (T642, T649-T652, T669-T670, T672, T630 N/A).
+- [ ] #8 [auto:deferred-physical-device] tasks.md 5/6 physical-device tasks — закрыты T643, T681, T684, T685; **открыт T682** (Fallback flow smoke on Xiaomi 11T).
+- [ ] #9 [auto:deferred-external] tasks.md 0/1 — **открыт T686** (owner peer-review docs/recovery-flow.md).
 <!-- AC:END -->
+
+<!-- SECTION:VERIFICATION_PENDING:BEGIN -->
+**Verification pending 2026-06-30** — PR opens in Verification state per CLAUDE.md status workflow.
+
+Pending AC for Done transition:
+- #2 / #8 [auto:deferred-physical-device] — T682 Fallback flow on Xiaomi 11T (5 wrong passphrases → Fallback screen → wipe → setup reopens).
+- #9 [auto:deferred-external] — T686 docs/recovery-flow.md peer review.
+
+Acquisition: both can run on the same Xiaomi 11T currently installed. No additional hardware needed.
+
+Once both close → re-run `pre-pr-backlog-sync` → status → Done.
+<!-- SECTION:VERIFICATION_PENDING:END -->
 
 ## Implementation Notes
 
