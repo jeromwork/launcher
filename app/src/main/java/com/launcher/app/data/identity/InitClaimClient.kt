@@ -38,8 +38,8 @@ class InitClaimClient(
     private val readTimeoutMillis: Int = DEFAULT_READ_TIMEOUT_MS,
 ) {
 
-    suspend fun initClaim(uid: String): InitClaimResult = withContext(Dispatchers.IO) {
-        require(uid.isNotEmpty()) { "uid MUST not be empty" }
+    suspend fun initClaim(stableId: String): InitClaimResult = withContext(Dispatchers.IO) {
+        require(stableId.isNotEmpty()) { "stableId MUST not be empty" }
         val token = idTokenProvider.currentIdToken()
             ?: return@withContext InitClaimResult.AuthExpired
 
@@ -49,12 +49,30 @@ class InitClaimClient(
             conn.doOutput = true
             conn.setRequestProperty("Authorization", "Bearer $token")
             conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-            val body = "{\"uid\":\"${uid.replace("\"", "\\\"")}\"}"
+            // Wire-format change 2026-06-30: identity worker derives Firebase
+            // uid from the verified JWT; body carries the F-4-issued stableId
+            // so the worker can bind the existing UUID rather than mint a new
+            // one (avoids dual-UUID conflict).
+            val body = "{\"stableId\":\"${stableId.replace("\"", "\\\"")}\"}"
             conn.outputStream.use { it.write(body.encodeToByteArray()) }
             val code = conn.responseCode
             return@withContext when (code) {
                 in 200..299 -> readSuccessOrMalformed(conn)
-                401, 403 -> InitClaimResult.AuthExpired
+                401, 403 -> {
+                    // task-6 wiring 2026-06-30: surface Worker's reason field
+                    // through Android log so identity-worker diagnostics doesn't
+                    // require a wrangler tail session.
+                    val errBody = try {
+                        conn.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                    } catch (_: IOException) {
+                        ""
+                    }
+                    android.util.Log.w(
+                        "InitClaimClient",
+                        "HTTP $code from identity worker; body=$errBody",
+                    )
+                    InitClaimResult.AuthExpired
+                }
                 in 500..599 -> InitClaimResult.NetworkUnavailable
                 else -> InitClaimResult.NetworkUnavailable
             }

@@ -12,6 +12,9 @@ import family.push.api.IdTokenProvider
  * delegates.
  */
 class FirebaseIdTokenProviderAdapter(
+    // task-6 wiring 2026-06-30: supplier is now a Koin singleton (shared with
+    // post-Sign-In invalidate hook in LauncherApplication). Default-constructor
+    // path retained for back-compat where someone wires the adapter manually.
     private val tokenSupplier: FirebaseTokenSupplier = FirebaseTokenSupplier(),
 ) : IdTokenProvider {
     override suspend fun currentIdToken(): String? = tokenSupplier.currentIdToken()

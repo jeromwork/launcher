@@ -92,30 +92,42 @@ async function routeRequest(
     return jsonResponse(401, { error: "INVALID_TOKEN", reason: verifyResult.error });
   }
 
-  let body: unknown;
+  // Wire-format change 2026-06-30: identity worker derives the Firebase uid
+  // from the verified JWT, NOT from the request body. Body may optionally
+  // carry `stableId` (client-supplied UUID v4 — e.g. F-4 GoogleSignInIdentity-
+  // Proof generates one locally). If present, worker binds it; otherwise
+  // mints a fresh one. This removes the source of UID_MISMATCH 403s when
+  // F-4 already owns the UUID lifecycle.
+  let body: unknown = {};
   try {
-    body = await request.json();
+    const raw = await request.text();
+    if (raw.length > 0) body = JSON.parse(raw);
   } catch {
     return jsonResponse(400, { error: "MALFORMED_BODY" });
   }
   if (typeof body !== "object" || body === null) {
     return jsonResponse(400, { error: "MALFORMED_BODY" });
   }
-  const bodyUid = (body as Record<string, unknown>)["uid"];
-  if (typeof bodyUid !== "string" || bodyUid.length === 0) {
-    return jsonResponse(400, { error: "MALFORMED_BODY" });
-  }
-  if (verifyResult.claims.uid !== bodyUid) {
-    return jsonResponse(403, { error: "UID_MISMATCH" });
-  }
+  const firebaseUid = verifyResult.claims.uid;
+  const clientStableId = (body as Record<string, unknown>)["stableId"];
+  const suppliedStableId =
+    typeof clientStableId === "string" && clientStableId.length > 0
+      ? clientStableId
+      : null;
 
-  const existing = await admin.readStableIdForUid(bodyUid);
-  if (existing !== null) {
-    return jsonResponse(200, { stableId: existing });
-  }
-  const fresh = newUuid();
-  await admin.bindStableId(bodyUid, fresh);
-  return jsonResponse(200, { stableId: fresh });
+  const existing = await admin.readStableIdForUid(firebaseUid);
+  const stableId =
+    existing ?? suppliedStableId ?? newUuid();
+  // Always call bindStableId — even on existing binding — so the
+  // setCustomAttributes call is re-issued. Firebase Auth tokens issued before
+  // the very first successful setCustomAttributes lack the claim; without a
+  // re-issue any subsequent token-refresh on the client would also lack it.
+  // bindStableId is idempotent on matching arguments (Firestore PATCH with
+  // currentDocument.exists=false → 409 → readStableIdForUid → no-op on
+  // match), so the only extra cost is one setCustomAttributes round-trip per
+  // init-claim call. Acceptable for an operation that runs once per Sign-In.
+  await admin.bindStableId(firebaseUid, stableId);
+  return jsonResponse(200, { stableId });
 }
 
 function jsonResponse(status: number, body: Record<string, unknown>): Response {

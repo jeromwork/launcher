@@ -60,8 +60,8 @@ class InitClaimClientTest {
         assertEquals("/init-claim", req.path)
         assertEquals("Bearer fake-jwt", req.headers["Authorization"])
         assertTrue(
-            "Body MUST contain uid: ${req.body}",
-            req.body.contains("\"uid\":\"uid-1\"")
+            "Body MUST contain stableId (wire-format change 2026-06-30): ${req.body}",
+            req.body.contains("\"stableId\":\"uid-1\"")
         )
     }
 

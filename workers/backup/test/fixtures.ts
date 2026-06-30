@@ -39,7 +39,11 @@ export function makeEnv(overrides: Partial<TestEnv> = {}): TestEnv {
 
 /**
  * Auth verifier stub that yields a fixed Claims object regardless of token.
- * Tests pass the resolved stableId so handlers can do subject-ownership checks.
+ *
+ * After the 2026-06-30 wire change, backup worker requires `claims.stableId`
+ * to be present (Track B is live). When called with a single string, treat it
+ * as the stableId and synthesise a matching Firebase uid (`fb-<stableId>`)
+ * so the claims structure matches a real post-init-claim token.
  */
 export function fakeAuth(
   stableIdOrClaims: string | { stableId?: string; uid: string },
@@ -49,13 +53,19 @@ export function fakeAuth(
     if (typeof stableIdOrClaims === "string") {
       return {
         ok: true,
-        claims: { uid: stableIdOrClaims, iat: 1, exp: 9999999999 },
+        claims: {
+          uid: `fb-${stableIdOrClaims}`,
+          stableId: stableIdOrClaims,
+          iat: 1,
+          exp: 9999999999,
+        } as unknown as { uid: string; iat: number; exp: number },
       };
     }
     return {
       ok: true,
       claims: {
         uid: stableIdOrClaims.uid,
+        stableId: stableIdOrClaims.stableId,
         iat: 1,
         exp: 9999999999,
       } as unknown as { uid: string; iat: number; exp: number },

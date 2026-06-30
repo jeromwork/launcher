@@ -25,6 +25,7 @@ import com.launcher.api.wizard.UserPreferencesStore
 import com.launcher.core.LauncherCore
 import com.launcher.di.backendModule
 import com.launcher.di.setupModule
+import com.launcher.app.data.identity.IdentityCacheInvalidator
 import com.launcher.app.data.identity.InitClaimClient
 import com.launcher.app.data.identity.InitClaimResult
 import com.launcher.ui.di.androidPlatformModule
@@ -184,19 +185,35 @@ class LauncherApplication : Application(), Configuration.Provider {
     }
 
     private suspend fun ensureIdentityClaim(identity: AuthIdentity) {
-        val client = org.koin.java.KoinJavaComponent.getKoin().getOrNull<InitClaimClient>()
+        val koin = org.koin.java.KoinJavaComponent.getKoin()
+        val client = koin.getOrNull<InitClaimClient>()
         if (client == null) {
             Log.d(TAG_ENVELOPE, "init-claim skipped (no InitClaimClient in DI — mockBackend?)")
             return
         }
+        // task-6 wiring 2026-06-30 (T681-FOLLOWUP): setCustomAttributes on
+        // the Firebase Auth user takes effect only for the NEXT minted
+        // ID-token. We unconditionally invalidate the token cache AROUND the
+        // init-claim attempt — both before (in case the cached token is the
+        // very stale token that caused the previous AuthExpired) and after
+        // a Success (so the next currentIdToken() sees the fresh
+        // claims.stableId). The supplier's invalidate() is cheap (a Mutex
+        // withLock + two field writes).
+        val invalidator = koin.getOrNull<IdentityCacheInvalidator>()
+        invalidator?.invalidate()
+
         when (val r = client.initClaim(identity.stableId)) {
-            is InitClaimResult.Success -> Log.i(
-                TAG_ENVELOPE,
-                "init-claim ok for uid=${identity.stableId} stableId=${r.stableId}"
-            )
+            is InitClaimResult.Success -> {
+                Log.i(
+                    TAG_ENVELOPE,
+                    "init-claim ok for uid=${identity.stableId} stableId=${r.stableId}"
+                )
+                invalidator?.invalidate()
+                Log.d(TAG_ENVELOPE, "identity token cache invalidated (next token will carry claims.stableId)")
+            }
             InitClaimResult.AuthExpired -> Log.w(
                 TAG_ENVELOPE,
-                "init-claim AuthExpired for uid=${identity.stableId}"
+                "init-claim AuthExpired for uid=${identity.stableId} (cache pre-invalidated; check wrangler tail for verify.error)"
             )
             InitClaimResult.NetworkUnavailable -> Log.w(
                 TAG_ENVELOPE,

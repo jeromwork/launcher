@@ -117,10 +117,18 @@ async function authenticate(
   if (!result.ok) {
     return jsonResponse(401, { error: "INVALID_TOKEN", reason: result.error });
   }
-  // TODO(Track B): claims.stableId once identity worker sets the custom claim.
-  // Until then, fall back to uid so tests can exercise the path.
-  const stableId =
-    (result.claims as unknown as { stableId?: string }).stableId ?? result.claims.uid;
+  // Track B is live: identity worker MUST have set `customAttributes:{stableId}`
+  // before any backup call. If the token here lacks claims.stableId, the
+  // client missed the post-Sign-In init-claim hook OR did not refresh its
+  // token cache (FirebaseTokenSupplier.invalidate) after init-claim Success.
+  // Surface as 401 so the client retries the whole identity+token flow.
+  const stableId = (result.claims as unknown as { stableId?: string }).stableId;
+  if (!stableId || stableId.length === 0) {
+    return jsonResponse(401, {
+      error: "INVALID_TOKEN",
+      reason: "stableId-claim-missing — call identity worker /init-claim first then refresh token",
+    });
+  }
   return { claims: result.claims, stableId };
 }
 

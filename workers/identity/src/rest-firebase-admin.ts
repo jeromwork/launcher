@@ -42,7 +42,10 @@ export class RestFirebaseAdmin implements FirebaseAdmin {
   private readonly now: () => number;
 
   constructor(private readonly deps: RestFirebaseAdminDeps) {
-    this.fetchImpl = deps.fetchImpl ?? fetch;
+    // Bind native fetch to globalThis — Cloudflare Workers runtime throws
+    // "Illegal invocation" when fetch is invoked off the global. Test
+    // overrides supply their own callable.
+    this.fetchImpl = deps.fetchImpl ?? ((url, init) => fetch(url, init));
     this.now = deps.now ?? Date.now;
   }
 
@@ -54,9 +57,15 @@ export class RestFirebaseAdmin implements FirebaseAdmin {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (res.status === 404) return null;
+    if (res.status === 404) {
+      console.log(`identity-links/${uid} not found (404) — first init-claim for this uid`);
+      return null;
+    }
     if (!res.ok) {
       const body = await res.text().catch(() => "");
+      console.error(
+        `firestore read identity-links/${uid} status=${res.status} body=${body.substring(0, 200)}`,
+      );
       throw new ServiceAccountError(
         res.status,
         `firestore read identity-links/${uid} failed: ${res.status} ${body}`,
@@ -130,11 +139,15 @@ export class RestFirebaseAdmin implements FirebaseAdmin {
     });
     if (!claimsRes.ok) {
       const body = await claimsRes.text().catch(() => "");
+      console.error(
+        `setCustomAttributes failed status=${claimsRes.status} body=${body.substring(0, 200)}`,
+      );
       throw new ServiceAccountError(
         claimsRes.status,
         `identity toolkit setCustomAttributes for uid=${uid} failed: ${claimsRes.status} ${body}`,
       );
     }
+    console.log(`setCustomAttributes ok for uid=${uid} stableId=${stableId}`);
   }
 
   private firestoreDocUrl(projectId: string, uid: string): string {

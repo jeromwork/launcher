@@ -67,23 +67,30 @@ describe("T664 init-claim — Q-M variant b idempotency", () => {
     expect(uuidCalls).toBe(0); // no new UUID generated
   });
 
-  it("claims.uid != body.uid → 403 UID_MISMATCH", async () => {
+  it("worker derives Firebase uid from JWT, not from body (2026-06-30 wire change)", async () => {
+    // Body says stableId=victim, JWT verifies as Firebase uid=attacker — worker
+    // ignores body.uid entirely and binds `attacker -> victim` (treating the
+    // body stableId as the client-supplied UUID). This is the new contract: the
+    // verified JWT is the sole source of Firebase identity; body just tells
+    // the worker which UUID F-4 already minted for it.
     const admin = new InMemoryFirebaseAdmin();
     const res = await handle(
       new Request("https://example.com/init-claim", {
         method: "POST",
         headers: { Authorization: "Bearer X" },
-        body: JSON.stringify({ uid: "uid-victim" }),
+        body: JSON.stringify({ stableId: "victim-uuid" }),
       }),
       makeEnv(),
       {
-        verify: fakeAuth("uid-attacker"),
+        verify: fakeAuth("attacker-firebase-uid"),
         firebaseAdmin: admin,
       },
     );
-    expect(res.status).toBe(403);
-    const json = (await res.json()) as Record<string, unknown>;
-    expect(json["error"]).toBe("UID_MISMATCH");
+    expect(res.status).toBe(200);
+    expect(await admin.readStableIdForUid("attacker-firebase-uid")).toBe(
+      "victim-uuid",
+    );
+    expect(await admin.readStableIdForUid("victim-uuid")).toBeNull();
   });
 
   it("invalid JWT → 401 INVALID_TOKEN", async () => {
@@ -113,18 +120,27 @@ describe("T664 init-claim — Q-M variant b idempotency", () => {
     expect(res.status).toBe(401);
   });
 
-  it("missing uid in body → 400 MALFORMED_BODY", async () => {
+  it("body without stableId → worker mints fresh UUID", async () => {
+    // 2026-06-30: body is now optional; worker mints when client supplies no
+    // stableId. This is the recovery path for clients that haven't generated
+    // a UUID yet (or for tools / curl probes without F-4 state).
     const admin = new InMemoryFirebaseAdmin();
     const res = await handle(
       new Request("https://example.com/init-claim", {
         method: "POST",
         headers: { Authorization: "Bearer X" },
-        body: JSON.stringify({ wrong: "field" }),
+        body: JSON.stringify({}),
       }),
       makeEnv(),
-      { verify: fakeAuth("uid-1"), firebaseAdmin: admin },
+      {
+        verify: fakeAuth("uid-1"),
+        firebaseAdmin: admin,
+        newUuid: () => FIXED_UUID_FOR_TESTS,
+      },
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as Record<string, unknown>;
+    expect(json["stableId"]).toBe(FIXED_UUID_FOR_TESTS);
   });
 
   it("non-POST methods → 404", async () => {
