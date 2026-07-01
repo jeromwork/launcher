@@ -31,6 +31,19 @@ package family.keys.api
  *
  * Errors are surfaced through [Outcome.Failure] with [StorageError] — caller never
  * sees [CipherError] or any other crypto-internal sealed types.
+ *
+ * ---
+ *
+ * **TODO(server-blind-keys):** at present the `key` argument is used verbatim in the
+ * backend path (Firestore: `/users/{namespace}/data/{escapedKey}`). This leaks logical
+ * intent to the server operator — e.g. the string `config/default` telegraphs "this is
+ * a configuration document". Future evolution: derive a deterministic opaque key on the
+ * caller side via HKDF(rootKey, logicalName) → base64 before passing it here, so the
+ * on-wire key is a pseudo-random string. This is **not a one-way door** — the port
+ * signature stays as `key: String`, the change is purely inside callers; already-stored
+ * documents remain readable by the same call site that wrote them. Not scheduled;
+ * relevant when tightening server-side threat model. Discovered during TASK-66 closure
+ * (see specs/task-66-generic-encrypted-bucket-registry/spec.md).
  */
 interface RemoteStorage {
 
