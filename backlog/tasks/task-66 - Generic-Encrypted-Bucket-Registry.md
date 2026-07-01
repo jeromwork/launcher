@@ -1,10 +1,10 @@
 ---
 id: TASK-66
 title: Generic Encrypted Bucket Registry
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-28 18:30'
-updated_date: '2026-07-01 05:19'
+updated_date: '2026-07-01'
 labels:
   - phase-2
   - foundation
@@ -23,6 +23,44 @@ references:
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+
+## Итог (2026-07-01)
+
+**Задача закрыта без реализации** — резолвится существующим кодом TASK-6 (Root Key Hierarchy). В ходе двух clarify-проходов в mentor-режиме выяснилось, что вся инфраструктура «универсального шифрования», которую эта задача хотела построить, **уже собрана в `core/keys` в рамках TASK-6**.
+
+### Что нашли (пересказ простыми словами)
+
+Изначально казалось, что нужно построить «универсальный реестр» — общий движок, который любая фича могла бы вызвать, чтобы шифровать свои данные. Оказалось, что такой движок уже есть, только называется по-другому: **`RemoteStorage`** внутри `core/keys`. Он делает ровно то, что мы хотели:
+
+- Любая фича вызывает `put(uid, ключ, байты)` — данные уходят на сервер зашифрованные.
+- Любая фича вызывает `get(uid, ключ)` — данные расшифровываются и возвращаются.
+- Фича не знает про шифрование, ключи, backend, схемы. Только про свои байты.
+- Multi-recipient поддержан: одну запись можно зашифровать сразу под несколько устройств (свои + admin спаренный по QR).
+- Wire format зафиксирован и работает: XChaCha20-Poly1305 + X25519 sealed-box per recipient.
+
+### Что ещё нашли (важное для будущего)
+
+1. **Multi-recipient резольвер уже реальный, не заглушка.** Функция «кому шифровать» уже смотрит на список моих устройств и всех «grant-holders» (кому я дал доступ). Когда TASK-67 (Pairing) допишет запись access-grant при спаривании, admin автоматически начнёт видеть шифрованные данные бабушки без каких-либо изменений в `core/keys`.
+2. **Firestore сегодня видит ключи в plaintext** (например, `/users/uid/data/config/default`) — это по факту утечка «здесь лежит конфиг». Не блокер MVP, но крючок на будущее оставлен как inline TODO в `RemoteStorage.kt`. Переход на opaque-хеши в будущем — **не** wire-format break, изменение только внутри caller'ов.
+3. **Recover-all на новом устройстве** — недостающий helper на ~20 строк (list + get всех своих). Не отдельная фича, попадёт в TASK-6 tail либо в TASK-57 (cross-device recovery на двух устройствах).
+4. **Push уже event-driven.** `PushHandlerRegistry` + типизированные events лучше, чем «тупой wakeup», который предполагала эта задача.
+
+### Что осталось в этом PR
+
+- Constitution v1.7.0 — **Article XX (Pre-MVP no-migration override)**. Полезен всему проекту, а не только TASK-66. Оставляем.
+- Inline TODO в `RemoteStorage.kt` — крючок про opaque server-blind keys на будущее.
+- `spec.md` в папке TASK-66 переписан как closure record (что нашли, почему закрыли).
+
+### Почему это правильное решение
+
+CLAUDE.md rule 4 (Minimum Viable Architecture) + §Refuse pattern #9 (premature abstraction): единственное правильное решение при обнаружении, что «фича уже есть» — не строить второй слой поверх, а закрыть задачу с явным обоснованием.
+
+---
+
+## Historical draft (исходная формулировка, до discovery)
+
+> Ниже — оригинальный текст задачи, каким он был при заведении. Сохраняется для истории и как урок «сначала исследуй, потом специфицируй».
+
 > **Про роли в этой задаче.** Это **архитектурная инфраструктура шифрования**. Никаких user-facing экранов, только plumbing. Превращает работу с шифрованными «вёдрами данных» (контакты, темы, pairing-связи, в будущем — фото, звонки) из «каждое ведро = свой код шифрования/загрузки/восстановления» в «каждое ведро = декларация, всё остальное автоматически».
 
 ## Что это простыми словами
@@ -443,11 +481,32 @@ sequenceDiagram
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Зарегистрировал dummy bucket type → put(data) → get() возвращает то же → ciphertext не утекает в логах
-- [ ] #2 Existing config encryption (TASK-4) продолжает работать — ciphertext byte-equal до и после миграции
-- [ ] #3 Recovery на новом устройстве → ВСЕ зарегистрированные buckets автоматически восстанавливаются (включая dummy)
-- [ ] #4 Push notification 'bucket-updated' с bucketTypeId обновляет только нужный bucket
-- [ ] #5 ConflictPolicy AddOnlyRevokeOnly работает: add → revoke → итоговый state корректен
-- [ ] #6 Новый dummy bucket добавляется через ОДНУ декларацию BucketTypeSpec — никакого нового encrypt/upload/recover кода
-- [ ] #7 Документация bucket-registry.md написана простым русским, можно прочитать и понять как добавить новый bucket
+- [x] #1 [hand] Discovery: `RemoteStorage` port уже даёт `put/get/list/delete(namespace, key, bytes)` с инкапсулированным шифрованием — [core/keys/src/commonMain/kotlin/family/keys/api/RemoteStorage.kt](../../core/keys/src/commonMain/kotlin/family/keys/api/RemoteStorage.kt)
+- [x] #2 [hand] Discovery: `Envelope` wire format уже поддерживает N-recipient (schemaVersion=1, XChaCha20-Poly1305 + X25519 sealed-box) — [core/keys/src/commonMain/kotlin/family/keys/api/Envelope.kt](../../core/keys/src/commonMain/kotlin/family/keys/api/Envelope.kt)
+- [x] #3 [hand] Discovery: `PublicKeyDirectoryRecipientResolver` — production implementation, не placeholder; резольвит `self + grant-holders' devices` — [core/keys/src/commonMain/kotlin/family/keys/impl/PublicKeyDirectoryRecipientResolver.kt](../../core/keys/src/commonMain/kotlin/family/keys/impl/PublicKeyDirectoryRecipientResolver.kt)
+- [x] #4 [hand] Discovery: тест `crossUserAdminEditsBabushkaConfigViaGrantBothCanRead` подтверждает E2E multi-recipient сценарий уже работает
+- [x] #5 [hand] Article XX (Pre-MVP no-migration override) добавлен в constitution.md v1.7.0
+- [x] #6 [hand] Inline TODO про opaque server-blind keys добавлен в `RemoteStorage.kt` — крючок на будущее, не one-way door
+- [x] #7 [hand] spec.md переписан как closure record с полным обоснованием (что нашли, почему закрываем, куда попадают остаточные вопросы)
+- [N/A] #8 [auto:deferred-*] Никаких deferred manual gates: реализации не было, физических прогонов не требуется
 <!-- AC:END -->
+
+## Verification Pending
+<!-- SECTION:VERIFICATION_PENDING:BEGIN -->
+None. Closure without implementation — no physical / emulator gates required.
+<!-- SECTION:VERIFICATION_PENDING:END -->
+
+## Final Summary
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+TASK-66 closed 2026-07-01 as **resolved-by-existing-code**. Two `/speckit.clarify` passes in mentor mode revealed that the entire "generic encrypted bucket" infrastructure is already implemented under TASK-6 (`core/keys`): `RemoteStorage` port, `Envelope` multi-recipient wire format, `PublicKeyDirectoryRecipientResolver` production implementation, `PublicKeyDirectory` Firestore adapter, per-device X25519 keypairs. The originally-proposed `EncryptedBucketRegistry` / `BucketTypeSpec` / `BucketCatalog` would have been a duplicate layer over `RemoteStorage` — explicitly forbidden by CLAUDE.md rule 4 (MVA) and §Refuse pattern #9 (premature abstraction).
+
+Residual open questions surfaced during clarify are routed to their proper owners:
+- **Access-grant creation** (missing bridge between pairing and multi-recipient encryption) → TASK-67 (Pairing).
+- **Recover-all helper** (~20 lines: list + get each) → TASK-6 tail or TASK-57.
+- **Grant scope granularity** → future evolution when the scenario surfaces.
+- **Opaque server-blind keys** → inline TODO in `RemoteStorage.kt`, not scheduled.
+
+Constitution amendment Article XX (Pre-MVP no-migration override) added during this iteration remains — it is project-wide, not TASK-66-specific.
+
+Key lesson: for any backlog task touching infrastructure, the first step must be `grep` (what's already there), not `spec.md` (what could be). Skipping this produced two clarify passes of gradual re-discovery.
+<!-- SECTION:FINAL_SUMMARY:END -->
