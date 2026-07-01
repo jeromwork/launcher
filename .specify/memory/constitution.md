@@ -1,6 +1,8 @@
 <!--
 Sync Impact Report — Universal App / GitHub Spec Kit
-- Version: 1.5.0 → 1.6.0
+- Version: 1.6.0 → 1.7.0
+- Principles: Added Article XX (Pre-MVP Development Phase — No Migration Guarantees). Explicitly overrides CLAUDE.md rule 5 (wire-format backward compatibility) and Article VII §3 for the duration of the pre-MVP phase. Rationale: no shipped users yet; migration cost is zero because no data exists in the field. When first APK ships to real end-users, Article XX terminates and rules 5 / VII §3 apply in full. Applies retroactively to TASK-66 (Generic Encrypted Bucket Registry) — permits deleting TASK-4 config wire-format outright.
+- Previous: 1.5.0 → 1.6.0
 - Principles: Added Article XIX (Organic Question Budgets in Clarification Passes) — overrides any prior numeric question caps in `speckit-clarify`, `mentor`, and analogous skills. Question count is organic, typical range 3–7, no hard cap. Padding to target or trimming below organic count are both bugs.
 - Skill alignment: `.claude/skills/speckit-clarify/SKILL.md` Step 3 + `.claude/skills/mentor/SKILL.md` step 5 updated to reference Article XIX and remove «5 questions» hard limit.
 - Previous: 1.4.0 → 1.5.0
@@ -23,7 +25,7 @@ Sync Impact Report — Universal App / GitHub Spec Kit
 
 # Universal Android App — Constitution for GitHub Spec Kit
 
-**Status**: Adopted Draft 1.5  
+**Status**: Adopted Draft 1.7  
 **Project**: Universal Android application with accessibility-first launcher capabilities  
 **Scope**: Governs all future `spec`, `plan`, `tasks`, code generation, code review, refactoring, test design, release preparation, and architectural decisions.  
 **Audience**: Human maintainers and AI agents working through GitHub Spec Kit.
@@ -559,6 +561,32 @@ A plan that does not pass these gates is incomplete.
 7. This article overrides any pre-existing numeric limits in individual skill files. Skill maintainers MUST align skill prompts with this article when next touched.
 
 **Rationale**: Numeric limits felt safe («maximum 5») but produced two failure modes — padded questions when the spec was simple, and silently dropped questions when the spec was complex. Both failed the user. The owner's intent for clarification passes is to **catch what was implicit before architecture is baked in**, which is an organic property of the spec content, not a constant. Naming this as an article (rather than a per-skill rule) keeps future clarification skills automatically aligned without per-skill edits.
+
+---
+
+## Article XX. Pre-MVP Development Phase — No Migration Guarantees
+
+1. **Phase definition.** The project is currently in the **pre-MVP development phase**: no APK has shipped to real end-users; there is zero installed base; all encrypted / persisted data exists only on developer devices and CI. This phase terminates the moment the first APK is distributed to any real end-user (Play Store closed testing, TestFlight-equivalent, direct APK sideload to a non-developer) — that event MUST be recorded here as a version bump that removes this article's overrides.
+2. **Override: wire-format migration.** During the pre-MVP phase, **CLAUDE.md rule 5** (wire format carries `schemaVersion` from first commit; backward-compatible reads for one major release; renames require versioned migration written first) and **Article VII §3** (profile / configuration schema versioning + backward compatibility) are **relaxed as follows**:
+   - Wire formats MAY be replaced outright (deleted and reintroduced under a new shape) without migration path.
+   - Persisted data on developer devices MAY be wiped by a fresh install; no migration code MUST be written for it.
+   - `schemaVersion` field MUST still be present in every new wire format from the first commit — the *field* is mandatory, only the *migration guarantee* is suspended.
+3. **Override: contract stability.** During the pre-MVP phase, ports / interface signatures MAY be changed without version bumps; all consumers are inside the same repo and update in the same PR. Rule 5's «public contract change requires a major-version bump» does not apply while there are no external consumers.
+4. **What is NOT overridden.**
+   - Wire-format design discipline (schemaVersion field, roundtrip tests, sensible field naming) — still MUST be present.
+   - One-way-door discipline (rule 3, exit ramps as inline TODOs) — still MUST be present. Pre-MVP does not license careless architecture; it licenses skipping migration code, not skipping thought.
+   - Domain isolation (rule 1), ACL (rule 2), MVA (rule 4), mock-first (rule 6) — untouched.
+   - Security invariants (Article XIV) — untouched. End-to-end encryption, server-blind-to-plaintext, PII handling MUST NOT be relaxed «because MVP».
+5. **Practical effect on TASK-66 (Generic Encrypted Bucket Registry).** TASK-4's existing config wire format (`ConfigCipher2` + envelope shape) is deleted, not migrated. Any dev device with pre-TASK-66 encrypted data is wiped by fresh install. No byte-equal regression test is required. The Registry is the single path from day one.
+6. **Termination signal.** When the first real end-user installs an APK, the owner MUST:
+   - Bump constitution version, mark this article's overrides as expired.
+   - Reinstate CLAUDE.md rule 5 and Article VII §3 in full.
+   - From that point forward, every wire-format change is a versioned migration written first.
+   - Existing wire formats at termination become the v1 baseline that later versions MUST read backward-compatibly.
+
+**Rationale**: The pre-MVP phase has zero installed base — migration code costs developer time to write and to maintain, but protects nothing (no user data to protect). Enforcing migration discipline in this phase is anti-productive: it locks in early guesses about wire format that we know are wrong (that's what MVP-iteration is for), and it multiplies each schema change by 2-3× development time. Explicit article terminates the temptation to «keep the old format around just in case» — the case is guaranteed not to happen because there are no users. When the first real user appears, everything shipped becomes the baseline; from that moment forward migration discipline is mandatory.
+
+**Blast radius safeguard**: This article MUST NOT be extended, softened, or reinterpreted to justify migration skipping *after* MVP ships. The rule is binary: pre-MVP = no migration; post-MVP = full migration. No middle state.
 
 ---
 
