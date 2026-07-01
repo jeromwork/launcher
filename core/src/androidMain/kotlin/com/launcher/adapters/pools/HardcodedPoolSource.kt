@@ -15,6 +15,12 @@ import com.launcher.api.wizard.data.CheckSpec
  * Pool ids per contracts/pool-naming.md:
  *   - "system-settings": OS-level requirements (HOME role, notifications, ...).
  *   - "ui-customization": app-internal preferences (font scale, theme, ...).
+ *
+ * TODO(TASK-73): entries below carry a single CheckSpec / ApplySpec, so on
+ * Xiaomi MIUI / Huawei EMUI without GMS / Samsung One UI the behaviour may
+ * silently fail. TASK-73 adds `perVendor` overrides + vendor-recipes wire
+ * format so each pool entry can carry per-OEM alternatives without
+ * duplicating the whole entry.
  */
 class HardcodedPoolSource : PoolSource {
 
