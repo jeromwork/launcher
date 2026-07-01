@@ -1,10 +1,10 @@
 ---
 id: TASK-66
 title: Generic Encrypted Bucket Registry
-status: Draft
+status: In Progress
 assignee: []
 created_date: '2026-06-28 18:30'
-updated_date: '2026-06-28 18:30'
+updated_date: '2026-07-01 05:19'
 labels:
   - phase-2
   - foundation
@@ -16,6 +16,8 @@ dependencies:
   - TASK-6
 priority: high
 ordinal: 66000
+references:
+  - specs/task-66-generic-encrypted-bucket-registry/
 ---
 
 ## Description
