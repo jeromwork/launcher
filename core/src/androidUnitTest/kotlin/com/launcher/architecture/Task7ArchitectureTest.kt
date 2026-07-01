@@ -110,10 +110,12 @@ class Task7ArchitectureTest {
             "TileSet",
             "SystemSettingsPool",
             "UICustomizationPool",
+            // TASK-65 (T614) — preset wire format added; ConfigKind grew to 6.
+            "Preset",
         )
         val actual = configKind.enumConstants.map { (it as Enum<*>).name }.toSet()
         org.junit.Assert.assertEquals(
-            "ConfigKind must declare exactly the 5 documented wire formats",
+            "ConfigKind must declare exactly the 6 documented wire formats",
             expected,
             actual,
         )

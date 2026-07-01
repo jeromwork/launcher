@@ -4,4 +4,22 @@
     <string name="wizard_next">下一步</string>
     <string name="wizard_skip">跳过</string>
     <string name="wizard_back">返回</string>
+
+    <!-- TASK-65 (T65F) — preset picker, settings reminders, boot banner -->
+    <string name="preset_simple_launcher_label">简洁启动器</string>
+    <string name="preset_simple_launcher_description">大磁贴、少按钮——适合老年人或喜欢简洁主屏的用户。</string>
+    <string name="preset_launcher_label">经典启动器</string>
+    <string name="preset_launcher_description">标准 Android 网格：所有应用都在主屏上。</string>
+    <string name="preset_workspace_label">工作区</string>
+    <string name="preset_workspace_description">多屏布局，适合工作工具和快速链接。</string>
+    <string name="settings_role_home_title">将本应用设为默认启动器</string>
+    <string name="settings_role_home_description">需要此设置，按下主屏键才能打开本应用。</string>
+    <string name="settings_post_notifications_title">允许通知</string>
+    <string name="settings_post_notifications_description">避免错过家人消息和重要提醒。</string>
+    <string name="settings_font_large_title">使用大号字体</string>
+    <string name="settings_font_large_description">推荐字号，阅读更舒适。</string>
+    <string name="home_banner_critical_missing_title">有重要设置未完成</string>
+    <string name="home_banner_critical_missing_cta">去设置</string>
+    <string name="home_banner_dismiss_later">稍后</string>
+    <string name="settings_change_preset_label">更换预设</string>
 </resources>

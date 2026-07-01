@@ -48,6 +48,11 @@ sealed class ConfigDocument {
         override val header: ConfigDocumentHeader,
         val body: UICustomizationPoolBody,
     ) : ConfigDocument()
+
+    data class PresetDoc(
+        override val header: ConfigDocumentHeader,
+        val preset: com.launcher.api.preset.Preset,
+    ) : ConfigDocument()
 }
 
 /**

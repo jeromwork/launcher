@@ -7,7 +7,12 @@ import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class WizardManifestBody(
-    val appFamilyId: String,
+    /**
+     * Legacy field removed in TASK-65 schemaVersion=2 (FR-002). Kept nullable
+     * so that any pre-migration body deserialized through fixtures still parses.
+     * New code derives identity from [com.launcher.api.preset.PresetRef].
+     */
+    val appFamilyId: String? = null,
     val autoOrder: Boolean = false,
     val steps: List<StepEntry>? = null,
 )
@@ -45,7 +50,7 @@ data class WizardManifest(
 ) {
     val id: String get() = header.id
     val schemaVersion: Int get() = header.schemaVersion
-    val appFamilyId: String get() = body.appFamilyId
+    val appFamilyId: String? get() = body.appFamilyId
     val autoOrder: Boolean get() = body.autoOrder
     val steps: List<StepEntry>? get() = body.steps
 }

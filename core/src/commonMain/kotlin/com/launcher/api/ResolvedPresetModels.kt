@@ -1,9 +1,12 @@
 package com.launcher.api
 
 /**
- * Immutable profile view for UI and modules. See data-model.md — Profile.
+ * Resolved preset view for UI and modules. Renamed from `ProfileSnapshot`
+ * in TASK-65 (T640) — `Profile` namespace now means the per-device live
+ * state ([com.launcher.api.profile.ProfileData]), and this type is the
+ * resolved view of a preset against the module graph.
  */
-data class ProfileSnapshot(
+data class ResolvedPresetSnapshot(
     val schemaVersion: Int,
     val id: String,
     val moduleFlags: Map<String, Boolean>,
@@ -12,7 +15,7 @@ data class ProfileSnapshot(
 )
 
 /**
- * Explains non-default or degraded resolution (data-model.md — Safe fallback and degradation record).
+ * Explains non-default or degraded resolution.
  */
 data class DegradationRecord(
     val activeProfileId: String,
@@ -31,10 +34,11 @@ enum class DegradationReason {
 }
 
 /**
- * Profile after validation and composition against module graph.
+ * Preset after validation and composition against module graph. Renamed from
+ * `EffectiveProfile` in TASK-65 (T640).
  */
-data class EffectiveProfile(
-    val snapshot: ProfileSnapshot,
+data class EffectivePreset(
+    val snapshot: ResolvedPresetSnapshot,
     val profileGeneration: Int,
     val effectiveModuleFlags: Map<String, Boolean>,
     val degradation: DegradationRecord,

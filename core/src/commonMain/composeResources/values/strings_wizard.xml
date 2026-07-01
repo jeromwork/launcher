@@ -105,4 +105,22 @@
     <string name="home_reset_dialog_cancel">Cancel</string>
     <string name="home_loading_in_progress">Loading…</string>
 
+    <!-- TASK-65 (T65E) — preset picker, settings reminders, boot banner -->
+    <string name="preset_simple_launcher_label">Simple launcher</string>
+    <string name="preset_simple_launcher_description">Large tiles, minimum buttons — comfortable for seniors and anyone who wants a quiet home screen.</string>
+    <string name="preset_launcher_label">Classic launcher</string>
+    <string name="preset_launcher_description">Regular Android-like grid; all your apps on the home screen.</string>
+    <string name="preset_workspace_label">Workspace</string>
+    <string name="preset_workspace_description">Multi-screen layout for work tools and quick links.</string>
+    <string name="settings_role_home_title">Make this app the default launcher</string>
+    <string name="settings_role_home_description">Required so the device opens this app on the Home button.</string>
+    <string name="settings_post_notifications_title">Allow notifications</string>
+    <string name="settings_post_notifications_description">So you don\'t miss family messages and important reminders.</string>
+    <string name="settings_font_large_title">Use larger text</string>
+    <string name="settings_font_large_description">Recommended size for comfortable reading.</string>
+    <string name="home_banner_critical_missing_title">Something important needs setup</string>
+    <string name="home_banner_critical_missing_cta">Set up</string>
+    <string name="home_banner_dismiss_later">Later</string>
+    <string name="settings_change_preset_label">Change preset</string>
+
 </resources>

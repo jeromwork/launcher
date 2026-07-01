@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spec 015 — wizard strings (KK, Cyrillic). STUB. Missing keys fall back to EN per FR-029. -->
+<resources>
+    <!-- TASK-65 (T65F) — preset picker, settings reminders, boot banner -->
+    <string name="preset_simple_launcher_label">Қарапайым лаунчер</string>
+    <string name="preset_simple_launcher_description">Үлкен тілдер, аз түймелер — қарияларға және тыныш басты экран ұнататындарға ыңғайлы.</string>
+    <string name="preset_launcher_label">Классикалық лаунчер</string>
+    <string name="preset_launcher_description">Әдеттегі Android тәрізді тор: барлық қолданбалар басты экранда.</string>
+    <string name="preset_workspace_label">Жұмыс кеңістігі</string>
+    <string name="preset_workspace_description">Жұмыс құралдары мен жылдам сілтемелерге арналған бірнеше экрандық қалып.</string>
+    <string name="settings_role_home_title">Осы қолданбаны әдепкі лаунчер ету</string>
+    <string name="settings_role_home_description">Басты экран түймесі осы қолданбаны ашуы үшін қажет.</string>
+    <string name="settings_post_notifications_title">Хабарламаларға рұқсат беру</string>
+    <string name="settings_post_notifications_description">Отбасы хабарлары мен маңызды ескертулерді қалдырмас үшін.</string>
+    <string name="settings_font_large_title">Үлкен мәтінді пайдалану</string>
+    <string name="settings_font_large_description">Ыңғайлы оқу үшін ұсынылған өлшем.</string>
+    <string name="home_banner_critical_missing_title">Маңызды баптау жасалмаған</string>
+    <string name="home_banner_critical_missing_cta">Баптау</string>
+    <string name="home_banner_dismiss_later">Кейінірек</string>
+    <string name="settings_change_preset_label">Пресетті өзгерту</string>
+</resources>

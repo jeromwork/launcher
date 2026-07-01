@@ -16,6 +16,7 @@ import com.launcher.adapters.wizard.handlers.AndroidRoleCheckHandler
 import com.launcher.adapters.wizard.handlers.AndroidSettingsDeepLinkApplyHandler
 import com.launcher.adapters.wizard.handlers.AndroidSpecialPermissionCheckHandler
 import com.launcher.adapters.wizard.handlers.AndroidStandardPermissionApplyHandler
+import com.launcher.adapters.wizard.handlers.UIFontCheckHandler
 import com.launcher.api.wizard.data.ApplySpec
 import com.launcher.api.wizard.data.CheckSpec
 import com.launcher.api.wizard.handlers.ApplyHandler
@@ -96,6 +97,7 @@ val spec015Module = module {
             CheckSpec.AndroidSpecialPermission::class to AndroidSpecialPermissionCheckHandler(androidContext()),
             CheckSpec.AndroidAccessibilityService::class to AndroidAccessibilityServiceCheckHandler(),
             CheckSpec.AndroidPackageHome::class to AndroidPackageHomeCheckHandler(androidContext()),
+            CheckSpec.UIFont::class to UIFontCheckHandler(androidContext()),
         )
     }
     single<Map<KClass<out ApplySpec>, ApplyHandler>>(named("applyHandlers")) {

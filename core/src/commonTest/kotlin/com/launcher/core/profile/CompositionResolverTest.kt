@@ -1,7 +1,7 @@
 package com.launcher.core.profile
 
 import com.launcher.api.DegradationReason
-import com.launcher.api.ProfileSnapshot
+import com.launcher.api.ResolvedPresetSnapshot
 import com.launcher.core.modules.ModuleResolutionState
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -12,7 +12,7 @@ class CompositionResolverTest {
 
     @Test
     fun contractIncompatibilityTakesPrecedenceOverAbsentFromBuild() {
-        val raw = ProfileSnapshot(1, "p", mapOf("m" to true), null, emptyMap())
+        val raw = ResolvedPresetSnapshot(1, "p", mapOf("m" to true), null, emptyMap())
         val states = listOf(
             ModuleResolutionState(
                 moduleId = "m",
@@ -28,7 +28,7 @@ class CompositionResolverTest {
 
     @Test
     fun moduleUnavailableWhenPresentButContractSatisfiedAndMissingFromGraph() {
-        val raw = ProfileSnapshot(1, "p", mapOf("ghost" to true), null, emptyMap())
+        val raw = ResolvedPresetSnapshot(1, "p", mapOf("ghost" to true), null, emptyMap())
         val eff = CompositionResolver.resolve(raw, 1, emptyList())
         assertEquals(false, eff.effectiveModuleFlags["ghost"])
         assertTrue(eff.degradation.reasonCodes.contains(DegradationReason.MODULE_UNAVAILABLE))
@@ -36,7 +36,7 @@ class CompositionResolverTest {
 
     @Test
     fun reflectsProfileWhenModuleHealthy() {
-        val raw = ProfileSnapshot(
+        val raw = ResolvedPresetSnapshot(
             1,
             "p",
             mapOf("a" to true, "b" to false),
@@ -56,7 +56,7 @@ class CompositionResolverTest {
 
     @Test
     fun moduleUnavailableDisablesWhenProfileWantsButNotInBuild() {
-        val raw = ProfileSnapshot(1, "p", mapOf("m" to true), null, emptyMap())
+        val raw = ResolvedPresetSnapshot(1, "p", mapOf("m" to true), null, emptyMap())
         val states = listOf(
             ModuleResolutionState("m", presentInBuild = false, contractSatisfied = true),
         )

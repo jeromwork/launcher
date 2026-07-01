@@ -2,8 +2,8 @@ package com.launcher.core.profile
 
 import com.launcher.api.DegradationReason
 import com.launcher.api.DegradationRecord
-import com.launcher.api.EffectiveProfile
-import com.launcher.api.ProfileSnapshot
+import com.launcher.api.EffectivePreset
+import com.launcher.api.ResolvedPresetSnapshot
 import com.launcher.core.modules.ModuleResolutionState
 
 /**
@@ -12,10 +12,10 @@ import com.launcher.core.modules.ModuleResolutionState
 object CompositionResolver {
 
     fun resolve(
-        raw: ProfileSnapshot,
+        raw: ResolvedPresetSnapshot,
         profileGeneration: Int,
         modules: List<ModuleResolutionState>,
-    ): EffectiveProfile {
+    ): EffectivePreset {
         val effectiveFlags = LinkedHashMap<String, Boolean>()
         val reasonCodes = mutableListOf<DegradationReason>()
         val degradedModules = mutableSetOf<String>()
@@ -57,7 +57,7 @@ object CompositionResolver {
             reasonCodes = reasonCodes.distinct(),
         )
 
-        return EffectiveProfile(
+        return EffectivePreset(
             snapshot = raw,
             profileGeneration = profileGeneration,
             effectiveModuleFlags = effectiveFlags.toMap(),

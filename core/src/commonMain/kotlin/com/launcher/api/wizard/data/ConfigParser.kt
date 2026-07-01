@@ -35,7 +35,18 @@ object ConfigParser {
     fun parse(kind: ConfigKind, raw: String): ConfigSourceResult {
         return try {
             val root = json.parseToJsonElement(raw).jsonObject
-            val header = decodeHeader(root)
+            // Preset wire format is self-contained (FR-001) — no 6-field header
+            // wrapper. Decode directly and synthesize header from preset fields.
+            if (kind == ConfigKind.Preset) {
+                return parsePreset(root)
+            }
+            // T644 — migrate legacy v1 wizard manifest in-place before header decode.
+            val maybeMigrated = if (kind == ConfigKind.WizardManifest) {
+                migrateLegacyWizardManifest(root)
+            } else {
+                root
+            }
+            val header = decodeHeader(maybeMigrated)
                 ?: return ConfigSourceResult.ParseError("missing or invalid 6-field header")
             if (header.schemaVersion > KNOWN_VERSION) {
                 return ConfigSourceResult.IncompatibleVersion(
@@ -43,7 +54,7 @@ object ConfigParser {
                     known = KNOWN_VERSION,
                 )
             }
-            val body = root["body"]?.jsonObject
+            val body = maybeMigrated["body"]?.jsonObject
                 ?: return ConfigSourceResult.ParseError("missing body")
 
             val document: ConfigDocument = when (kind) {
@@ -67,6 +78,7 @@ object ConfigParser {
                     header,
                     json.decodeFromJsonElement(UICustomizationPoolBody.serializer(), body),
                 )
+                ConfigKind.Preset -> error("unreachable: Preset handled above")
             }
             ConfigSourceResult.Success(document)
         } catch (e: SerializationException) {
@@ -88,6 +100,12 @@ object ConfigParser {
                 json.encodeToJsonElement(SystemSettingsPoolBody.serializer(), document.body).jsonObject
             is ConfigDocument.UICustomizationPoolDoc ->
                 json.encodeToJsonElement(UICustomizationPoolBody.serializer(), document.body).jsonObject
+            is ConfigDocument.PresetDoc ->
+                json.encodeToJsonElement(com.launcher.api.preset.Preset.serializer(), document.preset).jsonObject
+        }
+        if (document is ConfigDocument.PresetDoc) {
+            // Preset is its own wire format — no 6-field wrapper.
+            return json.encodeToString(JsonObject.serializer(), body)
         }
         val header = document.header
         val obj = buildMap<String, kotlinx.serialization.json.JsonElement> {
@@ -104,6 +122,29 @@ object ConfigParser {
             JsonObject.serializer(),
             JsonObject(obj),
         )
+    }
+
+    private fun parsePreset(root: JsonObject): ConfigSourceResult {
+        val schemaVersion = root["schemaVersion"]?.jsonPrimitive?.intOrNull
+            ?: return ConfigSourceResult.ParseError("preset missing schemaVersion")
+        if (schemaVersion > com.launcher.api.preset.PRESET_SCHEMA_VERSION) {
+            return ConfigSourceResult.IncompatibleVersion(
+                found = schemaVersion,
+                known = com.launcher.api.preset.PRESET_SCHEMA_VERSION,
+            )
+        }
+        val preset = json.decodeFromJsonElement(
+            com.launcher.api.preset.Preset.serializer(),
+            root,
+        )
+        val header = ConfigDocumentHeader(
+            schemaVersion = preset.schemaVersion,
+            id = preset.slug,
+            name = preset.label,
+            description = preset.description,
+            deviceClass = emptyList(),
+        )
+        return ConfigSourceResult.Success(ConfigDocument.PresetDoc(header, preset))
     }
 
     private fun decodeHeader(root: JsonObject): ConfigDocumentHeader? {

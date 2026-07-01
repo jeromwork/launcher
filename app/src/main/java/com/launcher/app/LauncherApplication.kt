@@ -21,6 +21,7 @@ import com.launcher.app.di.pairingModule
 import com.launcher.app.di.spec006Module
 import com.launcher.app.di.spec014Module
 import com.launcher.app.di.spec015Module
+import com.launcher.app.di.task65Module
 import com.launcher.api.wizard.UserPreferencesStore
 import com.launcher.core.LauncherCore
 import com.launcher.di.backendModule
@@ -117,6 +118,7 @@ class LauncherApplication : Application(), Configuration.Provider {
                 setupModule,   // spec 010 GmsAvailabilityPort + List<SetupCheck>
                 spec014Module, // spec 014 tile-editing — empty в Phase 0, bindings landed в T060
                 spec015Module, // spec 015 (F-3) wizard + localization + senior UI
+                task65Module,  // TASK-65 PoolSource + ProfileSwitchStrategy + ProfileStore
             )
             if (debugOverlays.isNotEmpty()) {
                 allowOverride(true)

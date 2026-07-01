@@ -11,16 +11,19 @@ class WireFormatRoundtripTest {
 
     @Test
     fun wizardManifest_roundtrip() {
+        // TASK-65 FR-002: manifest schemaVersion is now 2; body.appFamilyId
+        // removed (legacy v1 manifests are auto-migrated on parse — see
+        // WizardManifestBackwardCompatTest).
         val original = ConfigDocument.Manifest(
             header = ConfigDocumentHeader(
-                schemaVersion = 1,
+                schemaVersion = 2,
                 id = "wizard-manifest.simple-launcher",
                 name = "wizard_manifest.simple_launcher.name",
                 description = "wizard_manifest.simple_launcher.desc",
                 deviceClass = listOf("android-phone"),
             ),
             body = WizardManifestBody(
-                appFamilyId = "simple-launcher",
+                appFamilyId = null,
                 autoOrder = true,
                 steps = null,
             ),

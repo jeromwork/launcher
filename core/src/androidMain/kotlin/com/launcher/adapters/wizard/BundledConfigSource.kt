@@ -28,7 +28,7 @@ class BundledConfigSource(
 ) : ConfigSource {
 
     override suspend fun list(kind: ConfigKind): List<ConfigSummary> {
-        val dirName = "wizard/${assetDirFor(kind)}"
+        val dirName = baseDirFor(kind)
         val files = try {
             context.assets.list(dirName)?.toList().orEmpty()
         } catch (_: Throwable) {
@@ -51,7 +51,7 @@ class BundledConfigSource(
     }
 
     override suspend fun load(kind: ConfigKind, id: String): ConfigSourceResult {
-        val dirName = "wizard/${assetDirFor(kind)}"
+        val dirName = baseDirFor(kind)
         val files = try {
             context.assets.list(dirName)?.toList().orEmpty()
         } catch (_: Throwable) {
@@ -72,12 +72,13 @@ class BundledConfigSource(
         return ConfigSourceResult.NotFound(id)
     }
 
-    private fun assetDirFor(kind: ConfigKind): String = when (kind) {
-        ConfigKind.WizardManifest -> "wizard-manifests"
-        ConfigKind.ScreenLayout -> "screen-layouts"
-        ConfigKind.TileSet -> "tile-sets"
-        ConfigKind.SystemSettingsPool -> "system-settings"
-        ConfigKind.UICustomizationPool -> "ui-customization"
+    private fun baseDirFor(kind: ConfigKind): String = when (kind) {
+        ConfigKind.WizardManifest -> "wizard/wizard-manifests"
+        ConfigKind.ScreenLayout -> "wizard/screen-layouts"
+        ConfigKind.TileSet -> "wizard/tile-sets"
+        ConfigKind.SystemSettingsPool -> "wizard/system-settings"
+        ConfigKind.UICustomizationPool -> "wizard/ui-customization"
+        ConfigKind.Preset -> "presets"
     }
 
     private fun readAsset(path: String): String? = try {

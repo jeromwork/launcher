@@ -11,6 +11,13 @@ import kotlinx.serialization.json.JsonClassDiscriminator
  * Wire format: polymorphic JSON with discriminator field `kind`. See
  * `specs/task-7-simple-launcher-first-run/contracts/system-settings-pool-v2.md` §5.
  */
+// TODO(TASK-73): ApplySpec variants below assume Pixel-style Android surfaces
+// (RoleManager dialog, standard permission request, generic SettingsDeepLink).
+// On Xiaomi MIUI the target Settings screen may differ; on Huawei without GMS
+// the intent may not resolve at all — apply pipeline needs vendor-specific
+// intent + `resolveActivity == null` fallback chain culminating in a localized
+// AlertDialog with textual instruction ("Откройте Настройки → ..."). See
+// TASK-73 spec.
 @OptIn(ExperimentalSerializationApi::class)
 @JsonClassDiscriminator("kind")
 @Serializable
