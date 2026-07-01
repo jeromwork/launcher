@@ -2,112 +2,134 @@
 
 **Feature Branch**: `task-66-generic-encrypted-bucket-registry`
 **Created**: 2026-07-01
-**Status**: Draft (pending `/speckit.clarify`)
-**Input**: Backlog [TASK-66](../../backlog/tasks/task-66%20-%20Generic-Encrypted-Bucket-Registry.md) — универсальный реестр шифрованных «вёдер данных»; каждая фича декларирует `BucketTypeSpec` → реестр делает encrypt / upload / recover / push routing.
+**Status**: Draft (clarify pass 1 done, pass 2 pending)
+**Input**: Backlog [TASK-66](../../backlog/tasks/task-66%20-%20Generic-Encrypted-Bucket-Registry.md) — универсальный реестр шифрованных «вёдер данных»; каждая фича декларирует `BucketTypeSpec` → реестр делает encrypt / upload / catalog update / recover / push wakeup routing.
 
-> **Coordination note**: TASK-6 (Root Key Hierarchy + Owner Recovery) в статусе Verification, spec 020 частично в stash. TASK-66 меняет recovery flow (`recoverAll()` через registry вместо per-feature кода) — это либо amendment к spec 020, либо TASK-66 явно поглощает часть TASK-6 deliverables. **Решение — открытый вопрос для `/speckit.clarify`** (см. Clarifications секцию).
+**Constitutional context**: Написан под **Article XX (Pre-MVP No-Migration Override)**. Нет installed base, нет user data в поле. TASK-4 config wire format **удаляется без migration**. Никакой byte-equal регрессии.
+
+**Coordination note**: TASK-6 (Root Key Hierarchy + Owner Recovery) в статусе Verification. TASK-66 **не** переписывает recovery flow TASK-6 — TASK-66 экспонирует функцию `registry.recoverAll(rootKey)`, которую recovery flow из TASK-6 вызывает **в существующем виде**. Разграничение обязанностей:
+
+- **TASK-6 owns identity + root key.** Google Sign-In → passphrase → root key восстановлен. Не знает про buckets.
+- **TASK-66 owns encrypted buckets.** Не знает про identity. Получает root key снаружи, делает свою работу.
+
+---
 
 ## Контекст и цель спека
 
-**Где мы сейчас**. TASK-4 (Own config E2E encryption envelope) — Done. TASK-5 (FCM config-updated push) — Done. TASK-6 (Root Key Hierarchy) — Verification. Сейчас у нас **один** шифрованный bucket в production: `bucket.config`. Логика encrypt → upload → download → decrypt → recovery → push routing **зашита в ConfigCipher2 + ConfigRepository** и специфична для config.
+**Терминология (согласовано с TASK-65).** В спеке действуют актуальные термины:
 
-**Проблема**. Каждая следующая фича, требующая шифрования (TASK-9 contacts, TASK-67 pairing edges, TASK-11 photo, TASK-27 messenger threads), либо:
-- (а) **дублирует** всю ту же инфру (encrypt / upload / recover / push), — 5 итераций одного кода, каждая с своими багами;
-- (б) **паразитирует** на `ConfigCipher2`, размывая его границы (нарушение rule 1 — domain isolation);
-- (в) **отдельно** каждая обрастает своим recovery коду в TASK-6 flow — TASK-6 spec 020 становится God-object'ом.
+- **Preset** — public shareable JSON, ходит между устройствами **без шифрования**. В TASK-66 не участвует.
+- **Profile** — per-device personal data (layout + bindings + settings values). **Шифруется** через Registry. `SelfOnly` recipient scope.
+- **Pairing edges** (TASK-67), **contacts** (TASK-9), **photo** (Phase 4), **messenger threads** (TASK-27) — все это **encrypted buckets**, каждый — потребитель Registry.
+- **Bucket** — единица шифрованных данных, идентифицируемая `BucketTypeId`. Не «config» (устаревшее TASK-4 слово, удаляется).
 
-**Что TASK-66 строит**:
+**Где мы сейчас**. TASK-4 (own config E2E encryption envelope) — Done. TASK-5 (FCM push) — Done. TASK-6 (Root Key Hierarchy) — Verification. Сейчас **один** шифрованный тип данных в коде: то, что раньше называлось `config`. Логика encrypt/upload/download/recover/push **зашита** в `ConfigCipher2 + ConfigRepository`.
 
-1. **`EncryptedBucketRegistry` port** в `core/buckets/` — один реестр на app, `Map<BucketTypeId, BucketTypeSpec>`.
-2. **`BucketTypeSpec` data class** — паспорт одного типа bucket'а: `id`, `schemaVersion`, `conflictPolicy`, `recipientPolicy`, `serializer`.
-3. **Sealed `ConflictPolicy`**: `LastWriteWins` / `AddOnlyRevokeOnly` / `Merge<T>`.
-4. **Sealed `RecipientPolicy`**: `SelfOnly` / `SelfPlusPairedAdmins` / `Custom`.
-5. **`BucketEnvelope` wire format** — `schemaVersion=1`, содержит `{bucketTypeId, bucketSchemaVersion, ciphertext, signedBy, timestamp}`.
-6. **Recovery hook**: `EncryptedBucketRegistry.recoverAll(auth)` — вызывается из recovery flow (TASK-6) вместо per-feature кода.
-7. **Push routing** (`BucketUpdateRouter`) — payload `{type:"bucket-updated", bucketTypeId}` из Cloudflare Worker (TASK-5) роутится в registry, registry скачивает + расшифровывает + emit на `Flow<T>`.
-8. **Migration TASK-4 config**: `ConfigCipher2` внутренне переиспользует `EncryptedBucketRegistry` для `bucket.config`. **Ciphertext byte-equal regression test** — существующий config продолжает читаться.
-9. **`FakeEncryptedBucketRegistry` + `FakeRemoteStorage`** — для тестов (per rule 6 mock-first).
-10. **Fitness test**: dummy `bucket.dummy` через одну декларацию → put → recovery на новом инстансе → данные восстановлены. Один integration test доказывает, что вся foundation generic.
-11. **Lint (Detekt)**: `ExtractionReadinessDetector` — `core/buckets/` не импортирует launcher-specific / config-specific / pairing-specific типы.
-12. **Wire-format hooks** для будущих расширений: `BucketEnvelope.metadata: Map<String,String> = emptyMap()` для будущих полей без bump schemaVersion.
-13. **Документация** `docs/architecture/bucket-registry.md` — простым русским, «как добавить новый bucket» пошагово.
+**Проблема**. Каждая следующая фича, требующая шифрования (Profile — прямо сейчас в TASK-65, pairing edges — TASK-67 next, contacts — TASK-9, photo, threads), либо:
+- (а) **дублирует** всю инфру encrypt/upload/recover/push — 5 итераций одного кода;
+- (б) **паразитирует** на `ConfigCipher2`, размывая его границы (нарушение rule 1);
+- (в) обрастает своим recovery кодом в TASK-6 flow — TASK-6 spec 020 становится God-object'ом.
 
-**Что TASK-66 НЕ строит** (намеренно):
+**Ключевой архитектурный принцип: сервер видит только blob.**
 
-- **Не строит конкретные bucket-типы.** Pairing edges — TASK-67. Photo — Phase 4. Messenger threads — Phase 3.
-- **Не строит server-side bucket inventory API.** Server остаётся «глупым» — Firestore документы + Cloudflare Worker push relay. TASK-24 (Device Inventory Sync) — Phase 4.
-- **Не извлекает foundation в sub-repo.** Extraction trigger — второе family-приложение (messenger / photo). Пока — `core/buckets/` в launcher-репо, `ExtractionReadinessDetector` защищает.
-- **Не строит multi-recipient encryption refactor.** S-2 enhancement из TASK-6 notes — отложено. `RecipientPolicy` — enum из трёх вариантов; multi-pair-admin — через `Custom`.
-- **Не разрешает конфликты на сервере.** Per E2E invariant — server blind to plaintext. Всё резолвится на клиенте через `spec.conflictPolicy`.
-- **Не строит conflict CRDT-level algorithms.** `AddOnlyRevokeOnly` — простой set union; `Merge<T>` — custom callback от фичи (не общий CRDT).
-- **Не рефакторит TASK-5 Cloudflare Worker.** Worker получает payload `{type:"bucket-updated", bucketTypeId}` — extension existing routing; не переписываем.
+Сервер (Firestore + Cloudflare Worker + FCM) **не знает**:
+- какие типы buckets есть у владельца,
+- что лежит в каждом blob'е,
+- какой blob к какой фиче относится,
+- какие поля есть внутри blob'а.
 
-## Clarifications
+Сервер видит **только**:
+- сам зашифрованный blob (как непрозрачную двоичную кучу),
+- путь до blob'а (через `StoragePathResolver` port — сейчас содержит UID + opaque blobId; финальная схема определится при работе над своим сервером),
+- размер blob'а (следствие физического хранения).
 
-### 2026-07-01 — Pre-clarify open questions (для `/speckit.clarify`)
+**Push через FCM = будильник.** Push **не содержит** информации о том, что именно обновилось. Просто «проверь свой catalog». Клиент сам разбирается через encrypted catalog (см. ниже).
 
-Ниже вопросы, которые я вижу как открытые до формального clarify prompt'а. `/speckit.clarify` будет их структурировать и добавлять новые.
+**Encrypted catalog.** На сервере лежит один зашифрованный blob-catalog для владельца — «карта» его вёдер: `{bucketTypeId → blobRef}`. Тоже blob для сервера. Только клиент, имея root key, может расшифровать catalog и понять, что где лежит. Клиент, получив push-будильник, скачивает catalog → сравнивает с локальным → скачивает только изменившиеся blob'ы.
 
-| # | Question | Preliminary thinking |
-|---|----------|---------------------|
-| 1 | **TASK-6 coordination**: TASK-66 меняет recovery flow (registry.recoverAll вместо per-feature). Это amendment к spec 020 (в stash) или TASK-66 явно поглощает TASK-6 recovery deliverables? | Склоняюсь к «TASK-66 owns generic recovery loop; spec 020 amendment ссылается на TASK-66 как источник». Recovery flow остаётся в TASK-6 (Google + passphrase → root key), но loop по bucket'ам — в TASK-66. |
-| 2 | **`BucketTypeId` format**: reverse-DNS namespaced (`bucket.pairing.edges`) или UUID? | Reverse-DNS — human-readable, стабильный для migration debug. UUID — collision-proof но нечитаемый. Preliminary — reverse-DNS + validation regex. Extraction в другой app — префикс `bucket.messenger.threads`. |
-| 3 | **`schemaVersion` per-envelope vs per-bucket-type**: envelope имеет свой schemaVersion (структура envelope) + bucket-type имеет свой (структура ciphertext'а после decrypt). Оба? | Preliminary — да, оба поля. `envelope.schemaVersion` = 1 (структура envelope), `envelope.bucketSchemaVersion` = version из BucketTypeSpec. Envelope формат может меняться независимо от bucket contents. |
-| 4 | **Conflict resolution timing**: при download / при put / on-read? | Preliminary — **при download**. Клиент получил новый envelope, локальная копия diverged → apply policy → save merged, emit на Flow. Put никогда не сталкивается с конфликтом (write-then-eventual-sync модель). |
-| 5 | **`RecipientPolicy.Custom`**: как оно описано? Список UID'ов? Callback? | Preliminary — callback `(context) -> List<RecipientKey>` для гибкости. Config `SelfOnly` = fixed list [own device key]; `SelfPlusPairedAdmins` = pull from PairingRegistry (TASK-67). Custom — override когда фича знает лучше. |
-| 6 | **Push routing on Doze / killed app**: FcmReceiverService дёргает WorkManager job — job вызывает `registry.refresh(bucketTypeId)`. Что если registry не bootstrap'ed (app cold-start от push)? | Preliminary — WorkManager job делает **partial bootstrap** через DI (только `KeyRegistry` + `RemoteStorage` + `EncryptedBucketRegistry`); фичи регистрируются не lazy — их BucketTypeSpec известен из compile-time регистрации. Requires DI review. |
-| 7 | **Migration TASK-4 config**: `ConfigCipher2` заменяется на `EncryptedBucketRegistry` **под капотом** (ConfigRepository API не меняется) или ConfigRepository переписывается на прямое `registry.get("bucket.config")`? | Склоняюсь к варианту 2 (переписывается). Иначе `ConfigCipher2` остаётся как legacy обёртка, приумножая точки правды. Regression test byte-equal ciphertext — критичен. |
-| 8 | **`Merge<T>` callback semantics**: `(local: T, remote: T) -> T` или `(local: T, remote: T, base: T?) -> T` (3-way merge)? | Preliminary — 3-way с `base` optional. Registry хранит last-synced version в cache; при конфликте передаёт как base. Без base — fallback на 2-way. |
-| 9 | **Атомарность registration**: `register()` вызывается на app start. Что если два модуля регистрируют один `BucketTypeId`? | Preliminary — throw `IllegalStateException` (fail-fast, программистский баг). Не silent overwrite. |
-| 10 | **`Flow<T>` cold vs hot**: подписчики получают cached last known + все future updates? | Preliminary — hot `StateFlow<T?>` per bucket. `null` до первого download / recovery; после — последнее известное состояние. UI subscribes и переживает config changes через ViewModel. |
+---
+
+## Что TASK-66 строит
+
+1. **`EncryptedBucketRegistry` port** в `core/buckets/` — один на app, `Map<BucketTypeId, BucketTypeSpec>`.
+2. **`BucketTypeSpec` data class** — паспорт: `id`, `schemaVersion`, `recipientPolicy`, `serializer`.
+3. **`BucketCatalog` — encrypted map `bucketTypeId → blobRef`.** Сам catalog — тоже bucket (первый bucket в системе, «meta»). При любом изменении bucket'а — атомарно обновляется catalog. Push будит клиент → он тянет catalog → диффит → тянет что изменилось.
+4. **`StoragePathResolver` port + `MvpStoragePathResolver` adapter** — инкапсулирует path-схему. Сейчас: `users/{uid}/buckets/{opaqueBlobId}`. Позже (свой сервер): динамические строки, известные только клиенту. `MvpStoragePathResolver` **не финальный дизайн**, отмечен `// TODO(server-roadmap): path scheme redesign when own server ships`.
+5. **`RecipientPolicy`** (sealed): `SelfOnly` / `SelfPlusPairedAdmins` / `Custom`. Влияет на то, какие public keys используются при encrypt.
+6. **`BucketEnvelope` — минимальное wire format**: `{ciphertext, size}`. **Никаких plaintext-полей кроме ciphertext'а.** `bucketTypeId`, `schemaVersion`, `timestamp`, `signedBy` — **внутри ciphertext'а**.
+7. **`recoverAll(rootKey)` API** — вызывается из recovery flow TASK-6 (TASK-6 flow не переписывается, добавляется одна строка вызова). Registry сам проходит по catalog'у и восстанавливает все buckets.
+8. **Push wakeup** через FCM: payload = `{wakeup:true}`. **Ничего кроме флага.** Клиент сам знает, что делать (тянуть catalog, диффить, тянуть blob'ы).
+9. **`FakeEncryptedBucketRegistry` + `FakeRemoteStorage`** — для тестов (rule 6).
+10. **Fitness test**: dummy bucket через одну декларацию → put → recovery на новом инстансе → данные восстановлены. Доказывает, что foundation generic.
+11. **Detekt `ExtractionReadinessDetector`** — `core/buckets/` не импортирует launcher-specific / preset-specific / pairing-specific типы.
+12. **Documentation** `docs/architecture/bucket-registry.md` — простым русским, «как добавить новый bucket».
+13. **Удаление TASK-4 legacy.** `ConfigCipher2`, старый envelope shape, wire format TASK-4 — **удаляются**. Профиль (то, что раньше шифровалось как «config») теперь регистрируется как обычный bucket через ту же Registry API. Per Article XX.
+
+---
+
+## Что TASK-66 НЕ строит
+
+- **Не строит merge/diff/conflict resolution.** Владелец: «редактирование конфигов и рассинхроны — совершенно другая задача, отдельный механизм». Registry только encrypt/upload/download/recover. Что происходит при concurrent edit — область другой спеки.
+- **Не строит конкретные bucket-типы.** Pairing — TASK-67. Photo — Phase 4. Messenger — Phase 3. TASK-66 закладывает только foundation + profile bucket как первый живой потребитель + dummy bucket для fitness теста.
+- **Не строит server-side inventory API.** Server остаётся «глухим»: Firestore + Worker + FCM. Client знает всё, server ничего.
+- **Не строит extraction в sub-repo.** Extraction trigger — второе family-приложение. `core/buckets/` в launcher-репо, `ExtractionReadinessDetector` защищает.
+- **Не строит финальную server security модель.** `MvpStoragePathResolver` — временный. Финальная схема (динамические пути известные только клиенту, ротация ключей, шифрованные UID'ы, etc.) — задача при работе над своим сервером. Заложен только hook (port).
+- **Не рефакторит TASK-5 Worker.** Worker получает `/notify {wakeup:true}` — тривиальное расширение существующего роутинга.
+- **Не мигрирует existing данные.** Per Article XX — pre-MVP phase, existing dev-device data стирается fresh install'ом.
+
+---
+
+## Ключевая архитектурная идея (для владельца)
+
+Раньше был один `ConfigCipher2`, специфичный для config. Каждая новая шифрованная фича требовала переписывания той же инфры. **После TASK-66:**
+
+1. Есть **один реестр** для всех «вёдер».
+2. Каждая фича даёт **паспорт**: id, версия, кому шифровать, как сериализовать.
+3. Реестр сам шифрует, отправляет, скачивает, восстанавливает, разбирается с push'ами.
+4. Сервер **не понимает** ничего — видит только зашифрованные blob'ы и путь до них.
+5. **Catalog** (тоже зашифрованный) на сервере — единственный «указатель» на blob'ы. Только клиент может его прочитать.
+6. **Push от сервера — тупой будильник** «проверь catalog». Никакой информации о том, что именно поменялось.
+
+---
 
 ## Sequences
-
-> **Одной строкой:** TASK-66 превращает «каждое ведро шифрованных данных пишет свою инфру encrypt/upload/recover» в «каждое ведро — это паспорт (`BucketTypeSpec`), реестр делает остальное».
 
 ### Данные, которыми мы оперируем (mini-map)
 
 ```
-EncryptedBucketRegistry (один на app — реестр известных типов)
+На клиенте:
+EncryptedBucketRegistry (один на app)
 └── Map<BucketTypeId, BucketTypeSpec>
-    ├── "bucket.config"           ← TASK-4 (после миграции)
-    ├── "bucket.contacts"         ← TASK-9 (будущее)
+    ├── "bucket.profile"          ← первый живой потребитель (per-device Profile)
     ├── "bucket.pairing.edges"    ← TASK-67 (следующее)
-    └── "bucket.dummy"            ← test fitness
+    ├── "bucket.dummy"            ← fitness test
+    └── (meta) bucket.catalog     ← сам catalog — тоже bucket
 
-BucketTypeSpec — паспорт одного типа bucket'а:
-├── id: "bucket.pairing.edges"   (immutable wire-format identifier, rule 5)
-├── schemaVersion: 1
-├── conflictPolicy: AddOnlyRevokeOnly  (sealed: LastWriteWins | AddOnlyRevokeOnly | Merge<T>)
-├── recipientPolicy: SelfOnly          (sealed: SelfOnly | SelfPlusPairedAdmins | Custom)
-└── serializer: KSerializer<List<TrustEdge>>
-
-BucketEnvelope — wire format на проводе (rule 5):
-└── { schemaVersion=1, bucketTypeId, bucketSchemaVersion, ciphertext, signedBy, timestamp, metadata }
+На сервере (opaque):
+users/{uid}/buckets/{opaqueBlobId1}  ← blob (сервер не знает что это)
+users/{uid}/buckets/{opaqueBlobId2}  ← blob
+users/{uid}/buckets/{catalogBlobId}  ← catalog blob
 ```
 
-Каждая фича декларирует паспорт → реестр делает: serialize → encrypt via KeyRegistry → upload via RemoteStorage → receive push → decrypt → notify subscribers → recover on new device.
+Клиент, имея root key, знает: catalogBlobId → расшифровать → внутри `{bucket.profile: blobId1, bucket.pairing.edges: blobId2, ...}` → тянуть нужные blob'ы.
 
-### Cross-app vision (важно)
-
-`EncryptedBucketRegistry` будет переиспользован за пределами лаунчера. Messenger зарегистрирует `bucket.messenger.threads`. Photo app — `bucket.photo.albums`. Foundation **не знает** ни про contacts, ни про pairing, ни про threads — она работает с любым типом, который декларирует BucketTypeSpec. Та же extraction-readiness дисциплина что в TASK-65: `ExtractionReadinessDetector` не пускает launcher-specific imports в `core/buckets/`. Когда придёт messenger — `git mv`, не rewrite.
+Сервер знает: есть blob'ы у пользователя. Что внутри — нет.
 
 ### SEQ-1: Регистрация bucket-типов на старте app
 
-Pre: APK запускается. Post: registry знает обо всех типах, которые понадобятся фичам.
+Pre: APK запускается. Post: registry знает обо всех типах.
 
 #### Spec-level (behavior)
 
 ```mermaid
 sequenceDiagram
   participant App
-  participant Features as Feature modules (contacts, pairing, ...)
+  participant Features as Feature modules
 
   App->>App: Application.onCreate
   App->>Features: инициализируй каждый
   Features->>App: каждая фича декларирует свой BucketTypeSpec
-  App-->>App: registry готов — фичи могут писать/читать через registry.put/get
-  Note over App: ни одной user-facing операции, чистый bootstrap
+  App-->>App: registry готов
 ```
 
 #### Plan-level (architecture)
@@ -115,142 +137,30 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant App as Application.onCreate
-  participant DI as DI container
+  participant DI
   participant Reg as EncryptedBucketRegistry
-  participant Contacts as ContactsFeatureModule
-  participant Pairing as PairingFeatureModule
-  participant Config as ConfigFeatureModule
+  participant ProfileMod as ProfileFeatureModule
+  participant PairingMod as PairingFeatureModule (future)
 
   App->>DI: bootstrap()
   DI->>Reg: create EncryptedBucketRegistry
-  DI->>Contacts: bootstrap
-  Contacts->>Reg: register(BucketTypeSpec("bucket.contacts", v=1, Merge, SelfPlusPairedAdmins, ContactSerializer))
-  DI->>Pairing: bootstrap
-  Pairing->>Reg: register(BucketTypeSpec("bucket.pairing.edges", v=1, AddOnlyRevokeOnly, SelfOnly, TrustEdgeSerializer))
-  DI->>Config: bootstrap
-  Config->>Reg: register(BucketTypeSpec("bucket.config", v=1, LastWriteWins, SelfOnly, ConfigSerializer))
-  Note over Reg: Map<BucketTypeId, BucketTypeSpec> готов
+  DI->>ProfileMod: bootstrap
+  ProfileMod->>Reg: register(BucketTypeSpec("bucket.profile", v=1, SelfOnly, ProfileSerializer))
+  Note over PairingMod: TASK-67 добавляет свой register call
+  DI->>Reg: register (meta) BucketTypeSpec("bucket.catalog", v=1, SelfOnly, CatalogSerializer)
 ```
 
 <!-- MENTOR-DETAIL:BEGIN -->
 #### Пояснение для владельца
-- **«Паспорт» — это BucketTypeSpec.** Фича говорит реестру: «у меня bucket с таким id, такой schema, такой policy, такой serializer». Registry запоминает.
-- **Registration — один раз на app start.** Не runtime: bucket-типы не появляются и не исчезают между запусками. Если изменится policy для уже зарегистрированного — это **миграция**, а не просто перерегистрация.
-- **Конкретные фичи (contacts/pairing/config) не зависят друг от друга.** Каждая регистрирует свой паспорт независимо. Когда добавится `messenger.threads` — никаких правок в существующих фичах.
-- **Fail-fast:** если два модуля регистрируют один id — throw. Это программистская ошибка.
-- **Cross-app:** в messenger та же сцена, только spec'и другие. Тот же `EncryptedBucketRegistry` код, тот же DI bootstrap.
+- **Паспорт (BucketTypeSpec)** — фича говорит реестру «вот мой bucket: id, версия, кому шифровать, как сериализовать».
+- **Registration один раз при старте app.** Не runtime. Если два модуля регистрируют один id — throw (программистская ошибка).
+- **Catalog — тоже bucket.** Он сам себя регистрирует как meta-тип. Единственное отличие — Registry знает его особо (без catalog нельзя найти остальные).
+- **Cross-app:** тот же код в messenger. Messenger регистрирует `bucket.messenger.threads` — Registry не отличит от `bucket.profile`.
 <!-- MENTOR-DETAIL:END -->
 
-### SEQ-2: Запись данных (put) — encrypt и upload
+### SEQ-2: Запись данных (put)
 
-Pre: registry знает про bucket-тип (SEQ-1). Owner на устройстве A сохраняет что-то (новый контакт / новый pairing-edge).
-
-#### Spec-level (behavior)
-
-```mermaid
-sequenceDiagram
-  participant Owner
-  participant App
-  participant Server as Cloud (Firestore + Cloudflare Worker)
-
-  Owner->>App: сохраняет данные (новый контакт / новый pairing-edge)
-  App->>App: шифрует через root key tree (TASK-6)
-  App->>Server: отправляет зашифрованное (Server видит только ciphertext)
-  Server-->>App: ack
-  App-->>Owner: данные сохранены (UI обновился)
-  Note over Server: server рассылает push 'bucket-updated' другим устройствам владельца (SEQ-3)
-```
-
-#### Plan-level (architecture)
-
-```mermaid
-sequenceDiagram
-  participant Feature as PairingService
-  participant Reg as EncryptedBucketRegistry
-  participant KR as KeyRegistry (TASK-6)
-  participant RS as RemoteStorage (TASK-6)
-  participant Push as BucketPushPublisher
-
-  Feature->>Reg: put("bucket.pairing.edges", List<TrustEdge>)
-  Reg->>Reg: spec = registry.lookup("bucket.pairing.edges")
-  Reg->>Reg: serialize via spec.serializer
-  Reg->>KR: derive("buckets/bucket.pairing.edges")
-  KR-->>Reg: derivedKey
-  Reg->>Reg: encrypt via AEAD (ChaCha20-Poly1305)
-  Reg->>Reg: wrap into BucketEnvelope (schemaVersion=1)
-  Reg->>RS: upload(envelope)
-  RS-->>Reg: ack
-  Reg->>Push: notify("bucket.pairing.edges" updated)
-  Push-->>RS: server-side push через Cloudflare Worker (TASK-5 hook)
-  Reg-->>Feature: success
-```
-
-<!-- MENTOR-DETAIL:BEGIN -->
-#### Пояснение для владельца
-- **Фича не знает про шифрование.** PairingService просто говорит «положи мне эти данные в bucket pairing-edges». Registry сама шифрует через KeyRegistry.
-- **`KeyRegistry.derive("buckets/<id>")`** — каждый bucket получает свой sub-ключ из root key. Если один bucket скомпрометирован — другие не страдают (изоляция в дереве).
-- **`BucketEnvelope`** — wire format, едет на сервер. Server **видит только ciphertext + metadata** (bucketTypeId, timestamp). Не видит содержимое.
-- **Push через Cloudflare Worker (TASK-5):** после успешного upload registry дёргает worker `/notify` с `{type:"bucket-updated", bucketTypeId}`. Worker рассылает FCM на все устройства владельца.
-- **Этот же путь** для contacts, config, pairing, и любого future bucket-типа. **Один и тот же код**, разные паспорта.
-<!-- MENTOR-DETAIL:END -->
-
-### SEQ-3: Приём обновления (push) — другое устройство владельца
-
-Pre: устройство A записало bucket (SEQ-2). Устройство B (тот же владелец, тот же Google UID) спит в Doze. Post: B автоматически имеет последнюю версию.
-
-#### Spec-level (behavior)
-
-```mermaid
-sequenceDiagram
-  participant Server as Cloud
-  participant DeviceB as Устройство B (фоновое)
-  participant Owner
-
-  Server->>DeviceB: FCM push 'bucket-updated: pairing.edges'
-  DeviceB->>DeviceB: просыпается, скачивает обновлённый bucket
-  DeviceB->>DeviceB: расшифровывает через root key tree
-  DeviceB-->>Owner: UI обновился (если был открыт)
-  Note over DeviceB: Если UI не открыт — данные в памяти,<br/>обновятся при следующем onResume
-```
-
-#### Plan-level (architecture)
-
-```mermaid
-sequenceDiagram
-  participant FCM as Firebase Cloud Messaging
-  participant Receiver as FcmReceiverService
-  participant Router as BucketUpdateRouter
-  participant Reg as EncryptedBucketRegistry
-  participant RS as RemoteStorage
-  participant KR as KeyRegistry
-  participant Listener as PairingViewModel (Flow subscriber)
-
-  FCM->>Receiver: payload {type:"bucket-updated", bucketTypeId:"bucket.pairing.edges"}
-  Receiver->>Router: route by type
-  Router->>Reg: refresh("bucket.pairing.edges")
-  Reg->>Reg: spec = lookup(id)
-  Reg->>RS: download(latest envelope)
-  RS-->>Reg: BucketEnvelope
-  Reg->>KR: derive("buckets/bucket.pairing.edges")
-  KR-->>Reg: derivedKey
-  Reg->>Reg: decrypt + deserialize via spec.serializer
-  Reg->>Reg: apply spec.conflictPolicy if local copy diverges
-  Reg-->>Listener: emit на StateFlow<List<TrustEdge>>
-  Listener-->>Listener: UI updates (если subscribed)
-```
-
-<!-- MENTOR-DETAIL:BEGIN -->
-#### Пояснение для владельца
-- **Routing по bucketTypeId** — registry знает, какая фича подписана на bucket. Push payload содержит **только id** (не содержимое).
-- **`StateFlow<T?>` подписчики** — каждая фича получает свой реактивный поток. ViewModel жив (UI открыт) → мгновенно обновляется. Убит → данные в локальной cache, обновятся на `onResume`.
-- **Conflict policy применяется здесь.** Если локальная копия что-то писала пока push шёл — registry мерджит по policy. Подробно — SEQ-5.
-- **Boot-инвариант (как в TASK-65):** push приёмник работает в Background WorkManager job — **не требует Activity**. Приложение убито OS — push всё равно скачается и обновит cache.
-- **Cross-app:** messenger получит push для своих bucket'ов через тот же `BucketUpdateRouter`. Routing полностью generic.
-<!-- MENTOR-DETAIL:END -->
-
-### SEQ-4: Recovery на новом устройстве — главная фишка
-
-Pre: устройство A потеряно. Owner купил новый телефон B. Прошёл TASK-6 recovery flow (Google + passphrase). Root key восстановлен. Post: ВСЕ зарегистрированные buckets автоматически восстановлены — contacts, pairing-edges, config, темы — без отдельного recovery кода для каждого.
+Pre: registry знает тип. Owner на устройстве A изменил Profile (например, поменял layout).
 
 #### Spec-level (behavior)
 
@@ -260,13 +170,167 @@ sequenceDiagram
   participant App
   participant Server
 
-  Owner->>App: установил APK на новый телефон, Google + passphrase (TASK-6 flow)
+  Owner->>App: изменил данные (Profile)
+  App->>App: шифрует через root key tree (TASK-6)
+  App->>App: атомарно обновляет catalog (тоже зашифрован)
+  App->>Server: загружает 2 blob'а: обновлённый bucket + новый catalog
+  Server-->>App: ok (сервер видит только blob'ы)
+  App-->>Owner: сохранено (UI обновился)
+  Note over Server: сервер шлёт FCM 'wakeup' другим устройствам владельца
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant Feature as ProfileService
+  participant Reg as EncryptedBucketRegistry
+  participant KR as KeyRegistry (TASK-6)
+  participant Cat as BucketCatalog
+  participant PR as StoragePathResolver
+  participant RS as RemoteStorage
+  participant Push as WakeupPublisher
+
+  Feature->>Reg: put("bucket.profile", ProfileData(...))
+  Reg->>Reg: spec = lookup("bucket.profile")
+  Reg->>Reg: serialize via spec.serializer
+  Reg->>KR: derive("buckets/bucket.profile")
+  KR-->>Reg: derivedKey
+  Reg->>Reg: encrypt via AEAD (ChaCha20-Poly1305)
+  Reg->>Reg: package into BucketEnvelope { ciphertext (contains bucketTypeId, schemaVersion, timestamp inside), size }
+  Reg->>Cat: update(bucketTypeId → newBlobRef)
+  Cat->>KR: derive("buckets/bucket.catalog")
+  KR-->>Cat: catalogKey
+  Cat->>Cat: encrypt catalog
+  Reg->>PR: resolveBlobPath(newBlobRef)
+  PR-->>Reg: users/{uid}/buckets/{opaqueId}
+  Reg->>RS: upload(bucketPath, bucketEnvelope)
+  Reg->>RS: upload(catalogPath, catalogEnvelope)
+  RS-->>Reg: ok
+  Reg->>Push: notify() (no payload, just wakeup)
+  Push-->>RS: FCM {wakeup:true} to other devices
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+- **Фича не знает про шифрование.** ProfileService говорит «положи мне Profile». Registry сама шифрует.
+- **Catalog атомарно обновляется вместе с bucket'ом.** Сначала catalog в памяти обновляется, потом заливаются оба blob'а. Если один из upload'ов не прошёл — retry (SEQ-6, отложено на clarify pass 2).
+- **StoragePathResolver — hook.** Сейчас `users/{uid}/buckets/{opaqueId}`. Позже (свой сервер) — что-то другое, что сервер не сможет прочитать. Логика инкапсулирована в port'е, можно поменять без правки Registry.
+- **Push wakeup = тупой будильник.** Payload = `{wakeup:true}`. Никакой информации что поменялось.
+- **Cross-app:** тот же путь для любого будущего bucket'а. Один код, разные паспорта.
+<!-- MENTOR-DETAIL:END -->
+
+### SEQ-3: Приём wakeup — другое устройство владельца, приложение живо
+
+Pre: устройство A записало bucket (SEQ-2). Устройство B живо (foreground / recent background). Post: B автоматически имеет свежий Profile.
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant Server
+  participant DeviceB
+  participant Owner
+
+  Server->>DeviceB: FCM 'wakeup' (никакого payload)
+  DeviceB->>DeviceB: скачивает catalog
+  DeviceB->>DeviceB: расшифровывает catalog
+  DeviceB->>DeviceB: сравнивает с локальным — видит: bucket.profile blobRef изменился
+  DeviceB->>DeviceB: скачивает bucket.profile blob
+  DeviceB->>DeviceB: расшифровывает
+  DeviceB-->>Owner: UI обновился (если открыт)
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant FCM
+  participant Receiver as FcmReceiverService
+  participant Reg as EncryptedBucketRegistry
+  participant Cat as BucketCatalog
+  participant PR as StoragePathResolver
+  participant RS as RemoteStorage
+  participant KR as KeyRegistry
+  participant Listener as ProfileViewModel
+
+  FCM->>Receiver: {wakeup:true}
+  Receiver->>Reg: sync()
+  Reg->>PR: resolveCatalogPath()
+  PR-->>Reg: users/{uid}/catalog
+  Reg->>RS: download(catalogPath)
+  RS-->>Reg: catalogEnvelope
+  Reg->>KR: derive("buckets/bucket.catalog")
+  KR-->>Reg: catalogKey
+  Reg->>Cat: decrypt + parse
+  Cat-->>Reg: {bucket.profile: newBlobRef, bucket.dummy: sameBlobRef, ...}
+  Reg->>Reg: diff vs local catalog
+  Reg->>Reg: changed = [bucket.profile]
+  loop for each changed bucketTypeId
+    Reg->>PR: resolveBlobPath(blobRef)
+    PR-->>Reg: path
+    Reg->>RS: download(path)
+    RS-->>Reg: bucketEnvelope
+    Reg->>KR: derive("buckets/" + bucketTypeId)
+    KR-->>Reg: derivedKey
+    Reg->>Reg: decrypt + deserialize
+    Reg->>Reg: update local cache
+    Reg->>Listener: emit on StateFlow
+  end
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+- **Wakeup — только сигнал.** Клиент не знает, что поменялось, пока не скачает catalog.
+- **Catalog — источник правды.** Локальная копия catalog'а хранится вместе с локальной копией bucket'ов. Diff catalog'ов показывает, какие blob'ы нужно перекачать.
+- **StateFlow подписчики** — фичи получают реактивный поток. ViewModel жив (UI открыт) → мгновенно обновляется.
+- **Если catalog не поменялся** (ложный wakeup) — Registry скачает один catalog, сравнит, увидит diff = ∅, ничего больше не сделает.
+<!-- MENTOR-DETAIL:END -->
+
+### SEQ-4: Приложение убито — что происходит с wakeup
+
+Pre: устройство B, приложение убито OS. Приходит FCM wakeup.
+
+```mermaid
+sequenceDiagram
+  participant FCM
+  participant OS
+  participant App
+
+  FCM->>OS: wakeup push
+  OS->>OS: приложение убито — игнорируем push для sync
+  Note over OS,App: НИКАКОГО partial bootstrap,<br/>НИКАКОГО background sync
+  Note over App: при следующем открытии...
+  App->>App: onCreate → sync() как часть обычного bootstrap
+  App-->>App: catalog скачан, diff применён, UI показывает свежие данные
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+- **Приложение убито = ничего не делаем.** Экономим батарею. Launcher — не мессенджер, он не обязан всегда быть на связи.
+- **При следующем открытии** приложение как часть обычного bootstrap проверяет catalog. Если поменялся — тянет свежие blob'ы. Пользователь не заметит задержки — sync быстрый, catalog маленький.
+- **Wakeup, дошедший до убитого app** — FCM его получит на уровне OS, но наш кастомный `FcmReceiverService` при мёртвом app сделает **noop**. Не пытаемся оживить.
+- **Что если приложение killed → wakeup потерян → owner открывает app → видит устаревшие данные?** Не проблема: `onCreate` всегда делает `sync()`. wakeup нужен только для live-обновления в foreground/recent background.
+<!-- MENTOR-DETAIL:END -->
+
+### SEQ-5: Recovery на новом устройстве
+
+Pre: устройство A потеряно. Owner купил новый телефон B, прошёл TASK-6 recovery. Root key восстановлен. Post: **все** зарегистрированные buckets автоматически восстановлены.
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant Owner
+  participant App
+  participant Server
+
+  Owner->>App: установил APK, Google + passphrase (TASK-6)
   App->>App: root key восстановлен (TASK-6)
-  App->>Server: загружает ВСЕ buckets владельца
-  Server-->>App: ciphertext всех зарегистрированных bucket-типов
-  App->>App: расшифровывает каждый через производные ключи
-  App-->>Owner: всё на месте — контакты, спаренные устройства, темы
-  Note over Owner,App: НИ ОДНОГО шага re-pairing,<br/>ре-добавления контактов, etc.
+  App->>Server: скачивает catalog
+  App->>Server: скачивает все blob'ы по catalog'у
+  App->>App: расшифровывает каждый
+  App-->>Owner: всё на месте — Profile, pairing, contacts, темы
 ```
 
 #### Plan-level (architecture)
@@ -274,186 +338,159 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant Recovery as RecoveryFlow (TASK-6)
-  participant Auth as AuthIdentity
   participant KR as KeyRegistry
   participant Reg as EncryptedBucketRegistry
+  participant Cat as BucketCatalog
   participant RS as RemoteStorage
 
-  Recovery->>Auth: authenticated user
   Recovery->>KR: rebuild key tree (passphrase + Google UID)
-  KR-->>Recovery: ready
-  Recovery->>Reg: recoverAll(auth)
-  loop for each registered BucketTypeSpec
-    Reg->>RS: download(spec.id)
-    RS-->>Reg: BucketEnvelope
-    Reg->>KR: derive("buckets/" + spec.id)
+  KR-->>Recovery: rootKey
+  Recovery->>Reg: recoverAll(rootKey)
+  Reg->>RS: download(catalog)
+  RS-->>Reg: catalogEnvelope
+  Reg->>KR: derive("buckets/bucket.catalog")
+  KR-->>Reg: catalogKey
+  Reg->>Cat: decrypt
+  Cat-->>Reg: full catalog
+  loop for each entry (bucketTypeId, blobRef) in catalog
+    Reg->>RS: download(blob)
+    RS-->>Reg: envelope
+    Reg->>KR: derive("buckets/" + bucketTypeId)
     KR-->>Reg: derivedKey
-    Reg->>Reg: decrypt + deserialize via spec.serializer
+    Reg->>Reg: decrypt + deserialize
     Reg->>Reg: populate local cache
-    Reg->>Reg: emit on StateFlow<T> for any subscribers
   end
-  Reg-->>Recovery: done (all buckets recovered)
+  Reg-->>Recovery: done
   Recovery-->>Recovery: navigate to Home
 ```
 
 <!-- MENTOR-DETAIL:BEGIN -->
 #### Пояснение для владельца
-- **Это killer feature TASK-66.** До этой задачи каждый bucket нуждался в собственном recovery коде в TASK-6 flow. После — ноль. Зарегистрировал паспорт → recovery работает.
-- **Loop по spec'ам** — registry просто проходит по своему Map'у. Не знает что внутри. Decryption + deserialization — generic, через KSerializer из спецификации.
-- **Это значит** что TASK-9 (contacts), TASK-67 (pairing), будущие TASK-11 (photo), TASK-27 (messenger) — **не пишут recovery код**. Только декларируют BucketTypeSpec + UI.
-- **Координация с TASK-6 spec 020.** Сейчас spec 020 (в stash) предполагает recovery конкретных buckets (config + contacts mentioned explicitly). TASK-66 spec ДОЛЖЕН включать amendment к spec 020: «recovery flow дёргает `EncryptedBucketRegistry.recoverAll()` вместо per-feature кода». Это первый agenda item в `/speckit.clarify` TASK-66.
+- **Killer feature.** До TASK-66 каждый bucket требовал свой recovery код. После — ноль. Зарегистрировал spec → recovery работает.
+- **TASK-6 не переписывается.** Recovery flow из TASK-6 в конце добавляет один вызов: `registry.recoverAll(rootKey)`. Всё.
+- **Разграничение обязанностей.** TASK-6 знает про identity и root key. TASK-66 не знает про identity — принимает root key как параметр и делает свою работу.
+- **Если в catalog'е есть entry для bucket-типа, который в новой версии app не зарегистрирован** (например, экспериментальный bucket из dev-сборки) — скипаем с логом. Не крашимся.
 <!-- MENTOR-DETAIL:END -->
 
-### SEQ-5: Разрешение конфликтов (compact)
-
-Pre: два устройства A и B одновременно пишут в один bucket (например, оба отзывают разные pairing-edges). Post: оба видят согласованное состояние.
-
-```mermaid
-sequenceDiagram
-  participant A as Device A
-  participant Server
-  participant B as Device B
-
-  par concurrent writes
-    A->>Server: upload bucket vN+1 (revoke edge X)
-  and
-    B->>Server: upload bucket vN+1 (revoke edge Y)
-  end
-  Note over Server: Server принимает оба, timestamp-ordered<br/>(server не разрешает — он blind to plaintext)
-  Server->>A: push 'bucket-updated'
-  Server->>B: push 'bucket-updated'
-  par concurrent resolution
-    A->>A: download → conflict обнаружен (local edits + remote edits)
-    A->>A: apply spec.conflictPolicy → merged state
-  and
-    B->>B: download → conflict обнаружен
-    B->>B: apply spec.conflictPolicy → merged state
-  end
-  Note over A,B: Оба видят: edge X revoked + edge Y revoked
-```
-
-**Три conflict policy (sealed):**
-
-| Policy | Поведение | Применение |
-|---|---|---|
-| **`LastWriteWins`** | Берётся версия с большим timestamp'ом | `bucket.config` (одна правда от владельца, последний выигрывает) |
-| **`AddOnlyRevokeOnly`** | Множество элементов с операциями add/revoke. Union add'ов, union revoke'ов | `bucket.pairing.edges` (никто не «удаляет» edge молча, только revoke) |
-| **`Merge<T>`** | Пользовательская merge function (передаётся в BucketTypeSpec) | `bucket.contacts` (smart merge по contact id) |
-
-<!-- MENTOR-DETAIL:BEGIN -->
-#### Пояснение для владельца
-- **Конфликт = когда два устройства пишут в один bucket почти одновременно.** Без policy одно перетрёт другое.
-- **Policy выбирается при регистрации.** PairingService регистрирует `AddOnlyRevokeOnly` потому что revoke edge должен быть видим обоим. ConfigService — `LastWriteWins` потому что config — одна правда.
-- **Server (Cloudflare Worker + Firestore) не разрешает конфликты сам.** Server принимает оба upload'а timestamp-ordered, рассылает оба push'а. **Разрешение — на клиенте**, через policy. Это **client-side resolution** — не нарушает invariant «server видит только ciphertext».
-- **`Merge<T>` — one-way door:** если решим что contacts merge нужно server-side (для очень больших buckets) — это потребует server-side decryption, что нарушает E2E encryption. Exit ramp — не использовать Merge для больших buckets; ограничивать размер.
-<!-- MENTOR-DETAIL:END -->
+---
 
 ## User Scenarios & Testing *(mandatory)*
 
-> **Про роли.** TASK-66 — чисто архитектурная инфраструктура. **`primary user`** и **`remote administrator`** ничего user-visible не видят от этой задачи напрямую. Killer feature (SEQ-4 recovery) видима косвенно — при recovery на новом устройстве всё восстанавливается «само», без прогресс-бара «восстанавливаю контакты… восстанавливаю pairing…». **Единственный видимый user-facing артефакт** — регрессия: если что-то сломалось в config encryption (byte-equal test failed), primary user увидит потерю доступа к своему config'у. Отсюда критичность regression'а.
+> **Про роли.** TASK-66 — чисто архитектурная инфраструктура. `primary user` и `remote administrator` **не видят** новых экранов от этой задачи. Единственный видимый эффект — killer feature recovery (SEQ-5): при новом устройстве всё восстанавливается «само», без прогресс-баров «восстанавливаю X, восстанавливаю Y».
 
-### User Story 1 — Regression: existing config продолжает работать (Priority: P0)
+### User Story 1 — Fitness: новый bucket добавляется через одну декларацию (Priority: P1)
 
-Owner-primary user на устройстве A, у которого уже есть зашифрованный config (TASK-4). После обновления APK на версию с TASK-66 → open app → config читается идентично, ciphertext byte-equal, ключи не перегенерированы.
+Разработчик добавляет новый bucket `bucket.dummy`. Пишет **одну декларацию** `BucketTypeSpec("bucket.dummy", 1, SelfOnly, DummySerializer)` + регистрирует в DI. **Ничего другого**: не пишет encrypt, не пишет upload, не пишет download, не пишет recovery, не пишет push handling.
 
-**Why P0**: если это ломается, TASK-66 нельзя выкатывать вообще. Это единственный gate до merge.
+**Why P1**: доказывает foundation действительно generic. Если этот тест падает или требует правок в 3+ файлах — foundation не generic, TASK-66 не решила проблему.
 
-**Independent Test**: instrumentation test на `pixel_5_api_34` — (1) поставить APK pre-TASK-66, создать config, обновить passphrase, снять snapshot ciphertext'а из Firestore; (2) upgrade APK до post-TASK-66; (3) verify ciphertext идентичен байт-в-байт; (4) app читает config без re-auth / recovery.
-
-**Acceptance Scenarios**:
-1. **Given** установлен APK pre-TASK-66 с настроенным config, **When** upgrade до post-TASK-66, **Then** ciphertext в Firestore не изменился ни одним байтом.
-2. **Given** APK post-TASK-66 запущен, **When** ConfigRepository читает config, **Then** decrypt проходит первым же вызовом (не через fallback path).
-3. **Given** APK post-TASK-66, **When** ConfigRepository пишет config, **Then** новый ciphertext совместим с pre-TASK-66 форматом (можно откатить APK).
-
-### User Story 2 — Fitness: новый bucket добавляется через одну декларацию (Priority: P1)
-
-Разработчик хочет добавить новый bucket `bucket.dummy` для тестового hello-world сценария. Пишет **одну** декларацию `BucketTypeSpec("bucket.dummy", 1, LastWriteWins, SelfOnly, DummySerializer)` + регистрирует в DI. **Ничего другого**: не пишет encrypt, не пишет upload, не пишет download, не пишет recovery, не пишет push handling.
-
-**Why P1**: доказывает что foundation действительно generic. Fitness test защищает от регрессии (например, если кто-то добавит special-case ветку `if (bucketId == "config")`).
-
-**Independent Test**: unit + integration test — (1) регистрируется `bucket.dummy`; (2) `registry.put("bucket.dummy", DummyData("hello"))`; (3) на другом инстансе registry (симулируя новое устройство) `registry.recoverAll(auth)`; (4) `registry.get("bucket.dummy")` возвращает `DummyData("hello")`.
+**Independent Test**: unit + integration test — (1) регистрируется `bucket.dummy`; (2) `registry.put("bucket.dummy", DummyData("hello"))`; (3) на другом инстансе registry (симулируя новое устройство) `registry.recoverAll(rootKey)`; (4) `registry.get("bucket.dummy")` возвращает `DummyData("hello")`.
 
 **Acceptance Scenarios**:
 1. **Given** `BucketTypeSpec("bucket.dummy", ...)` зарегистрирован, **When** put → recoverAll на другом инстансе → get, **Then** данные восстановлены.
-2. **Given** dummy bucket добавлен в git, **When** grep по кодовой базе на `"bucket.dummy"`, **Then** результат = только (а) декларация spec + (б) DI регистрация + (в) тесты. **Нет** отдельных путей для encrypt/upload/recover/push.
+2. **Given** dummy bucket добавлен, **When** grep `"bucket.dummy"`, **Then** результат = (а) декларация spec + (б) DI регистрация + (в) тесты. Никаких отдельных путей для encrypt/upload/recover/push.
 
-### User Story 3 — Recovery на новом устройстве восстанавливает всё (Priority: P1)
+### User Story 2 — Recovery на новом устройстве восстанавливает всё (Priority: P1)
 
-Owner потерял устройство A. На новом устройстве B: ставит APK → Sign-In Google → passphrase → **автоматически** восстановлены (а) config, (б) `bucket.dummy` (если был), (в) любой другой зарегистрированный bucket. **Ни одного отдельного шага** «восстанавливаю X, восстанавливаю Y».
+Owner потерял устройство A. На новом B: APK → Sign-In Google → passphrase → **автоматически** восстановлены все зарегистрированные buckets (Profile, dummy, любой другой). Ни одного отдельного шага «восстанавливаю X, восстанавливаю Y».
 
-**Why P1**: killer feature (SEQ-4). Регрессия здесь = TASK-66 не решила проблему за которую бралась.
+**Why P1**: killer feature. Если не работает — TASK-66 не решила задачу.
 
-**Independent Test**: instrumentation test — (1) устройство A: register `bucket.dummy`, put data, verify uploaded; (2) устройство B (fresh install): recovery flow → recoverAll → verify `registry.get("bucket.dummy")` возвращает те же данные + verify config тоже восстановлен, одним loop'ом.
-
-**Acceptance Scenarios**:
-1. **Given** N зарегистрированных buckets на устройстве A с данными, **When** recovery на устройстве B, **Then** все N buckets восстановлены за один `recoverAll()` вызов.
-2. **Given** новый bucket добавлен в codebase (fitness scenario US2), **When** recovery, **Then** он тоже восстанавливается автоматически (без правки recovery flow).
-
-### User Story 4 — Push routing обновляет только нужный bucket (Priority: P2)
-
-Owner на устройстве A изменил `bucket.pairing.edges`. На устройстве B через FCM приходит push `{type:"bucket-updated", bucketTypeId:"bucket.pairing.edges"}`. Registry на B скачивает **только этот bucket** (не все), декодирует, emit на StateFlow. Подписчики (PairingViewModel) обновляются. **Config не перечитывается зря.**
-
-**Why P2**: производительность и корректность routing'а. Регрессия видна только под нагрузкой (много buckets → каждый push тригерил бы N downloads).
-
-**Independent Test**: unit test с FakeRemoteStorage — (1) register 3 buckets; (2) simulate push для одного; (3) verify FakeRemoteStorage.download был вызван **ровно один раз с правильным id**.
+**Independent Test**: instrumentation test — (1) устройство A: register 2 buckets (bucket.profile + bucket.dummy), put в оба, verify uploaded catalog содержит оба blobRef; (2) устройство B (fresh install): recovery flow → recoverAll → verify get возвращает те же данные для обоих; (3) без правки recovery flow при добавлении нового bucket-типа.
 
 **Acceptance Scenarios**:
-1. **Given** зарегистрированы 3 buckets, **When** push с одним bucketTypeId, **Then** download вызван 1 раз с этим id.
-2. **Given** push с неизвестным bucketTypeId, **When** BucketUpdateRouter обрабатывает, **Then** logged warning, no crash, no download.
+1. **Given** N registered buckets с данными на A, **When** recovery на B, **Then** все N восстановлены за один `recoverAll()` вызов.
+2. **Given** новый bucket добавлен в codebase (US1 fitness), **When** recovery, **Then** он тоже восстанавливается автоматически, без правки recovery flow.
 
-### User Story 5 — Conflict resolution `AddOnlyRevokeOnly` (Priority: P2)
+### User Story 3 — Wakeup routing на живом приложении (Priority: P2)
 
-Устройства A и B у одного owner'а. A: add edge X. B (offline, не знает про X): revoke edge Y. Обе изменения долетели до сервера. При download на обеих сторонах → merge через `AddOnlyRevokeOnly` → **обе видят** {added: [X], revoked: [Y]}.
+Owner на устройстве A изменил Profile. На устройстве B (foreground) приходит FCM `{wakeup:true}` (**без payload**). Registry на B: (1) скачивает catalog, (2) сравнивает с локальным, (3) видит diff — только `bucket.profile`, (4) скачивает только этот bucket, (5) emit на StateFlow. **`bucket.dummy` не перекачивается зря.**
 
-**Why P2**: доказательство что conflict policy работает end-to-end. TASK-67 будет строить на этом.
+**Why P2**: экономия трафика и батареи под нагрузкой. Регрессия видна при N buckets → каждый wakeup тянул бы N blob'ов.
 
-**Independent Test**: unit test — (1) local bucket state = {added:[A], revoked:[]}; (2) remote bucket state = {added:[], revoked:[B]}; (3) apply AddOnlyRevokeOnly.merge; (4) verify result = {added:[A], revoked:[B]}.
+**Independent Test**: unit test с FakeRemoteStorage — (1) register 3 buckets, put в все; (2) update только bucket.profile на A-инстансе; (3) simulate wakeup на B-инстансе; (4) verify FakeRemoteStorage.download был вызван для (а) catalog и (б) ровно одного bucket blob'а.
 
 **Acceptance Scenarios**:
-1. **Given** local + remote diverged на bucket с policy AddOnlyRevokeOnly, **When** merge, **Then** union add'ов + union revoke'ов.
-2. **Given** конфликт add vs revoke одного элемента, **When** merge, **Then** revoke побеждает (revoke terminal).
+1. **Given** 3 registered buckets, только один изменился, **When** wakeup, **Then** download вызван для catalog + 1 blob.
+2. **Given** wakeup, **When** catalog не изменился (ложный wakeup), **Then** download вызван только для catalog, никаких блоб-download'ов.
 
-## Success Criteria *(mandatory — с маркерами [backlog] / [tech])*
+### User Story 4 — App killed → wakeup игнорируется, но при открытии всё свежее (Priority: P2)
 
-- [backlog] **SC-1**: Existing config encryption продолжает работать — ciphertext byte-equal до и после миграции на BucketRegistry.
-- [backlog] **SC-2**: Recovery на новом устройстве → ВСЕ зарегистрированные buckets автоматически восстанавливаются (включая тестовый dummy).
-- [backlog] **SC-3**: Новый bucket добавляется через ОДНУ декларацию `BucketTypeSpec` — никакого нового encrypt/upload/recover кода.
-- [backlog] **SC-4**: Push notification `bucket-updated` с bucketTypeId обновляет ТОЛЬКО нужный bucket.
-- [backlog] **SC-5**: ConflictPolicy `AddOnlyRevokeOnly` работает: add → revoke → итоговый state = union add + union revoke.
-- [backlog] **SC-6**: Документация `bucket-registry.md` написана простым русским — non-developer владелец может прочитать и понять как добавить новый bucket.
-- [tech] **SC-7**: `BucketEnvelope` roundtrip test (write → read → assert equal) passes.
-- [tech] **SC-8**: `BucketEnvelope` backward-compat test — envelope с `metadata={}` читается корректно после добавления полей в metadata (schema hook).
-- [tech] **SC-9**: Fitness `ExtractionReadinessDetector` — `core/buckets/` не импортирует launcher-specific / config-specific / pairing-specific типы. Detekt fails если нарушено.
-- [tech] **SC-10**: Migration test — pre-TASK-66 ciphertext идентичен post-TASK-66 ciphertext (byte-equal) на identical input.
-- [tech] **SC-11**: Duplicate registration throws `IllegalStateException` (fail-fast test).
-- [tech] **SC-12**: FakeEncryptedBucketRegistry + FakeRemoteStorage существуют и покрывают все US сценарии unit test'ами.
+Owner на A изменил Profile. На B — приложение убито OS. Wakeup доходит до OS, но приложение не оживает. Owner открывает B через 10 минут → app стартует → как часть обычного onCreate делает `sync()` → catalog скачан, diff применён, свежий Profile отображается.
+
+**Why P2**: доказывает экономию батареи + правильную деградацию (нет data loss при пропущенных wakeup'ах).
+
+**Independent Test**: instrumentation test — (1) put на A, (2) simulate app killed на B (force-stop), (3) simulate FCM wakeup — verify **никаких** disk writes / network calls в фоне, (4) start app on B, (5) verify sync() вызван в bootstrap, (6) verify свежий Profile загружен.
+
+**Acceptance Scenarios**:
+1. **Given** app killed, **When** wakeup приходит, **Then** noop — никакого background sync.
+2. **Given** app killed → later opened, **When** onCreate, **Then** sync() вызван, catalog скачан, diff применён.
+
+### User Story 5 — Сервер видит только blob'ы (Priority: P0 security invariant)
+
+Инструментальный тест: перехватить все HTTP requests из клиента к Firestore и Cloudflare Worker → verify, что plaintext-тело содержит **только** ciphertext blob'ы. Никаких `bucketTypeId`, `timestamp`, feature names в plaintext.
+
+**Why P0**: security invariant. Если ломается — компрометируется E2E принцип.
+
+**Independent Test**: unit test — mock RemoteStorage, verify передаваемые data содержат **только** ciphertext + path. Path проверяется отдельно на регексп: `users/{uid}/buckets/{opaqueId}` без человекочитаемых токенов. Grep-fitness test: `grep -r "bucket\." src/main/kotlin` не должен находить plaintext строки в network calls.
+
+**Acceptance Scenarios**:
+1. **Given** put любого bucket-типа, **When** RemoteStorage.upload вызван, **Then** плейн-текст в теле = ciphertext-blob (не JSON с полями типа `{bucketTypeId:...}`).
+2. **Given** любая server-side операция, **When** статический анализ проходит, **Then** plaintext строки `bucketTypeId` / `bucketSchemaVersion` / `bucket.profile` в network layer не встречаются.
+
+---
+
+## Success Criteria
+
+- [backlog] **SC-1**: Recovery на новом устройстве → все зарегистрированные buckets автоматически восстанавливаются одним loop'ом.
+- [backlog] **SC-2**: Новый bucket добавляется через ОДНУ декларацию — никакого нового encrypt/upload/recover кода.
+- [backlog] **SC-3**: Wakeup от FCM обновляет только изменившиеся buckets, не все.
+- [backlog] **SC-4**: Убитое приложение не просыпается на wakeup — при следующем открытии sync подхватит.
+- [backlog] **SC-5**: Сервер видит только opaque blob'ы; никаких plaintext feature names / typeIds.
+- [backlog] **SC-6**: Документация `bucket-registry.md` написана простым русским — non-developer владелец может прочитать и понять, как добавить bucket.
+- [tech] **SC-7**: `BucketEnvelope` roundtrip test — write → read → assert equal.
+- [tech] **SC-8**: `StoragePathResolver` port существует, `MvpStoragePathResolver` adapter отмечен `// TODO(server-roadmap)`.
+- [tech] **SC-9**: `ExtractionReadinessDetector` (Detekt) — `core/buckets/` не импортирует launcher-specific / preset-specific / feature-specific типы. Fails если нарушено.
+- [tech] **SC-10**: Duplicate registration throws `IllegalStateException` (fail-fast).
+- [tech] **SC-11**: `FakeEncryptedBucketRegistry` + `FakeRemoteStorage` покрывают все US сценарии unit test'ами.
+- [tech] **SC-12**: TASK-4 legacy (`ConfigCipher2`, старый envelope) — удалён; grep не находит.
+- [tech] **SC-13**: Network layer fitness: static check plaintext body не содержит человекочитаемых типов bucket'ов.
+
+---
 
 ## Dependencies
 
-- **TASK-6** (Root Key Hierarchy) — Verification. `KeyRegistry` port уже в коде. `RemoteStorage` port уже в коде. Recovery flow shape зафиксирован. **Координация**: TASK-66 добавляет `recoverAll()` API + spec 020 amendment (см. Clarification #1).
-- **TASK-4** (Own config E2E encryption envelope) — Done. `ConfigCipher2` рефакторится через `EncryptedBucketRegistry`. Byte-equal regression обязателен.
-- **TASK-5** (FCM config-updated push) — Done. Payload расширяется на generic `bucket-updated` (backward-compat: existing `config-updated` — специальный case = `{type:"bucket-updated", bucketTypeId:"bucket.config"}` OR keep old payload as legacy). Уточнение в `/speckit.clarify`.
-- **TASK-65** (Profile Composition Foundation v2) — Verification. Никак не пересекается content-wise, но задаёт extraction-readiness patterns (`ExtractionReadinessDetector`), которые TASK-66 наследует.
+- **TASK-6** (Root Key Hierarchy) — Verification. Обязательно: `KeyRegistry.derive(path)` port существует, `rebuild(passphrase, uid) → rootKey` работает. TASK-66 добавляет **одну строку** в recovery flow TASK-6 — вызов `registry.recoverAll(rootKey)`. Никакого переписывания spec 020.
+- **TASK-4** (Own config E2E encryption envelope) — Done. **Удаляется целиком.** Профиль становится первым живым потребителем Registry вместо `ConfigCipher2`. Per Article XX.
+- **TASK-5** (FCM push) — Done. Payload меняется на `{wakeup:true}` (тривиально: Worker переставляет одну строку в payload).
+- **TASK-65** (Preset Composition Foundation v2) — Verification. TASK-66 использует термин **Profile** согласно TASK-65 (per-device personal). Никаких content-side пересечений, но берёт от TASK-65 паттерны `ExtractionReadinessDetector`.
 
-## Constitution Gates (preliminary, полный check — в plan.md)
+---
 
-- **Rule 1 (domain isolation)**: `EncryptedBucketRegistry` port в `core/buckets/`, adapter не утекает. `BucketTypeSpec` — pure data.
-- **Rule 2 (ACL)**: Firestore / Cloudflare Worker не вытекают в domain. `RemoteStorage` port + FirestoreRemoteStorage adapter (existing).
-- **Rule 3 (one-way door)**: `BucketEnvelope` wire format — фиксируется навсегда после первого writer'а. Exit ramp — `schemaVersion` bump + versioned migration. `BucketTypeId` reverse-DNS namespace — тоже one-way (renaming = migration).
-- **Rule 4 (MVA)**: single-implementation `EncryptedBucketRegistry` port оправдан — есть 2 реализации (Real + Fake), extraction в другой app (2-й потребитель за 1-2 квартала) — гарантирован по roadmap'у.
-- **Rule 5 (wire format)**: `BucketEnvelope.schemaVersion=1` + `bucketSchemaVersion` per-type + `metadata: Map<String,String>` hook + roundtrip test + backward-compat test.
-- **Rule 6 (mock-first)**: `FakeEncryptedBucketRegistry` + `FakeRemoteStorage` обязательны, DI swap.
-- **Rule 7 (fitness functions)**: `ExtractionReadinessDetector` (Detekt) + fitness test dummy bucket.
-- **Rule 8 (server migration tracking)**: `docs/dev/server-roadmap.md` amendment — «Bucket routing через Worker остаётся на бесплатном tier'е; own-server bucket API добавляется когда N buckets × M users > Worker limits».
+## Constitution Gates (preliminary)
+
+- **Article XX (pre-MVP)**: TASK-66 явно опирается на override — удаление TASK-4 wire format без migration.
+- **Rule 1 (domain isolation)**: `EncryptedBucketRegistry` port в `core/buckets/`, adapter не утекает.
+- **Rule 2 (ACL)**: Firestore / Cloudflare Worker не вытекают в domain. `RemoteStorage` + `StoragePathResolver` ports с adapter'ами.
+- **Rule 3 (one-way door)**: `BucketEnvelope` фиксируется навсегда (Article XX разрешает пересмотр только до первого shipped user'а). Path scheme — one-way door с exit ramp через `StoragePathResolver` port.
+- **Rule 4 (MVA)**: single-implementation ports (`EncryptedBucketRegistry`, `StoragePathResolver`) оправданы — есть Real + Fake, extraction ко второму app'у — гарантирована.
+- **Rule 5 (wire format)**: `BucketEnvelope.schemaVersion` присутствует (поле обязательно), но migration guarantee suspended per Article XX.
+- **Rule 6 (mock-first)**: `FakeEncryptedBucketRegistry` + `FakeRemoteStorage` + `FakeStoragePathResolver` — DI swap.
+- **Rule 7 (fitness functions)**: `ExtractionReadinessDetector` + fitness test dummy bucket + network layer plaintext check.
+- **Rule 8 (server migration tracking)**: `docs/dev/server-roadmap.md` amendment: (а) финальная path scheme при своём сервере; (б) opaque `bucketTypeId` inside catalog — может стать динамическими строками известными только клиенту.
+
+---
 
 ## Effort
 
-Large (~2-3 weeks). Координация с TASK-6 spec 020 amendment добавляет ~2-3 дня на само согласование + risk что spec 020 stash'нутый требует восстановления.
+Medium-Large (~2 weeks). MVP mode ускоряет: нет migration кода, нет byte-equal тестов. Основная сложность — правильно спроектировать catalog + path resolver hook так, чтобы будущий свой сервер вставился без rewrite.
+
+---
 
 ## Local Test Path
 
-- Unit tests с `FakeEncryptedBucketRegistry` + `FakeRemoteStorage` — round-trip всех bucket types.
-- Integration test на emulator `pixel_5_api_34` — recovery flow восстанавливает 2+ buckets.
-- Migration test: spec 018 ciphertext → spec X ciphertext byte-equal (P0 gate).
-- Fitness test: `bucket.dummy` full lifecycle (register → put → new instance → recoverAll → get) — proof of generic-ness.
-- Detekt run: `ExtractionReadinessDetector` catches launcher-specific import в core/buckets/ во время rule test.
+- Unit tests с `FakeEncryptedBucketRegistry` + `FakeRemoteStorage` + `FakeStoragePathResolver` — round-trip всех bucket-типов.
+- Integration test на emulator `pixel_5_api_34` — recovery flow восстанавливает 2+ buckets через `registry.recoverAll()`.
+- Fitness test: `bucket.dummy` full lifecycle (register → put → new instance → recoverAll → get).
+- Detekt run: `ExtractionReadinessDetector` catches launcher-specific import.
+- Static grep test: network layer не содержит plaintext bucket type names.
