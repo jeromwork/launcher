@@ -86,20 +86,184 @@ Discussion open 2026-07-02. Инициирован после TASK-102 Session 3
 
 <!-- SECTION:DISCUSSION:BEGIN -->
 
-### Session 1 — ожидание
+### Session 1 (2026-07-02, mentor skill invoked)
 
-_(mentor skill будет invoked в следующей сессии для Part A: map / terms / questions)_
+#### A.1 Что за область
 
-**Известные open questions** (для будущей Session 1):
+**Remote app lock** — app-level defense при краже/потере устройства. Мы отправляем lock command по push каналу конкретному устройству, оно блокирует UI, требует re-authorization для разблокировки. Стандартный **MDM pattern** (Mobile Device Management), но на уровне app, а не OS.
 
-1. **Trigger authorization**: кто может отправить lock command? Owner для своих устройств; admin для owner'ского устройства (family caretaker use case); admin для другого admin'ского устройства (dangerous?)?
-2. **Locked app behavior**: что показывает locked device — full lock screen, allow emergency SOS, allow accept incoming call?
-3. **Unlock mechanism**: passphrase re-entry на устройстве, remote authorize от owner'а через другое устройство, 2FA, или combo?
-4. **Local state**: locked device — просто hide UI или actively wipe local encrypted state (photos, message cache, contacts)? Wipe = более безопасно, но unlock требует полного sync from scratch.
-5. **Offline device**: lock command не доходит (устройство offline). Устанавливаем pending lock (при next network) или fail'им? Timeout policy?
-6. **Google Find My Device interaction**: наш app lock замещает или дополняет Google's system-level lock? Владельцы могут иметь оба enabled.
-7. **Audit**: что record'ится в TASK-32 audit log (who requested, when, target device, reason enum)?
-8. **False lock recovery**: бабушка нажала «я потеряла планшет» когда он на самом деле дома. Unlock UX?
+Ключевое отличие от TASK-102 (MLS revoke): TASK-102 меняет **группу** (кто в MLS группе), TASK-103 меняет **состояние устройства** (заблокировано или нет). Обе операции могут применяться параллельно (kick from group + lock device), или независимо.
+
+#### A.2 Карта темы
+
+**Основной happy path** — admin блокирует украденное устройство owner'а:
+
+```mermaid
+sequenceDiagram
+    participant Ч as Бабушка сообщает Тане что планшет украли
+    participant Т as Танин app
+    participant Б_пл as Бабушкин планшет украденный
+    participant С as Cloudflare Worker
+    participant FCM as Firebase Cloud Messaging
+    participant KV as Cloudflare KV, lock state
+
+    Ч->>Т: Позвонила: планшет украли
+    Т->>Т: Открыть Мои родственники, бабушка, её устройства
+    Т->>Т: Тап на планшет, кнопка Заблокировать
+    Т->>С: POST /device/lock<br/>signed by Танин identity_pub
+    С->>С: Verify: Таня admin бабушки?<br/>Verify: подпись валидна?
+    С->>KV: SET lock_state, target_device_id, locked, initiator=Таня
+    С->>FCM: Send high-priority push<br/>target_device_id, kind=lock
+    FCM->>Б_пл: Wake app, deliver push
+    Б_пл->>Б_пл: Verify sender signature<br/>Verify lock state в KV
+    Б_пл->>Б_пл: Show lock screen<br/>Block all UI except emergency
+```
+
+**Adversarial path** — attacker украл устройство и знает passphrase (Session 2 TASK-102 сценарий):
+
+```mermaid
+sequenceDiagram
+    participant Ат as Attacker
+    participant Б_пл as Украденный планшет
+    participant KV as Cloudflare KV
+    participant Т as Танин app
+
+    Note over Ат,Б_пл: Attacker пытается открыть app
+    Ат->>Б_пл: Открыл app
+    Б_пл->>KV: GET lock_state, my_device_id
+    KV-->>Б_пл: locked=true, initiator=Таня
+    Б_пл->>Б_пл: Show lock screen<br/>Cannot proceed even with passphrase
+    Note over Ат: Attacker: factory reset
+    Note over Б_пл: Local root_key потерян,<br/>full re-onboarding required,<br/>требуется passphrase заново + Google login
+```
+
+**Failure path** — offline device не получает push:
+
+```mermaid
+sequenceDiagram
+    participant Т as Танин app
+    participant С as Cloudflare Worker
+    participant KV as Cloudflare KV
+    participant Б_пл as Планшет offline
+    participant FCM as FCM
+
+    Т->>С: POST /device/lock
+    С->>KV: SET lock_state, locked
+    С->>FCM: Push
+    FCM->>FCM: Deliver failed, target offline
+    Note over Б_пл: Планшет включён offline, не видел push
+
+    Б_пл->>Б_пл: App start
+    Б_пл->>KV: GET lock_state, my_device_id, при любом network access
+    KV-->>Б_пл: locked=true
+    Б_пл->>Б_пл: Show lock screen
+    Note over Б_пл: Даже без push — lock enforced<br/>потому что client polls KV state
+```
+
+**Layers где ложится код**:
+
+- **`core/` port `DeviceLockService`** — abstract lock/unlock operations, poll lock state.
+- **`push-worker/`** — new endpoint `POST /device/lock` + KV state storage.
+- **`app/`** — lock screen composable, unlock flow UI.
+- **`core/` port `DeviceInventory`** — device_id + fingerprint per registered device (owner's own + admin's).
+- **Audit log** (TASK-32) — фиксация lock events.
+
+#### A.3 Главное для новичка
+
+1. **Remote lock — не crypto защита, а UX защита**. Она НЕ мешает attacker'у который уже extracted root_key (Session 2 attack). Она **замедляет** attacker'а — заставляет factory-reset (терять доступ к нашему app полностью).
+2. **Lock state живёт на server** (Cloudflare KV или Durable Object). Client polls его при каждом старте app и при каждой network operation. Push — только для скорости; **защита работает и без push**.
+3. **Passphrase не unlock'ает locked device**. Иначе attacker с passphrase просто unlock'ит. Unlock требует **другой** trigger — remote authorize от owner'а через другое устройство, 2FA код, или physical re-pairing (нужно QR bab's phone).
+4. **Google Find My Device — orthogonal**. Google's работает на system level (весь phone). Наш — на app level (только launcher). Владельцы могут иметь оба; мы **дополняем**, не заменяем.
+5. **Locked ≠ wiped**. Lock — блокирует UI. Wipe — уничтожает local encrypted state. Мы делаем lock, wipe оставляем на Google Find My Device или future feature.
+
+#### A.4 Ключевые термины
+
+- **Device identifier** — уникальный ID устройства в системе. Обычно (Firebase installation ID XOR our internal device_uuid) для anti-spoofing. Публикуется в MLS KeyPackage.
+- **Lock state** — булеан на server (`locked=true|false`) + metadata (who locked, when, reason). Хранится в Cloudflare KV или Durable Object.
+- **Lock command** — push notification к target device kind=`lock`. Signed by initiator's identity_pub, verified locally + serverside.
+- **Locked screen** — UI state в app: skeleton screen, «Устройство заблокировано. Обратитесь к [initiator name]».
+- **Unlock authorization** — процесс разблокировки. Не то же самое что recovery. Требует явного действия initiator'а или owner'а.
+- **Wake lock** — Android mechanism для waking app по FCM даже при doze mode. Требуется для timely lock delivery.
+
+#### A.5 Уточняющие вопросы
+
+**Q1 — кто может trigger lock?**
+
+Возможные политики:
+- **A. Only owner для своих devices**: бабушка может lock только свои устройства через другое своё устройство. Проблема: если owner потерял primary device, кто lock'ает?
+- **B. Only admin для owner's devices**: family caretakers защищают elderly. Owner не должен разбираться с lock complexity. Проблема: rogue admin locks владельца.
+- **C. Owner для своих + admin для owner's**: все могут lock всё что не свои. Наиболее flexible. Rogue admin возможен, но family self-corrects.
+- **D. Owner для своих + admin для owner's + admin для другого admin's** (mutual admin lock): для симметрии с TASK-102 (any admin can revoke any admin).
+
+**Зачем спрашиваю**: определяет policy engine `DeviceLockPolicy` port. Также взаимодействует с TASK-102 revoke policy (там any-admin can revoke any-admin).
+
+---
+
+**Q2 — что показывает locked device?**
+
+Три уровня блокировки:
+- **A. Hard lock**: только lock screen. Ничего доступно. Attacker не может позвонить в SOS.
+- **B. Soft lock**: lock screen + emergency SOS button работает. Fallback для случаев «lock triggered ошибочно, planshet у бабушки, ей нужен SOS».
+- **C. Configurable**: initiator при lock request выбирает уровень («заблокировать» vs «заблокировать но оставить SOS»).
+
+**Зачем спрашиваю**: safety trade-off. Elderly-primary — SOS может спасти жизнь. Но locked device с SOS — attacker может trigger'ить fake SOS (false alarm или для отвлечения family).
+
+---
+
+**Q3 — как unlock?**
+
+- **A. Passphrase на locked device** — простой, но attacker с passphrase unlock'ит. Ослабляет всю защиту.
+- **B. Remote authorize** — bab's другое устройство (или Танин app) отправляет `POST /device/unlock`. Требует online.
+- **C. 2FA код** — SMS/email/authenticator app. Требует external channel.
+- **D. Physical re-pairing** — устройство должно сгенерировать новый identity → пройти QR pairing с admin'ом. Полный reset.
+- **E. Combo**: passphrase + remote authorize; или passphrase + 2FA.
+
+**Зачем спрашиваю**: определяет unlock UX. E — самая надёжная, но сложная. A — самая простая, но небезопасная.
+
+---
+
+**Q4 — что делает locked device с local state?**
+
+- **A. Preserve everything**: locked = hide UI, local data всё на месте. При unlock — instant restore.
+- **B. Wipe crypto keys**: Keystore entries deleted, MLS state deleted. При unlock — required full re-onboarding.
+- **C. Wipe UI cache только**: content cache cleared, keys preserved. При unlock — sync from server + re-decrypt.
+- **D. Hybrid**: lock preserves state, но если device offline > N days с pending lock — auto-wipe.
+
+**Зачем спрашиваю**: security vs UX. B — самая безопасная (defense against rooted device), но unlock = start from scratch. A — простая UX. Q-09 Decision уже сказал: история потеряна anyway при recovery. Значит C/D возможно приемлемо.
+
+---
+
+**Q5 — offline device + coexistence с Google Find My Device?**
+
+**Offline device**:
+- **A. Pending lock**: при следующем network → apply. Но attacker может быть уже украл root_key за время offline.
+- **B. Auto-lock after N days offline**: precaution. Bab's device случайно долго offline → auto-lock и она не понимает почему.
+- **C. Both** — pending + auto-lock after 30 days.
+
+**Google Find My Device**:
+- **A. Recommend enable**: в setup wizard явно показать «Включи Google Find My Device для дополнительной защиты». Наш lock дополняет.
+- **B. Ignore**: не упоминаем. Обычно у пожилых Google Find My уже включён по default.
+- **C. Integrate**: наш «revoke device» button в Танином app также trigger'ит Google Find My lock (если есть API). Complex integration.
+
+**Зачем спрашиваю**: обе темы про defense in depth. Определяет product positioning (мы главная защита или дополнительная).
+
+---
+
+#### A.6 Гипотеза рекомендации (до ответов)
+
+Наиболее вероятная рекомендация:
+
+- **Q1**: **C** (owner для своих + admin для owner's). Симметрия с TASK-102, family caretaker use case.
+- **Q2**: **B** (soft lock с SOS кнопкой). Elderly-primary, false-positive alarms приемлемы vs потеря life.
+- **Q3**: **E** (combo: passphrase + remote authorize). Passphrase alone не безопасно, remote alone требует online для legit users.
+- **Q4**: **C** (wipe UI cache, preserve keys). Balance между быстрым unlock и defense. Q-09 Decision already accepts history loss.
+- **Q5**: Offline **C** (pending + auto-lock after 30 days). Google Find My **A** (recommend в wizard, orthogonal).
+
+Ответы Q1-Q5 подтвердят или скорректируют.
+
+### Decision (English, immutable) 🔒
+
+_(pending — заполняется после Session 1 answers + Part B)_
 
 ### Decision (English, immutable) 🔒
 
