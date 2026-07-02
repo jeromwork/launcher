@@ -1,5 +1,26 @@
 # Шифрование в проекте — обзор для новичка
 
+> **⚠️ LEGACY DOCUMENT — DEPRECATED as authoritative SoT since 2026-07-02.**
+>
+> Начиная с [CLAUDE.md rule 11 revised (2026-07-02)](../../CLAUDE.md), архитектурные крипто-решения живут как **backlog-task'и** (`backlog/tasks/task-100+`) в статусах `Discussion` → `Draft` → `Done` с immutable `### Decision (English, immutable) 🔒` блоками, не в этом файле.
+>
+> **Что делать fresh session'у**:
+> 1. **Start here**: [`docs/dev/crypto-status.md`](crypto-status.md) — текущий статус + priority queue + next candidates.
+> 2. **Model**: [CLAUDE.md rule 11](../../CLAUDE.md) — Discussion → Decision → Done workflow.
+> 3. **Recent decisions**: `backlog/tasks/task-100..103` (см. crypto-status.md).
+> 4. **Legacy content ниже** (Часть 0..Ρ) — читай **только** для понимания секций **ещё не мигрированных** в backlog-task'и. Migration происходит incrementally on touch (rule 11 «migration by touch»).
+>
+> **Что НЕ делать**:
+> - ❌ Не расширять этот файл новыми секциями. Новые architectural decisions — новые decision-task'и в backlog.
+> - ❌ Не считать секции этого файла окончательными — они могут быть superseded'ы migrated backlog-task'ами.
+> - ❌ Не создавать аналогичные `docs/dev/*-mentor-overview.md` файлы для других доменов (backend, UX, i18n) — нарушение rule 11 § Универсальность.
+>
+> **Migration mapping** (пока incremental):
+> - Блок 20 (history backup) → **TASK-100** (Done).
+> - Блок 8 + Δ.10 (revoke) → **TASK-102** (Draft).
+> - Блок 6 + Δ.7 (recovery + peer confirmation) → **TASK-101** (Draft).
+> - Блоки 1-7, 9-19, Части Δ/Λ/Σ/Θ/Ξ/Π/Ρ — не мигрированы, живут здесь. Мигрируем on touch.
+
 **Аудитория:** владелец проекта, впервые разбирающийся в системном шифровании.
 
 **Что здесь:** все места в приложении, где нужна крипта, разобранные простыми словами + диаграммы последовательностей. Никакого кода. Только принципы.
