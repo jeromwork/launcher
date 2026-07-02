@@ -1,10 +1,10 @@
 ---
 id: TASK-101
 title: 'Decision: Peer confirmation on recovery (auto vs UX confirm)'
-status: Discussion
+status: Draft
 assignee: []
 created_date: '2026-07-02'
-updated_date: '2026-07-02'
+updated_date: '2026-07-02 (session 1 closed)'
 labels:
   - decision
   - crypto
@@ -55,17 +55,17 @@ superseded-by: null
 
 ## Состояние
 
-В обсуждении. Session 1 начата 2026-07-02, ожидаются ответы владельца на Q1-Q5 в SECTION:DISCUSSION ниже.
+Decided 2026-07-02 в одну session. Status → Draft. Готова к /speckit.specify или прямому use'у как contract'а для downstream tasks. Downstream tasks (TASK-6, 25, 32, 40) добавляют `dependencies: [TASK-101]` при следующем touch'е.
 
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 [hand] Все 5 clarifying questions в Session 1 получили ответы владельца
-- [ ] #2 [hand] Best path выбран из вариантов A/B/C/D/E (или их комбинации) с обоснованием
-- [ ] #3 [hand] Decision block заполнен (English, immutable) — Choice / Rationale / Applies to / Trade-offs / Exit ramp
-- [ ] #4 [hand] Status → Draft (готова к /speckit.specify)
-- [ ] #5 [hand] Downstream tasks (TASK-6, TASK-25) уведомлены о необходимости `dependencies: [TASK-101]`
+- [x] #1 [hand] Все 5 clarifying questions в Session 1 получили ответы владельца
+- [x] #2 [hand] Best path выбран (Chrome-model: auto-add + post-facto notification) с обоснованием
+- [x] #3 [hand] Decision block заполнен (English, immutable) — Choice / Rationale / Applies to / Trade-offs / Exit ramp
+- [x] #4 [hand] Status → Draft (готова к /speckit.specify)
+- [ ] #5 [hand] Downstream tasks (TASK-6, TASK-25) уведомлены о необходимости `dependencies: [TASK-101]` (выполняется при их следующем touch)
 <!-- AC:END -->
 
 ## Discussion
@@ -136,53 +136,84 @@ sequenceDiagram
 
 #### A.4 Уточняющие вопросы + ответы владельца
 
-**Q1**: Насколько Таня (admin, младший родственник 30-50 лет) готова к fingerprint verification — читать 6-8 групп цифр по телефону бабушке, понять «если не совпадает — опасно», делать это в 30% случаев recovery?
+**Q1**: Насколько Таня (admin, младший родственник 30-50 лет) готова к fingerprint verification?
 
-**A1**: _(ожидание)_
-
----
-
-**Q2**: Насколько важна скорость recovery? Бабушка утеряла телефон, купила новый — сколько ждать: немедленно (~1 мин) / несколько минут / 24 часа delay ок?
-
-**A2**: _(ожидание)_
+**A1**: Владелец правильно указал что вся моя threat model держится на предпосылке «passphrase утекла». Если passphrase secure — атаки нет, ceremony не нужна. Если passphrase leak — это отдельная задача (2FA), не base recovery flow. Значит вопрос про Танину готовность к fingerprint verification снимается — в base flow этого не будет.
 
 ---
 
-**Q3**: Что делает старое устройство при recovery — auto-revoke (сломается если бабушка случайно recovery запустила) или ручное decision (attacker с physical access читает параллельно)?
+**Q2**: Насколько важна скорость recovery?
 
-**A3**: _(ожидание)_
-
----
-
-**Q4**: Модель «single admin» (только Таня) или «multi admin» (Таня + Петя + мама, любой confirm'ит)? Влияет на достижимость Варианта B.
-
-**A4**: _(ожидание)_
+**A2**: Немедленно. 2FA — отдельная опциональная фича (не в scope этого task'а), а в base recovery instant без ceremony.
 
 ---
 
-**Q5**: Явная безопасность (Signal-style «Safety Number changed, verify») vs невидимая (Apple Passkey-style heuristic-driven auto с alert'ом на anomalies)?
+**Q3**: Что делает старое устройство при recovery?
 
-**A5**: _(ожидание)_
+**A3**: **Не auto-revoke**. У пользователя могут быть несколько легитимных устройств (телефон + планшет), это универсальный pattern (WhatsApp 2021+ companion, Signal linked devices, Google account на N устройствах). Recovery ≠ device replacement, это добавление нового leaf. Старые устройства **получают notification** («новое устройство на аккаунте»), могут revoke новое через кнопку. Revoke — отдельная explicit операция.
+
+Аналог — Google's Location-Aware Security prompt («Was this you? We noticed a new sign-in from...»).
+
+Multi-device техническая feasibility подтверждена: каждое устройство = separate MLS leaf с same identity_pub (derived from same root_key через HKDF). Universal — Android (в т.ч. Huawei HMS), iOS, Google TV.
 
 ---
 
-#### A.6 Гипотеза рекомендации (до ответов)
+**Q4**: Модель admin'ов?
 
-Наиболее вероятная рекомендация — **D + E hybrid**:
-1. Recovery → auto-add new device в MLS через N часов (например 24h) **если** старое устройство не отзвонилось «это не я».
-2. Old-device получает push «recovery на новом, tap если не ты».
-3. Все admins получают in-app notification.
-4. Таня может **ускорить** до немедленного добавления через tap «это точно бабушка».
+**A4**: Снимается — модель работает одинаково при любом количестве admin'ов. Auto-add происходит на app'е любого admin'а первым увидевшего новый KeyPackage. Confirmation ceremony отсутствует, offline'ые admin'ы не блокируют recovery.
 
-Это **CANDIDATE-1 из handoff** + time-delayed auto = **hybrid между Signal и Apple Passkey**.
+---
 
-### Session 2, 3, ... (продолжение)
+**Q5**: Явная vs невидимая безопасность?
 
-_(будущие сессии добавляются здесь по мере обсуждения)_
+**A5**: **Chrome-модель** (между: невидимо для нового устройства, явное информирование на существующих устройствах владельца). Не Signal (явно всем), не Passkey (полностью невидимо).
+
+---
+
+#### A.6 Follow-up вопросы для финализации модели
+
+**R1** (что показывает NEW device на существующий аккаунт): Chrome-style — **ничего** специального на новом устройстве. Notification на старых устройствах владельца: «Вы зашли на новом устройстве? Fingerprint XXXX. [Да] [Нет, отозвать]».
+
+**R2** (что показывает EXISTING device): **(c) — и push, и in-app banner**. Push потому что важно, banner для visibility при возврате в app.
+
+### Session 1 closed — переход к Part B
+
+#### B.1 Best path
+
+**Chrome-модель**: auto MLS Add на recovery (immediate, no ceremony) + post-facto notification на существующих устройствах владельца (push + in-app banner) + revoke как отдельная operation через UI.
+
+**Notification tracks (два разных)**:
+1. **Own existing devices** (планшет, старый телефон если жив): «Новое устройство добавлено на твой аккаунт. Fingerprint XXXX. [Да, это я] [Нет, отозвать]».
+2. **Admin devices** (Таня, Петя): «У бабушки новое устройство, добавлено в группу». Informational.
+
+#### B.2 Альтернативы (рассмотрены и отклонены)
+
+- **Auto-add + peer confirmation ceremony**: overkill для elderly UX, 100% пользователей платят friction ради 5% параноиков.
+- **Auto-revoke old device on recovery**: ломает multi-device use case (планшет бабушки функциональный).
+- **Time-delayed auto-add (24h)**: превращает recovery в 24-часовое ожидание.
+
+#### B.3 Adjacent concerns
+
+1. **Attacker с passphrase + physical access к всем устройствам бабушки**: dismiss'ит notification. Physical security failure за пределами threat model. Fixed by 2FA opt-in.
+2. **Zero-existing-devices case**: бабушка потеряла всё → нет куда слать notification → recovery silent. Accepted MVP limitation.
+3. **Revoke как отдельная operation**: не в этом task'е. Отдельный decision-task когда будем строить device management UI.
+4. **2FA opt-in feature**: отдельный task в Phase-3+. Server-roadmap entry RECOVERY-2FA-001.
 
 ### Decision (English, immutable) 🔒
 
-_(pending — заполняется перед переходом status → Draft)_
+**Choice**: Auto MLS Add on recovery (immediate, no confirmation ceremony) + post-facto notification (Chrome/Google Account model) to (a) other devices of the same identity holder — push + in-app banner asking «Was this you?» with revoke option, and (b) admin devices in the same MLS group — informational only. Old devices remain functional after recovery; revoke is a separate explicit user action, not implicit in recovery flow.
+
+**Rationale**: Passphrase is the base authentication contract. If passphrase is secure, no attack is possible. If passphrase leaks, that is the concern of optional 2FA (peer ceremony, SMS, authenticator app) — a separate feature not overloaded into base recovery. Forcing 100% of users through fingerprint verification ceremony to mitigate the 5% who leak passphrase via social engineering is wrong UX for elderly-primary audience. Multi-device is a first-class use case (phone + tablet on same identity, per WhatsApp companion 2021+ and Signal linked devices); recovery adds a new MLS leaf, does not touch existing leaves. Fast recovery UX matches Google's Location-Aware Security pattern (well-understood by users of any modern account system).
+
+**Applies to**: TASK-6 (root key hierarchy — recovery adds new device_keypair without touching others), TASK-25 (multi-app cohabitation — device inventory sync must handle N devices per identity), TASK-32 (audit log — record device add events with `who_added / when / new_device_fingerprint`), TASK-40 (previously parked — this Decision resurrects multi-device as legitimate Phase-2 scope since it's first-class).
+
+**Trade-offs accepted**:
+- Attacker with passphrase and physical access to all other devices of the identity holder can dismiss notifications and gain silent access. Physical security failure beyond MVP threat model.
+- If the recovering user has zero other active devices at recovery time, no notification is possible and recovery proceeds silently. Accepted MVP limitation; mitigated by future 2FA opt-in feature.
+- Notification-based detection is post-facto (attacker gains access before user reacts). Acceptable for elderly-family threat model; unacceptable for nation-state-target model (not our audience).
+- No fingerprint verification ceremony in base flow reduces cryptographic assurance vs Signal / Matrix baseline. Traded for UX simplicity.
+
+**Exit ramp**: Add opt-in 2FA feature as separate task (e.g. TASK-2FA in Phase-3+). Options: peer confirmation ceremony (safety numbers), external 2FA channel (SMS / email / authenticator app), FIDO2 hardware key for paranoid users. Additive to base recovery flow — no migration required. Server-roadmap entry: `RECOVERY-2FA-001`. Estimated effort: 3-4 weeks.
 
 <!-- SECTION:DISCUSSION:END -->
 
