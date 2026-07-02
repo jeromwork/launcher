@@ -103,29 +103,29 @@ superseded-by: null
 
 ```mermaid
 sequenceDiagram
-    participant Ч as Бабушка (owner)
-    participant Т as Таня (admin)
+    participant Ч as Бабушка owner
+    participant Т as Таня admin
     participant Тст as Танин утерянный планшет
-    participant mls as mls-rs (у initiator'а)
+    participant mls as mls-rs
     participant С as Сервер
-    participant grp as Остальные devices в group
+    participant grp as Остальные devices
 
-    Note over Ч,Т: Case 1 — owner revoke admin'а (сценарий редкий, критический)
-    Ч->>mls: Remove(tanya_all_leaves)
-    mls-->>Ч: MLS Commit (new epoch)
+    Note over Ч,Т: Case 1 — owner revoke admin, сценарий редкий критический
+    Ч->>mls: Remove tanya_all_leaves
+    mls-->>Ч: MLS Commit, new epoch
     Ч->>С: PUT commit
     С->>grp: FCM push
-    grp->>grp: mls-rs.process(commit) — Таня больше не в группе
+    grp->>grp: process commit, Таня больше не в группе
 
-    Note over Т,Тст: Case 2 — admin revoke своего устройства (потерял планшет)
-    Т->>mls: Remove(tanya_planshet_leaf)
+    Note over Т,Тст: Case 2 — admin revoke своего устройства, потерял планшет
+    Т->>mls: Remove tanya_planshet_leaf
     mls-->>Т: MLS Commit
     Т->>С: PUT commit
-    Note over grp: Все видят «Таня удалила своё устройство».<br/>Танин телефон продолжает быть в группе.
+    Note over grp: Все видят Таня удалила своё устройство.<br/>Танин телефон продолжает быть в группе.
 
-    Note over Ч,Т: Case 3 — admin revoke устройства peer'а<br/>(у бабушки украли планшет, Таня kick'ает)
-    Т->>mls: Remove(бабушкин_planshet_leaf) — можно ли?
-    Note over mls,С: Policy question:<br/>Разрешено ли admin'у revoke устройство owner'а?
+    Note over Ч,Т: Case 3 — admin revoke устройства peer,<br/>у бабушки украли планшет, Таня kick
+    Т->>mls: Remove бабушкин_planshet_leaf — можно ли?
+    Note over mls,С: Policy question:<br/>Разрешено ли admin revoke устройство owner?
 ```
 
 **Layers policy enforcement**:
@@ -271,12 +271,12 @@ sequenceDiagram
 
     Ат->>М_т: Установил приложение
     Ат->>М_т: Google login бабушкиным аккаунтом<br/>Ввёл украденную passphrase
-    М_т->>С: GET /users/бабушка/recovery-blob
+    М_т->>С: GET recovery-blob бабушки
     С-->>М_т: encrypted blob
-    М_т->>М_т: Argon2id(passphrase) → root_key
-    Note over М_т: У мошенника теперь БАБУШКИН root_key.<br/>Отсюда — БАБУШКИН identity_pub.<br/>Он крипто-«бабушка» для всех целей.
-    М_т->>М_т: Сгенерировать НОВЫЙ device_keypair (device_1)
-    М_т->>С: Publish KeyPackage {бабушкин_identity_pub, device_1_pub}
+    М_т->>М_т: Argon2id passphrase, получить root_key
+    Note over М_т: У мошенника теперь БАБУШКИН root_key.<br/>Отсюда БАБУШКИН identity_pub.<br/>Он крипто-бабушка для всех целей.
+    М_т->>М_т: Сгенерировать НОВЫЙ device_keypair device_1
+    М_т->>С: Publish KeyPackage бабушкин_identity_pub + device_1_pub
 ```
 
 **Что происходит по TASK-101 Decision**: Танин app polling'ом видит «новое устройство бабушки». Auto-add в MLS. Мошенник в группе.
@@ -287,21 +287,21 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant Б as Бабушка (на планшете)
+    participant Б as Бабушка на планшете
     participant Б_пл as Бабушкин планшет
     participant mls as mls-rs
     participant С as Сервер
     participant М_т as Телефон мошенника
     participant Т as Танин app
 
-    Б->>Б_пл: Тап «нет, это не я, отозвать»
-    Б_пл->>mls: MLS Remove(device_1_leaf)
-    mls-->>Б_пл: Commit (new epoch)
+    Б->>Б_пл: Тап нет это не я, отозвать
+    Б_пл->>mls: MLS Remove device_1_leaf
+    mls-->>Б_пл: Commit, new epoch
     Б_пл->>С: PUT commit
     С->>Т: Push commit
     С->>М_т: Push commit
-    Т->>Т: Process commit — device_1 не в группе
-    М_т->>М_т: Process commit — я больше не читаю новое
+    Т->>Т: Process commit, device_1 не в группе
+    М_т->>М_т: Process commit, я больше не читаю новое
     Note over М_т: Мошенник кикнут из группы.<br/>Но у него ВСЁ ЕЩЁ бабушкин root_key на телефоне!
 ```
 
@@ -317,19 +317,19 @@ sequenceDiagram
     participant Т as Танин app
     participant Б_пл as Бабушкин планшет
 
-    Ат->>М_т: Сгенерировать новое устройство<br/>(или переустановить app — root_key восстанавливается тем же passphrase)
-    М_т->>М_т: Новый device_keypair (device_2)<br/>identity_pub не меняется (тот же root_key)
-    М_т->>С: Publish KeyPackage {бабушкин_identity_pub, device_2_pub}
+    Ат->>М_т: Сгенерировать новое устройство<br/>или переустановить app, root_key восстанавливается тем же passphrase
+    М_т->>М_т: Новый device_keypair device_2<br/>identity_pub не меняется, тот же root_key
+    М_т->>С: Publish KeyPackage бабушкин_identity_pub + device_2_pub
 
-    Note over Т: Танин app снова видит «новое устройство бабушки»
-    Т->>Т: Auto-add device_2 в MLS (TASK-101 Decision)
+    Note over Т: Танин app снова видит новое устройство бабушки
+    Т->>Т: Auto-add device_2 в MLS, по TASK-101 Decision
     Note over М_т: Мошенник СНОВА в группе
 
-    С->>Б_пл: Push «новое устройство»
+    С->>Б_пл: Push новое устройство
     Note over Б_пл: Бабушка снова видит уведомление
     Б_пл->>Т: Revoke device_2
 
-    Note over Ат,М_т: Мошенник генерирует device_3 → цикл
+    Note over Ат,М_т: Мошенник генерирует device_3, цикл
 ```
 
 **Проблема сформулированная**: у мошенника **бабушкин root_key** (потому что знает passphrase). Из root_key можно бесконечно генерировать новые device'ы, каждый — новый leaf, каждый раз бабушка должна revoke. Атака бесконечная.

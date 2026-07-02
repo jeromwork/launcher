@@ -108,9 +108,21 @@ EFFORT
 <Одно-два предложения — что обсуждаем, зачем оно нам.>
 
 #### A.2 Карта темы (mermaid допустимо и приветствуется)
+
+**Mermaid syntax rules для GitHub-совместимости** (важно):
+- ❌ Не использовать `(` `)` и `'` в participant `as` descriptions — GitHub парсер падает.
+- ❌ Не использовать `(` `)` в текстах сообщений и Notes — тоже иногда падает.
+- ✅ Заменять «Бабушка (owner)» → «Бабушка owner» или «Бабушка [owner]».
+- ✅ Заменять «admin'а» → «admin» или «admina».
+- ✅ Использовать `<br/>` для переносов в Notes.
+- ✅ Cyrillic OK, emoji OK, кавычки `«»` OK.
+
 ```mermaid
 sequenceDiagram
-    ...
+    participant Ч as Бабушка owner
+    participant Т as Таня admin
+    Ч->>Т: MLS Remove, new epoch
+    Note over Ч,Т: Действие завершено
 ```
 
 #### A.3 Ключевые термины
