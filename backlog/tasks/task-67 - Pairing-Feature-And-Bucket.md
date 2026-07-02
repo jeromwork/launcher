@@ -18,10 +18,6 @@ dependencies:
   - TASK-51
 priority: high
 ordinal: 67000
-crypto-alignment: blocked-on-question
-crypto-source: [Блок 2, Δ.1, Δ.10, Π.2, Ξ.5, Θ.1, Θ.2]
-blocks-on: [Q-11, Q-14, Q-19]
-crypto-sweep-date: 2026-07-02
 ---
 
 ## Description

@@ -1,13 +1,23 @@
-# Crypto Open Questions Register
+# Crypto Open Questions Register (⚠️ deprecated — migrated to backlog tasks 2026-07-02)
 
-**Роль**: живой реестр открытых вопросов по крипто-архитектуре. Обновляется после каждой mentor-сессии.
-
-**Не документ для чтения от корки до корки** — это **queue**, из которого владелец / AI выбирает следующую тему для focused mentor-сессии.
+> **⚠️ Этот файл замороженная историческая записка**. Новая модель (CLAUDE.md rule 11 revised) — каждый Q-NN становится отдельным `TASK-N` в статусе `Discussion` (или `Done` если уже decided). Register больше не поддерживается активно.
+>
+> **Где смотреть открытые вопросы теперь**: `backlog task list --status Discussion` или Kanban board «Discussion» колонка.
+>
+> **Где смотреть decided архитектурные решения**: `backlog task list --status Done --label decision` — каждая содержит `### Decision (English, immutable) 🔒` sub-блок.
+>
+> **Migration mapping** (по мере touch'а):
+> - Q-01, Q-02, Q-03, Q-04, Q-18 (🟢 decided) → секции в `crypto-mentor-overview.md` (пока не разбиты, миграция по touch).
+> - Q-09 (history backup) → **TASK-100** (Done, Decision block).
+> - Q-12 (peer confirmation on recovery) → **TASK-101** (Discussion, session 1 in progress).
+> - Q-05..Q-08, Q-10, Q-11, Q-13..Q-17, Q-19, Q-20, Q-21 — остаются в этом файле как queue до создания соответствующих `TASK-N` в статусе `Discussion` (по приоритету).
 
 **Связанные файлы**:
-- [crypto-mentor-overview.md](crypto-mentor-overview.md) — **SoT архитектуры** (Source of Truth). Все **решённые** вопросы живут там как секции с якорями `Δ.1`, `Π.2`, `Ρ.4` и т.д.
-- [crypto-topics-handoff.md](crypto-topics-handoff.md) — историческая записка о разбитии на темы (Темы 1-11). Постепенно deprecated в пользу этого файла.
-- `.claude/skills/procedure-crypto-alignment-sweep/SKILL.md` — процедура применения решённого к backlog.
+- `backlog/tasks/task-100 - Decision-History-backup-strategy-for-MVP.md` — Q-09 migrated
+- `backlog/tasks/task-101 - Decision-Peer-confirmation-on-recovery.md` — Q-12 migrated
+- [crypto-mentor-overview.md](crypto-mentor-overview.md) — legacy SoT (замораживается по мере миграции decisions в backlog tasks).
+- [crypto-topics-handoff.md](crypto-topics-handoff.md) — историческая записка о разбитии на темы.
+- `.claude/skills/procedure-decision-drift-check/SKILL.md` — замена retired `procedure-crypto-alignment-sweep`.
 
 ---
 

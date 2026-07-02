@@ -17,10 +17,6 @@ dependencies:
   - TASK-9
 priority: low
 ordinal: 46000
-crypto-alignment: scope-reset
-crypto-source: [Блок 4, Блок 5, Δ.5]
-blocks-on: [Q-09, Q-11]
-crypto-sweep-date: 2026-07-02
 ---
 
 ## Description
