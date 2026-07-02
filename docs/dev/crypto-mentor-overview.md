@@ -2083,3 +2083,53 @@ sequenceDiagram
 - **Random `media_key` per blob**, отправляется через group E2E channel. Membership change не требует re-encrypt.
 - **Цена**: нет server-side transcoding / adaptive streaming / thumbnails. Всё на клиенте отправителя. Для family album / SOS — не проблема.
 - **Мы копируем этот pattern** для Блока 10 и любых будущих медиа-фич.
+
+---
+
+## Блок 20 — History backup при recovery (Q-09 decision)
+
+### 20.1 Простыми словами
+
+MLS forward secrecy = новое устройство после recovery **не может** расшифровать сообщения / фото, отправленные **до** его вступления в группу. Это математика протокола, не bug.
+
+**Три подхода в индустрии**:
+- **Signal**: нет истории после recovery. Явное предупреждение в UX. История — только device-local, backup — только device-to-device sync.
+- **WhatsApp** (с 2021): E2E-encrypted local DB (SQLCipher) + backup в iCloud/Google Drive. Ключ backup'а — либо derived от пароля (простое), либо отдельный 64-digit код (безопаснее).
+- **Гибрид**: MVP как Signal, upgrade как WhatsApp позже.
+
+### 20.2 Решение
+
+**MVP: Signal-style — история недоступна после recovery.**
+
+Восстанавливается только **Profile state** (контакты, тайлы, layout, темы) через MLS bucket sync (Δ.2). Messages / photos / audit log отправленные до recovery — потеряны для нового устройства.
+
+**Setup wizard явно предупреждает** пользователя при onboarding'е (формулировка — тактический вопрос для /speckit.clarify TASK-67, отслеживается Q-21).
+
+**Phase-3+: WhatsApp-style E2E backup будет продуман отдельной задачей** когда будем строить messenger (TASK-27) и full family album (TASK-28). Подход по аналогии с WhatsApp E2E backup 2021+ — encrypted local DB + backup в iCloud/Drive/наш R2 с отдельным 64-digit code или passphrase-derived ключом (decision дефер).
+
+### 20.3 Rationale (почему не строим сейчас)
+
+**Article XX (Pre-MVP no-migration override)** снимает обычные exit-ramp обязательства. До первых реальных пользователей:
+- HKDF context strings — cheap, добавляются позже без миграции (`HKDF(root_key, "history-backup-v1")` через год = ноль стоимости сегодня).
+- Wire format сообщений — greenfield до messenger'а. Строим когда строим messenger.
+- KeyPackage retention policy — конфиг cleanup job'а, меняется на лету.
+
+**Ничего в код сегодня не добавляется** ради Phase-3 backup'а. Никаких «зарезервированных slot'ов», никаких TODO-комментариев в rootkey hierarchy.
+
+### 20.4 Что зафиксировано (единственная non-technical дверь)
+
+**User expectation management** при первом recovery:
+- Не обещать «backup появится в будущем» (может не сдержим слово).
+- Не молчать (первый recovery = «где моя переписка?» → отток).
+- **Явно сказать в wizard'е**: «На новом устройстве история чатов не восстанавливается. Контакты и настройки — сохранятся.»
+
+Точная формулировка — тактический вопрос Q-21 для /speckit.clarify TASK-67.
+
+### 20.5 Что закрывает наш выбор
+
+| Задача | Решение | Готовое или наше |
+|---|---|---|
+| Profile recovery | MLS bucket sync через recovery envelope (Δ.2) | Готовое ✅ |
+| Явное предупреждение в wizard'е | Наш UX text | Наше |
+| History backup implementation | Отложено на Phase-3+ (TASK-27 + TASK-28) | — |
+| Exit ramp записать | `docs/dev/server-roadmap.md` → пункт «HIST-BACKUP-001: E2E encrypted history backup, аналог WhatsApp 2021». | Наше (одна строка) |
