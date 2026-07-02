@@ -1,7 +1,7 @@
 ---
 id: TASK-103
 title: 'Decision: Remote app lock for stolen or lost device'
-status: Discussion
+status: Draft
 assignee: []
 created_date: '2026-07-02'
 updated_date: '2026-07-02'
@@ -68,18 +68,18 @@ superseded-by: null
 
 ## Состояние
 
-Discussion open 2026-07-02. Инициирован после TASK-102 Session 3 pivot — владелец сформулировал что MLS revoke ≠ device lock. Ожидается mentor Session 1 с картой темы + уточняющими вопросами.
+Decided 2026-07-02 (Session 1). Status → Draft. Ключевая поправка от владельца: remote lock = crypto defense (не UX), через full logout + Keystore wipe. Reuse existing recovery flow для unlock. 5 preset fields в `PresetV2.deviceLock` namespace. Downstream tasks добавляют `dependencies: [TASK-103]` при следующем touch.
 
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 [hand] Session 1 mentor discussion: map + terms + clarifying questions
-- [ ] #2 [hand] Owner ответил на все clarifying questions
-- [ ] #3 [hand] Best path выбран с обоснованием
-- [ ] #4 [hand] Decision block заполнен (English, immutable)
-- [ ] #5 [hand] Status → Draft
-- [ ] #6 [hand] Downstream tasks (TASK-6, 24, 25, 32) уведомлены о `dependencies: [TASK-103]`
+- [x] #1 [hand] Session 1 mentor discussion: map + terms + clarifying questions
+- [x] #2 [hand] Owner ответил на все clarifying questions
+- [x] #3 [hand] Best path выбран (logout+Keystore-wipe = crypto defense, reuse recovery flow, 5 preset fields)
+- [x] #4 [hand] Decision block заполнен (English, immutable)
+- [x] #5 [hand] Status → Draft
+- [ ] #6 [hand] Downstream tasks (TASK-6, 24, 25, 32, 16) уведомлены о `dependencies: [TASK-103]` (выполняется при их touch)
 <!-- AC:END -->
 
 ## Discussion
@@ -335,18 +335,11 @@ MVP hardcodes `preserve` в family-default preset. Architecture supports switchi
 Финально для TASK-103 (в preset schema v2 через TASK-16):
 
 ```yaml
-# PresetV2 → deviceLock: 
-deviceLock:
-  # Q1 remains architectural (device-level granularity always)
-  lockTriggerAuthPolicy: "admin_and_owner"  # or "owner_only", or "admin_only"
-  lockScreenBehavior: "soft_lock_with_sos"  # or "hard_lock", or "no_lock"
-  unlockMethod: "passphrase_plus_remote_authorize"  # or others
-  lockLocalStatePolicy: "preserve"  # or "wipe_cache", "wipe_all"
-  offlineAutoLockDays: null  # or int (family=null, clinic=30)
-  wizardRecommendsGoogleFindMy: true
+# PresetV2 → deviceLock (pre-Session-1-Q3-Q5 sketch — see UPDATED below):
+# lockLocalStatePolicy field DROPPED after Q4 pivot to "one mechanism = logout".
 ```
 
-Family-default preset hardcodes reasonable values. Wire format supports future presets.
+**UPDATED after Session 1 answers Q3-Q5** — see финальный YAML в секции ниже "Финальный список preset fields для TASK-103".
 
 #### Мета-урок для всех mentor-сессий
 
@@ -367,13 +360,167 @@ Retrospective для past tasks:
 
 Все три Decision blocks НЕ противоречат preset-параметризации — они specify MVP defaults + reserved architecture. Preset extension = additive Phase-3+.
 
-### Session 1 closed — переход к Part B
+### Session 1 — ответы на Q3-Q5 + важная поправка от владельца
 
-_(pending — заполняется на основе Q1-Q2 ответов + preset-refactor Q3-Q5)_
+#### Поправка к моему тезису «Remote lock — не crypto защита»
+
+Владелец справедливо поставил под вопрос: **«ты считаешь что от нас возможно только UX защита?»**
+
+Я **ошибся**. Если lock реализован **как полный логаут** (Q4 ответ владельца) с **удалением Keystore entries** — это **crypto защита**, не UX.
+
+**Правильная модель**:
+
+```mermaid
+sequenceDiagram
+    participant С as Cloudflare Worker
+    participant FCM as FCM
+    participant Б_пл as Устройство target
+    participant Ks as Android Keystore
+    participant Ат as Attacker после lock
+
+    С->>FCM: Push kind=lock
+    FCM->>Б_пл: Wake app
+    Б_пл->>Ks: Delete root_key entry
+    Б_пл->>Б_пл: Clear MLS state, buckets cache, session
+    Б_пл->>Б_пл: Return to fresh-install screen
+
+    Note over Ат: Attacker с physical device
+    Ат->>Б_пл: Открыл app
+    Б_пл->>Ат: Показывает Google login + passphrase setup<br/>как чистая установка
+    Note over Ат: Attacker должен пройти full recovery.<br/>Ничего не унаследовано с предыдущего state.
+```
+
+**Ключевое**: Keystore entry **уничтожен**, root_key больше не восстановим на этом устройстве без passphrase. Attacker имеет ту же surface что при краже чистого нового телефона.
+
+**Это сильнее чем UX lock**. Признаю ошибку в Session 1 A.3 «main-thing про новичка».
+
+#### Ответы Q3-Q5
+
+**Q3 (unlock mechanism)**:
+
+Владелец: «зачем это сейчас обсуждать? давай сейчас только фраза, но что бы потом можно было добавить еще что то».
+
+**Trans**: MVP unlock = passphrase-only через standard recovery flow. Preset field supports future options.
+
+- **Architectural invariant**: unlock = **full recovery flow reuse** (те же screens, что и при setup на новом устройстве). Nothing new to design.
+- **Preset field** `unlockMethod: enum`:
+  - `passphrase_recovery_only` (family MVP default — просто фраза восстановления).
+  - `passphrase_plus_remote_authorize` (future preset).
+  - `passphrase_plus_2fa` (future preset).
+  - `physical_repairing` (future preset — highest security).
+
+Wire format schema-versioned, MVP реализует только `passphrase_recovery_only`.
+
+---
+
+**Q4 (local state on lock)**:
+
+Владелец: «если не делать никаких доп локов на сервере, а просто сделать логаут. Тогда потом стандартные шаги, в том числе авторизация, фраза восстановление. Те же экраны, ничего нового не надо придумывать».
+
+**Trans**: lock = **полный logout**. Wipe **всё** (root_key, MLS state, buckets, session). Reuse existing recovery screens.
+
+- **Architectural invariant**: lock command execution = `logout()` (delete Keystore + clear all app state).
+- **No preset field** — это единая механика. Preset уровень granularity (`preserve` vs `wipe_cache`) убран как overengineering.
+- **Trade-off**: unlock требует **полный** re-onboarding (passphrase + Google + wait for MLS Add commit). Acceptable потому что защита сильная и mechanic reuses existing flow.
+
+**Q4 pivot от моих гипотез**: я предлагал `lockLocalStatePolicy: enum` preset field. Владелец справедливо упростил — один mechanism, никаких настроек. Правильнее.
+
+---
+
+**Q5 (offline device + Google Find My positioning)**:
+
+Владелец на offline attacker: «пушить можно, но это просто для ускорения, и то если есть сеть, будем считать что злоумышленник отключил сразу сеть. Что тогда?»
+
+**Мой честный ответ**:
+- Lock command не приходит → app продолжает работать локально пока не сходит в сеть.
+- **Attacker получает access к current Profile snapshot** (контакты, тайлы, темы). История не accessible (TASK-100 Decision).
+- **Keystore hardware-backed** на современных Android (StrongBox для API 28+, TEE для старых) → root_key extraction требует advanced attack (rooted device + specific exploits).
+- **Preset defense** `offlineAutoLockDays`: если device не sync'ится с сервером N дней подряд → local logout автоматически. Family=null (никогда), clinic=30 дней.
+- **MVP accepted trade-off**: offline attack window = current Profile snapshot read. Дальше требует advanced attack или ожидание network.
+
+- **Architectural invariant**: client `pollLockStateOnEveryNetworkOperation()` — при любом network access проверяем lock state. Push только для скорости.
+- **Preset field** `offlineAutoLockDays: int | null` (family=null, clinic=30).
+
+Владелец на Google Find My: «можно ли это тоже вынести в сеттингс?»
+
+- **Preset field** `googleFindMyIntegration: enum`:
+  - `recommend_in_wizard` (family default).
+  - `ignore` (не упоминать).
+  - `enforce_dual_lock` (Phase-3 clinic possibility — наш lock + Google Find My triggered simultaneously if API allows).
+
+Wire format supports, MVP реализует `recommend_in_wizard`.
+
+#### Финальный список preset fields для TASK-103
+
+```yaml
+# PresetV2 → deviceLock:
+deviceLock:
+  # Architectural invariants (not in preset — hardcoded)
+  # - lockTriggerRequiresSignedRequest (always)
+  # - clientPollsLockStateOnNetworkOperation (always)
+  # - unlockIsFullRecoveryFlowReuse (always)
+  # - lockExecutionDeletesKeystoreAndClearsState (always)
+
+  # Preset-parameterizable
+  lockTriggerAuthPolicy: "admin_and_owner_by_device"  # or "owner_only", "admin_only"
+  lockScreenBehavior: "soft_lock_with_sos"  # or "hard_lock", "no_lock"
+  unlockMethod: "passphrase_recovery_only"  # future: "passphrase_plus_remote_authorize", etc.
+  offlineAutoLockDays: null  # family=null, clinic=30
+  googleFindMyIntegration: "recommend_in_wizard"  # or "ignore", "enforce_dual_lock"
+```
+
+### Session 1 closed → Part B
+
+#### B.1 Best path
+
+**Remote app lock = signed lock command → logout + Keystore wipe → app returns to fresh-install state → user must full-recover to regain access**.
+
+- Push via FCM для скорости (не обязательное).
+- Client polls lock state на каждой network operation — fallback без push.
+- Unlock = existing recovery flow (passphrase + Google login + MLS re-Add).
+- Preset-параметризация 5 полей (см. above).
+
+#### B.2 Альтернативы (отклонены)
+
+- ~~UX-only lock~~ — слабее чем crypto lock, отклонено владельцем (правильно).
+- ~~Preserve local state с UI lock~~ — усложняет unlock, weak defense against rooted device.
+- ~~Separate unlock screens~~ — reuse recovery flow simpler.
+
+#### B.3 Adjacent concerns
+
+1. **Offline attacker получает current Profile snapshot** до auto-lock timeout. Accepted MVP trade-off. Mitigated by preset `offlineAutoLockDays` для paranoid users.
+2. **Legitimate offline user** (бабушка в поездке без wifi 40 дней) при clinic preset triggers auto-lock. UX pain для legit user. Preset must be tuned для target segment.
+3. **Rate limit lock commands** — attacker с compromised admin identity может spam lock all бабушкиных devices. Требуется server-side rate limit (тот же `KEYPACKAGE-RATELIMIT-001` scope, extended).
+4. **Race condition**: user recovering on new device while old device still working → attacker sends lock during recovery? MLS Add commit + lock arrive → conflicting operations. Requires ordering rules (out of scope, tactical).
 
 ### Decision (English, immutable) 🔒
 
-_(pending — заполняется после Part B)_
+**Choice**: Remote app lock is a **cryptographic defense**, not merely UX. Lock command execution performs a **full app logout**: Keystore entries containing root_key are deleted, all MLS state cleared, all buckets cache purged, session invalidated. The device returns to fresh-install screen; unlock is the standard recovery flow (Google login + passphrase entry), reusing existing screens with no new UI. Lock command delivery uses FCM push for speed but falls back to client-side poll of server-held lock state on every network operation — defense works without push. Attacker with physical device after lock arrives cannot access anything without completing full recovery, which requires the passphrase they may or may not have.
+
+Five preset-parameterizable fields govern policy variation across user segments (family / clinic / self-managed / B2B): `lockTriggerAuthPolicy`, `lockScreenBehavior`, `unlockMethod`, `offlineAutoLockDays`, `googleFindMyIntegration`. MVP ships with family-default values hardcoded in bundled preset per rule 9 shareability + TASK-16 preset schema evolution.
+
+**Rationale**: Full logout with Keystore wipe elevates the defense from UX-only (hide UI, weak against rooted device) to cryptographic (root_key mathematically inaccessible without passphrase). Reusing existing recovery flow for unlock is Article XI (Minimum Viable Architecture) — no new screens, no new mechanisms. Preset-parameterization of behavior variants (SOS on locked screen, offline timeout, unlock strictness) enables Phase-3 clinic / B2B adoption without architectural rework per rule 9. Owner-corrected the initial "UX defense only" framing — the logout mechanism is genuinely cryptographic. Offline attack window is bounded to current Profile snapshot read (history already inaccessible per TASK-100 Decision), acceptable for elderly-primary threat model.
+
+**Applies to**: TASK-6 (root key hierarchy — includes Keystore wipe operation), TASK-24 (device inventory sync — device list required for lock target selection UI), TASK-25 (multi-app cohabitation — lock affects one app; other apps in cohabitation chain unaffected unless we chain the mechanism, out of scope), TASK-32 (audit log — records who / when / target_device_id / method for lock events), TASK-16 (preset schema evolution — adds `deviceLock` namespace with 5 fields), TASK-102 (revoke policy — orthogonal but symmetric UX; lock and revoke may be combined in single UI action for "stolen device").
+
+**Trade-offs accepted**:
+- Attacker with physical device offline reads current Profile snapshot until online sync or auto-lock timeout (whichever first). Not mitigated cryptographically; mitigated by preset `offlineAutoLockDays` and by TASK-100 Decision denying history access anyway.
+- Legitimate long-offline users (elderly on trips, poor connectivity) with strict clinic preset (`offlineAutoLockDays: 30`) may auto-lock unexpectedly. UX pain; requires preset tuning per target segment.
+- Unlock requires full recovery flow (passphrase + Google login) — no fast-unlock for accidental locks. Accepted for defense strength.
+- Rooted device before lock arrival: attacker can potentially extract root_key from Keystore via specific hardware exploits. StrongBox (API 28+) makes this very hard; older TEE-only devices weaker. Accepted for elderly-primary threat model (not nation-state).
+- Lock command signing requires admin identity — compromised admin identity can spam-lock all owner's devices. Requires server-side rate limit (out of scope, extends `KEYPACKAGE-RATELIMIT-001` scope).
+
+**Exit ramp**:
+- Add `unlockMethod` presets for high-security segments: `passphrase_plus_remote_authorize`, `passphrase_plus_2fa`, `physical_repairing_only`. Additive to preset schema per TASK-16. Estimated effort: 2-3 weeks per new method.
+- Add cryptographic "wipe-verification token" flow: after lock, server verifies device confirmed wipe via signed acknowledgment. Prevents "app pretended to logout but didn't". Phase-3+. Estimated effort: 1 week.
+- Integrate with Google Find My Device API (`enforce_dual_lock` preset value): our app-level lock triggers OS-level lock simultaneously. Requires OEM cooperation for reliable API. Phase-3+ pilot with clinic segment. Estimated effort: 3-4 weeks.
+- Server-side lock command rate limit: extension of `KEYPACKAGE-RATELIMIT-001` scope. Estimated effort: additive 2-3 days on existing rate limit infrastructure.
+
+<!-- SECTION:DISCUSSION:END -->
+
+## Implementation Plan
+<!-- SECTION:PLAN:BEGIN -->
+_(pending — feature-tasks используют Decision block выше)_
 
 ### Decision (English, immutable) 🔒
 
