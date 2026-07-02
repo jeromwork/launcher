@@ -190,6 +190,24 @@ superseded-by: null                 # TASK-K если этот task сам за�
 - `.claude/skills/procedure-decision-drift-check/SKILL.md` — walk `dependencies:` graph, flag downstream tasks когда upstream Decision получил `superseded-by`.
 - `mentor` skill — invoke внутри Discussion-статуса task'а для structured mentor-сессии.
 
+### Preset vs architectural invariant разделение (HARD RULE)
+
+При написании Decision block'а — для **каждого варианта выбора** проверить:
+
+1. Зависит ли значение от target user segment (family / clinic / self-managed / B2B)?
+2. Если **ДА** — это **preset field**, не архитектурный invariant. Указать в Decision:
+   - Архитектурные invariants (hardcoded, одинаковы для всех presets).
+   - Preset fields с family-default values + ссылкой на TASK-16 preset schema evolution.
+3. Если **НЕТ** — hardcoded в domain / adapter.
+
+**Why**: hardcodить «family assumption» = ломать при clinic-preset adoption в Phase-3+. Rule 9 (shareability-readiness) требует preset-параметризации user-facing configuration с day 1. Wire format поддерживает — импл может hardcode family-default в MVP.
+
+**Пример из TASK-103** (remote app lock):
+- **Architectural**: lock state живёт на сервере, unlock требует authorization, client polls lock_state на network operation.
+- **Preset fields**: `lockScreenBehavior` (soft/hard/none), `unlockMethod` (passphrase+remote/passphrase+2fa/physical-repair), `offlineAutoLockDays` (null для family, 30 для clinic).
+
+**Refuse pattern**: если Decision имеет варианты выбора которые plausibly отличаются между family и clinic — эти варианты **должны** быть preset fields, не hardcoded. Иначе — refactoring в Phase-3 при добавлении clinic preset (нарушает rule 4 MVA + rule 9).
+
 ### Универсальность
 
 Этот паттерн применим к любым архитектурным доменам (крипто, backend, UX, i18n). **Не создавать отдельный `docs/dev/*-mentor-overview.md` файл** для нового домена — использовать backlog-task'и с меткой домена (`decision + <domain>`).

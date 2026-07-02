@@ -261,6 +261,120 @@ sequenceDiagram
 
 Ответы Q1-Q5 подтвердят или скорректируют.
 
+### Session 1 — ответы владельца + preset-refactor (важный pivot)
+
+Владелец после Q2 остановил обсуждение и указал важное:
+
+> «Многие вопросы уже можно выносить в пресеты! Что бы это было не жестко зашито. И предыдущие вопросы тоже что обсуждали, там где не связано с криптой напрямую, где есть смысл, можно выносить в пресеты/настройки/визарды.»
+
+**Правильное разделение** — Decision должен разграничивать:
+
+- **Архитектурные инварианты**: hardcoded, одинаковы для всех presets. Пример: «lock state живёт на сервере», «unlock требует authorization», «push channel + polling fallback». Крипто-безопасность и protocol shape.
+- **Preset-параметризуемые поля**: значения в `PresetV2` JSON, разные per user segment. Пример: «блокировать ли SOS кнопку», «через сколько дней offline auto-lock», «требуется ли 2FA при unlock».
+
+MVP ships с **family-default preset** (наши reasonable defaults hardcoded в preset JSON). Phase-3 добавит `clinic-preset` / `self-managed-preset` с другими значениями. Architecture должна это поддержать с day 1 (rule 9 shareability + TASK-16 preset schema evolution).
+
+#### Ответы владельца на Q1-Q2
+
+**Q1 (кто может trigger lock)**:
+- **Ответ**: admin для owner's devices + owner для своих. **По device_id, не по account** — можно kick один конкретный девайс.
+- Это гибрид C из моих вариантов, с уточнением: **granularity = per device**, не «all devices of person». Позволяет «revoke только planshet, phone продолжает работать».
+
+**Q2 (locked screen behavior)**:
+- **Ответ**: **C (Configurable)** через preset field.
+- Family preset: soft lock с SOS (спасение жизни > false alarm risk).
+- Clinic preset: возможно hard lock (не наш выбор, но preset supports).
+- Инвариант: **механизм** lock работает; **что показывает** — из preset.
+
+#### Preset-refactor Q3-Q5
+
+Теперь пересматриваю Q3-Q5 с preset-lens'ом:
+
+**Q3 (unlock mechanism)**:
+
+**Архитектурный инвариант**: passphrase alone не unlock'ает (иначе attacker с passphrase unlock'ит).
+
+**Preset field** `unlockMethod: enum`:
+- `passphrase + remote_authorize` (family-default: passphrase + tap on admin's app).
+- `passphrase + 2fa` (paranoid preset: passphrase + SMS code).
+- `physical_repairing_only` (highest security: unlock only via new QR pairing from owner's other device).
+
+MVP реализует family-default, wire format supports others.
+
+---
+
+**Q4 (local state on lock)**:
+
+**Архитектурный инвариант**: keys в Keystore защищены от extraction (Android property, не наш controls).
+
+**Preset field** `lockLocalStatePolicy: enum`:
+- `preserve` (family-default: fast unlock, UX priority).
+- `wipe_cache` (compromise: content erased, keys preserved).
+- `wipe_all` (highest security: full re-onboarding on unlock).
+
+MVP hardcodes `preserve` в family-default preset. Architecture supports switching.
+
+---
+
+**Q5 (offline handling + Google Find My)**:
+
+**Архитектурные инварианты**:
+- Client polls KV lock_state на каждой network operation (безусловно).
+- Google Find My — orthogonal, не integrate (не наша defense).
+
+**Preset field** `offlineAutoLockDays: int | null`:
+- Family-default: `null` (никогда не auto-lock).
+- Clinic preset: `30` (auto-lock после 30 дней).
+
+**Preset field** `wizardRecommendsGoogleFindMy: boolean`:
+- Family-default: `true`.
+- Clinic preset: `false` (может быть device не Google-registered).
+
+#### Список preset fields из этого task'а
+
+Финально для TASK-103 (в preset schema v2 через TASK-16):
+
+```yaml
+# PresetV2 → deviceLock: 
+deviceLock:
+  # Q1 remains architectural (device-level granularity always)
+  lockTriggerAuthPolicy: "admin_and_owner"  # or "owner_only", or "admin_only"
+  lockScreenBehavior: "soft_lock_with_sos"  # or "hard_lock", or "no_lock"
+  unlockMethod: "passphrase_plus_remote_authorize"  # or others
+  lockLocalStatePolicy: "preserve"  # or "wipe_cache", "wipe_all"
+  offlineAutoLockDays: null  # or int (family=null, clinic=30)
+  wizardRecommendsGoogleFindMy: true
+```
+
+Family-default preset hardcodes reasonable values. Wire format supports future presets.
+
+#### Мета-урок для всех mentor-сессий
+
+**Правило разделения** (записать в CLAUDE.md rule 11 или backlog-task-format):
+
+> При написании Decision block'а — для каждого варианта выбора проверить:
+> 1. Зависит ли значение от target user segment (family / clinic / self / B2B)?
+> 2. Если ДА — это **preset field**, не архитектурный invariant.
+> 3. В Decision block указать: (a) архитектурные invariants hardcoded; (b) preset fields с family-default values.
+>
+> Иначе — рискуем hardcodить «family assumption» и потом ломать при clinic-preset adoption.
+
+Retrospective для past tasks:
+
+- **TASK-100** (history backup): backup infrastructure = architectural. Wizard formulation about history loss = preset field (family=прямое, clinic=professional wording).
+- **TASK-101** (peer confirmation on recovery): auto-add mechanism = architectural. Notification presentation (push+banner vs banner-only) = preset field.
+- **TASK-102** (MLS revoke policy): three-tier language + MLS Remove operation = architectural. Who-can-revoke-whom = preset field (family=any-admin, clinic=restricted-by-role, self=owner-only). Уже reserved через `other` tier.
+
+Все три Decision blocks НЕ противоречат preset-параметризации — они specify MVP defaults + reserved architecture. Preset extension = additive Phase-3+.
+
+### Session 1 closed — переход к Part B
+
+_(pending — заполняется на основе Q1-Q2 ответов + preset-refactor Q3-Q5)_
+
+### Decision (English, immutable) 🔒
+
+_(pending — заполняется после Part B)_
+
 ### Decision (English, immutable) 🔒
 
 _(pending — заполняется после Session 1 answers + Part B)_
