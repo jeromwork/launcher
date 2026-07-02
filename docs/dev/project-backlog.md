@@ -1434,3 +1434,51 @@ Code in main is complete; these only need *running* against a build.
 - **When**: после merge TASK-6 (Root Key Hierarchy). Зависимость **жёсткая** — нельзя удалить до того, как root derivation работает в production.
 - **Status**: 🟢 OPEN (blocked by TASK-6)
 - **Origin**: TASK-51 plan §Required Context Review (R-002 exit ramp), 2026-06-26.
+
+### TODO-TASK67-DISCUSSION-001: Passphrase strength enforcement в wizard'е 🟡
+
+- **What**: Add real-time passphrase strength meter в setup wizard; refuse passphrases с entropy < ~50 бит.
+  - Floor: 4+ случайных слова из словаря (BIP-39 style) **или** 12+ знаков со смешанным регистром + digit.
+  - UI: strength meter (zxcvbn или KMP-эквивалент), inline hint при слабом вводе.
+  - Reject flow: wizard блокирует переход к следующему шагу если strength < threshold.
+- **Why**: Наш Argon2id (200ms cost) + Cloudflare rate-limit защищают online brute-force. Offline brute-force при утечке KV защищает **только entropy пароля**. Слабый пароль (`password123` = ~28 бит) ломается за часы даже с Argon2id; сильный (4 случайных слова ~53 бит) — века.
+- **When**: **pre-MVP gate** (до первого public release APK). Не блокирует development, но блокирует ship.
+- **Effort**: ~2 дня (zxcvbn KMP port + wizard step + UI).
+- **Status**: 🟡 OPEN
+- **Origin**: TASK-67 discussion 2026-07-02 (Topic 1, Q2).
+
+### TODO-TASK67-DISCUSSION-002: 2FA hook point в RecoveryFlow + server-roadmap entry 🟢
+
+- **What**: Не добавлять код-абстракцию сейчас (premature abstraction — CLAUDE.md rule 4). Достаточно:
+  1. Inline TODO comment в [RecoveryFlow.performRecovery](../../core/keys/src/commonMain/kotlin/family/keys/impl/RecoveryFlow.kt#L110) в точке перед `backup.fetchBlob(identity.stableId)`: `// TODO(2fa): future server-side challenge (TOTP/WebAuthn/push-confirm) MUST gate blob release; requires breaking change to RecoveryKeyBackup port. Server-roadmap: SRV-2FA-001. Article XX allows breaking change pre-MVP.`
+  2. Добавить секцию **SRV-2FA-001** в [docs/dev/server-roadmap.md](server-roadmap.md): server-side 2FA challenge endpoints (`beginRecovery(uid) → challenge`, `verifyChallenge(uid, challenge, response) → accessToken`, `fetchBlob(uid, accessToken)`); interface change breaking для RecoveryKeyBackup port; effort ~1 неделя when triggered.
+- **Why**: Сейчас recovery gate = only Firebase Auth (weak: угнанный Google-аккаунт → owner blob). Настоящий 2FA (TOTP / WebAuthn / push-подтверждение с другого устройства) — production requirement. Но какой конкретно 2FA мы возьмём — не решено. Premature interface = скорее всего неверно угадаем.
+- **When**: pre-production release. Не блокирует MVP dev.
+- **Effort**: TODO + roadmap entry — 30 мин. Actual implementation — ~1 неделя.
+- **Status**: 🟢 OPEN
+- **Origin**: TASK-67 discussion 2026-07-02 (Topic 1, Q1).
+
+### TODO-TASK67-DISCUSSION-003: Screen-lock re-auth для sensitive operations 🟢
+
+- **What**: BiometricPrompt (Android) / LocalAuthentication (iOS future) gate перед sensitive-операциями:
+  - Показать список pairing-edges.
+  - Отозвать pairing edge.
+  - Изменить root config.
+  - Экспортировать recovery-blob (если такая опция будет).
+- **Fallback:** device credential (PIN/pattern/password) если биометрия не настроена.
+- **Why**: Root key в StrongBox защищает **extraction** ключа, но не **использование**. Attacker с физически разблокированным устройством может открыть наше приложение и всё расшифровать. Passphrase здесь не помогает (мы не спрашиваем её ежедневно — это правильно для UX). Единственная защита daily-use — biometric re-auth перед sensitive-точками.
+- **When**: post-MVP, до open registration.
+- **Effort**: ~1 неделя (BiometricPrompt integration + список sensitive-точек + policy + strings i18n).
+- **Status**: 🟢 OPEN
+- **Origin**: TASK-67 discussion 2026-07-02 (Topic 1, Q4).
+
+### TODO-TASK67-DISCUSSION-004: Passphrase change UX clarity — не re-encrypts existing data 🟢
+
+- **What**: В wizard'е / settings при **смене passphrase** UI должен **явно** объяснить: смена пароля защищает **резервную копию** на сервере, но НЕ пере-шифровывает уже отправленные данные в bucket'ах.
+  - Технически: `Argon2id(new_passphrase)` → новый KEK → пере-шифровать recovery-blob → залить. Root key **не меняется**.
+  - UI-текст (пример): «Новый пароль защитит резервную копию на облаке. Старый пароль перестанет работать. Данные, уже отправленные другим устройствам, **не** пере-шифровываются — они остаются под защитой предыдущих ключей.»
+- **Why**: Пользователь ожидает «смена пароля = полное новое шифрование» (по аналогии с email/soc-сетями). У нас это не так — root key стабилен. Без явного объяснения пользователь получит ложное чувство безопасности после rotation'а слабого пароля.
+- **When**: как только UI смены passphrase появится в scope (сейчас не в scope).
+- **Effort**: ~2 часа (текст + acceptance test).
+- **Status**: 🟢 OPEN
+- **Origin**: TASK-67 discussion 2026-07-02 (Topic 1, AC-3).

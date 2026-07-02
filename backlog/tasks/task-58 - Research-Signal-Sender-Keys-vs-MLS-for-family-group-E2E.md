@@ -14,6 +14,10 @@ dependencies:
   - TASK-57
 priority: high
 ordinal: 58000
+crypto-alignment: needs-desc-update
+crypto-source: [Блок 4, Θ.1, Q-18]
+blocks-on: []
+crypto-sweep-date: 2026-07-02
 ---
 
 ## Description

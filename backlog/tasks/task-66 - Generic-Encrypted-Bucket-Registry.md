@@ -18,6 +18,10 @@ priority: high
 ordinal: 66000
 references:
   - specs/task-66-generic-encrypted-bucket-registry/
+crypto-alignment: aligned
+crypto-source: [Δ.1, Δ.2, Ξ.5, Π.7]
+blocks-on: []
+crypto-sweep-date: 2026-07-02
 ---
 
 ## Description

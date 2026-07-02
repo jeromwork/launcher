@@ -45,6 +45,13 @@ priority: high | medium | low
 ordinal: NNNN
 references:
   - specs/task-N-slug/
+# --- Cross-cutting alignment (CLAUDE.md rule 11) ---
+# Заполняется через `procedure-crypto-alignment-sweep` (для крипто) или аналог для другого домена.
+# Если task не касается крипто-архитектуры — поля можно опустить.
+crypto-alignment: aligned | needs-review | scope-reset | needs-desc-update | new-from-mentor | parked | blocked-on-question
+crypto-source: [Ξ.5, Π.7, Ρ.4]     # секции docs/dev/crypto-mentor-overview.md
+blocks-on: [Q-09, Q-12]             # Q-NN из docs/dev/crypto-open-questions.md (если blocked)
+crypto-sweep-date: YYYY-MM-DD       # последний sweep timestamp
 ---
 
 ## Description
@@ -377,10 +384,67 @@ ordinal: 99000
 <!-- AC:END -->
 ```
 
+## Cross-cutting alignment frontmatter поля (CLAUDE.md rule 11)
+
+Для задач, затрагивающих large cross-cutting архитектурные области (крипто-стек, backend-топология, UX-конвенции, i18n), frontmatter расширяется полями синхронизации с SoT документом.
+
+### Поля
+
+| Поле | Тип | Что значит |
+|---|---|---|
+| `crypto-alignment` | enum | Статус синхронизации с current crypto-mentor-overview.md. См. значения ниже. |
+| `crypto-source` | array | Список секций crypto-mentor-overview.md информирующих задачу (`[Ξ.5, Π.7, Ρ.4]`). |
+| `blocks-on` | array | Список Q-NN из crypto-open-questions.md, блокирующих задачу (`[Q-09, Q-12]`). Только если `crypto-alignment: blocked-on-question`. |
+| `crypto-sweep-date` | date | Когда последний раз sweep'нули frontmatter (`YYYY-MM-DD`). |
+
+### Значения `crypto-alignment`
+
+| Значение | Что значит | Кто ставит |
+|---|---|---|
+| `aligned` | Description соответствует SoT, никаких действий. | Sweep skill. |
+| `needs-review` | Legacy default — не sweep'нута ни разу. | Sweep skill (для не-помеченных). |
+| `scope-reset` | Feature approach устарел (envelope→MLS, Signal Sender Keys→MLS TreeKEM). Требуется major rewrite. | Sweep skill. |
+| `needs-desc-update` | Feature scope верный, детали устарели. Minor rewrite конкретных секций. | Sweep skill. |
+| `new-from-mentor` | Задача должна появиться из mentor-сессии (например `QuotaEnforcer` port, `AbuseReport` mechanism). Создать через `backlog task create`. | Sweep skill (рекомендует). |
+| `parked` | Дубликат другой задачи или SoT секции. Кандидат на close/merge. | Sweep skill. |
+| `blocked-on-question` | Ждёт разрешения Q-NN из crypto-open-questions.md. Не брать в /speckit.specify. | Sweep skill. |
+
+### Когда поля не нужны
+
+Если task не касается крипто-архитектуры (например purely UI task) — поля можно **опустить**. Sweep skill'ы filter'ят по topical relevance.
+
+### Сила источника правды
+
+- `crypto-alignment` — единственный machine-readable флаг «готова ли эта задача к /speckit.specify». `speckit-specify` skill (или AI) обязан проверить перед началом.
+- Если `crypto-alignment: blocked-on-question` → refuse to start speckit-cycle, показать `blocks-on` список.
+- Если `crypto-alignment: scope-reset` → refuse to start speckit-cycle без явного rewrite description.
+- Если `crypto-alignment: aligned` или `needs-desc-update` → speckit-cycle можно начинать.
+
+### Пример полного frontmatter'а task'а с alignment
+
+```yaml
+---
+id: TASK-67
+title: Pairing Feature And Bucket
+status: In Progress
+labels: [phase-2, crypto, pairing]
+milestone: m-1
+dependencies: [TASK-6, TASK-66]
+priority: high
+ordinal: 67000
+references: [specs/task-67-pairing-feature-and-bucket/]
+crypto-alignment: aligned
+crypto-source: [Δ.1, Δ.10, Π.2, Ξ.5, Θ.1, Θ.2]
+blocks-on: []
+crypto-sweep-date: 2026-07-02
+---
+```
+
 ## Связанные skills
 
 - `pre-pr-backlog-sync` — sync AC marks и status decision перед `gh pr create`.
 - `procedure-sync-backlog-ac` — sync `## Success Criteria` из spec.md в backlog AC.
 - `procedure-sync-backlog-description` — sync описания backlog-task'а после full speckit cycle.
+- `procedure-crypto-alignment-sweep` — sweep `crypto-alignment` frontmatter markers после накопления решений в `crypto-mentor-overview.md`.
 
-Этот skill — про **разметку** (как написать файл), те три skill'а — про **синхронизацию** (когда регенерировать содержимое).
+Этот skill — про **разметку** (как написать файл), те четыре skill'а — про **синхронизацию** (когда регенерировать содержимое / когда апдейтить markers).

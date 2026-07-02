@@ -17,6 +17,10 @@ dependencies:
   - TASK-3
 priority: low
 ordinal: 40000
+crypto-alignment: parked
+crypto-source: [Блок 3, Δ.2]
+blocks-on: []
+crypto-sweep-date: 2026-07-02
 ---
 
 ## Description
