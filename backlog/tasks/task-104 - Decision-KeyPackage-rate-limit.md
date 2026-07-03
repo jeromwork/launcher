@@ -753,6 +753,131 @@ Contracts frozen per TASK-105 Part 1 discipline (`schemaVersion`, versioned URL,
 
 **Session boundary**: TASK-104 Decision block immutable from here. Any future preset schema changes (values in `PresetV2.mls`) or preset extensions (new preset segment) do not re-open this Decision — they follow TASK-16 preset schema evolution path. Any change to architectural invariants (Part 1 mechanisms, Part 3 invariants, Part 4 contracts) requires a new decision task and `superseded-by: TASK-XXX` in this task's frontmatter.
 
+### Session 2 (2026-07-03) — Rust FFI validation (owner mentor question, does not re-open Decision)
+
+Владелец: «Rust NDK — как это появилось, где используется? Почему выбрали этот подход? Настороженно отношусь к новым компонентам».
+
+Правильный catch. Client MLS library choice был AI-defaulted (Decision Part 5 упоминает `mls-rs / ts-mls` в exit ramps без owner explicit validation). Проверяю через mentor skill.
+
+#### A.1 Что за область
+
+**Rust NDK** — не новый framework. Инфраструктура:
+- **NDK (Android Native Development Kit)** — Google's toolchain для native code на Android. Существует с 2009 года. Изначально для C/C++, теперь и Rust.
+- **Rust на Android** — Rust код cross-компилируется в native `.so` через `cargo-ndk`, вызывается из Kotlin через FFI (Foreign Function Interface = обёртка над JNI).
+
+**Откуда появилось у нас**: research TASK-104 → зрелые MLS RFC 9420 libraries — только Rust (mls-rs AWS Labs, openmls open community). Pure Kotlin вариант (mls-kotlin) — JVM only, Android не поддерживает.
+
+#### A.2 Карта темы
+
+**Индустрия e2e-messenger'ов дрейфует к Rust FFI (последние 3 года)**:
+
+| Messenger | Client crypto | Pattern |
+|---|---|---|
+| Signal | libsignal | Rust (переезд ~2022) → Kotlin/Swift FFI |
+| WhatsApp | Signal Protocol | Native FFI (детали закрыты) |
+| Wire | Kalium SDK + CoreCrypto | Rust → Kotlin Multiplatform |
+| Element (Matrix) | matrix-rust-sdk | Rust → Kotlin/Swift FFI |
+| Threema | (переехали на Rust ~2023) | Rust → native FFI |
+
+**Причины тренда**:
+1. **Modern crypto libraries — Rust** (`ring`, `RustCrypto`). Раньше был C++ (OpenSSL, libsodium), теперь deprecated для нового crypto кода.
+2. **Cross-platform**: один Rust код работает Android + iOS + desktop. Не переписываем крипто три раза.
+3. **Memory safety**: Rust не даёт классических C-багов (buffer overflow, use-after-free). Критично для крипто.
+4. **RFC 9420 (MLS) impl**: единственные зрелые open-source — Rust (mls-rs, openmls). Kotlin — не готов, C++ — deprecated.
+
+**Complete-solution альтернативы** (принцип владельца: «один комплитный компонент лучше десятка мелких»):
+
+- **Kalium (Wire SDK)** — Kotlin Multiplatform поверх Rust CoreCrypto. **Complete e2e messenger**. **Проблема**: tightly coupled с Wire backend architecture. Мы становимся «Wire client с нашим UI», не свободны в дизайне. Плюс LGPL license (copyleft для binary).
+- **Matrix Rust SDK** — Rust FFI wrapper для Matrix client stack. **Complete**. **Проблема**: становимся Matrix federation client. Blocks own-server migration или требует Matrix-compatible Go server (много работы).
+- **libsignal (Signal)** — Rust FFI wrapper. Complete Signal Protocol. **Проблемы**: AGPLv3 (copyleft, ломает proprietary distribution), Signal-Server dependent, Signal Protocol ≠ MLS.
+- **mls-kotlin** — pure Kotlin, no FFI. **Проблема**: JVM-only, Android/Multiplatform в roadmap но не сейчас. Waiting on external maintainer.
+
+**Наш путь (в TASK-104 Decision)**: primitives (MLS library + JWT + own storage), собранные под наш domain. Rust FFI — цена за независимость от «complete SDK» лочек.
+
+#### A.3 Главное для новичка
+
+1. **Rust NDK ≠ новый компонент — это способ вызвать Rust код с Android**. Инфраструктура старая. Не изобретаем.
+2. **FFI граница = Kotlin вызывает функцию → JNI типы → Rust исполняется → результат назад**. Стандартный pattern, документирован, tooling есть.
+3. **Индустрия дрейфует к Rust для крипто последние 3 года**. Не наш caprice — Signal, WhatsApp, Wire, Matrix, Threema все туда пришли.
+4. **Complete SDK альтернативы — vendor lock хуже чем Rust toolchain overhead**. Kalium = Wire client. Matrix SDK = Matrix client. libsignal = Signal client + AGPLv3.
+5. **Pure Kotlin MLS в 2026 не готов**. mls-kotlin — JVM only, ждать = блок на external maintainer.
+
+#### A.4 Ключевые термины
+
+- **NDK (Android Native Development Kit)** — Google toolchain для native code на Android. Compiler + libc + build hooks. Не framework, tools.
+- **FFI (Foreign Function Interface)** — general term для вызова функций между языками. Kotlin/JVM → JNI → C ABI → Rust.
+- **JNI (Java Native Interface)** — стандарт JVM для native call'ов. Существует с Java 1. Rust FFI на Android использует JNI под капотом.
+- **`.so` (shared object)** — native library file, аналог `.dll`. Один per ABI.
+- **ABI (Application Binary Interface)** — CPU arch (arm64-v8a, armeabi-v7a, x86_64). Каждый требует свою `.so`.
+- **cargo-ndk** — Cargo plugin для cross-compilation Rust под Android ABIs.
+- **Kotlin Multiplatform (KMP)** — Kotlin для одного codebase на Android + iOS + desktop. Не заменяет Rust, но иногда wrapping'ит его.
+
+#### A.5 Уточняющие вопросы
+
+**Q1' — Готовы принять Rust FFI как one-way door на toolchain уровне?**
+- **A. Да**, industry pattern, benefit (не lock'нуться на complete SDK) > cost (первый Rust в проекте).
+- **B. Нет**, ищем pure Kotlin alternative даже с trade-off'ами (waiting на mls-kotlin Android support).
+- **C. Отложить**: MVP c fake MLS (просто e2e через libsignal-like Signal Protocol, известный workable), Rust FFI когда MLS готов.
+
+**Q2' — Complete SDK vs primitives?**
+- **A. Primitives** (наш текущий путь): MLS library + own server, полный control.
+- **B. Kalium (Wire SDK)** — accept Wire architecture, реюзнуть готовый stack. Cost: LGPL binary + Wire backend dependency.
+- **C. Matrix Rust SDK** — стать Matrix client. Cost: Matrix federation + specific server.
+
+**Q3' — Если Rust FFI OK, какая MLS library?**
+- **A. mls-rs (AWS Labs)** — Apache, actively maintained, WASM support, backed by AWS resources.
+- **B. openmls (community)** — MIT/Apache, actively maintained, includes reference delivery-service code we can learn from.
+- **C. Через Kalium's CoreCrypto** — pre-wrapped Rust MLS, но tied to Wire ecosystem.
+
+**Мой bet**:
+- Q1' = **A** (accept Rust FFI, industry standard).
+- Q2' = **A** (primitives, freedom).
+- Q3' = **B** (openmls, community + reference server code, smaller ecosystem lock).
+
+Если owner подтверждает — Decision Part 5 не меняется, добавляется note «Session 2 confirmed choice». Если override — новый task `TASK-104-override-client-lib` с обоснованием + `superseded-by:` в TASK-104 frontmatter.
+
+### Session 2 — owner answers (2026-07-03)
+
+Владелец: «Cross-platform (один код Android/iOS/desktop) — этим вопросом сразу все закрываем. Q3 — точно свой сервер!!»
+
+**Confirmed**:
+- **Q1' → A** (Rust FFI accepted; закрывается аргументом cross-platform: один Rust код работает на Android + iOS + desktop, не пишем крипто три раза).
+- **Q2' → A** (primitives, own server).
+- **Q3' → B** (openmls — community, MIT/Apache, includes reference delivery-service code для обучения).
+
+TASK-104 Decision Part 5 не меняется. Client MLS library = **openmls** (Rust) via FFI. Server MLS library = **ts-mls** (TypeScript) for Cloudflare Worker MVP → **openmls через WASM** или **mls-go** (Go) при own-server migration.
+
+### Session 2 — Rust usage audit (2026-07-03)
+
+Владелец: «Проведи аудит по другим компонентам, есть ли смысл искать такие же на Rust?»
+
+Audit по каждому компоненту в стеке:
+
+| Компонент | Сейчас | Rust equivalent? | Стоит ли переносить? |
+|---|---|---|---|
+| **Android UI** | Compose (Kotlin) | Нет, Compose only Kotlin | Нет — UI framework tightly Android-Kotlin |
+| **Android domain** | Kotlin `core/` | Возможно (Rust FFI для shared logic) | **Нет для MVP**. Kotlin ergonomic, iOS ещё не строим. Post-MVP — рассмотреть KMP или Rust если начнём iOS. |
+| **Android Keystore ops** | Android Keystore API (Kotlin) | Нет — Android API, must be Kotlin | Нет — OS binding |
+| **Networking (Android)** | OkHttp / Ktor (Kotlin) | Возможно `reqwest` (Rust) | Нет — Kotlin HTTP client mature, no gain |
+| **Push messaging (Android)** | FCM SDK (Kotlin) | Нет — Firebase SDK Kotlin/Java only | Нет — vendor SDK |
+| **MLS crypto (Android)** | **openmls (Rust) via FFI** ← новое | — | **Да** — cross-platform imperative + industry standard |
+| **Cloudflare Worker** | TypeScript | Rust via WASM возможно | **Нет для MVP**. Worker runtime — V8 isolate, TypeScript native. WASM даёт overhead без выигрыша. |
+| **Worker MLS** | ts-mls (TypeScript) | openmls через WASM возможно | **Нет сейчас**. ts-mls достаточно, WASM overhead не оправдан. |
+| **JWT verify (Worker)** | jose (npm) | jsonwebtoken (Rust) | Нет — V8 native TypeScript ≠ Rust WASM benefit |
+| **Input validation (Worker)** | zod (npm) | serde + validator (Rust) | Нет — same reason |
+| **Future own-server** | Go microservices (planned) | Rust microservices | **Открытый вопрос**. Go более mainstream для microservices; Rust — если нужна max performance или shared code с client. Decide при starting own-server. |
+| **Preset JSON parsing** | Kotlin (`kotlinx.serialization`) | serde (Rust) | Нет — Kotlin serialization для domain OK |
+
+**Выводы audit'а**:
+
+1. **Rust оправдан только для крипто-heavy кода который нужен cross-platform** (MLS ratcheting, group state, key derivation). Один Rust код → Android + iOS + desktop.
+2. **Kotlin остаётся primary language** для всего Android-специфичного (UI, Keystore, networking, storage, push).
+3. **TypeScript остаётся** в Cloudflare Worker (V8 runtime native). Rust через WASM для Worker'а — overhead без reward.
+4. **Own-server language** (Go vs Rust) — отдельное решение, откладываем.
+5. **Cross-platform domain sharing** (когда iOS появится) — рассмотрим тогда Kotlin Multiplatform (KMP) или Rust. Не MVP.
+
+**Не расширяем Rust footprint** — только openmls для MLS. Первый Rust в проекте, но ограниченный scope.
+
 Владелец surfaced cross-cutting concern: «GET /keypackage/consume — лишь частный случай, надо всё проверять, любые операции». Правильный catch — server-side hardening это baseline на все endpoint'ы, не про KeyPackage.
 
 Split: TASK-105 создан для baseline decision (5 required properties per endpoint). TASK-104 paused, dependencies: [TASK-105], resume после TASK-105 → Draft. Owner answers на Q1'-Q5' сохранены как pending — обсудим их в Session 2 в контексте baseline'а.

@@ -2,7 +2,7 @@
 
 **Purpose**: короткий "start here" файл для новой сессии AI или нового collaborator'а работающих над крипто-архитектурой проекта. Обновляется вручную после mentor-сессий.
 
-**Last updated**: 2026-07-02.
+**Last updated**: 2026-07-03.
 
 ---
 
@@ -19,7 +19,7 @@
 
 ---
 
-## Recently decided (session 2026-07-02)
+## Recently decided (sessions 2026-07-02 → 2026-07-03)
 
 | Task | Title | Status | Что решено |
 |---|---|---|---|
@@ -27,6 +27,8 @@
 | [TASK-101](../../backlog/tasks/task-101%20-%20Decision-Peer-confirmation-on-recovery.md) | Peer confirmation on recovery | Draft | Chrome-model auto-add + post-facto notification. Multi-device как first-class. |
 | [TASK-102](../../backlog/tasks/task-102%20-%20Decision-Revoke-policy.md) | MLS revoke policy | Draft | Three-tier language (owner/admin/other), MVP flat + admin, identity-level UI, no blacklist. |
 | [TASK-103](../../backlog/tasks/task-103%20-%20Decision-Remote-app-lock-for-stolen-device.md) | Remote app lock for stolen device | Draft | Full logout + Keystore wipe = crypto defense (не UX). 5 preset fields. |
+| [TASK-104](../../backlog/tasks/task-104%20-%20Decision-KeyPackage-rate-limit.md) | KeyPackage rate limit | Draft | Signal-inspired hybrid: pool cap + claim dedup + last-resort (no active velocity rate). 4 preset fields в `PresetV2.mls`. |
+| [TASK-105](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md) | Server-side abuse defense baseline | Draft | Contract stability first-class + AI-defaulted server internals + deferred persistence. CLAUDE.md rule 12 + refuse pattern 20 + `checklist-server-hardening` skill. |
 
 **Read Decision blocks (English) для machine-readable контракта** — downstream tasks должны иметь `dependencies: [TASK-N]` для этих decisions.
 
@@ -34,21 +36,27 @@
 
 ## Currently in Discussion
 
-**Нет активных Discussion-tasks на 2026-07-02.** Все pilot тасок в Draft/Done.
-
-Для запуска следующей mentor-сессии — создать новый task в статусе Discussion (см. Priority queue ниже).
+- **[TASK-106](../../backlog/tasks/task-106%20-%20Decision-Sybil-resistance-and-signup-gate.md)** (Discussion, Session 1 Part A written 2026-07-03) — Sybil resistance & identity signup gate. Direct follow-up TASK-104 (claim dedup неэффективен против attacker'а с N identity). Q1'-Q6' pending owner answers.
 
 ---
 
-## Priority queue — next candidates
+## Priority queue — next candidates (revised 2026-07-03 после TASK-104/105 closure)
 
 **High** (recommended immediate next):
 
-1. **KeyPackage rate limit** (создать `TASK-104` в Discussion). Server-side max 5 KeyPackages/hour/identity. Разгружает TASK-101 + TASK-103 attacker mitigation + TASK-67 abuse prevention. Small scope, ~1 short mentor-session.
-2. **Cloudflare Durable Objects concrete design** (был Q-14). Блокирует TASK-67 implementation. Concrete design для quota counters + rate limits.
-3. **Abuse response mechanism** (был Q-17). Legal minimum для user-reported content abuse. Блокирует TASK-11, TASK-28.
-4. **Cross-platform IdentityVault** (был Q-08). iOS App Groups / Huawei ContentProvider / Android TV / Google TV. Блокирует TASK-3, 25, 26, 29.
-5. **Huawei без GMS push fallback** (был Q-13). HMS Push Kit / MQTT / WebSocket. Блокирует TASK-58 Huawei smoke gates.
+1. **Sybil resistance / invitation-only signup** (создать `TASK-106`). Direct follow-up TASK-104: claim dedup защищает от single-identity abuse; Sybil (attacker с N valid identities) обходит. Invitation-only signup — declared exit ramp в TASK-104 non-goals. Разгружает TASK-67 pairing abuse. Small scope, ~1 mentor-session.
+2. **TASK-16 preset schema evolution** (уже existing, но нуждается в mentor-сессии для integration). Должен интегрировать новые preset fields из **TASK-103** (`deviceLock` namespace: 5 fields) + **TASK-104** (`mls` namespace: 4 fields). Wire format versioning + roundtrip tests. Small scope, procedural.
+3. **TASK-58 MLS library choice concrete** (уже existing). Research из TASK-104 сузила варианты: mls-rs (AWS Labs, Rust, Apache) vs openmls (Rust, MIT) vs ts-mls (TypeScript, MIT). Decision needed для Android FFI + Worker impl choice. Small scope.
+4. **Abuse response mechanism** (был Q-17, создать `TASK-107`). Legal minimum для user-reported content abuse. Требует legal + product perspective, не чисто technical. Блокирует TASK-11 (SOS), TASK-28 (family album). Medium scope, может требовать 2 sessions.
+5. **Cloudflare Durable Objects concrete design** (был Q-14, создать `TASK-108`). **Narrowed by TASK-105 Part 2**: baseline уже установила ladder RATE_LIMITER (normal) → DO (security-critical). Осталось: WHICH endpoints classify as security-critical + concrete DO schema для них (recovery attempts counter, unlock attempt tracker). Small scope.
+
+**Medium** (deferred, physical/platform-dependent):
+
+- **Cross-platform IdentityVault** (Q-08) — iOS App Groups / Huawei ContentProvider / Android TV / Google TV. Android-first stance: iOS/Huawei может подождать. Blocks TASK-3, 25, 26, 29.
+- **Huawei без GMS push fallback** (Q-13) — HMS Push Kit / MQTT / WebSocket. Physical device dependent (у владельца нет Huawei). Blocks TASK-58 Huawei smoke gates.
+- **Metadata privacy (Sealed Sender-like)** — surfaced в TASK-104/105 as parked. Future decision, не MVP.
+
+**Full open-questions register** — [crypto-open-questions.md](crypto-open-questions.md).
 
 **Medium** — см. [crypto-open-questions.md § Priority queue](crypto-open-questions.md#priority-queue-updated-2026-07-02-после-task-100103-closure).
 
@@ -75,20 +83,21 @@
 
 ## Downstream tasks awaiting Decision integration
 
-Эти feature-tasks должны добавить соответствующие `dependencies: [TASK-100+]` при следующем touch'е (per pilot sweep + Session decisions):
+Эти feature-tasks должны добавить соответствующие `dependencies: [TASK-100+]` при следующем touch'е (per pilot sweep + Session decisions). **Updated 2026-07-03**:
 
-- **TASK-6** (Root Key Hierarchy) → dependencies на TASK-100 (history backup), TASK-101 (recovery flow), TASK-102 (revoke policy device), TASK-103 (logout mechanism).
-- **TASK-25** (Multi-app cohabitation) → dependencies на TASK-101 (device inventory), TASK-102 (revoke), TASK-103 (per-app lock).
-- **TASK-27** (Messenger Jitsi) → dependencies на TASK-100 (history backup future).
-- **TASK-28** (Full family album) → dependencies на TASK-100.
-- **TASK-32** (Audit log) → dependencies на TASK-100, TASK-102, TASK-103 (audit events).
+- **TASK-6** (Root Key Hierarchy) → dependencies на TASK-100, TASK-101, TASK-102, TASK-103, **TASK-105** (server baseline).
+- **TASK-25** (Multi-app cohabitation) → dependencies на TASK-101, TASK-102, TASK-103.
+- **TASK-27** (Messenger Jitsi) → dependencies на TASK-100, **TASK-105** (server baseline для messenger backend).
+- **TASK-28** (Full family album) → dependencies на TASK-100, **TASK-105** (server baseline).
+- **TASK-32** (Audit log) → dependencies на TASK-100, TASK-102, TASK-103.
 - **TASK-40** (Multi-device) → **unparked by TASK-101 Decision** — multi-device теперь first-class. Update crypto-alignment: `parked` → `aligned` при следующем touch.
-- **TASK-42** (Family group encryption) → dependencies на TASK-102 (revoke), TASK-58 (MLS choice research).
+- **TASK-42** (Family group encryption) → dependencies на TASK-102, TASK-58, **TASK-104** (KeyPackage lifecycle).
 - **TASK-46** (Shared admin book) → dependencies на TASK-102.
-- **TASK-58** (MLS research) → должен produce financials по MLS choice, потом закрыт.
-- **TASK-67** (Pairing feature) → dependencies на несколько (TASK-101, 102, 103) + high-priority open questions.
-- **TASK-70** (Profile sync) → dependencies на TASK-100.
-- **TASK-16** (Preset Schema v2) → **должен интегрировать** новые preset fields из TASK-103 (`deviceLock` namespace).
+- **TASK-58** (MLS research) → должен produce financials по MLS choice, потом закрыт. Research из TASK-104 сузила варианты (см. priority queue #3).
+- **TASK-67** (Pairing feature) → dependencies на TASK-101, TASK-102, TASK-103, **TASK-104** (KeyPackage), **TASK-105** (server baseline). Первый implementation с полным baseline.
+- **TASK-70** (Profile sync) → dependencies на TASK-100, **TASK-105** (server baseline для config sync endpoints).
+- **TASK-16** (Preset Schema v2) → **должен интегрировать** новые preset fields из **TASK-103** (`deviceLock` namespace: 5 fields) + **TASK-104** (`mls` namespace: 4 fields). Приоритетно (см. queue #2).
+- **TASK-19** (Config sync) → dependencies на **TASK-105** (server baseline для endpoint hardening).
 
 Integration происходит **на touch каждого таск'а**, не bulk update. Rule 11 «migration by touch».
 
@@ -110,7 +119,8 @@ Integration происходит **на touch каждого таск'а**, не
 
 - **Branch**: `crypto-backlog-migration-pilot`.
 - **Bootstrap commit**: `1ed9c41` (add Discussion status, decision-task frontmatter, retire alignment-sweep).
-- **Session commits** (chronological): `76e19d1`, `fc06526`, `2e29a3f`, `2af8e5d`, `e9877ed`, `ddf236a`, `ba1b57a`.
+- **Session commits 2026-07-02** (chronological): `76e19d1`, `fc06526`, `2e29a3f`, `2af8e5d`, `e9877ed`, `ddf236a`, `ba1b57a`, `7f47d5d` (handoff artifacts).
+- **Session commits 2026-07-03**: `c7032ac` (TASK-105 baseline + rule 12 + skill), `3214de6` (TASK-104 KeyPackage decision).
 - **PR** (когда готов to merge into main): https://github.com/jeromwork/launcher/pull/new/crypto-backlog-migration-pilot.
 
 ---
