@@ -218,6 +218,35 @@ Migration existing legacy SoT-документов (напр. `docs/dev/crypto-m
 
 Fresh AI session или новый collaborator, продолжающий крипто-работу, должен начать с [`docs/dev/crypto-status.md`](docs/dev/crypto-status.md) — там текущий статус, priority queue, next candidates и continuation prompts. Не читать `crypto-mentor-overview.md` как authoritative SoT — там deprecation banner + legacy content.
 
+## 12. Server endpoints are untrusted by default (zero-trust posture)
+
+Every server endpoint (Cloudflare Worker, future own-server microservice, any HTTP handler) treats every request as potentially hostile — **even from authenticated clients with valid JWT**. Authenticated ≠ trusted:
+
+- Rogue device inside a legitimate identity can spam under valid JWT.
+- Compromised credential (leaked token) grants valid auth to attacker.
+- Buggy retry loops from honest clients look identical to abuse until throttled.
+
+Client-side hygiene is insufficient. The server must protect itself.
+
+**Required for every endpoint** (baseline; concrete values in [TASK-105 Decision](backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md)):
+
+1. **Authentication** — JWT verification (library, JWKS cache, expiration + clock skew, claim validation). `[public]` exception requires justification (e.g. JWT issuance itself, health check).
+2. **Rate limiting** — at least one dimension (per-identity / per-device / per-IP / combo) with concrete numbers, storage tier declared (in-memory / KV / Durable Object), algorithm declared (token bucket / sliding window).
+3. **Input validation** — schema-based rejection of malformed / oversized payloads; request size limit specified.
+4. **Observability** — structured log format, abuse-candidate metrics (rate-limit-hit, auth-failure, malformed counters), alert threshold.
+5. **Failure modes** — explicit HTTP codes and payload shape for: rate-limit hit (429 + Retry-After), auth failure (401), malformed payload (400), storage tier down (503).
+
+Plus for state-modifying endpoints (POST/PUT/DELETE): **idempotency** approach declared (idempotency-key, dedup key, or reasoning why not needed).
+
+**Enforcement**:
+- Skill `.claude/skills/checklist-server-hardening/SKILL.md` runs on any spec introducing / modifying an endpoint (auto-triggered by `procedure-assess-spec-complexity`).
+- Refuse pattern 20 (below) catches specs missing baseline properties.
+- Non-goals + exit ramps for defenses NOT applied at MVP go into `docs/dev/server-roadmap.md § SRV-BASELINE-*` per rule 8.
+
+**Rationale**: consolidates ad-hoc protection scattered across `docs/dev/server-requirements.md` (Tier 0/1/2 JWT posture), `docs/dev/server-roadmap.md` (SRV-SEC-004 persistent rate-limit), and per-spec checklists. Ensures new endpoints inherit baseline rather than reinvent partial protection.
+
+Feature tasks introducing endpoints (TASK-104 KeyPackage, TASK-67 pairing, TASK-6 recovery, TASK-27 messenger, TASK-19 config sync) add `dependencies: [TASK-105]`.
+
 ## Refuse and propose alternative if you see
 
 1. Vendor or system type embedded in a domain value.
@@ -239,6 +268,7 @@ Fresh AI session или новый collaborator, продолжающий кри
 17. Task в статусе `Discussion` перешёл в `Draft` **без** заполненного `### Decision (English, immutable) 🔒` sub-блока в `SECTION:DISCUSSION` — downstream tasks не получают machine-readable контракт (нарушает rule 11). Alternative: STOP, заполнить Decision block (Choice / Rationale / Applies to / Trade-offs / Exit ramp), только потом status → Draft.
 18. Architecture decision дублирован inline в другом task'е вместо `dependencies: [TASK-N]` — sync сломается когда upstream Decision изменится (нарушает rule 11 cross-task references). Alternative: удалить дублирование, добавить в `dependencies:`, prose ссылку «See TASK-N Decision».
 19. Новый `docs/dev/*-mentor-overview.md` файл создан для нового архитектурного домена (backend, UX, i18n) вместо backlog-tasks в статусе Discussion — повторяет ошибку старой модели, ведёт к desync (нарушает rule 11 universality). Alternative: создать decision-task'и с меткой домена (`decision + <domain>`), использовать backlog Kanban как Discussion queue.
+20. Server endpoint defined in spec без всех пяти required properties (auth / rate limit / input validation / observability / failure modes) и без явного `[public]` reasoning для missing JWT — нарушает rule 12 (zero-trust posture). Downstream: authenticated ≠ trusted, endpoint становится abuse vector под valid JWT. Alternative: STOP, вызвать skill [`checklist-server-hardening`](.claude/skills/checklist-server-hardening/SKILL.md), заполнить missing properties concrete values (rate dimensions + numbers, JWT library + JWKS caching, input schema, observability wiring, failure HTTP codes), либо `[public]` justification. State-modifying endpoints также требуют declared idempotency approach.
 
 For each: surface the issue in one sentence, propose the corrected shape, then continue.
 
