@@ -199,13 +199,15 @@ Multi-device техническая feasibility подтверждена: каж
 3. **Revoke как отдельная operation**: не в этом task'е. Отдельный decision-task когда будем строить device management UI.
 4. **2FA opt-in feature**: отдельный task в Phase-3+. Server-roadmap entry RECOVERY-2FA-001.
 
-### Decision (English, immutable) 🔒
+### Decision (English)
 
 **Choice**: Auto MLS Add on recovery (immediate, no confirmation ceremony) + post-facto notification (Chrome/Google Account model) to (a) other devices of the same identity holder — push + in-app banner asking «Was this you?» with revoke option, and (b) admin devices in the same MLS group — informational only. Old devices remain functional after recovery; revoke is a separate explicit user action, not implicit in recovery flow.
 
+**Scope clarification (2026-07-06)**: recovery = **self-add** of a new device_keypair for the recovering user's own identity (Таня recovers → her new device joins as her second leaf). Does **not** mean one peer adds another peer's device — that flow is covered by TASK-67 QR pairing + TASK-102 device management group ownership (bab's device is sole MLS Commit signer for group roster changes, admins pair via QR).
+
 **Rationale**: Passphrase is the base authentication contract. If passphrase is secure, no attack is possible. If passphrase leaks, that is the concern of optional 2FA (peer ceremony, SMS, authenticator app) — a separate feature not overloaded into base recovery. Forcing 100% of users through fingerprint verification ceremony to mitigate the 5% who leak passphrase via social engineering is wrong UX for elderly-primary audience. Multi-device is a first-class use case (phone + tablet on same identity, per WhatsApp companion 2021+ and Signal linked devices); recovery adds a new MLS leaf, does not touch existing leaves. Fast recovery UX matches Google's Location-Aware Security pattern (well-understood by users of any modern account system).
 
-**Applies to**: TASK-6 (root key hierarchy — recovery adds new device_keypair without touching others), TASK-25 (multi-app cohabitation — device inventory sync must handle N devices per identity), TASK-32 (audit log — record device add events with `who_added / when / new_device_fingerprint`), TASK-40 (previously parked — this Decision resurrects multi-device as legitimate Phase-2 scope since it's first-class).
+**Applies to**: TASK-6 (root key hierarchy — recovery adds new device_keypair without touching others), TASK-25 (multi-app cohabitation — device inventory sync must handle N devices per identity), TASK-32 (audit log — record device add events with `who_added / when / new_device_fingerprint`), TASK-40 (previously parked — this Decision resurrects multi-device as legitimate Phase-2 scope since it's first-class), TASK-102 (device management group — recovery's self-add is one of the reconciliation triggers on bab's device).
 
 **Trade-offs accepted**:
 - Attacker with passphrase and physical access to all other devices of the identity holder can dismiss notifications and gain silent access. Physical security failure beyond MVP threat model.
