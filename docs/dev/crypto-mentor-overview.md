@@ -2,24 +2,37 @@
 
 > **⚠️ LEGACY DOCUMENT — DEPRECATED as authoritative SoT since 2026-07-02.**
 >
-> Начиная с [CLAUDE.md rule 11 revised (2026-07-02)](../../CLAUDE.md), архитектурные крипто-решения живут как **backlog-task'и** (`backlog/tasks/task-100+`) в статусах `Discussion` → `Draft` → `Done` с immutable `### Decision (English, immutable) 🔒` блоками, не в этом файле.
+> Начиная с [CLAUDE.md rule 11 revised (2026-07-02)](../../CLAUDE.md), архитектурные крипто-решения живут как **backlog-task'и** (`backlog/tasks/task-100+`) в статусах `Discussion` → `Draft` → `Done` с `### Decision (English)` блоками, не в этом файле.
 >
 > **Что делать fresh session'у**:
 > 1. **Start here**: [`docs/dev/crypto-status.md`](crypto-status.md) — текущий статус + priority queue + next candidates.
-> 2. **Model**: [CLAUDE.md rule 11](../../CLAUDE.md) — Discussion → Decision → Done workflow.
-> 3. **Recent decisions**: `backlog/tasks/task-100..103` (см. crypto-status.md).
-> 4. **Legacy content ниже** (Часть 0..Ρ) — читай **только** для понимания секций **ещё не мигрированных** в backlog-task'и. Migration происходит incrementally on touch (rule 11 «migration by touch»).
+> 2. **Architecture snapshot**: [`docs/architecture/crypto.md`](../architecture/crypto.md) — current stack, компоненты, сценарии.
+> 3. **Model**: [CLAUDE.md rule 11](../../CLAUDE.md) — Discussion → Decision → Done workflow.
+> 4. **Recent decisions**: `backlog/tasks/task-100..108` (см. crypto-status.md).
+> 5. **Legacy content ниже** (Часть 0..Ρ) — читай **только** для понимания секций **ещё не мигрированных** в backlog-task'и.
+>
+> **Terminology mapping (old → current)**:
+> - `stableId` → **`identity_id = hash(root_public)`** (не Google UID, не UUID from Google linking; per TASK-106).
+> - `mls-rs` (library) → **`openmls`** (Rust, MIT, аудирован SRLabs; per docs/architecture/crypto.md).
+> - Firestore paths `/users/{stableId}/*` → **opaque `OwnerRef`** через adapter (per TASK-108).
+> - Google Sign-In at first launch → **LOCAL identity at first launch, cloud upgrade lazy** at first QR pairing (per TASK-106).
+> - Peer-admin MLS Remove kick → **bab's device sole executor + profile reconciliation** (per TASK-102).
+>
+> **Superseded blocks (2026-07-06)** — заменены на pointer к current model:
+> - Блок 1 (Первый запуск) → TASK-106.
+> - Блок 2 (Pairing) → TASK-67 § Детали протокола.
+> - Блок 3 (Второе устройство) → TASK-101.
+> - Блок 4 (Формирование группы) → TASK-102 + docs/architecture/crypto.md Сценарий 2.
+> - Блок 5 (Profile edit) → TASK-102 reconciliation.
+> - Блок 6 (Recovery) → TASK-101 + TASK-6.
+> - Блок 8 (Revoke) → TASK-102 + docs/architecture/crypto.md Сценарий 4.
+>
+> **Не мигрированные (частично содержат outdated tech references)**: Блок 7 (FCM push), Блок 9-10 (future messenger/album), Часть Δ Q&A, Часть Λ use cases catalog, Часть Ξ metadata privacy (базис для TASK-108), Часть Π anti-abuse, Часть Ρ client transformation, Блок 20 history backup (=TASK-100 Draft).
 >
 > **Что НЕ делать**:
 > - ❌ Не расширять этот файл новыми секциями. Новые architectural decisions — новые decision-task'и в backlog.
-> - ❌ Не считать секции этого файла окончательными — они могут быть superseded'ы migrated backlog-task'ами.
-> - ❌ Не создавать аналогичные `docs/dev/*-mentor-overview.md` файлы для других доменов (backend, UX, i18n) — нарушение rule 11 § Универсальность.
->
-> **Migration mapping** (пока incremental):
-> - Блок 20 (history backup) → **TASK-100** (Done).
-> - Блок 8 + Δ.10 (revoke) → **TASK-102** (Draft).
-> - Блок 6 + Δ.7 (recovery + peer confirmation) → **TASK-101** (Draft).
-> - Блоки 1-7, 9-19, Части Δ/Λ/Σ/Θ/Ξ/Π/Ρ — не мигрированы, живут здесь. Мигрируем on touch.
+> - ❌ Не считать секции этого файла окончательными.
+> - ❌ Не создавать аналогичные `docs/dev/*-mentor-overview.md` файлы для других доменов.
 
 **Аудитория:** владелец проекта, впервые разбирающийся в системном шифровании.
 
@@ -83,474 +96,59 @@
 
 ## Блок 1 — Первый запуск. Рождение личности
 
-### 1.1 Простыми словами
-
-Человек впервые открывает приложение. Ему нужно **придумать пароль**, чтобы:
-- Приложение получило из пароля свой «домашний ключ» (root key).
-- Копия домашнего ключа была сохранена на сервере **в запечатанном виде** — чтобы при поломке телефона можно было восстановить всё.
-- Ключ **никогда не покидает** голову человека и Keystore телефона в открытом виде.
-
-### 1.2 Что видит человек
-
-1. Открыл приложение → «Войди через Google».
-2. → «Придумай пароль. 4 слова или 12+ символов. Запомни его — восстановить нельзя.»
-3. Ввёл → «Готово».
-
-Никаких «крипто» слов пользователь не видит.
-
-### 1.3 Что происходит внутри
-
-```mermaid
-sequenceDiagram
-    participant Ч as Человек
-    participant Т as Телефон
-    participant С as Сервер (Cloudflare)
-    participant lib as libsodium
-
-    Ч->>Т: Открыл приложение
-    Т->>Ч: Войди через Google
-    Ч->>Т: Вошёл
-    Note over Т: Получил Google-identity<br/>Через identity linking<br/>получил свой stableId (UUID)
-    Т->>С: Проверил, нет ли уже recovery-blob<br/>под этот stableId
-    С-->>Т: Нет, это новый пользователь
-    Т->>Ч: Придумай пароль
-    Ч->>Т: Ввёл пароль
-    Note over Т,lib: Крипто-работа начинается здесь
-    Т->>lib: Argon2id(пароль, соль=stableId)
-    lib-->>Т: 32-байтный root key
-    Т->>lib: HKDF(root_key, "identity")
-    lib-->>Т: identity_keypair
-    Т->>lib: Сгенерируй device_keypair
-    lib-->>Т: device_keypair (только для этого телефона)
-    Т->>Т: Сохранил root_key в Android Keystore<br/>(StrongBox если есть)
-    Note over Т: root_key больше не читается<br/>никем, включая наше приложение
-    Т->>lib: Зашифруй root_key под второй ключ,<br/>полученный из того же пароля
-    lib-->>Т: recovery_blob (encrypted root key)
-    Т->>С: PUT /users/{stableId}/recovery-blob
-    С-->>Т: OK
-    Т->>С: PUT /users/{stableId}/devices/{id}/pub-key<br/>(публично, для роутинга)
-    Т->>Ч: Готово, можно пользоваться
-```
-
-### 1.4 Что закрывает наш выбор
-
-| Задача | Решение | Готовое или наше |
-|---|---|---|
-| Argon2id (медленное превращение пароля в ключ) | libsodium | Готовое ✅ |
-| Генерация X25519 keypair | libsodium | Готовое ✅ |
-| Симметричное шифрование root_key для recovery-blob | libsodium AEAD | Готовое ✅ |
-| Хранение root_key в Keystore | Android API | Готовое ✅ |
-| UI wizard'а | Наш код | Наше |
-| Wire format recovery-blob | Наш JSON | Наше |
-| Cloudflare Worker путь `/users/{stableId}/recovery-blob` | Наш | Наше |
-
-**Итого:** вся крипта — off-the-shelf. Мы пишем UI + JSON format + routing.
+> **⚠️ Superseded by current model 2026-07-06** — этот block описывал Google Sign-In + `stableId` (UUID from Google identity linking) at first launch. **Current model** (per [TASK-106](../../backlog/tasks/task-106%20-%20Decision-Sybil-resistance-and-signup-gate.md)): **LOCAL identity генерируется при первом запуске без Google, без сервера**. `identity_id = hash(root_public)`. Google Sign-In (если добавим) — lazy, при первом cloud action.
+>
+> Читай актуальную модель: [`docs/architecture/crypto.md`](../architecture/crypto.md) § MLS библиотека + § Kotlin binding + карта компонентов.
 
 ---
 
 ## Блок 2 — Знакомство двух устройств (Pairing)
 
-### 2.1 Простыми словами
-
-Таня хочет управлять телефоном бабушки. Она **должна доказать бабушкиному телефону**, что она — это Таня, а бабушкин — доказать Таниному, что он — бабушкин. Для этого:
-- Бабушка показывает QR-код на своём экране.
-- Таня сканирует.
-- Оба телефона проделывают «ритуал знакомства» — обмениваются секретными ключами так, чтобы никто в WiFi не подглядел.
-- В конце оба знают: «мы точно спарены».
-
-**Мы не изобретаем этот ритуал.** Используем готовый — **Noise XXpsk3** из библиотеки `snow`. Тот же ритуал применяет WhatsApp companion pairing и WireGuard.
-
-### 2.2 Что видит человек
-
-**Бабушка (Managed):**
-1. Кнопка «Показать QR».
-2. Появился QR-код + таймер 90 секунд.
-3. Через 10 секунд: «Таня подключается…».
-4. → «Готово. Таня теперь может помогать тебе».
-
-**Таня (Admin):**
-1. Кнопка «Сканировать QR».
-2. Камера включилась.
-3. Навёл на QR → появился фингерпринт бабушки + «Согласиться».
-4. Тапнул → «Готово. Ты теперь помощник бабушки».
-
-### 2.3 Что происходит внутри
-
-```mermaid
-sequenceDiagram
-    participant БТ as Бабушкин телефон
-    participant snow as snow (Noise)
-    participant С as Сервер (Firestore)
-    participant snow2 as snow (Noise)
-    participant ТТ as Танин телефон
-
-    Note over БТ,ТТ: Шаг 1: Бабушка показывает QR
-    БТ->>snow: Начни Noise XXpsk3 как initiator
-    snow-->>БТ: Эфемерный pubkey + random PSK
-    БТ->>С: PUT /pairing-sessions/{claimToken}<br/>{ephA_pub, PSK, identity_pub_A, ttl=90s}
-    БТ->>БТ: Показал QR: claimToken + PSK
-
-    Note over БТ,ТТ: Шаг 2: Таня сканирует
-    ТТ->>ТТ: Считал QR: claimToken + PSK
-    ТТ->>С: GET /pairing-sessions/{claimToken}
-    С-->>ТТ: {ephA_pub, identity_pub_A}
-    ТТ->>snow2: Начни Noise XXpsk3 как responder
-    ТТ->>snow2: Прими msg1 = ephA_pub
-    snow2-->>ТТ: Мой ephemeral_pub + подписанный ответ
-    ТТ->>С: PATCH /pairing-sessions/{claimToken}<br/>{ephB_pub, sig, identity_pub_B}
-
-    Note over БТ,ТТ: Шаг 3: Бабушка достраивает
-    БТ->>С: GET /pairing-sessions/{claimToken} (был polling)
-    С-->>БТ: {ephB_pub, sig, identity_pub_B}
-    БТ->>snow: Прими msg2 = ephB_pub + sig
-    snow-->>БТ: OK, вычислил shared secret,<br/>подготовил msg3
-    БТ->>С: PATCH {msg3, confirmed=true}
-    С-->>ТТ: (через listener) msg3 доступен
-    ТТ->>snow2: Прими msg3
-    snow2-->>ТТ: OK, handshake завершён
-
-    Note over БТ,ТТ: Оба знают identity_pub друг друга,<br/>оба вычислили одинаковый shared secret
-    БТ->>БТ: Показать fingerprint(identity_pub_B)<br/>для опциональной сверки
-    ТТ->>ТТ: Показать fingerprint(identity_pub_A)
-```
-
-### 2.4 Что происходит после handshake
-
-Handshake доказал identity. Теперь надо **записать факт связи** и **дать Тане право писать в бабушкино пространство**.
-
-```mermaid
-sequenceDiagram
-    participant БТ as Бабушкин телефон
-    participant С as Сервер
-    participant ТТ as Танин телефон
-
-    БТ->>С: PUT /users/бабушка/access-grants/tanya_stableId<br/>{grantedAt, edgeId}
-    Note over БТ,ТТ: Публично: сервер знает, что Таня — admin бабушки
-    БТ->>БТ: Записать TrustEdge{peer=Таня, nickname="Внучка"}<br/>в свой pairing-edges bucket
-    ТТ->>ТТ: Записать TrustEdge{peer=Бабушка, nickname="Бабушка"}<br/>в свой pairing-edges bucket
-```
-
-### 2.5 Что закрывает наш выбор
-
-| Задача | Решение | Готовое или наше |
-|---|---|---|
-| ECDH X25519 обмен ключами | snow (использует libsodium под капотом) | Готовое ✅ |
-| Взаимная аутентификация identity | snow (Noise XXpsk3 pattern) | Готовое ✅ |
-| Forward secrecy | snow (эфемерные ключи выкидываются) | Готовое ✅ |
-| Защита от MITM с фото QR | snow (PSK mix) | Готовое ✅ |
-| Transport (передача msg1, msg2, msg3) | Наш Firestore session doc | Наше |
-| QR encode/decode | ZXing (уже есть) | Готовое ✅ |
-| UI шагов wizard'а | Наш | Наше |
-
-**Что было бы если писали сами:** ~500 строк криптографии с высоким риском ошибок.
-**Как сейчас:** snow — 3 вызова API. Wrappet тонкий.
+> **⚠️ Superseded by current model 2026-07-06** — использовал `stableId` naming, Firestore для pairing sessions, отсутствовала MLS group integration.
+>
+> **Current model** (per [TASK-67](../../backlog/tasks/task-67%20-%20Pairing-Feature-And-Bucket.md) § Детали протокола + [TASK-102](../../backlog/tasks/task-102%20-%20Decision-Revoke-policy.md) + [TASK-108](../../backlog/tasks/task-108%20-%20Decision-Metadata-privacy-what-server-sees.md)): **Noise_XX** через `snow` Rust crate (WhatsApp companion pattern), Cloudflare Worker для pairing sessions, `identity_id = hash(root_public)`, opaque `OwnerRef` в endpoints, integrated MLS Add на bab's device (sole executor).
+>
+> Читай: [`docs/architecture/crypto.md`](../architecture/crypto.md) § Сценарий 2 (Тана подключается admin через QR pairing).
 
 ---
 
 ## Блок 3 — Второе устройство одного человека (Таня добавляет планшет)
 
-### 3.1 Простыми словами
-
-У Тани уже был телефон, спарен с бабушкой. Теперь она купила планшет и **хочет чтобы планшет тоже мог редактировать бабушкин Profile**.
-
-**Важно:** это НЕ второй pairing с бабушкой. Планшет становится **вторым устройством Тани**, а связь с бабушкой у Тани уже есть (в pairing-edges bucket).
-
-Что должно случиться:
-1. Планшет получает **свою** device keypair (у каждого устройства своя).
-2. Планшет восстанавливает Танин root key из recovery-blob (по её паролю).
-3. Планшет узнаёт о всех Таниных связях (pairing-edges).
-4. Танин телефон **добавляет планшет в MLS-группы**, в которых он состоит (в том числе в бабушкину группу).
-5. Планшет получает MLS Welcome → может видеть/редактировать бабушкин Profile.
-
-### 3.2 Что видит человек
-
-**Таня на планшете:**
-1. Установил APK → «Войди через Google» → тот же аккаунт.
-2. → «Введи свой пароль от аккаунта».
-3. Ввёл → «Секундочку… восстанавливаю данные».
-4. → «Готово. Планшет теперь тоже твой помощник для бабушки, для мамы, для Пети».
-
-Всё автоматически, никаких новых QR.
-
-### 3.3 Что происходит внутри
-
-```mermaid
-sequenceDiagram
-    participant Ч as Таня
-    participant ПТ as Планшет
-    participant С as Сервер
-    participant lib as libsodium
-    participant ТТ as Танин телефон
-    participant mls as mls-rs
-
-    Ч->>ПТ: Войти через Google, ввести пароль
-    ПТ->>С: GET /users/tanya/recovery-blob
-    С-->>ПТ: encrypted blob
-    ПТ->>lib: Argon2id(passphrase, salt из blob)
-    lib-->>ПТ: расшифровать blob → root_key
-    ПТ->>ПТ: Записать root_key в Keystore
-    ПТ->>lib: Сгенерировать свою device_keypair
-    ПТ->>С: PUT /users/tanya/devices/{planshet_id}/pub-key
-    ПТ->>С: GET /users/tanya/buckets/pairing-edges
-    Note over ПТ: Расшифровать через root_key<br/>(recovery-mode envelope) → знаю всех peer'ов
-    ПТ->>С: Опубликовать свой MLS KeyPackage<br/>PUT /users/tanya/mls-key-packages/{planshet_id}
-
-    Note over ТТ: Танин телефон замечает новое устройство<br/>через push или periodic sync
-    ТТ->>С: GET /users/tanya/mls-key-packages/*
-    С-->>ТТ: [phone_kp, planshet_kp (новый)]
-    ТТ->>mls: Для каждой моей группы: Add(planshet_kp)
-    mls-->>ТТ: MLS Commit + Welcome (encrypted для планшета)
-    ТТ->>С: PUT /users/бабушка/mls-groups/main/commits/{n}
-    ТТ->>С: PUT /users/tanya/mls-welcomes/{planshet_id}
-
-    Note over ПТ: Планшет получает Welcome через push
-    ПТ->>С: GET /users/tanya/mls-welcomes/{planshet_id}
-    С-->>ПТ: Welcome message
-    ПТ->>mls: Process Welcome
-    mls-->>ПТ: Присоединён к группе, exporter_key получен
-    ПТ->>Ч: Готово. Показываю бабушкин Profile.
-```
-
-### 3.4 Что закрывает наш выбор
-
-| Задача | Решение | Готовое или наше |
-|---|---|---|
-| Восстановление root_key на новом устройстве | libsodium (Argon2id + AEAD) | Готовое ✅ |
-| MLS Add member операция | mls-rs | Готовое ✅ |
-| MLS Welcome для нового устройства | mls-rs | Готовое ✅ |
-| Автоматическое обновление group key на всех членов | mls-rs (это TreeKEM внутри) | Готовое ✅ |
-| Публикация KeyPackage в directory | Наш Firestore путь | Наше |
-| UX «войти на новом устройстве» | Наш | Наше |
-
-**Ключевой момент:** MLS **автоматически** делает так, что все остальные члены группы (бабушка, Петя, все их устройства) получают обновление ключа и знают о планшете. **Мы это не программируем — библиотека делает.**
+> **⚠️ Superseded 2026-07-06** — Google-based login, `stableId` naming, mls-rs library reference (мы выбрали openmls per architecture doc).
+>
+> **Current model** (per [TASK-101](../../backlog/tasks/task-101%20-%20Decision-Peer-confirmation-on-recovery.md) + [TASK-6](../../backlog/tasks/task-6%20-%20F-5-Root-Key-Hierarchy-Owner-Recovery.md)): recovery = self-add of new device_keypair for own identity через passphrase, root_key deterministic derivation, MLS Add issued by user's existing device (self-add) + reconciliation. Auto MLS Add + post-facto notification (Chrome/Google Account model).
+>
+> Читай: TASK-101 Decision block + [`docs/architecture/crypto.md`](../architecture/crypto.md).
 
 ---
 
 ## Блок 4 — Группа: бабушка + Таня + Петя
 
-### 4.1 Простыми словами
-
-У бабушки два помощника — внучка Таня и внук Петя. **Оба должны видеть и редактировать её Profile**. Все правки должны синхронизироваться между всеми троими.
-
-Раньше (в моём старом плане) мы делали это через «конверт с адресами получателей» — envelope-with-recipient-set. Каждое сообщение — конверт с N sealed CEK'ов.
-
-**С MLS всё проще:** есть **одна общая комната** (MLS group). У каждого её члена — свой ключ от неё (получаемый из личного device_key). Когда кто-то шлёт сообщение — оно шифруется общим ключом комнаты. Все читают.
-
-Когда бабушка добавляет Петю — она делает **MLS Add** → все члены (Таня + бабушка сама) получают обновление ключа комнаты → Петя тоже получает ключ через Welcome.
-
-Когда кто-то уходит — **MLS Remove** → ключ комнаты меняется → ушедший больше не может читать новое.
-
-### 4.2 Формирование группы
-
-```mermaid
-sequenceDiagram
-    participant Б as Бабушкин телефон
-    participant mlsБ as mls-rs (бабушка)
-    participant С as Сервер
-    participant Т as Танин телефон
-    participant mlsТ as mls-rs (Таня)
-    participant П as Петин телефон
-
-    Note over Б: Первый запуск бабушки
-    Б->>mlsБ: create_group(admin=identity_pub_бабушки)
-    mlsБ-->>Б: group_state с бабушкой одной
-    Б->>С: Опубликовать group_id + начальное состояние
-
-    Note over Б,Т: Спаривание с Таней (Блок 2 закончен)
-    Т->>С: PUT /users/tanya/mls-key-packages/{id}
-    Б->>С: GET /users/tanya/mls-key-packages/{id}
-    Б->>mlsБ: Add(tanya_kp)
-    mlsБ-->>Б: MLS Commit + Welcome для Тани
-    Б->>С: PUT commit в /users/бабушка/mls-groups/main/commits
-    Б->>С: PUT Welcome в /users/tanya/mls-welcomes/
-    Т->>mlsТ: Process Welcome
-    mlsТ-->>Т: В группе с бабушкой, exporter_key получен
-
-    Note over Б,П: Спаривание с Петей — то же самое
-    П->>С: PUT /users/petya/mls-key-packages/{id}
-    Б->>mlsБ: Add(petya_kp)
-    mlsБ-->>Б: Новый Commit (эпоха увеличилась)
-    Б->>С: PUT commit
-    Note over Т: Танин телефон синхронизирует commit
-    Т->>С: GET новые commits
-    Т->>mlsТ: Process commit
-    Note over Т,П: Теперь у всех троих один exporter_key
-```
-
-### 4.3 Что закрывает наш выбор
-
-| Задача | Решение | Готовое или наше |
-|---|---|---|
-| Формирование MLS group | mls-rs | Готовое ✅ |
-| Добавление члена (Add commit) | mls-rs | Готовое ✅ |
-| Обновление ключа комнаты при membership change | mls-rs (TreeKEM) | Готовое ✅ |
-| Welcome message для нового члена | mls-rs | Готовое ✅ |
-| Delivery service (relay commits) | Наш Cloudflare Worker + Firestore | Наше |
-| KeyPackage directory | Наш Firestore | Наше |
-
-**Что нам НЕ надо делать:** access-grants (упраздняются), envelope-with-recipient-set (упраздняется), recipient resolver (упраздняется). Это огромное упрощение.
+> **⚠️ Superseded 2026-07-06** — использовал `stableId` naming, mls-rs library reference, Firestore для delivery.
+>
+> **Current model** (per [TASK-102](../../backlog/tasks/task-102%20-%20Decision-Revoke-policy.md)): device management MLS group формируется при первом QR pairing, bab's device = sole MLS Commit signer, admins не могут напрямую issue Add/Remove — только через profile edit + reconciliation. Библиотека — **openmls** (не mls-rs). Delivery — Cloudflare Worker (не Firestore для MLS commits).
+>
+> Читай: [`docs/architecture/crypto.md`](../architecture/crypto.md) § Сценарий 2 (Тана подключается + MLS handshake) + § Section 4 Group protocol.
 
 ---
 
 ## Блок 5 — Таня редактирует Profile бабушки
 
-### 5.1 Простыми словами
-
-Таня хочет добавить бабушке новый контакт «Скорая помощь». Она:
-1. Открывает бабушкин Profile у себя в приложении.
-2. Editing lock — Firestore документ «Таня редактирует, TTL 20 мин».
-3. Редактирует локально.
-4. Сохраняет → **весь Profile целиком** (не отдельный «команда добавь контакт») отправляется зашифрованным через MLS group.
-5. Бабушкин и Петин телефоны получают push → расшифровывают → применяют.
-
-### 5.2 Что видит человек
-
-**Таня:**
-1. Открыл бабушкин Profile.
-2. Добавил слот с номером «112».
-3. Тап «Сохранить». → «Готово. Изменения применены.»
-
-**Бабушка:**
-1. Через 5 секунд — тихое обновление экрана (или уведомление).
-2. Новый слот «Скорая помощь» появляется на главном экране.
-
-### 5.3 Что происходит внутри
-
-```mermaid
-sequenceDiagram
-    participant Ч as Таня
-    participant Т as Танин телефон
-    participant mlsТ as mls-rs (Таня)
-    participant С as Сервер
-    participant Б as Бабушкин телефон
-    participant mlsБ as mls-rs (бабушка)
-    participant lib as libsodium
-
-    Ч->>Т: Открыть бабушкин Profile
-    Т->>С: PUT /users/бабушка/edit-locks/current<br/>{holder=Таня, ttl=20min}
-    Т->>С: GET latest ProfileStoreState<br/>из /users/бабушка/buckets/profile-store
-    С-->>Т: encrypted blob
-    Т->>mlsТ: Расшифровать через group exporter_key
-    mlsТ-->>Т: plaintext ProfileStoreState
-    Т->>Ч: Показать Profile в UI
-    Ч->>Т: Добавить контакт «Скорая помощь»
-    Ч->>Т: Тап «Сохранить»
-    Т->>Т: Обновить local ProfileStoreState<br/>updatedAt = serverTimestamp
-    Т->>mlsТ: Зашифровать новый ProfileStoreState<br/>через exporter_key
-    mlsТ-->>Т: ciphertext (MLS Application Message)
-    Т->>С: PUT /users/бабушка/buckets/profile-store<br/>(overwrite)
-    Т->>С: Push через FCM<br/>topic edge-{edgeId}
-    Т->>С: DELETE edit-lock
-    Т->>Ч: Готово
-
-    Note over Б: Через 1-2 сек
-    С->>Б: FCM push received
-    Б->>С: GET latest ProfileStoreState
-    С-->>Б: ciphertext
-    Б->>mlsБ: Расшифровать через exporter_key
-    mlsБ-->>Б: plaintext ProfileStoreState
-    Б->>Б: Compare updatedAt > local?<br/>Да → apply
-    Б->>Б: ProfileStore.save(newState)
-    Note over Б: Applied Preset re-render:<br/>новый слот появляется
-```
-
-### 5.4 Что закрывает наш выбор
-
-| Задача | Решение | Готовое или наше |
-|---|---|---|
-| Шифрование ProfileStoreState под group key | mls-rs (application message) | Готовое ✅ |
-| Forward secrecy на каждое сообщение | mls-rs (epoch key advance) | Готовое ✅ |
-| Расшифровка на бабушкином и Петином телефонах | mls-rs | Готовое ✅ |
-| Editing lock document | Наш Firestore | Наше |
-| Push notification через FCM | Наш push worker | Наше |
-| Apply logic (переключение preset'а, rebuild UI) | Наш | Наше |
-
-**Ключевой момент:** Петя тоже получил push и увидит edit Тани. **Это фича** — все admin'ы в sync.
+> **⚠️ Superseded 2026-07-06** — mls-rs library reference, Firestore для edit-locks и bucket storage.
+>
+> **Current model** (per [TASK-102](../../backlog/tasks/task-102%20-%20Decision-Revoke-policy.md)): profile edit lock через Cloudflare KV (не Firestore), library — **openmls** (не mls-rs), reconciliation model — bab's device читает profile diff → issues MLS Add/Remove при изменении `authorized_devices` list.
+>
+> Читай: [`docs/architecture/crypto.md`](../architecture/crypto.md) § Сценарий 4 (revoke через профиль reconciliation).
 
 ---
 
 ## Блок 6 — Recovery на новом телефоне (бабушка сменила телефон)
 
-### 6.1 Простыми словами
-
-Бабушка уронила телефон, купила новый. Хочет чтобы:
-- Вернулись все её контакты, темы, layout.
-- Таня и Петя продолжали быть её admin'ами.
-- Ничего не пришлось заново настраивать.
-
-Для этого:
-1. Бабушка входит через Google на новом телефоне → тот же stableId.
-2. Вводит свой пароль → скачивает recovery-blob → восстанавливает root_key.
-3. Расшифровывает все свои buckets (Profile, pairing-edges).
-4. Публикует **новый device pub-key + новый MLS KeyPackage**.
-5. Танин / Петин телефон видят новое устройство → **MLS Add** нового устройства в группу.
-6. Новое бабушкино устройство получает MLS Welcome → в группе → может расшифровывать всё.
-
-### 6.2 Что видит человек
-
-1. Настроил новый телефон, установил APK.
-2. Войти через Google → тот же аккаунт.
-3. → «Введи свой пароль».
-4. → «Восстанавливаю данные…» (5-30 секунд).
-5. → «Готово. Твои настройки, контакты и помощники восстановлены.»
-
-### 6.3 Что происходит внутри
-
-```mermaid
-sequenceDiagram
-    participant Ч as Бабушка
-    participant НТ as Новый телефон
-    participant С as Сервер
-    participant lib as libsodium
-    participant Т as Танин телефон
-    participant mlsТ as mls-rs (Таня)
-    participant mls as mls-rs (новый телефон)
-
-    Ч->>НТ: Google login → тот же stableId
-    НТ->>С: GET /users/бабушка/recovery-blob
-    С-->>НТ: blob
-    Ч->>НТ: Ввод пароля
-    НТ->>lib: Argon2id(pass, salt из blob)
-    lib-->>НТ: root_key
-    НТ->>НТ: Сохранить root_key в Keystore
-    НТ->>lib: Сгенерировать новый device_keypair
-    НТ->>С: GET все свои buckets (pairing-edges, ...)
-    С-->>НТ: encrypted blobs (адресованы старому device_pub!)
-    Note over НТ: Recovery-mode envelope duplication (TASK-6):<br/>envelope также зашифрован под ключ,<br/>полученный из root_key через HKDF
-    НТ->>lib: HKDF(root_key, "recovery-envelope")
-    lib-->>НТ: recovery_decrypt_key
-    НТ->>lib: Расшифровать buckets через recovery_key
-    lib-->>НТ: plaintext TrustEdge'ы (знаю Таню и Петю)
-    НТ->>С: PUT новый device_pub в directory
-    НТ->>mls: Сгенерировать новый MLS KeyPackage
-    НТ->>С: PUT /users/бабушка/mls-key-packages/{new_id}
-
-    Note over Т: Танин телефон замечает новое бабушкино устройство<br/>(при следующем sync или через явное уведомление)
-    Т->>С: GET бабушкины mls-key-packages
-    С-->>Т: [old_id (мёртвый), new_id]
-    Т->>mlsТ: MLS Remove(old_id) + Add(new_id) commit
-    mlsТ-->>Т: Commit + Welcome для нового устройства
-    Т->>С: PUT commit в group
-    Т->>С: PUT Welcome для нового устройства
-    НТ->>С: Poll or push: получить Welcome
-    НТ->>mls: Process Welcome
-    mls-->>НТ: В группе, exporter_key получен
-    НТ->>С: GET /users/бабушка/buckets/profile-store
-    НТ->>mls: Расшифровать через exporter_key
-    mls-->>НТ: plaintext Profile
-    НТ->>Ч: Готово, все данные восстановлены
-```
-
-### 6.4 Что закрывает наш выбор
-
-| Задача | Решение | Готовое или наше |
-|---|---|---|
-| Восстановление root_key из recovery-blob | libsodium (Argon2id + AEAD) | Готовое ✅ |
-| Recovery-mode envelope duplication (для buckets созданных под старый device_pub) | libsodium + наш wire format | Наше (структура) + Готовое (крипта) |
-| MLS Remove old + Add new commit | mls-rs | Готовое ✅ |
-| Уведомление всех peer'ов о новом устройстве | MLS автоматически | Готовое ✅ |
-
-**Ключевой момент:** Таня НЕ должна ничего делать вручную. Её приложение автоматически замечает изменение и делает MLS commit. Peer's recovery = transparent for us.
+> **⚠️ Superseded 2026-07-06** — Google login required + `stableId` naming + mls-rs library reference + peer-driven MLS Add при recovery.
+>
+> **Current model** (per [TASK-101](../../backlog/tasks/task-101%20-%20Decision-Peer-confirmation-on-recovery.md) + [TASK-6](../../backlog/tasks/task-6%20-%20F-5-Root-Key-Hierarchy-Owner-Recovery.md)): recovery = passphrase → HKDF → deterministic root key restoration, **self-add** нового device_keypair для собственной identity (не peer-adds-peer), post-facto notification (Chrome/Google Account model). Library — openmls. `identity_id = hash(root_public)`, стабильный across restores.
+>
+> Читай: TASK-101 Decision block + TASK-6 root hierarchy spec.
 
 ---
 
@@ -631,71 +229,18 @@ sequenceDiagram
 
 ## Блок 8 — Отзыв связи (Revoke)
 
-### 8.1 Простыми словами
-
-Бабушка решила больше не давать Тане управлять телефоном (Таня украла деньги, или просто временно не нужна). Механизм:
-1. Бабушка открывает список admin'ов → «Отозвать Таню».
-2. **MLS Remove commit:** Танино устройство исключается из группы.
-3. **Ключ комнаты обновляется** (MLS автоматически).
-4. **Таня больше не может расшифровать** новые версии Profile.
-5. Старые версии (те что она успела скачать ДО revoke) — она уже видела. Cryptographically нельзя «отменить прошлое».
-
-Дополнительно: бабушкин telefón **удаляет access-grant** документ Firestore, чтобы Security Rules отвергли Танин write.
-
-### 8.2 Что видит человек
-
-**Бабушка:**
-1. Открыла список admin'ов → «Внучка Таня».
-2. → «Отозвать доступ».
-3. → «Ты уверена?»
-4. → «Готово».
-
-**Таня:**
-1. Открывает бабушкин Profile → «Ошибка: у тебя больше нет доступа».
-2. Локальная копия — есть (что была на момент revoke), но она уже устарела.
-
-### 8.3 Что происходит внутри
-
-```mermaid
-sequenceDiagram
-    participant Ч as Бабушка
-    participant Б as Бабушкин телефон
-    participant mlsБ as mls-rs (бабушка)
-    participant С as Сервер
-    participant Т as Танин телефон
-    participant mlsТ as mls-rs (Таня)
-    participant П as Петин телефон
-
-    Ч->>Б: Отозвать Таню
-    Б->>mlsБ: Remove(tanya_leafs) (все устройства Тани)
-    mlsБ-->>Б: MLS Commit (новая эпоха)<br/>Ключ группы обновлён
-    Б->>С: PUT commit в /users/бабушка/mls-groups/main/commits
-    Б->>С: DELETE /users/бабушка/access-grants/tanya
-    Note over С: Firestore Security Rules теперь<br/>не пустят Таню писать
-    С->>П: FCM push commit
-    П->>mlsП: Process commit (новая эпоха)
-    С->>Т: FCM push commit
-    Т->>mlsТ: Process commit
-    mlsТ-->>Т: Меня удалили из группы
-    Т->>Т: Показать «доступ отозван»
-    Note over Т: Танин телефон больше НЕ имеет<br/>актуальный exporter_key
-    Т->>С: (попытка write) → отказ Firestore Rules
-```
-
-### 8.4 Что закрывает наш выбор
-
-| Задача | Решение | Готовое или наше |
-|---|---|---|
-| MLS Remove operation | mls-rs | Готовое ✅ |
-| Post-compromise security (даже если старый ключ утёк, новая эпоха безопасна) | mls-rs (это встроенное свойство MLS!) | Готовое ✅ |
-| Firestore Security Rules отказ write без grant | Firebase | Готовое ✅ |
-| UI подтверждения revoke | Наш | Наше |
-
-**Post-compromise security — killer feature MLS для revoke.** Даже если Танин телефон был скомпрометирован до revoke, **после Remove'а attacker с её старыми ключами не может расшифровать новые данные**. Signal-style pairwise sessions этого не дают без явной rotation.
+> **⚠️ Superseded 2026-07-06** — peer-admin direct MLS Remove kick (Signal-style peer-to-peer), Firestore access-grants documents.
+>
+> **Current model** (per [TASK-102](../../backlog/tasks/task-102%20-%20Decision-Revoke-policy.md)): **bab's device = sole MLS Commit signer** для device management group. Admins **не могут** issue MLS Remove напрямую — только через **profile edit** (убрать target из `authorized_devices` list) + edit lock + reconciliation. Bab's device at sync compares list vs MLS roster → issues MLS Remove. Post-compromise security применяется автоматически после epoch change.
+>
+> Читай: [`docs/architecture/crypto.md`](../architecture/crypto.md) § Сценарий 4 (revoke через profile reconciliation).
 
 ---
 
 ## Блок 9 — Будущее: мессенджер
+
+> **⚠️ Library references outdated** — `mls-rs` → **openmls** (per architecture doc). Storage paths через opaque `OwnerRef` (per [TASK-108](../../backlog/tasks/task-108%20-%20Decision-Metadata-privacy-what-server-sees.md)) вместо прямых `/users/бабушка/buckets/*`. Concept (MLS group carries messenger too, zero new crypto) остаётся valid для Phase-3+ TASK-27/TASK-42.
+
 
 ### 9.1 Простыми словами
 
@@ -750,6 +295,9 @@ sequenceDiagram
 ---
 
 ## Блок 10 — Будущее: обмен фотками (Family album)
+
+> **⚠️ Library references outdated** — same as Блок 9: `mls-rs` → openmls, storage paths через opaque `OwnerRef`. Concept (encrypted photos через R2 + MLS envelope) остаётся valid для Phase-3+ TASK-11/TASK-28.
+
 
 ### 10.1 Простыми словами
 
