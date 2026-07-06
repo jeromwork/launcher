@@ -20,7 +20,7 @@
 
 **KMP targets с day 1**: `androidMain`, `jvmMain`, `iosX64`/`iosArm64`/`iosSimulatorArm64` декларированы; iOS CI build активируется при первой iOS-фиче.
 
-**Что НЕ строим**: ConfigCipher (F-5), envelope encryption для shared content, реальная key rotation logic, cloud key escrow, Sender Keys / MLS, post-quantum primitives, активный iOS CI.
+**Что НЕ строим**: ConfigCipher (F-5), envelope encryption для shared content, реальная key rotation logic, cloud key escrow, Sender Keys / MLS, активный iOS CI.
 
 **Скрытое допущение** (явно зафиксировано): индустриальный baseline (Signal, WhatsApp, WireGuard, age, Threema, Bitwarden Send используют тот же primitives stack: XChaCha20-Poly1305 + X25519 + Ed25519 + HKDF-SHA256) — это наш аргумент к любому регулятору / аудитору, заменяющий friend crypto review.
 

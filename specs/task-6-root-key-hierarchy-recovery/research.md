@@ -108,7 +108,6 @@ Fallback to variant (ii) **with an additional server-side identity-link table**:
 ### Regret Conditions
 
 - SHA-256 suffers a cryptographic break that affects HKDF (the construction has provable security reductions, so a generic SHA-256 weakness would have to be severe to affect HKDF). Considered extremely unlikely before 2035.
-- Project starts targeting post-quantum threat model (in which case all symmetric primitives need re-evaluation, not just KDF).
 
 ### Exit Ramp
 

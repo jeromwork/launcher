@@ -83,7 +83,6 @@ Envelope формат **не меняется** при переходе межд
 
 - **Visible feature** — никаких фото, UI, Contacts Picker. Это спек 012.
 - **Realtime stream encryption** (SRTP/SFrame для audio/video звонков) — **никогда** не через наш envelope. Realtime media шифруется внутри Jitsi/SFrame в будущем спеке Jitsi-integration. Наш envelope покрывает только at-rest blob'ы (зашифровал → положил → потом достал → расшифровал).
-- **Post-quantum cryptography** — отдельный future спек (~020+); libsodium со временем добавит примитивы, мы обновимся через app update.
 - **X.509 PKI** — если когда-нибудь vendor потребует X.509-сертификаты, это отдельный adapter (Bouncy Castle), не наш envelope.
 - **Шифрование `/config` целиком** — там настройки, не приватные данные.
 - **Шифрование иконок провайдеров (`bundled:`, `custom:`)** — они не приватные.
@@ -373,7 +372,7 @@ API: все крипто-ошибки (`MacFailed`, `KeyNotFound`, `BlobMissing`
 
 **OWD-1: Криптобиблиотека = libsodium** (C-4). Exit ramp = `schemaVersion` + `cipherSuiteId` в envelope с первого commit. Смена библиотеки в будущем = новые blob'ы пишутся с другим `cipherSuiteId`, старые продолжают читаться по правилам v1. Перешифровка blob'ов НЕ требуется.
 
-**OWD-2: Per-device key pairs (X25519) + hybrid encryption** (C-3). Exit ramp = `cipherSuiteId` в envelope покрывает и asymmetric scheme. Если через 10 лет X25519 окажется уязвимым к квантовым атакам — переход на post-quantum scheme идёт через тот же механизм version bump'а envelope.
+**OWD-2: Per-device key pairs (X25519) + hybrid encryption** (C-3). Exit ramp = `cipherSuiteId` в envelope покрывает и asymmetric scheme. Смена asymmetric алгоритма в будущем идёт через тот же механизм version bump'а envelope.
 
 **OWD-3: Membership-agnostic envelope** (C-2 + C-8). Список `recipients` произвольной длины. Переход от пары к группам / multi-device НЕ затрагивает envelope format — меняется только содержимое массива `recipients`. Это **главная архитектурная инвестиция** спека: разделение слоёв «кто получатели» (membership) и «как они зашифрованы» (crypto envelope).
 
@@ -483,7 +482,6 @@ API: все крипто-ошибки (`MacFailed`, `KeyNotFound`, `BlobMissing`
 - **FR-093**: This spec MUST NOT implement realtime stream encryption (SRTP/SFrame) — realtime media goes through Jitsi/SFrame in a future Jitsi-integration spec, never through our envelope.
 - **FR-094**: This spec MUST NOT add screen mirroring, remote control, or DPC-mode features.
 - **FR-095**: This spec MUST NOT introduce iOS support — out of project scope (ADR-001).
-- **FR-096**: This spec MUST NOT introduce post-quantum cryptography — when libsodium adds it natively (~v1.0.20+), we update through app update with cipherSuiteId bump.
 
 ### Key Entities
 
@@ -526,7 +524,7 @@ API: все крипто-ошибки (`MacFailed`, `KeyNotFound`, `BlobMissing`
 - **Cloudflare Worker** is not in the data path of crypto. Storage uploads/downloads go directly device↔Firebase Storage. The Worker remains the FCM-trigger relay only.
 - **No server-side key escrow.** Intentional, aligns with e2e guarantee. Consequence — irrecoverable data on factory reset without revoke — accepted as UX cost of true privacy.
 - **Reference counting includes history snapshots** from спек 009 (retention 10). A blob's refCount considers `/config/current` AND any `/config/history/{slot}` referencing it.
-- **libsodium covers all foreseeable crypto needs** (encryption, hashing, signing, key exchange, HMAC, password hashing). Post-quantum will be added by libsodium upstream; we update through app version bump. X.509 PKI is the only foreseeable gap — handled via separate adapter if/when a vendor requires it.
+- **libsodium covers all foreseeable crypto needs** (encryption, hashing, signing, key exchange, HMAC, password hashing). X.509 PKI is the only foreseeable gap — handled via separate adapter if/when a vendor requires it.
 - **Pre-production phase (until spec ~35)** — no real users yet. Wire-format discipline (`schemaVersion`, `cipherSuiteId`, roundtrip + backward-compat tests) maintained from day 1 anyway, to avoid retrofitting later.
 
 ---
@@ -571,7 +569,6 @@ API: все крипто-ошибки (`MacFailed`, `KeyNotFound`, `BlobMissing`
 **Что спек НЕ делает (явно вынесено):**
 - Фотографии на плитках — спек 012.
 - Real-time звонки (как Jitsi/Zoom) — никогда не через наш envelope. Это другая криптография.
-- Post-quantum — потом, когда библиотека дозреет.
 - iOS — out of project scope.
 
 **Главное архитектурное решение:** envelope (зашифрованный пакет) **не знает**, кто его расшифрует. Эту работу делает отдельный интерфейс `RecipientResolver`. Сейчас он умеет вернуть «другого члена пары»; в будущем будет уметь «всех членов группы» или «все мои устройства». **При этом сам формат envelope не меняется** — это значит, что когда мы дойдём до групп (014) или multi-device (015), нам **не придётся перешифровывать** уже залитые blob'ы. Это главная инвестиция спека.

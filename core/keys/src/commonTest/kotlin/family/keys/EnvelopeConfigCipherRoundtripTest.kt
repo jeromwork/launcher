@@ -203,7 +203,7 @@ class EnvelopeConfigCipherRoundtripTest {
         val aad = "test::owner::key".encodeToByteArray()
         val envelope = (c.seal("x".encodeToByteArray(), listOf(alice.recipient), aad)
                 as Outcome.Success<Envelope>).value
-        val forged = envelope.copy(algorithm = "post-quantum-experimental")
+        val forged = envelope.copy(algorithm = "unknown-experimental")
         val attempt = c.open(forged, alice.privKey, alice.recipient.deviceId, aad)
         assertIs<Outcome.Failure<CipherError>>(attempt)
         assertEquals(CipherError.AlgorithmUnsupported, attempt.error)

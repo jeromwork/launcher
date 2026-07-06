@@ -186,7 +186,7 @@
   - **Phase 1 — Coexistence**: новые клиенты пишут v2, старые продолжают читать v1. Защита от downgrade: Firestore Rule (FR-028a) + client TOLU (FR-028b) уже работают с дня релиза v2.
   - **Phase 2 — Auto-migration (months)**: новые клиенты при каждом успешном recovery (когда пользователь ввёл passphrase) **автоматически** re-encrypt root key в v2 и записывают обратно. Через несколько месяцев большинство данных мигрированы.
   - **Phase 3 — Deprecation (after ~12 месяцев)**: клиенты v2+ отказываются читать v1, запрашивают forced app update. Min app version повышается в Play Store metadata.
-- *Когда поедет:* когда XChaCha20-Poly1305 или Argon2id будут официально deprecated (или появится post-quantum requirement). Realistically — через 5-10 лет, но spec уже зарезервировал место.
+- *Когда поедет:* когда XChaCha20-Poly1305 или Argon2id будут официально deprecated. Realistically — через 5-10 лет, но spec уже зарезервировал место.
 
 **SRV-CRYPTO-006: Server-side ghost device detection / forward unsharing.**
 - *Сейчас:* удалённый из пары admin теряет доступ к **новым** версиям конфига, но **старые** версии (если они когда-нибудь были) остаются доступны под его ключом. Accepted limitation MVP.

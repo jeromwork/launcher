@@ -248,21 +248,6 @@
 - Cross-group implications — ротируешь identity, ты в 5 группах, все должны узнать.
 - User UX для «сменил ключ, скажи peer'ам сверить фингерпринт».
 
-### Тема 11 — Post-quantum готовность
-
-**Кратко:** X25519 будет сломан через 10-15 лет с появлением quantum computers достаточной мощности. Что делаем сейчас?
-
-**Вопросы для разбора:**
-- Hybrid X25519 + Kyber ciphersuite в MLS — когда появится в mls-rs? RFC ещё не финальный.
-- Наши recovery blob'ы (в KV на Cloudflare) — если attacker их сохранит сейчас и через 10 лет расшифрует quantum computer'ом — что теряем?
-- Passphrase strength — как compensate? Argon2id + long passphrase = quantum resistant for KDF part.
-- Migration path через MLS ciphersuite change — supported by spec.
-- Signal / Wire позиция по PQ?
-
-**Adjacent concerns:**
-- «Harvest now, decrypt later» атака от государственных агентств — реальная угроза?
-- Nation-state adversary — не наша аудитория, но что делаем если пользователь окажется?
-
 ---
 
 ## Ключевые файлы и локации

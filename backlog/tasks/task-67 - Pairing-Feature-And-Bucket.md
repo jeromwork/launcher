@@ -36,7 +36,7 @@ ordinal: 67000
 2. Нажимает «Показать QR».
 3. На экране A показывается QR с временным публичным ключом + nonce.
 4. Устройство B открывает свой экран pairing → «Сканировать QR».
-5. B сканирует QR с A. Происходит handshake (Curve25519): оба обменялись эфемерными ключами, подписали обмен своими identity-ключами (TASK-6 KeyRegistry), вычислили общий секрет.
+5. B сканирует QR с A. Происходит handshake по **Noise_XX pattern** (`snow` Rust crate) — тот же протокол что WhatsApp companion device pairing: 3-message взаимный auth + shared secret на основе static identity keys (TASK-6 KeyRegistry) + ephemeral X25519.
 6. Через <10 секунд оба видят сообщение «связь установлена».
 7. У A в списке «кем я управляю» появилось B. У B в списке «кто управляет мной» появилось A.
 
@@ -63,51 +63,63 @@ ordinal: 67000
 
 **Шаги**:
 
-1. **A показывает QR**. Генерит ephemeral X25519 keypair `(eph_A_priv, eph_A_pub)`. Формирует `PairingHandshakeBlob`:
-   ```
-   { schemaVersion: 1,
-     ephemeralPubKey: eph_A_pub,
-     nonce: random(32),
-     claimToken: random(16),           // server-side session correlation
-     sourceDeviceId: A_device_id,
-     sourceIdentityId: identity_id_A,   // B нужно знать чтоб указать target на claim
-     expiresAt: now() + 5min }
-   ```
-   Сериализует → QR-encode на экран.
+**Handshake использует Noise_XX pattern** (`snow` Rust crate). Noise_XX = 3-message взаимный auth: `-> e` / `<- e, ee, s, es` / `-> s, se`. Заменяет самописный ECDH + signature.
 
-2. **B сканирует QR**. Parses blob. Validates `expiresAt` (не expired). Генерит свой ephemeral X25519 keypair `(eph_B_priv, eph_B_pub)`.
+1. **A показывает QR** (Noise_XX message 1: `-> e`).
+   - A инициализирует Noise_XX handshake state со своим static keypair (`root_A`).
+   - Snow генерирует ephemeral X25519 keypair и первое handshake сообщение (содержит `e_A_pub`).
+   - Формирует `PairingHandshakeBlob`:
+     ```
+     { schemaVersion: 1,
+       noiseMessage1: <serialized Noise message 1>,
+       claimToken: random(16),           // server-side session correlation
+       sourceDeviceId: A_device_id,
+       sourceIdentityId: identity_id_A,   // B нужен для указания target при claim
+       expiresAt: now() + 5min }
+     ```
+   - Сериализует → QR-encode на экран.
+
+2. **B сканирует QR**. Parses blob. Validates `expiresAt`. Инициализирует Noise_XX handshake state со своим static keypair (`root_B`). Processes `noiseMessage1`.
 
 3. **B делает cloud upgrade** (первый раз):
    - Firebase Auth Anonymous provider → JWT.
-   - `POST /v1/identity/register { schemaVersion: 1, publicKey: root_B_public }` — server регистрирует `identity_id_B` в реестре.
+   - `POST /v1/identity/register { schemaVersion: 1, publicKey: root_B_public }` — server регистрирует `identity_id_B`.
 
 4. **B публикует KeyPackages**:
    - `POST /v1/keypackage/publish { schemaVersion: 1, batch: [KP1..KP100] }` с JWT.
-   - Server: сохраняет в `KEYPACKAGE_POOL[identity_id_B]`. Response: `{ stored: 100, poolSize: 100 }`.
+   - Server: `KEYPACKAGE_POOL[identity_id_B]`. Response: `{ stored: 100, poolSize: 100 }`.
 
-5. **B выполняет ECDH handshake**:
-   - `shared_secret = X25519(eph_B_priv, eph_A_pub)`.
-   - Signs proof: `signature = Ed25519_sign(root_B_priv, nonce || eph_B_pub || eph_A_pub)`.
+5. **B создаёт Noise_XX message 2** (`<- e, ee, s, es`):
+   - Snow генерирует ephemeral `e_B`, компонует DHs (`ee`, `es`), шифрует B's static pubkey `root_B_pub`.
+   - Payload включает `identity_id_B` (для верификации match с `hash(root_B_pub)`).
    - Формирует `PairingResponseBlob`:
      ```
      { schemaVersion: 1,
-       ephemeralPubKey: eph_B_pub,
-       identityId: identity_id_B,
-       identityPublicKey: root_B_public,
-       signature: <Ed25519 sig>,
+       noiseMessage2: <serialized Noise message 2>,
        claimToken: <echoed from step 1> }
      ```
 
 6. **B доставляет responseBlob к A через сервер**:
    - `POST /v1/pairing/complete { schemaVersion: 1, targetSourceDeviceId: A_device_id, claimToken, responseBlob }`.
-   - Server: validates `claimToken` matches active session (записанный when QR displayed), кладёт responseBlob в `PAIRING_INBOX[A_device_id]`, FCM push A: "pairing response arrived".
+   - Server: validates `claimToken` matches active session, кладёт в `PAIRING_INBOX[A_device_id]`, FCM push A.
 
-7. **A получает responseBlob** через inbox:
-   - Poll `GET /v1/pairing/inbox` или FCM wakeup → download.
-   - `shared_secret = X25519(eph_A_priv, eph_B_pub)` — должен match B's computation.
-   - Verify `signature` used `identityPublicKey` (proves B holds `root_B_priv`).
+7. **A обрабатывает Noise_XX message 2**:
+   - Poll `GET /v1/pairing/inbox` или FCM wakeup → download responseBlob.
+   - Snow processes message 2: verifies handshake, decrypts B's static pubkey, computes accumulated symmetric state.
+   - A теперь знает `root_B_public` **аутентично** (Noise mutual auth done в этой точке).
+   - Verify `hash(root_B_public) == identity_id_B` из payload.
    - Constructs `TrustEdge { edgeId, peerIdentity: identity_id_B, peerPubKey: root_B_public, role: EdgeRole.ManagedByMe, createdAt: now() }`.
    - Stores в `pairing-edges` bucket.
+
+7b. **A создаёт Noise_XX message 3** (`-> s, se`) — завершение handshake:
+   - Snow генерирует последнее сообщение (encrypted static A + `se` DH).
+   - `POST /v1/pairing/finalize { schemaVersion: 1, targetIdentityId: identity_id_B, noiseMessage3 }`.
+   - Server: routes в `PAIRING_INBOX[identity_id_B]`. FCM push B.
+
+7c. **B обрабатывает Noise_XX message 3**:
+   - Snow processes message 3: verifies A's static pubkey, handshake полностью завершён.
+   - B теперь знает `root_A_public` аутентично.
+   - Symmetric shared secret установлен на обеих сторонах (не хранится, только для authentication).
 
 8. **A выполняет MLS Add** (per [TASK-102](task-102%20-%20Decision-Revoke-policy.md), A = sole executor):
    - `POST /v1/keypackage/claim { schemaVersion: 1, targetIdentityId: identity_id_B }` → server returns один KP из `pool[identity_id_B]` (consume).
@@ -153,8 +165,9 @@ ordinal: 67000
 | `POST /v1/identity/register` | Register `identity_id` (once per identity) | Durable Object (critical) |
 | `POST /v1/keypackage/publish` | Publish KP batch | Edge (normal) |
 | `POST /v1/keypackage/claim` | Claim one KP for target identity | Edge (normal) |
-| `POST /v1/pairing/complete` | Deliver responseBlob to A's inbox | Edge (normal) |
-| `GET /v1/pairing/inbox` | Poll A's pairing inbox | Edge (normal) |
+| `POST /v1/pairing/complete` | Deliver Noise message 2 to A's inbox | Edge (normal) |
+| `POST /v1/pairing/finalize` | Deliver Noise message 3 to B's inbox | Edge (normal) |
+| `GET /v1/pairing/inbox` | Poll pairing inbox (Noise messages) | Edge (normal) |
 | `POST /v1/group/welcome` | Deliver Welcome to target identity's group inbox | Edge (normal) |
 | `POST /v1/group/commit` | Fanout Commit to all group members' inboxes | Edge (normal) |
 | `GET /v1/group/inbox` | Poll group inbox | Edge (normal) |
@@ -180,7 +193,7 @@ ordinal: 67000
 - **`core/pairing/`** — новый модуль:
   - **`PairingChannel` port** — абстракция канала передачи pairing payload. QR — первый адаптер (`QrPairingChannel`). Future: `LinkInvitePairingChannel` (TASK-31), `NfcPairingChannel`, etc.
   - **`PairingHandshakeBlob` wire format** `schemaVersion=1` — содержимое QR: `{ schemaVersion, ephemeralPubKey, nonce, claimToken, sourceDeviceId, expiresAt }`.
-  - **Curve25519 X25519 ECDH** handshake — реализация через `core/crypto` (TASK-2 / TASK-51 libsodium ristretto255).
+  - **Noise_XX handshake pattern** — proven mutual-auth handshake через `snow` Rust crate (MIT/Apache-2.0). Тот же protocol pattern использует WhatsApp companion device pairing (multi-device). Даёт: mutual identity verification + shared secret + replay protection + formal verification для free. Заменяет самописный Curve25519 ECDH + Ed25519 signature подход.
   - **`TrustEdge` domain type** — pure data: `{ edgeId, peerIdentity, peerPubKey, role: EdgeRole, createdAt, revokedAt? }`. `EdgeRole` sealed: `ManagedByMe | ManagerOfMe`.
   - **`PairingService`** — оркестратор handshake'а: показать QR → дождаться сканирования → выполнить handshake → положить TrustEdge в `pairing-edges` bucket.
   - **Camera permission handling** — `system.permission.CAMERA` pool entry для QR scanner (вероятно добавляется в pool в рамках этой задачи).

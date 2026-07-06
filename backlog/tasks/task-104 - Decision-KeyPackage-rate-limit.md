@@ -517,10 +517,10 @@ Trade-off: forward secrecy того первого exchange'а чуть слаб
   - Signal Protocol ≠ MLS (концепты похожи, endpoint'ы разные).
 - **Годится как reference source code** (изучить как они implement dedup + last-resort), не как runtime dependency.
 
-**Official Signal PQXDH spec** ([signal.org/docs/specifications/pqxdh](https://signal.org/docs/specifications/pqxdh/)) явно упоминает наши три механизма как standard:
+**Official Signal spec** ([signal.org/docs](https://signal.org/docs)) явно упоминает наши три механизма как standard:
 - Drain protection: «The protocol acknowledges that one party could maliciously drain another party's one-time prekeys, so **the server should attempt to prevent this, e.g. with rate limits on fetching prekey bundles**».
-- Last-resort: «The 'last-resort' prekey is only used when one-time pqkem prekeys are not available».
-- Rotation: «Bob has a signed last-resort post-quantum prekey PQSPKB, which he **changes periodically** and signs each time with IKB».
+- Last-resort: «The 'last-resort' prekey is only used when one-time prekeys are not available».
+- Rotation: «Bob has a signed last-resort prekey, which he **changes periodically** and signs each time with his identity key».
 
 То есть паттерн — **industry standard**, хорошо задокументирован. Реализация — за нами.
 
@@ -551,13 +551,13 @@ Claim dedup logic (10min TTL) | НЕТ готового | ~20 строк KV entr
 Last-resort key management + weekly rotation | НЕТ готового | ~50 строк + client-side cron |
 JWT verification middleware | Готовое: `jose` npm лib, работает в Workers | Standard middleware, ~15 строк |
 
-**Итого custom код**: ~100 строк server-side + ~200 строк client-side (Android glue) — **МЕНЬШЕ чем если бы мы писали с нуля**. Concepts взяты из PQXDH spec, primitives — Cloudflare native, MLS protocol — ts-mls.
+**Итого custom код**: ~100 строк server-side + ~200 строк client-side (Android glue) — **МЕНЬШЕ чем если бы мы писали с нуля**. Concepts взяты из Signal spec, primitives — Cloudflare native, MLS protocol — ts-mls.
 
 #### Другие пути (rejected)
 
 - **SaaS**: Matrix.org hosted / Wire cloud / Element hosted — vendor lock, конфликт с CLAUDE.md rule 8 (own-server migration path).
 - **Fork Signal-Server и портировать на Workers** — AGPLv3 copyleft (breaks future proprietary distribution), Java→TS полный переписывание, tight coupling с Signal infra. Не стоит.
-- **Не делать rate limit вообще (option C из Part A v2)** — Signal PQXDH spec явно предупреждает против этого. Owner risk если пропустим.
+- **Не делать rate limit вообще (option C из Part A v2)** — Signal spec явно предупреждает против этого. Owner risk если пропустим.
 
 #### Значит
 
@@ -738,7 +738,7 @@ Contracts frozen per TASK-105 Part 1 discipline (`schemaVersion`, versioned URL,
 **Applies to**: MLS group encryption flows (TASK-42), pairing that consumes KeyPackages (TASK-67), multi-device group joins (TASK-40 via TASK-101), and any future feature that adds users to MLS groups. Downstream tasks add `dependencies: [TASK-104]` at next touch.
 
 **Rationale**:
-- Signal-inspired hybrid = industry standard per Signal PQXDH spec ("server should attempt to prevent drain, e.g. with rate limits on fetching prekey bundles"), openmls delivery-service reference, Wire production practice. Not novel.
+- Signal-inspired hybrid = industry standard per Signal spec ("server should attempt to prevent drain, e.g. with rate limits on fetching prekey bundles"), openmls delivery-service reference, Wire production practice. Not novel.
 - No velocity rate policing on publish/claim = follows Signal / Wire pattern; velocity backstop provided by TASK-105 baseline edge layer (Cloudflare rate limiter). Simpler, less code, matches production practice.
 - Preset fields per rule 11 discipline: values that differ per user segment (family vs clinic vs self-managed) go into preset schema; architectural invariants hardcoded.
 - Contract stability via TASK-105 Part 1 = frontend not affected by Cloudflare → Go migration.

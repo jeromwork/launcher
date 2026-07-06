@@ -143,7 +143,7 @@ Prohibited as a same-version change. Renaming any field MUST bump `schemaVersion
 | Change                                                      | Bump schemaVersion? | Notes                                                                                            |
 |-------------------------------------------------------------|---------------------|--------------------------------------------------------------------------------------------------|
 | Add a new enum value (e.g., `"Argon2id+SHA3"`)              | **No** — additive   | Old readers detect unknown value and refuse with `BackupError.UnsupportedAlgorithm`. Never silently degrade. |
-| Remove an enum value (e.g., drop `"Argon2id"` post-quantum) | **Yes** — bump      | Removing an algorithm = breaking; old data needs migration before the algorithm is dropped       |
+| Remove an enum value (e.g., drop `"Argon2id"` in future) | **Yes** — bump      | Removing an algorithm = breaking; old data needs migration before the algorithm is dropped       |
 | Change the byte-layout of an existing algorithm             | **Yes** — bump      | Same-name + different layout = backward-compat hazard; forbidden as same-version change          |
 
 **Why old readers refuse rather than degrade**: the algorithm field directly governs key derivation. Silently treating an unknown algorithm as Argon2id would derive the wrong key and brick recovery. Fail-closed is the only safe stance.
