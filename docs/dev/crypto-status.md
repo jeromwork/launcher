@@ -52,7 +52,7 @@
 
 **Medium** (deferred, physical/platform-dependent):
 
-- **Cross-platform IdentityVault** (Q-08) — iOS App Groups / Huawei ContentProvider / Android TV / Google TV. Android-first stance: iOS/Huawei может подождать. Blocks TASK-3, 25, 26, 29.
+- **IdentityVault port boundary** → **[TASK-112](../../backlog/tasks/task-112%20-%20Decision-Cross-platform-IdentityVault.md)** Discussion (session 1 complete 2026-07-07, awaiting owner Decision Session 2). Q-08 split: cross-app sharing → TASK-25; iOS adapter → TASK-26; TV form factor → TASK-29.
 - **Huawei без GMS push fallback** (Q-13) — HMS Push Kit / MQTT / WebSocket. Physical device dependent (у владельца нет Huawei). Blocks TASK-58 Huawei smoke gates.
 - **Metadata privacy (Sealed Sender-like)** — surfaced в TASK-104/105 as parked. Future decision, не MVP.
 
