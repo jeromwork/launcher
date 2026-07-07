@@ -119,11 +119,14 @@ Predecessor content deleted per «current-thinking files» philosophy.
 - Bab's device compares `authorized_devices` list vs actual MLS group roster at sync time; diff triggers MLS Add/Remove Commit issued **by bab's device only**.
 - Same reconciliation path used for local UI on bab's device ("Кто управляет" screen edits the local profile copy, triggers local reconciliation).
 
-**Edit lock**:
-- Server-side lock on profile: `editing_by: identity_id, expires_at: timestamp`.
-- TTL = 5 minutes (family default). Preset-parameterizable per TASK-16 preset schema evolution.
-- Acquire fails if lock held by another identity → UI displays "editing by X, try later".
+**Edit lock** (updated 2026-07-07 per owner clarification):
+- Server-side lock on profile: **encrypted blob** stored alongside profile ciphertext. Server sees only opaque bytes + acquire/release timestamps for TTL enforcement.
+- Plaintext lock contents (decryptable by any group member with `exporter_key`): `editing_by: identity_id, expires_at: timestamp, editor_display_name: string`.
+- **Server cannot see `editing_by` identity** — prevents metadata leak (who edits what, when) per TASK-108 T0 baseline. Server only enforces TTL bounds + rejects concurrent acquires.
+- TTL = 5 minutes (family default). Preset-parameterizable per TASK-16 preset shape reference.
+- Acquire fails if lock held (server signals "locked", client decrypts blob → shows "editing by X, try later").
 - Optional force-release by bab's device (owner override) — TBD post-MVP.
+- Wire format for encrypted lock blob follows same discipline as profile itself per TASK-16 (schemaVersion inband as Bitwarden EncString first-byte prefix).
 
 **Roster roles** (declared in profile, not enforced by MLS itself):
 - `owner` (bab's device) — sole MLS executor.

@@ -57,7 +57,7 @@ ordinal: 20000
 
 ## Состояние
 
-**Planned.** Зависит от TASK-16 (P-1 v2 schema разделяет platformAgnostic / platformSpecific).
+**Planned.** Использует wire format discipline из TASK-16 (versioning convention + fitness rule). `platformAgnostic` / `platformSpecific` разделение в profile — owned этим task'ом при implementation.
 
 ---
 
@@ -67,7 +67,7 @@ ordinal: 20000
 Реализуй P-5: Config Copy Between Own Devices.
 
 ЧТО СТРОИМ:
-Clone operation в Admin App для копирования config'а между своими устройствами. Cross-platform copy: копируется только platformAgnostic (TASK-16 v2 schema), platformSpecific.* стрипается (target device passes through TV/phone-specific wizard). Apply через push в namespace.
+Clone operation в Admin App для копирования config'а между своими устройствами. Cross-platform copy: копируется только platformAgnostic (namespace добавляется здесь при implementation, per TASK-16 wire format discipline), platformSpecific.* стрипается (target device passes through TV/phone-specific wizard). Apply через push в namespace.
 
 ЗАЧЕМ:
 Admin не настраивает каждое устройство с нуля; делает 1 «эталонный» config и распространяет.
@@ -83,7 +83,7 @@ SCOPE НЕ ВКЛЮЧАЕТ:
 - Multi-admin merge при concurrent edits (TASK-46 L-13).
 
 DEPENDENCIES:
-- TASK-16 (P-1 v2 schema с platformAgnostic/Specific разделением).
+- TASK-16 (wire format discipline; `platformAgnostic` / `platformSpecific` split added by this task at implementation).
 
 ACCEPTANCE CRITERIA:
 - Admin тапнул «Создать копию» на существующем config → получил новый с именем «(copy)».

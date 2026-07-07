@@ -67,7 +67,7 @@ ordinal: 19000
 
 ## Состояние
 
-**Planned.** Зависит от TASK-16 (P-1 v2 schema с `adaptiveProfile` полем) + TASK-17 (P-2 для accessibility-related steps).
+**Planned.** Использует wire format discipline из TASK-16 (versioning convention + fitness rule). `adaptiveProfile` field в profile — owned этим task'ом при implementation. Также зависит от TASK-17 (P-2 accessibility-related steps).
 
 ---
 
@@ -84,7 +84,7 @@ ordinal: 19000
 
 SCOPE ВКЛЮЧАЕТ:
 - 5 bundled adaptive presets .json (default, tremor-mild, tremor-severe, perception-impaired, vision-impaired).
-- adaptiveProfile field в ConfigDocumentV2 (TASK-16).
+- adaptiveProfile field в profile (added by this task; wire format discipline per TASK-16).
 - AdaptiveTouchBehavior service: debounce / long-press / dwell-to-activate.
 - TTS integration для vision-impaired (Android system TTS).
 - Accessibility audit per preset (через checklist-accessibility skill).
@@ -96,7 +96,7 @@ SCOPE НЕ ВКЛЮЧАЕТ:
 - Eye-tracking / head-gesture (post-MVP, требует special hardware).
 
 DEPENDENCIES:
-- TASK-16 (P-1 v2 schema с adaptiveProfile).
+- TASK-16 (wire format discipline; `adaptiveProfile` field added by this task at implementation).
 - TASK-17 (P-2 Android steps как пример accessibility integration).
 
 ACCEPTANCE CRITERIA:
