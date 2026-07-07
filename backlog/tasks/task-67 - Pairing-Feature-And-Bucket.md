@@ -216,6 +216,14 @@ ordinal: 67000
   - End-to-end fake pairing: two `PairingService` → handshake → оба видят TrustEdge с симметричным state.
   - `TrustEdge` сохраняется в bucket, recovery восстанавливает.
 
+- **SAS verification policy** (added 2026-07-07 per audit item #3 / CANDIDATE-2 / Q-19):
+  - **Preset field** `pairing.sasRequirement: enum { Off | Optional | Mandatory }` в profile schema (per TASK-16 discipline).
+  - Family-default: `Optional` — user может skip'нуть 6-emoji Safety Number verification, но UI показывает.
+  - Clinic/B2B-default: `Mandatory` — pairing не завершается пока обе стороны не подтвердили SAS emoji match.
+  - `Off` — Safety Number не показывается (для automated / test scenarios).
+  - Реализация SAS: 6 emoji derived from Noise handshake shared secret (Signal Safety Number pattern). Расхождение → regenerate handshake.
+  - Preset field интегрируется в profile через TASK-16 wire format discipline.
+
 ## Состояние
 
 **Planned.** Зависит от TASK-65 (composition foundation для pool entries) + TASK-66 (bucket registry для pairing-edges) + TASK-51 (libsodium ristretto255 — Done).
