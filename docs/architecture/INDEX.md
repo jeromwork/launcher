@@ -133,9 +133,10 @@ flowchart LR
 | Компонент | Выбор | Task-решение | Статус | Exit ramp |
 |---|---|---|---|---|
 | Групповой e2e-протокол | MLS TreeKEM (RFC 9420) | [TASK-104](../../backlog/tasks/task-104%20-%20Decision-KeyPackage-rate-limit.md) | Draft | Sender Keys (major refactor) |
-| MLS client-библиотека | **openmls** (Rust · MIT · аудирован SRLabs 2024) | TASK-107 (draft, из research) | **Proposed** | `mls-rs` swap в адаптере |
-| Kotlin binding для openmls | UniFFI-сгенерированные bindings | TASK-107 | **Proposed** | Manual JNI |
-| Encrypted keystore | SQLCipher provider для openmls | TASK-107 | **Proposed** | Room + separate keystore |
+| MLS client-библиотека | **openmls** (Rust · MIT · аудирован SRLabs 2024) | [TASK-58](../../backlog/tasks/task-58%20-%20Research-Signal-Sender-Keys-vs-MLS-for-family-group-E2E.md) research → owner Decision pending | **Proposed** | `mls-rs` swap в адаптере (~3-5 дней через GroupCryptoPort) |
+| Kotlin binding для openmls | UniFFI-сгенерированные bindings | [TASK-58](../../backlog/tasks/task-58%20-%20Research-Signal-Sender-Keys-vs-MLS-for-family-group-E2E.md) | **Proposed** | Manual JNI (~2-3 недели rewrite) |
+| Encrypted keystore | SQLCipher provider для openmls | [TASK-58](../../backlog/tasks/task-58%20-%20Research-Signal-Sender-Keys-vs-MLS-for-family-group-E2E.md) | **Proposed** | Room + separate Android Keystore |
+| IdentityVault port boundary | Operation-on-vault + narrow `exportDerivedKey` hatch + newtype-per-object | [TASK-112](../../backlog/tasks/task-112%20-%20Decision-Cross-platform-IdentityVault.md) (Discussion) | **Discussion** | Rust `vault-rs` через UniFFI (Phase-4+) |
 | KeyPackage pool cap | 100 per identity | [TASK-104](../../backlog/tasks/task-104%20-%20Decision-KeyPackage-rate-limit.md) | Draft | Preset field |
 | KeyPackage dedup TTL | 10 min | [TASK-104](../../backlog/tasks/task-104%20-%20Decision-KeyPackage-rate-limit.md) | Draft | Preset field |
 | Last-resort rotation | 7 дней (family default) | [TASK-104](../../backlog/tasks/task-104%20-%20Decision-KeyPackage-rate-limit.md) | Draft | Preset field |
@@ -201,7 +202,8 @@ flowchart LR
 ## Что открыто прямо сейчас (pending decisions)
 
 - **[TASK-106](../../backlog/tasks/task-106%20-%20Decision-Sybil-resistance-and-signup-gate.md)** (Discussion) — identity signup gate. Влияет на `identity.md` registry. Разделы `signupGate`, `identityModel`, `bootstrapSource` изменятся после закрытия.
-- **TASK-107** (draft, не создан) — MLS library choice (openmls vs mls-rs). Из research 2026-07-06. Разделы crypto: `MLS-библиотека`, `Kotlin binding`, `Encrypted keystore`.
+- **[TASK-58](../../backlog/tasks/task-58%20-%20Research-Signal-Sender-Keys-vs-MLS-for-family-group-E2E.md)** (Draft) — Research: Signal Sender Keys vs MLS. Из research 2026-06-26. Разделы crypto: `MLS-библиотека`, `Kotlin binding`, `Encrypted keystore`. Owner Decision pending — pick winner + move to formal Decision block.
+- **[TASK-112](../../backlog/tasks/task-112%20-%20Decision-Cross-platform-IdentityVault.md)** (Discussion) — IdentityVault port boundary. Session 1 закрыла research 2026-07-07. Раздел crypto: новая строка `IdentityVault port boundary`.
 
 Пока эти task'и в `Discussion` — соответствующие ячейки в registry отмечены **Discussion** / **Proposed**.
 

@@ -1,5 +1,24 @@
 # Handoff: Оставшиеся темы обсуждения крипто-архитектуры TASK-67
 
+> **⚠️ HISTORICAL — 2026-07-02 handoff snapshot**. Этот файл — исторический слепок, **не source of truth**.
+>
+> **Актуальный source of truth**: [`docs/architecture/crypto.md`](../architecture/crypto.md) + [`docs/dev/crypto-status.md`](crypto-status.md) + Decision blocks в `backlog/tasks/task-100..112`.
+>
+> **Ключевые правки против содержимого ниже** (не редактировать содержимое — читать через эту таблицу):
+> | В этом файле | Актуально |
+> |---|---|
+> | `mls-rs` (AWS) через UniFFI | **openmls** (Rust, MIT, SRLabs audit 2024). `mls-rs` — exit ramp. |
+> | Noise **XXpsk3** через snow | **Noise_XX** через snow (см. TASK-67). |
+> | `Identity = stableId + identity_pub` | `identity_id = hash(root_public)` (TASK-106). `stableId` naming retired. |
+> | Cloudflare KV recovery-blob + envelope-per-recipient | MLS group membership (envelope pattern упразднён). Recovery blob — да, envelope-per-recipient — нет. |
+> | `TASK67-DISCUSSION-001..004` в project-backlog.md | Стал `backlog/tasks/task-N` через Backlog.md migration. |
+> | «Пейринг v1 (spec/007)» | В процессе замены на v2 через TASK-67 Decision + TASK-102 + TASK-108. |
+> | CANDIDATE-N list | Часть материализовалась в TASK-100..112, часть stale. Не полагаться. |
+>
+> **Что этот файл всё ещё даёт полезное**: инструкция для новых mentor-сессий (mentor-режим, простые слова, sequences), CANDIDATE-list как отправная точка, вопросы по темам 4-10 (частично закрыты TASK-100..108, частично остались открытыми — см. crypto-open-questions.md).
+>
+> **Continuation**: fresh AI session → читать [`crypto-status.md`](crypto-status.md) TL;DR, потом brand-new decision-tasks. Не полагаться на этот файл как authoritative.
+
 **Дата:** 2026-07-02
 **Контекст:** обсуждение крипто-архитектуры для TASK-67 (Pairing Feature) в mentor-режиме. Две темы уже разобраны, стек финализирован. Этот документ передаёт контекст новому агенту.
 

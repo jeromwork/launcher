@@ -9,22 +9,22 @@ components:
     language: Rust
     license: MIT
     audit: SRLabs 2024 (8 findings, 1 High, all fixed)
-    decision-task: TASK-107
-    decision-status: draft-pending
+    decision-task: TASK-58
+    decision-status: research-complete-owner-decision-pending
     ports: [CryptoPort, GroupPort, KeyPackagePort]
     adapter-location: app/adapters/openmls/
     native-lib-location: app/src/main/jniLibs/*/libopenmls_ffi.so
     exit-ramp: swap with mls-rs (AWS Labs, same RFC 9420 wire format)
   - id: kotlin-binding
     choice: UniFFI generated
-    decision-task: TASK-107
-    decision-status: draft-pending
+    decision-task: TASK-58
+    decision-status: research-complete-owner-decision-pending
     build-tool: cargo-ndk + uniffi-bindgen-kotlin
     exit-ramp: manual JNI (2-3 weeks rewrite)
   - id: encrypted-keystore
     choice: SQLCipher backed openmls storage provider
-    decision-task: TASK-107
-    decision-status: draft-pending
+    decision-task: TASK-58
+    decision-status: research-complete-owner-decision-pending
     adapter-location: app/adapters/openmls/storage/
     exit-ramp: Room DB + separate Android Keystore for encryption key
   - id: keypackage-pool
@@ -510,8 +510,8 @@ openmls генерирует Commit с новым epoch. Танин leaf ост�
 | Native lib | `app/src/main/jniLibs/arm64-v8a/libopenmls_ffi.so` |
 | Native source | `native/openmls-ffi/` (Rust crate вызывающий openmls) |
 
-- **Decision task**: TASK-107 (draft, будет создан после закрытия TASK-106).
-- **Exit ramp**: swap на `mls-rs` (тот же RFC 9420 wire format) в адаптере, ~1-2 недели переписки, domain не трогается.
+- **Decision task**: [TASK-58](../../backlog/tasks/task-58%20-%20Research-Signal-Sender-Keys-vs-MLS-for-family-group-E2E.md) research complete → owner Decision pending.
+- **Exit ramp**: swap на `mls-rs` (тот же RFC 9420 wire format) в адаптере, ~3-5 дней через `GroupCryptoPort`, domain не трогается.
 
 ---
 
@@ -544,7 +544,7 @@ openmls генерирует Commit с новым epoch. Танин leaf ост�
 | Adapter | `app/adapters/openmls/storage/SQLCipherStorageProvider.kt` |
 | Passphrase derivation | `app/adapters/keystore/PassphraseDerivation.kt` |
 
-- **Decision task**: TASK-107 (draft-pending).
+- **Decision task**: [TASK-58](../../backlog/tasks/task-58%20-%20Research-Signal-Sender-Keys-vs-MLS-for-family-group-E2E.md) (research-complete-owner-decision-pending).
 - **Exit ramp**: Room DB + отдельный ключ из Android Keystore (`AES/GCM/NoPadding` в hardware-backed slot). Requires migration existing SQLCipher stores.
 
 ---
@@ -664,10 +664,11 @@ Errors:   401 (auth), 404 (target unknown), 429 (edge rate limit hit)
 
 ## Открытые вопросы (pending decisions)
 
-- **TASK-107** (draft, будет создан после закрытия TASK-106) — MLS library formal decision. Пока `Proposed` в frontmatter, требует Discussion → Draft.
+- **[TASK-58](../../backlog/tasks/task-58%20-%20Research-Signal-Sender-Keys-vs-MLS-for-family-group-E2E.md)** — MLS library formal Decision (research complete, owner sign-off pending). Пока `Proposed` в frontmatter.
+- **[TASK-112](../../backlog/tasks/task-112%20-%20Decision-Cross-platform-IdentityVault.md)** — IdentityVault port boundary (Discussion, session 1 закрыла research 2026-07-07, Session 2 awaiting owner).
 - **On-use rotation last-resort key** — TASK-104 non-goal, `TODO(server-roadmap)`.
-- **Cross-region drain detection** — TASK-104 non-goal, требует Durable Object promotion path.
-- **Metadata privacy at KeyPackage claim** (Sealed Sender-like) — TASK-104 non-goal, parked.
+- **Cross-region drain detection** — TASK-104 non-goal, требует Durable Object promotion path (см. [SRV-BASELINE-003](../dev/server-roadmap.md#srv-baseline-zero-trust-posture-claudemd-rule-12--task-105)).
+- **Metadata privacy at KeyPackage claim** (Sealed Sender-like) — parked → **[TASK-108](../../backlog/tasks/task-108%20-%20Decision-Metadata-privacy-what-server-sees.md)** T2 tier, не MVP.
 
 ---
 

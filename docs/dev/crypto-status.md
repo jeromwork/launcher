@@ -19,7 +19,7 @@
 
 ---
 
-## Recently decided (sessions 2026-07-02 → 2026-07-03)
+## Recently decided (sessions 2026-07-02 → 2026-07-07)
 
 | Task | Title | Status | Что решено |
 |---|---|---|---|
@@ -27,8 +27,14 @@
 | [TASK-101](../../backlog/tasks/task-101%20-%20Decision-Peer-confirmation-on-recovery.md) | Peer confirmation on recovery | Draft | Chrome-model auto-add + post-facto notification. Multi-device как first-class. |
 | [TASK-102](../../backlog/tasks/task-102%20-%20Decision-Revoke-policy.md) | MLS revoke policy | Draft | Three-tier language (owner/admin/other), MVP flat + admin, identity-level UI, no blacklist. |
 | [TASK-103](../../backlog/tasks/task-103%20-%20Decision-Remote-app-lock-for-stolen-device.md) | Remote app lock for stolen device | Draft | Full logout + Keystore wipe = crypto defense (не UX). 5 preset fields. |
-| [TASK-104](../../backlog/tasks/task-104%20-%20Decision-KeyPackage-rate-limit.md) | KeyPackage rate limit | Draft | Signal-inspired hybrid: pool cap + claim dedup + last-resort (no active velocity rate). 4 preset fields в `PresetV2.mls`. |
-| [TASK-105](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md) | Server-side abuse defense baseline | Draft | Contract stability first-class + AI-defaulted server internals + deferred persistence. CLAUDE.md rule 12 + refuse pattern 20 + `checklist-server-hardening` skill. |
+| [TASK-104](../../backlog/tasks/task-104%20-%20Decision-KeyPackage-rate-limit.md) | KeyPackage rate limit | Draft | Signal-inspired hybrid: pool cap + claim dedup + last-resort. 4 preset fields в `PresetV2.mls`. |
+| [TASK-105](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md) | Server-side abuse defense baseline | Draft | Contract stability first-class + zero-trust posture. CLAUDE.md rule 12 + refuse pattern 20 + `checklist-server-hardening` skill. |
+| [TASK-106](../../backlog/tasks/task-106%20-%20Decision-Sybil-resistance-and-signup-gate.md) | Sybil resistance / signup gate | Draft | LOCAL-first identity generation; QR pairing = cloud gate. `identity_id = hash(root_public)` (заменяет старый `stableId` naming). |
+| [TASK-107](../../backlog/tasks/task-107%20-%20Decision-Abuse-response-mechanism-legal-minimum.md) | Abuse response umbrella | **Paused** | Post-MVP scope: arbitration + open/closed groups + auto-detection. Legal + product ownership needed. Blocks TASK-11, TASK-28. |
+| [TASK-108](../../backlog/tasks/task-108%20-%20Decision-Metadata-privacy-what-server-sees.md) | Metadata privacy | Draft | T0 MVP (identity_id + group roster + timing visible). Opaque `OwnerRef`/`BucketKey`/`PushTopic`/`GroupRef` ports → T1 adapter swap ~2-3 недели. T2+ (Signal sealed sender, VOPRF) parked. |
+| [TASK-109](../../backlog/tasks/task-109%20-%20Decision-Durable-Objects-concrete-design-security-critical-endpoints.md) | Anti-brute-force / Durable Objects | **Paused** | Own-server phase concrete design. Baseline (TASK-105) уже определила ladder RATE_LIMITER → DO. Осталось: which endpoints classify security-critical + concrete DO schema. |
+| [TASK-110](../../backlog/tasks/task-110%20-%20Decision-Client-side-media-transformation.md) | Client-side media transformation | Draft | WhatsApp pattern: compression + EXIF strip + resize on client, потом encrypt. Server видит только encrypted blob. Preset fields via TASK-16. |
+| [TASK-111](../../backlog/tasks/task-111%20-%20Decision-Signed-upload-tokens-quotas-abuse-response.md) | Signed upload tokens + quotas | Draft (Deferred) | Cloudflare R2 presigned URL + DO counter per (pseudonym, resource). 100 MB per identity quota. Формально Deferred — реализация в TASK-11/28 vertical. |
 
 **Read Decision blocks (English) для machine-readable контракта** — downstream tasks должны иметь `dependencies: [TASK-N]` для этих decisions.
 
@@ -36,29 +42,22 @@
 
 ## Currently in Discussion
 
-- **[TASK-106](../../backlog/tasks/task-106%20-%20Decision-Sybil-resistance-and-signup-gate.md)** (Discussion, Session 1 Part A written 2026-07-03) — Sybil resistance & identity signup gate. Direct follow-up TASK-104 (claim dedup неэффективен против attacker'а с N identity). Q1'-Q6' pending owner answers.
+- **[TASK-112](../../backlog/tasks/task-112%20-%20Decision-Cross-platform-IdentityVault.md)** (Discussion, Session 1 закрыла research 2026-07-07) — IdentityVault port boundary. Split от Q-08 (см. crypto-open-questions.md § Q-08). Session 2 ожидает owner Decision по 5 open questions (purpose whitelist, sync/suspend, error hierarchy, schema-version location, DerivedKeyBytes lifetime). Blocks TASK-25, TASK-26, TASK-29, TASK-67.
 
 ---
 
-## Priority queue — next candidates (revised 2026-07-03 после TASK-104/105 closure)
+## Priority queue — next candidates (revised 2026-07-07)
 
 **High** (recommended immediate next):
 
-1. **Sybil resistance / invitation-only signup** (создать `TASK-106`). Direct follow-up TASK-104: claim dedup защищает от single-identity abuse; Sybil (attacker с N valid identities) обходит. Invitation-only signup — declared exit ramp в TASK-104 non-goals. Разгружает TASK-67 pairing abuse. Small scope, ~1 mentor-session.
-2. **TASK-16 preset schema evolution** (уже existing, но нуждается в mentor-сессии для integration). Должен интегрировать новые preset fields из **TASK-103** (`deviceLock` namespace: 5 fields) + **TASK-104** (`mls` namespace: 4 fields). Wire format versioning + roundtrip tests. Small scope, procedural.
-3. **TASK-58 MLS library choice concrete** (уже existing). Research из TASK-104 сузила варианты: mls-rs (AWS Labs, Rust, Apache) vs openmls (Rust, MIT) vs ts-mls (TypeScript, MIT). Decision needed для Android FFI + Worker impl choice. Small scope.
-4. **Abuse response mechanism** (был Q-17, создать `TASK-107`). Legal minimum для user-reported content abuse. Требует legal + product perspective, не чисто technical. Блокирует TASK-11 (SOS), TASK-28 (family album). Medium scope, может требовать 2 sessions.
-5. **Cloudflare Durable Objects concrete design** (был Q-14, создать `TASK-108`). **Narrowed by TASK-105 Part 2**: baseline уже установила ladder RATE_LIMITER (normal) → DO (security-critical). Осталось: WHICH endpoints classify as security-critical + concrete DO schema для них (recovery attempts counter, unlock attempt tracker). Small scope.
+1. **TASK-112** — IdentityVault port boundary. Discussion started 2026-07-07, Session 2 awaiting owner. Blocks 4 downstream tasks. Small scope, ~1 mentor-session.
+2. **TASK-16** preset schema evolution. Должен интегрировать preset fields из **TASK-103** (`deviceLock` namespace: 5 fields) + **TASK-104** (`mls` namespace: 4 fields) + **TASK-110** (compression profile, EXIF policy) + **TASK-108** (preset-parameterizable quotas для clinic segment). Wire format versioning + roundtrip tests. Small scope, procedural.
+3. **TASK-58** MLS library choice concrete. Research complete — **openmls chosen** per `docs/architecture/crypto.md` frontmatter (draft-pending). Ждёт формального Decision block с owner sign-off. Small scope, procedural.
 
 **Medium** (deferred, physical/platform-dependent):
 
-- **IdentityVault port boundary** → **[TASK-112](../../backlog/tasks/task-112%20-%20Decision-Cross-platform-IdentityVault.md)** Discussion (session 1 complete 2026-07-07, awaiting owner Decision Session 2). Q-08 split: cross-app sharing → TASK-25; iOS adapter → TASK-26; TV form factor → TASK-29.
 - **Huawei без GMS push fallback** (Q-13) — HMS Push Kit / MQTT / WebSocket. Physical device dependent (у владельца нет Huawei). Blocks TASK-58 Huawei smoke gates.
-- **Metadata privacy (Sealed Sender-like)** — surfaced в TASK-104/105 as parked. Future decision, не MVP.
-
-**Full open-questions register** — [crypto-open-questions.md](crypto-open-questions.md).
-
-**Medium** — см. [crypto-open-questions.md § Priority queue](crypto-open-questions.md#priority-queue-updated-2026-07-02-после-task-100103-closure).
+- **SOS payload wire format** (surfaced из crypto-mentor-overview Блок 7 supersession note) — конкретный wire format для SOS inline payload ≤ 2.5KB после base64. Отдельный decision-task при работе над SOS feature (не MVP scope).
 
 **Full open-questions register** — [crypto-open-questions.md](crypto-open-questions.md).
 

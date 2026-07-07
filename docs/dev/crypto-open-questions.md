@@ -70,23 +70,23 @@
 
 ### Q-02: Payload фото и E2E — client-side compression before encryption
 
-- **Status**: 🟢 decided → [crypto-mentor-overview.md Ρ.2](crypto-mentor-overview.md#ρ2), [Ρ.4](crypto-mentor-overview.md#ρ4)
+- **Status**: 🟢 decided → **[TASK-110](../../backlog/tasks/task-110%20-%20Decision-Client-side-media-transformation.md)** (Draft, 2026-07-06).
 - **Context**: сессия 2026-07-02, вопрос «в WhatsApp видео сжимается — Meta видит?».
-- **Decided**: WhatsApp pattern — compress client-side → encrypt client-side → upload ciphertext. Server transcoding невозможен принципиально. Для family album достаточно.
+- **Decided**: WhatsApp pattern — compress client-side → encrypt client-side → upload ciphertext. Server transcoding невозможен принципиально.
 - **Affected tasks**: TASK-11, TASK-28.
 
 ### Q-03: Server enforce'ит квоту не читая содержимое — signed upload tokens
 
-- **Status**: 🟢 decided → [crypto-mentor-overview.md Π.2](crypto-mentor-overview.md#π2), [Π.3](crypto-mentor-overview.md#π3)
+- **Status**: 🟢 decided → **[TASK-111](../../backlog/tasks/task-111%20-%20Decision-Signed-upload-tokens-quotas-abuse-response.md)** (Draft, Deferred 2026-07-06).
 - **Context**: сессия 2026-07-02, вопрос «если сервер не знает что внутри — как запретить залить terabyte?».
-- **Decided**: Cloudflare R2 presigned URL с `max_size`, Cloudflare Durable Object counter per (pseudonym, resource) для strong-consistency check-and-increment.
+- **Decided**: Cloudflare R2 presigned URL с `max_size`, Cloudflare Durable Object counter per (pseudonym, resource). 100 MB per identity quota.
 - **Affected tasks**: TASK-11, TASK-28, TASK-67.
 
 ### Q-04: Metadata privacy tier T0 → T1 через adapter swap
 
-- **Status**: 🟢 decided → [crypto-mentor-overview.md Ξ.2](crypto-mentor-overview.md#ξ2), [Ξ.5](crypto-mentor-overview.md#ξ5)
+- **Status**: 🟢 decided → **[TASK-108](../../backlog/tasks/task-108%20-%20Decision-Metadata-privacy-what-server-sees.md)** (Draft, 2026-07-06).
 - **Context**: сессия 2026-07-02, вопрос «как сделать server тупее?».
-- **Decided**: T0 (Google UID visible) в MVP. Готовим opaque port'ы (OwnerRef, BucketKey, PushTopic) чтобы T1 (HMAC pseudonym) был adapter swap ~2-3 недели. T2 (VOPRF) не строим.
+- **Decided**: T0 в MVP (identity_id + group roster + timing visible). Opaque `OwnerRef`/`BucketKey`/`PushTopic`/`GroupRef` port'ы → T1 (HMAC pseudonym) = adapter swap ~2-3 недели. T2 (VOPRF sealed sender) не строим.
 - **Affected tasks**: TASK-57, TASK-66, TASK-67.
 
 ### Q-05: Устройства-зомби (6+ месяцев не активны) — auto-cleanup?
@@ -166,30 +166,17 @@
 
 ### Q-11: Право на MLS Remove (revoke) — только owner или policy-based
 
-- **Status**: 🟡 in-discussion (частично Δ.10)
+- **Status**: 🟢 decided → **[TASK-102](../../backlog/tasks/task-102%20-%20Decision-Revoke-policy.md)** (Draft, 2026-07-02).
 - **Context**: сессия 2026-07-02.
-- **Blocks tasks**: TASK-42, TASK-46, TASK-58.
-- **Priority**: high.
-- **Session-tag**: `theme-4-revoke`.
-
-Δ.10 предлагает 4-tier application-rule: client hides UI, Firestore Rules reject write, peer verifies commit signer, Worker rejects role-change push. Всё это — application layer. Что если clinic use case требует «главврач + head nurse оба могут revoke»? Как параметризовать policy per profile (family = only owner, clinic = role-based)?
+- **Decided**: three-tier role model (owner/admin/other). MVP flat + admin, identity-level revoke, no blacklist. `primary user`'s device = sole MLS Commit signer; admins не могут issue Add/Remove напрямую — только через profile edit + reconciliation. Post-compromise security через MLS epoch change automatic.
+- **Affected tasks**: TASK-42, TASK-46, TASK-58, TASK-67.
 
 ### Q-12: Peer confirmation при recovery peer'а — automatic trust или UX confirm
 
-- **Status**: 🟡 in-discussion
-- **Discussion file**: [crypto-discussions/Q-12-peer-confirmation-on-recovery.md](crypto-discussions/Q-12-peer-confirmation-on-recovery.md)
+- **Status**: 🟢 decided → **[TASK-101](../../backlog/tasks/task-101%20-%20Decision-Peer-confirmation-on-recovery.md)** (Draft, 2026-07-02).
 - **Context**: `crypto-topics-handoff.md` Тема 9.
-- **Blocks tasks**: TASK-6, TASK-25.
-- **Priority**: high (security decision).
-- **Session-tag**: `theme-9-recovery-propagation`.
-
-Когда бабушка recovered на новом устройстве, Танин телефон должен добавить это устройство в MLS group. Варианты:
-- **A**. Automatic (Танин app сам детектит нового device_pub у бабушки → делает MLS Add). Быстро, но опасно — attacker украл бабушкин passphrase → recovered → Танин app auto-trust'ит.
-- **B**. Confirmation UX (Танин app показывает «бабушка сменила устройство. Fingerprint новый: XXXX. Позвони ей и сверь. Подтвердить?»). Безопасно, но требует UX + пожилые пользователи путаются.
-- **C**. Hybrid: automatic для recovery через известный Google account + confirmation при подозрительных сигналах.
-- **D**. Time-delayed automatic — auto-add через 24h с окном отмены (гипотеза после Q-09).
-
-Связано с Q-09 (Блок 20 закрыт — истории нет после recovery, что снижает риск: attacker не читает прошлое).
+- **Decided**: **Chrome/Google Account model** — auto-add нового device в MLS group + **post-facto notification** peers. Multi-device теперь **first-class** (unparked TASK-40). Reasoning: recovery = self-add собственного нового device_keypair, не peer-adds-peer; поэтому UX confirmation не нужен peer'ам, они узнают post-facto.
+- **Affected tasks**: TASK-6, TASK-25, TASK-40, TASK-67.
 
 ### Q-13: FCM недоступен (Huawei без GMS) — fallback push channel
 
@@ -209,28 +196,16 @@
 
 ### Q-14: Cloudflare Durable Objects — concrete design для quota counters
 
-- **Status**: 🔴 open
+- **Status**: 🟡 split → **[TASK-109](../../backlog/tasks/task-109%20-%20Decision-Durable-Objects-concrete-design-security-critical-endpoints.md)** (Paused, 2026-07-06) + **[TASK-105](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md)** baseline.
 - **Context**: сессия 2026-07-02, `Π.3` предлагает DO но без деталей.
-- **Blocks tasks**: TASK-67, TASK-11, TASK-28.
-- **Priority**: high (нужно перед implementation Π.2).
-- **Session-tag**: `theme-14-quota-durable-objects`.
-
-Design questions:
-- Один DO instance = один (`pseudonym`, `resource_type`) или один пользователь всё сразу?
-- Как handle rate limit windows (sliding vs fixed)?
-- Как persist state — DO storage или в KV с DO cache?
-- Как billing rate (Cloudflare charges per invocation) — что если Durable Object hot?
-- Migration path на свой сервер (Redis vs PostgreSQL SERIAL).
+- **Partial resolution**: TASK-105 установила ladder RATE_LIMITER (normal) → DO (security-critical). TASK-109 остался Paused — нужен owner input по which endpoints classify security-critical + concrete DO schema для recovery attempts counter / unlock attempt tracker.
+- **Affected tasks**: TASK-67, TASK-11, TASK-28.
 
 ### Q-15: Blob deduplication по content hash — приемлемая утечка?
 
-- **Status**: 🟡 in-discussion (Π.1 отвергает в MVP)
+- **Status**: 🟢 decided → **[TASK-110](../../backlog/tasks/task-110%20-%20Decision-Client-side-media-transformation.md)** (Draft, 2026-07-06) реализует WhatsApp pattern (client-side transform → encrypt → upload), что снимает вопрос — сервер видит только encrypted blob, deduplication невозможна by design.
 - **Context**: сессия 2026-07-02, Π.1.
-- **Blocks tasks**: TASK-11, TASK-28, TASK-38.
-- **Priority**: low.
-- **Session-tag**: `theme-14-quota-durable-objects` (относится к blob layer).
-
-Если два юзера загрузили одинаковый файл (same ciphertext hash) — сервер знает. Экономия storage vs privacy leak «эти два юзера имеют одинаковый файл». Отвергли в MVP. Стоит ли пересматривать когда storage costs станут проблемой (Phase-5)?
+- **Affected tasks**: TASK-11, TASK-28, TASK-38.
 
 ### Q-16: Group ID visible серверу как «граф связей»
 
@@ -247,20 +222,10 @@ MLS Group ID = shared identifier между членами. Server видит: �
 
 ### Q-17: Abuse response mechanism — legal compliance для E2E
 
-- **Status**: 🔴 open
+- **Status**: 🟡 migrated → **[TASK-107](../../backlog/tasks/task-107%20-%20Decision-Abuse-response-mechanism-legal-minimum.md)** (Paused, 2026-07-06).
 - **Context**: сессия 2026-07-02, Π.6.
-- **Blocks tasks**: TASK-11, TASK-28.
-- **Priority**: high (legal MVP requirement).
-- **Session-tag**: `theme-8-push` (частично) + новая `theme-15-abuse-response`.
-
-Обязательный legal minimum:
-- Abuse report UI в приложении.
-- Server delete blob по `blobId` при report.
-- Hash blocklist (нельзя upload'нуть тот же ciphertext).
-- Rate limit reports.
-- Log reports для legal audit.
-
-Что если false-positive attack (Таня report'ит все бабушкины фото — все удаляются)? Threshold — N reports от разных reporters? Human review pipeline (нет staff'а в MVP)?
+- **Post-migration state**: TASK-107 paused — post-MVP scope (arbitration + open/closed groups + auto-detection). Requires legal + product perspective, не чисто technical. False-positive attack threshold + human review pipeline questions остались на TASK-107.
+- **Affected tasks**: TASK-11, TASK-28.
 
 ### Q-19: Verification при pairing — SAS emoji policy
 
@@ -290,40 +255,46 @@ MLS Group ID = shared identifier между членами. Server видит: �
 
 ### Closed (мигрированы в backlog decision-tasks)
 
-- **Q-09** history backup → **TASK-100** (Done). MVP Signal-style; Phase-3+ WhatsApp-style.
-- **Q-11** revoke policy → **TASK-102** (Draft). Three-tier language, MVP flat, any-admin revoke, identity-level UI.
-- **Q-12** peer confirmation on recovery → **TASK-101** (Draft). Chrome-model auto-add + notification.
+Полная таблица — см. **[crypto-status.md § Recently decided](crypto-status.md#recently-decided-sessions-2026-07-02--2026-07-07)**.
 
-### Newly created in-session (не в этом register, живут в backlog)
+Migration snapshot 2026-07-07:
+- **Q-02** → TASK-110 (Draft). Client-side media transformation.
+- **Q-03** → TASK-111 (Draft, Deferred). Signed upload tokens + quotas.
+- **Q-04** → TASK-108 (Draft). Metadata privacy T0 → T1 adapter swap.
+- **Q-08** → **split** TASK-112 (port boundary, Discussion) + TASK-25 (cross-app) + TASK-26 (iOS) + TASK-29 (TV).
+- **Q-09** → TASK-100 (Done). Signal-style history recovery.
+- **Q-11** → TASK-102 (Draft). Three-tier revoke policy.
+- **Q-12** → TASK-101 (Draft). Chrome-model auto-add.
+- **Q-14** → **split** TASK-105 (baseline ladder) + TASK-109 (concrete DO design, Paused).
+- **Q-15** → TASK-110 (Draft) — dedup невозможна by design.
+- **Q-17** → TASK-107 (Paused). Abuse response umbrella.
 
-- **TASK-103** (Draft) remote app lock — logout+Keystore wipe = crypto defense (не UX). 5 preset fields.
+Также появились без Q-NN precursor:
+- **TASK-103** (Draft) remote app lock.
+- **TASK-104** (Draft) KeyPackage rate limit.
+- **TASK-105** (Draft) server-side abuse defense baseline.
+- **TASK-106** (Draft) Sybil resistance / signup gate.
 
-### High priority (следующие candidates для mentor-сессии)
+### Open questions (не мигрированные, ждут mentor-сессии)
 
-1. **KeyPackage rate limit** (условно `TASK-104` — ещё не создан). Server-side max 5 KeyPackages/hour/identity. Attacker re-add mitigation. Разгружает TASK-101 + TASK-103 attacker mitigation + TASK-67 abuse prevention. Small scope.
-2. **Q-14 Cloudflare Durable Objects design** — блокирует TASK-67 implementation. Concrete design для quota counters + rate limits.
-3. **Q-17 Abuse response mechanism** — legal minimum для user-reported content abuse. Blocks TASK-11, TASK-28.
-4. **Q-08 Cross-platform IdentityVault** — **split 2026-07-07** между TASK-112 (port boundary, Discussion) + TASK-25 (cross-app sharing) + TASK-26 (iOS adapter) + TASK-29 (TV form factor). Q-08 больше не единый вопрос.
-5. **Q-13 Huawei без GMS push fallback** — HMS Push Kit / MQTT / WebSocket. Блокирует TASK-58 Huawei smoke gates.
+**High priority**:
+- **Q-13** Huawei без GMS push fallback — блокирует TASK-58 Huawei smoke gates. Physical device dependent.
 
-### Medium priority
-
+**Medium priority**:
 - **Q-06** Editing lock design (20 min TTL, force-override) — TASK-70 dependency.
 - **Q-07** Preset bundle platform-scope — TASK-20, TASK-16.
-- **Q-16** Group ID visible серверу — Тема 6 metadata (Ξ.1 mentor-overview).
+- **Q-16** Group ID visible серверу — Тема 6 metadata. Может быть частью future TASK-108 T2 extension.
 - **Q-19** SAS emoji policy при pairing — TASK-67.
 - **Q-20** Clock.System.now() fitness rule — TASK-67 crypto flows.
 
-### Low priority / deferred
-
+**Low priority / deferred**:
 - **Q-05** Zombie devices auto-cleanup — edge case, Phase-3+.
-- **Q-10** Root_key rotation — MVP не поддерживает (Блок 17).
-- **Q-15** Blob deduplication — отвергли в MVP (Π.1).
+- **Q-10** Root_key rotation — MVP не поддерживает.
 - **Q-21** Setup wizard formulation про потерю истории — тактический для /speckit.clarify TASK-67.
 
 ### Recommended next mentor session
 
-**TASK-104 KeyPackage rate limit** (создать в статусе Discussion). Меньше по scope, разгружает несколько других task'ов, чёткая рамка обсуждения. После — **Q-14 Durable Objects** (unlock'нёт TASK-67 implementation).
+**TASK-112 IdentityVault port boundary** (Discussion, awaiting owner Decision Session 2 by 2026-07-07). После — TASK-16 preset schema evolution (integrate TASK-103/104/108/110 preset fields).
 
 ---
 
@@ -337,4 +308,4 @@ MLS Group ID = shared identifier между членами. Server видит: �
 
 **Не удалять** старые записи Q-NN — remain для истории.
 
-**Session-tags** используются `procedure-crypto-alignment-sweep` skill'ом чтобы фильтровать какие вопросы «блокируют» какие задачи.
+**Session-tags** — историческая группировка. Retired skill `procedure-crypto-alignment-sweep` заменён на **`procedure-decision-drift-check`** — walks `dependencies:` graph, flags downstream tasks с superseded upstream Decision.

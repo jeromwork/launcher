@@ -16,7 +16,7 @@
 |---|---|---|
 | **API endpoints** | Cloudflare Worker (`launcher-push.<account>.workers.dev`) | Free tier: 100k req/day; vendor lock-in; URL привязан к личному аккаунту |
 | **Push delivery** | FCM через Worker → Firebase Cloud Messaging | Worker stateless; нет persistence между requests |
-| **Auth identity** | Firebase Anonymous Auth | UID сбрасывается при reinstall; нет cross-device identity |
+| **Auth identity** | LOCAL-first identity (`identity_id = hash(root_public)`, [TASK-106](../../backlog/tasks/task-106%20-%20Decision-Sybil-resistance-and-signup-gate.md)) + Google Sign-In lazy при первом cloud action ([TASK-3](../../backlog/tasks/task-3%20-%20F-4-AuthProvider-Google-Sign-In.md)). Firebase Auth = JWT issuer, не identity source. | Firebase JWT verification в Worker'е ([TASK-105](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md) baseline); переезд на own JWT issuer — SRV-BASELINE-002 ниже. |
 | **Rate limiting** | In-memory Map в Worker'е | Сбрасывается при перезапуске instance Worker'а (часто) |
 | **Data validation** | Firestore Security Rules + клиентская логика | Нет server-side transformations; нельзя enforced business rules sans rules.json |
 | **Server-side jobs** | **Нет** — никаких cron, triggers, batch operations | Cleanup (expired pairings, old history) — client-side, ненадёжно |
@@ -51,6 +51,47 @@
 - **Когда поедет:** триггер.
 - **Что должен делать сервер:** конкретика.
 - **Зависимости.**
+
+### SRV-BASELINE (zero-trust posture, [CLAUDE.md rule 12](../../CLAUDE.md) + [TASK-105](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md))
+
+Consolidated non-goals и exit ramps для defense mechanisms, **не** применённых в MVP baseline. Baseline (auth / rate-limit / input validation / observability / failure modes) определён в TASK-105; ниже — что мы **осознанно отложили**.
+
+**SRV-BASELINE-001: Persistent rate-limit tier для normal endpoints.**
+- *Сейчас:* in-memory Map в Worker (Cloudflare RATE_LIMITER binding для normal). Baseline TASK-105 использует free tier — resets on Worker restart, per-instance.
+- *Проблема:* attacker может обходить rate-limit через принудительный restart Worker'а (edge case) или burst из разных Cloudflare edge locations (Cloudflare distributes traffic).
+- *Сервер должен:* Cloudflare Durable Objects или KV для persistent counter (сохраняет state между Worker restart'ами и edge instances).
+- *Когда поедет:* Phase-3+ или при первом abuse incident. TASK-105 baseline даёт «good enough» защиту для MVP.
+- *Exit ramp:* upgrade normal-tier endpoints в RATE_LIMITER → DO ladder (TASK-105 ladder pattern extension).
+
+**SRV-BASELINE-002: Own JWT issuer.**
+- *Сейчас:* Firebase Auth = JWT issuer, Worker verify'ит Firebase JWT через JWKS cache.
+- *Проблема:* vendor lock-in на Firebase Auth; не может независимо issued custom claims (identity_id, delegation state); Firebase Auth pricing scales с MAU.
+- *Сервер должен:* own JWT issuer (Kotlin/Ktor + jose4j или Node/fastify-jwt); Google Sign-In → own JWT exchange endpoint; Google auth token остаётся только для Sign-In verification.
+- *Когда поедет:* при переезде на own backend или при первом billing pain point с Firebase Auth.
+- *Exit ramp:* заменить Firebase JWT verification в Worker'е на own JWKS URL (~1-2 недели).
+
+**SRV-BASELINE-003: Server-side DO для security-critical counters ([TASK-109](../../backlog/tasks/task-109%20-%20Decision-Durable-Objects-concrete-design-security-critical-endpoints.md) Paused).**
+- *Сейчас:* recovery attempts counter + unlock attempt tracker живут in-memory или отсутствуют.
+- *Проблема:* brute-force attacks против recovery blob passphrase не блокируются между Worker restart'ами.
+- *Сервер должен:* concrete DO schema для recovery attempts (per identity, sliding window), unlock attempts (per identity, exponential backoff), TASK-107 abuse report deduplication.
+- *Когда поедет:* когда TASK-109 unpauses и Decision block заполнен.
+- *Exit ramp:* SRV-BASELINE-001 + concrete DO schema per TASK-109.
+
+**SRV-BASELINE-004: Metadata T1 opaque adapters ([TASK-108](../../backlog/tasks/task-108%20-%20Decision-Metadata-privacy-what-server-sees.md)).**
+- *Сейчас:* T0 — `identity_id` visible в URLs, bucket type in path, `groupId` in FCM topic.
+- *Проблема:* metadata visible серверу (social graph, timing patterns, device switches).
+- *Сервер должен:* принимать `OwnerRef = HMAC(root_key, "server-pseudonym")`, `BucketKey = HMAC(root_key, bucket_type)`, `PushTopic = HMAC(exporter_key, "push")` вместо raw identity_id.
+- *Когда поедет:* client-side ports уже opaque (TASK-108 Decision). Server-side migration = adapter swap Worker route handlers (~2-3 недели).
+- *Exit ramp:* T1 = pseudonym HMAC (`SRV-BASELINE-004a`). T2 = VOPRF sealed sender (parked, не MVP).
+
+**SRV-BASELINE-005: Idempotency для state-modifying endpoints.**
+- *Сейчас:* endpoints без explicit idempotency key. Retries могут duplicate operations (обычно idempotent by content but not guaranteed).
+- *Проблема:* client retry loops могут создавать duplicate MLS commits, duplicate KeyPackage registration, duplicate config history entries.
+- *Сервер должен:* idempotency-key header + dedup cache (KV, TTL 24h) для all POST/PUT/DELETE endpoints.
+- *Когда поедет:* при первом incident с duplicate operations в production.
+- *Exit ramp:* Cloudflare KV с idempotency-key → response cache pattern (Stripe-style).
+
+---
 
 ### CONFIG SYNC + HISTORY (spec 008 / 009)
 
