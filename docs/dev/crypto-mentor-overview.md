@@ -154,76 +154,22 @@
 
 ## Блок 7 — Push-уведомления (FCM с ограничением 4KB)
 
-### 7.1 Простыми словами
-
-Когда Таня редактирует бабушкин Profile — бабушкин телефон должен **сразу** узнать. Но FCM (Firebase Cloud Messaging) имеет **лимит 4KB на push** и **сервер FCM видит содержимое** (плейнтекст).
-
-Поэтому мы:
-1. **Никогда не кладём чувствительные данные в push.**
-2. Push — только «сигнал»: «есть новое, приходи забирать».
-3. Настоящие данные — в шифрованном bucket'е на нашем сервере.
-
-Push для **SOS**, где секундная задержка критична — можно inline'ить зашифрованные данные (payload ≤ 2.5KB после base64 + JSON).
-
-### 7.2 Что видит человек
-
-Ничего специального. Push либо тихо будит приложение, либо показывает уведомление «Нужна помощь!» (для SOS).
-
-### 7.3 Что происходит внутри
-
-**Обычное уведомление (Profile updated):**
-
-```mermaid
-sequenceDiagram
-    participant Т as Танин телефон
-    participant W as Cloudflare Worker
-    participant FCM as Google FCM
-    participant Б as Бабушкин телефон
-    participant mlsБ as mls-rs (бабушка)
-    participant С as Firestore
-
-    Т->>W: POST /push/notify<br/>{topic=edge-{edgeId}, kind="content-updated"}
-    W->>W: Verify Firebase ID token<br/>Verify Таня в group
-    W->>FCM: Send data message<br/>{eventType: "content-updated"}<br/>(без содержимого!)
-    FCM->>Б: Delivery push (payload: "content-updated")
-    Note over Б: Проснулось приложение
-    Б->>С: GET /users/бабушка/buckets/profile-store
-    С-->>Б: ciphertext blob
-    Б->>mlsБ: Расшифровать
-    mlsБ-->>Б: plaintext Profile
-```
-
-**SOS уведомление (payload inline):**
-
-```mermaid
-sequenceDiagram
-    participant Б as Бабушкин телефон
-    participant mlsБ as mls-rs
-    participant W as Worker
-    participant FCM as Google FCM
-    participant Т as Танин телефон
-    participant mlsТ as mls-rs
-
-    Б->>Б: Тап SOS
-    Б->>mlsБ: Encrypt("SOS: тревога", exporter_key)
-    mlsБ-->>Б: ciphertext ~200 байт
-    Б->>W: POST /push/notify<br/>{topic=edge-*, kind="sos", payload=ciphertext}
-    W->>FCM: Send data message (ciphertext inline)
-    FCM->>Т: Push (payload: encrypted 200 байт)
-    Т->>mlsТ: Decrypt(payload, exporter_key)
-    mlsТ-->>Т: "SOS: тревога"
-    Т->>Т: Показать полноэкранное уведомление
-```
-
-### 7.4 Что закрывает наш выбор
-
-| Задача | Решение | Готовое или наше |
-|---|---|---|
-| Шифрование push payload | mls-rs (application message) | Готовое ✅ |
-| Google FCM delivery | Firebase | Готовое ✅ |
-| Верификация authorization на Worker | Firebase ID token | Готовое ✅ |
-| Разделение event types (content-updated, sos, ...) | Наш enum | Наше |
-| Wake-lock policy на устройстве | Android WorkManager | Готовое ✅ |
+> **⚠️ Superseded 2026-07-07** — блок использовал `mls-rs`, прямые Firestore paths (`/users/бабушка/buckets/*`), Firebase ID token как JWT verification model. Сохранён concept: FCM data-message = wake-up signal без содержимого, реальные данные — из encrypted bucket.
+>
+> **Current model** (per [TASK-108](../../backlog/tasks/task-108%20-%20Decision-Metadata-privacy-what-server-sees.md), [TASK-105](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md), [docs/architecture/crypto.md](../architecture/crypto.md)):
+> - MLS library — **openmls** (не mls-rs).
+> - Push topic — opaque `PushTopic` через adapter; на T0 может быть `HMAC(exporter_key, "push")` вместо `group-{groupId}`.
+> - Worker auth — JWT verification (TASK-105 baseline), не hardcoded Firebase ID token.
+> - Storage paths — opaque `OwnerRef` + `BucketKey`, не прямые Firestore paths.
+> - SOS payload inline — концепция валидна (≤ 2.5KB после base64), но конкретный wire format = отдельный decision-task при работе над SOS feature (не MVP scope).
+> - Rate limits — 500 push per identity per hour (TASK-108 quotas table).
+>
+> **Что закрывает наш выбор** (концепт стабилен):
+> - Шифрование push payload — openmls application message ✅
+> - FCM delivery — Firebase ✅
+> - Worker auth — JWT (TASK-105 baseline) ✅
+> - Event types (content-updated, sos, ...) — наш enum
+> - Wake-lock policy — Android WorkManager ✅
 
 ---
 
@@ -239,163 +185,59 @@ sequenceDiagram
 
 ## Блок 9 — Будущее: мессенджер
 
-> **⚠️ Library references outdated** — `mls-rs` → **openmls** (per architecture doc). Storage paths через opaque `OwnerRef` (per [TASK-108](../../backlog/tasks/task-108%20-%20Decision-Metadata-privacy-what-server-sees.md)) вместо прямых `/users/бабушка/buckets/*`. Concept (MLS group carries messenger too, zero new crypto) остаётся valid для Phase-3+ TASK-27/TASK-42.
-
-
-### 9.1 Простыми словами
-
-Через год решили: добавить возможность отправлять текстовые сообщения между бабушкой, Таней и Петей. **Крипту переписывать не нужно.** Тот же MLS group даёт нам:
-- Ключ комнаты — уже есть.
-- Forward secrecy на каждое сообщение — уже есть.
-- Post-compromise security — уже есть.
-
-Мы **только добавляем**:
-- UI мессенджера.
-- Wire format для сообщений (JSON с полями `text`, `timestamp`, `sender`, ...).
-- FCM push для «есть новое сообщение».
-- Storage (bucket `/users/бабушка/buckets/messages/{msg_id}` или append-only log).
-
-### 9.2 Что происходит внутри (сокращённо)
-
-```mermaid
-sequenceDiagram
-    participant Т as Танин телефон
-    participant mlsТ as mls-rs
-    participant С as Сервер
-    participant Б as Бабушкин телефон
-    participant mlsБ as mls-rs
-
-    Т->>Т: Ввод: "Привет, ба! Как дела?"
-    Т->>mlsТ: Encrypt(text, exporter_key)
-    mlsТ-->>Т: ciphertext
-    Т->>С: PUT /users/бабушка/buckets/messages/{msg_id}
-    Т->>С: Push через FCM (kind="message")
-    С->>Б: Push
-    Б->>С: GET messages/{msg_id}
-    С-->>Б: ciphertext
-    Б->>mlsБ: Decrypt(exporter_key)
-    mlsБ-->>Б: "Привет, ба! Как дела?"
-    Б->>Б: Показать в мессенджер UI
-```
-
-**Тот же exporter_key**, что используется для Profile sync. **Никаких новых крипто-компонентов.**
-
-### 9.3 Что нам понадобится
-
-| Задача | Решение | Готовое или наше |
-|---|---|---|
-| Шифрование сообщений | mls-rs (уже есть) | Готовое ✅ |
-| Delivery | наш FCM path (уже есть) | Готовое ✅ (наш) |
-| Storage messages | Наш bucket | Наше |
-| Мессенджер UI | Наш | Наше |
-| Wire format сообщения | Наш JSON | Наше |
-
-**Оценка добавления мессенджера когда-либо в будущем: 4-6 недель UI + storage, ноль недель крипты.**
+> **⚠️ Superseded 2026-07-07** — блок использовал `mls-rs`, прямые Firestore paths, Firebase-specific delivery. Concept сохранён: MLS group уже даёт messenger «бесплатно» (тот же exporter_key, forward secrecy, post-compromise security).
+>
+> **Current model для Phase-3+ мессенджера** — [TASK-27 Elderly-Friendly Messenger (Jitsi-based)](../../backlog/tasks/task-27%20-%20Elderly-Friendly-Messenger-Jitsi-based.md). Реализация:
+> - MLS library — openmls, ports через opaque types (TASK-108).
+> - Storage — bucket через TASK-66 Generic Encrypted Bucket Registry.
+> - Delivery — MLS AppMessage через delivery adapter (не прямой Firestore path).
+> - Push — как в Блоке 7 обновлённом (openmls + opaque PushTopic + JWT auth).
+>
+> **Оценка добавления мессенджера когда-либо в будущем**: 4-6 недель UI + storage, ноль недель крипты.
 
 ---
 
 ## Блок 10 — Будущее: обмен фотками (Family album)
 
-> **⚠️ Library references outdated** — same as Блок 9: `mls-rs` → openmls, storage paths через opaque `OwnerRef`. Concept (encrypted photos через R2 + MLS envelope) остаётся valid для Phase-3+ TASK-11/TASK-28.
-
-
-### 10.1 Простыми словами
-
-Хотим чтобы Таня отправляла бабушке фото внука. Проблема — фото большое (2-10 MB), не влезает в FCM push и не должно проходить через Firestore document (лимит 1MB).
-
-Решение:
-1. Таня шифрует фото через тот же MLS exporter_key.
-2. Загружает ciphertext в **Cloudflare R2** (или другой blob storage).
-3. Отправляет через MLS **сообщение-указатель**: «есть фото, скачать по адресу X, ключ такой-то».
-4. Бабушка получает push → скачивает blob → расшифровывает.
-
-### 10.2 Что происходит внутри
-
-```mermaid
-sequenceDiagram
-    participant Т as Танин телефон
-    participant mlsТ as mls-rs
-    participant R2 as Cloudflare R2
-    participant С as Сервер
-    participant Б as Бабушкин телефон
-    participant mlsБ as mls-rs
-
-    Т->>Т: Выбрать фото (5 MB)
-    Т->>mlsТ: Derive photo_encryption_key from exporter_key
-    Т->>mlsТ: Encrypt(photo_bytes, photo_key)
-    mlsТ-->>Т: ciphertext 5 MB
-    Т->>R2: PUT /photos/{random_id} = ciphertext
-    R2-->>Т: OK
-    Т->>mlsТ: Encrypt(msg="photo at random_id", exporter_key)
-    Т->>С: PUT /users/бабушка/buckets/messages/{msg_id}
-    С->>Б: Push
-    Б->>mlsБ: Decrypt msg → "photo at random_id"
-    Б->>R2: GET /photos/{random_id}
-    R2-->>Б: ciphertext
-    Б->>mlsБ: Decrypt(ciphertext, photo_key)
-    mlsБ-->>Б: plaintext photo
-```
-
-### 10.3 Что закрывает наш выбор
-
-| Задача | Решение | Готовое или наше |
-|---|---|---|
-| Шифрование фото | mls-rs (той же группы) | Готовое ✅ |
-| Blob storage | Cloudflare R2 (уже в roadmap) | Готовое ✅ |
-| Метаданные (кто отправил, когда) | Наш message wire format | Наше |
-| Photo gallery UI | Наш | Наше |
+> **⚠️ Superseded 2026-07-07** — блок использовал `mls-rs` + прямые Firestore paths. Concept сохранён: photo encryption via MLS exporter_key derivative, blob upload через R2, message-pointer через MLS.
+>
+> **Current model для Phase-3+ family album** — [TASK-28 Full Shared Family Album](../../backlog/tasks/task-28%20-%20Full-Shared-Family-Album.md). Уточнения:
+> - **[TASK-110 Client-side media transformation](../../backlog/tasks/task-110%20-%20Decision-Client-side-media-transformation.md)** (Done) — фото/видео обрабатываются на клиенте до шифрования (resize, EXIF strip, encoding). Server видит только зашифрованный blob.
+> - **[TASK-111 Signed upload tokens & quotas](../../backlog/tasks/task-111%20-%20Decision-Signed-upload-tokens-quotas-abuse-response.md)** (Deferred) — upload идёт через signed presigned URL с server-side quota enforcement (100 MB per identity, R2 native limits).
+> - MLS library — openmls.
+> - Storage paths — opaque через adapter.
 
 ---
 
 ## Часть Ω — Резюме
 
-### Что нам НЕ надо писать благодаря готовым решениям
+> **⚠️ Superseded 2026-07-07** — обновлённое резюме stack'а живёт в [`docs/architecture/crypto.md`](../architecture/crypto.md) (карта компонентов + Что чем занимается). Ключевые правки против старого текста:
+> - MLS library — **openmls** (Rust, MIT, SRLabs audit 2024), не `mls-rs`. `mls-rs` теперь только exit ramp.
+> - Handshake — **Noise_XX** через `snow` (не XXpsk3), см. TASK-67.
+> - Access-grants заменены MLS group membership.
+> - Firestore прямые paths → opaque `OwnerRef`/`BucketKey`/`PushTopic` через adapter (TASK-108).
+> - Firebase ID token → generic JWT verification per TASK-105 baseline.
 
+**Что нам НЕ надо писать благодаря готовым решениям** (концепт стабилен):
 - ❌ ECDH / X25519 handshake — snow делает.
-- ❌ Двусторонняя аутентификация identity — snow делает.
-- ❌ Forward secrecy handshake'а — snow делает.
-- ❌ Argon2id KDF — libsodium делает.
-- ❌ Симметричное шифрование (AEAD) — libsodium делает.
-- ❌ MLS group setup + membership — mls-rs делает.
-- ❌ MLS Add / Remove с обновлением ключа — mls-rs делает.
-- ❌ TreeKEM (внутренняя структура MLS) — mls-rs делает.
-- ❌ Forward secrecy на каждое сообщение — mls-rs делает.
-- ❌ Post-compromise security — mls-rs делает.
+- ❌ Двусторонняя аутентификация identity — snow делает (Noise_XX mutual auth).
+- ❌ Argon2id KDF, AEAD, HKDF — libsodium делает.
+- ❌ MLS group setup, Add/Remove, TreeKEM, forward secrecy, PCS — **openmls** делает.
 
-### Что нам надо писать
-
-- ✅ Domain-level ports (`PairingService`, `GroupCryptoPort`, `RecoveryVault`, `DocumentEnvelope`) — ~500 строк.
-- ✅ UniFFI wrapper (2-3 недели один раз, потом transparent).
-- ✅ QR wire format + roundtrip тесты.
-- ✅ Recovery-blob wire format.
-- ✅ Firestore paths + Security Rules.
-- ✅ Cloudflare Worker push endpoint (частично уже есть).
+**Что нам надо писать** (~10% code surface):
+- ✅ Domain-level ports (`PairingService`, `GroupCryptoPort`, `RecoveryVault`, `DocumentEnvelope`, `RemoteStorage`, `PushChannel`, `AuthTokenProvider`) — с opaque types per TASK-108.
+- ✅ UniFFI wrapper (один раз, потом transparent).
+- ✅ Wire formats (QR, recovery blob, buckets) + roundtrip тесты + `schemaVersion` per rule 5.
+- ✅ Storage adapter (Cloudflare Worker + Firestore/R2 сегодня, own-server завтра).
 - ✅ UI wizard'ов.
 
-### Как то же самое решение работает для будущих фич
+**Trade-off который мы приняли**:
+1. Никакого dedicated crypto audit'а pre-ship. Компенсация — battle-tested off-the-shelf (libsodium: Signal/WhatsApp, openmls: SRLabs-audited 2024, snow: WireGuard/WhatsApp companion).
+2. UniFFI + Rust toolchain в CI. Один Rust source → Android + iOS (когда) + Google TV.
+3. Cloudflare + Firestore = MLS delivery relay (T0 metadata visibility per TASK-108).
+4. iOS pairing в MVP не поддерживается — Phase-4+.
 
-| Будущая фича | Что нужно докрутить | Что не переписываем |
-|---|---|---|
-| Мессенджер | UI + wire format сообщений | Крипту |
-| Family album | R2 storage + UI | Крипту |
-| SOS button | Push priority + UI | Крипту |
-| Voice calls | WebRTC transport + UI | Идентификацию peer'а (identity_pub из TrustEdge) |
-| Multi-family (родственник управляет двумя людьми) | Ничего специального — просто больше MLS groups | Крипту |
-| Clinic (врач управляет 20 пациентами) | Больше MLS groups, наши UI для лестниц связей | Крипту |
-
-### Trade-off, который мы приняли
-
-1. **Никакого dedicated crypto audit'а pre-ship.** Компенсируется тем, что вся крипта — battle-tested off-the-shelf (libsodium используют Signal/WhatsApp, mls-rs — Wire/AWS RCS, Noise Protocol — WireGuard).
-2. **UniFFI + Rust toolchain в CI.** Один раз настроить, дальше прозрачно. Позволяет один Rust source → Android + iOS + Google TV.
-3. **Cloudflare + Firestore = наш MLS delivery service** (сервер relay'ит commits, не понимает крипту). Zero-knowledge сохраняется.
-4. **Server видит граф связей** (открытые access-grants нам не нужны с MLS, но публичные MLS KeyPackages в directory всё равно видны). Blind grants — Phase-5+ TODO.
-5. **iOS pairing в MVP не поддерживается** без UniFFI работы. iOS admin — Phase-4+.
-
-### Итоговая формула
-
-**Готовые библиотеки решают 90% крипто-работы. Наш код — 10% (склеивание + UI + wire format + Firestore пути).**
-
-Это лучшая позиция для команды без бюджета на audit — минимизировать surface собственного кода, максимально доверять проверенным примитивам.
+**Итоговая формула**: готовые библиотеки решают ~90% крипто-работы, наш код — ~10% (склеивание + UI + wire format + adapter).
 
 ---
 
@@ -403,610 +245,194 @@ sequenceDiagram
 
 Владелец, прочитав документ выше, задал ряд конкретных вопросов. Каждый ответ ниже — самостоятельный кусок, можно читать по одному.
 
-### Δ.1 «Откуда телефон узнаёт TrustEdge{peer=Таня, nickname="Внучка"}? Какой-то доп-запрос к Тане?»
+### Δ.1 — SUPERSEDED (removed 2026-07-07)
 
-**Нет, доп-запроса нет.** Всё нужное уже пришло **внутри самого handshake'а** из Блока 2.
+Ответ о происхождении TrustEdge заменён current решениями:
+- **Handshake protocol**: [TASK-67 § Sequence Δ.1a Full pairing flow](../../backlog/tasks/task-67%20-%20Pairing-Feature-And-Bucket.md) — Noise_XX (не XXpsk3), `snow` crate, 3-message pattern.
+- **TrustEdge structure**: `{ edgeId, peerIdentity, peerPubKey, role: EdgeRole (ManagedByMe | ManagerOfMe), createdAt, revokedAt? }` — nickname'а в edge нет.
+- **Server paths**: opaque `OwnerRef` / `BucketKey` через adapter — не `/users/{name}/*` прямым (см. [TASK-108](../../backlog/tasks/task-108%20-%20Decision-Metadata-privacy-what-server-sees.md)).
+- **Identity naming**: `identity_id = hash(root_public)`, не `identity_pub_A/B` (см. [TASK-106](../../backlog/tasks/task-106%20-%20Decision-Sybil-resistance-and-signup-gate.md)).
 
-Что произошло во время Noise XXpsk3:
-- Танин телефон **прислал бабушке** свой `identity_pub_B` — это часть протокола Noise (шаг «msg2 + sig»).
-- Бабушкин телефон **прислал Тане** свой `identity_pub_A` — то же самое (шаг «msg1»).
-- После handshake оба **уже знают** identity_pub противоположной стороны + shared secret.
+### Δ.2 — SUPERSEDED (removed 2026-07-07)
 
-Что бабушка добавляет **локально** (server об этом не знает):
-- `nickname="Внучка"` — из UI (бабушка ввела в диалоге «Как назовём? [Таня / Внучка / другое]»).
-- `edgeId` — random UUID, сгенерирован локально.
-- `createdAt` — локальное время.
+Модель Δ.2 «серверный envelope с full MLS state» — **не соответствует current decisions**. Фактически recovery работает иначе:
 
-**Что такое «pairing-edges bucket»** — это просто путь в Firestore: `/users/бабушка/buckets/pairing-edges`. Внутри лежит **зашифрованный blob** (через root_key + Argon2id-KDF, или через MLS exporter_key — деталь для Блока Ω+, см. Δ.2). Сервер видит:
-- Путь `/users/бабушка/buckets/pairing-edges` (публично, для роутинга).
-- Размер blob'а (~несколько KB).
-- Время последнего update'а.
+- **MLS library**: `openmls` (Rust, MIT, SRLabs audit 2024), не `mls-rs`. См. [docs/architecture/crypto.md § Что чем занимается](../architecture/crypto.md).
+- **Local storage**: **SQLCipher-backed openmls storage provider**, конкретно, не абстрактный SQLite.
+- **Recovery model**: **self-add нового device_keypair** в существующие MLS groups (auto MLS Add без confirmation ceremony), не restore-from-blob. Старые устройства остаются рабочими. См. [TASK-101 Decision](../../backlog/tasks/task-101%20-%20Decision-Peer-confirmation-on-recovery.md), scope clarification 2026-07-06.
+- **Что server НЕ хранит**: encrypted full MLS state envelope. Bucket `/users/*/buckets/mls-state` не существует. На сервер уходят только commit/welcome/AppMessage через MLS delivery API + KeyPackage pool + profile access-grants.
+- **Что восстанавливается**: current Profile snapshot (contacts + tiles + themes) через MLS bucket sync (TASK-66 buckets), не история.
+- **История сообщений/фото/audit при recovery НЕ восстанавливается** в MVP — Signal-style. Отдельное решение: [TASK-100 History backup strategy for MVP](../../backlog/tasks/task-100%20-%20Decision-History-backup-strategy-for-MVP.md). Exit ramp: `HIST-BACKUP-001` (Phase-3+, 4-6 weeks).
+- **Server paths**: opaque `OwnerRef` / `BucketKey` через adapter, не `/users/{name}/*` прямым — см. [TASK-108](../../backlog/tasks/task-108%20-%20Decision-Metadata-privacy-what-server-sees.md).
 
-Сервер **не видит**:
-- Сколько peer'ов у бабушки.
-- Кто эти peer'ы.
-- Никнеймы.
+### Δ.3 — SUPERSEDED (removed 2026-07-07)
 
-Аналогия: у сервера — это как папка с зашифрованным zip-архивом. Он знает, что архив есть, но не знает, что внутри.
+**Вопрос**: «MLS автоматически всех оповещает — значит FCM нужно?» **Ответ (концепт валиден)**: да, MLS — только крипто-логика, delivery — наша (FCM data message как wake-up).
 
-### Δ.2 «Список моих групп — где хранится? В кэше? На сервере для recovery?»
+Устарело: `mls-rs` naming, прямой Firestore path `/users/бабушка/mls-groups/main/commits/{n}`. Current model — MLS AppMessage/Commit/Welcome через delivery adapter, opaque `OwnerRef`/`PushTopic` (TASK-108), openmls (не mls-rs). См. [docs/architecture/crypto.md § Сценарий 3](../architecture/crypto.md) + [TASK-105](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md) для Worker endpoint baseline.
 
-**Локально** список групп хранит `mls-rs` библиотека — в своём внутреннем state (persist'ится в SQLite или подобное хранилище на устройстве).
+### Δ.4 — SUPERSEDED (removed 2026-07-07)
 
-Но **на recovery** (новый телефон) этого state'а нет. Есть два подхода:
+**Вопрос**: KeyPackage directory + sender identification в MLS group. **Ответ (концепт валиден)**: KeyPackage pool на identity, роутер identifies sender через MLS ratchet tree `sender_index` + roster mapping.
 
-**Подход A (recovery на сервере) — то, что мы выбираем.**
+Устарело: `stableId` naming (current: `identity_id = hash(root_public)`), прямой path `/users/{stableId}/mls-key-packages/{deviceId}` (current: opaque `OwnerRef`), `mls-rs` (current: openmls). Current KeyPackage pool model + rate limits — [TASK-104 Decision](../../backlog/tasks/task-104%20-%20Decision-KeyPackage-rate-limit.md) (pool cap 100 per identity, claim dedup, no active velocity rate). Scale limits + roster mechanics — [docs/architecture/crypto.md § Section 4](../architecture/crypto.md).
 
-Само `mls-rs` state сериализуется как opaque blob → шифруется через `root_key` (recovery envelope) → загружается на сервер под путь `/users/бабушка/buckets/mls-state`. При recovery — скачивается, расшифровывается, восстанавливается mls-rs state.
+### Δ.5 — SUPERSEDED (removed 2026-07-07)
 
-Плюс: мгновенное восстановление, не зависит от того, онлайн ли другие члены группы.
-Минус: 1 лишний bucket, 1 лишний backup путь.
+**Вопрос**: contact photo edit + equivalence на всех устройствах группы. **Ответ (концепт валиден)**: split payload — Profile (JSON) через MLS bucket, photo (blob) через R2 с ключом derived от exporter_key.
 
-**Подход B (peer-restore).**
+Устарело: `mls-rs`, прямые Firestore paths, отсутствие client-side transformation. Current model — [TASK-110 Client-side media transformation](../../backlog/tasks/task-110%20-%20Decision-Client-side-media-transformation.md) (Done) + [TASK-102 Profile reconciliation](../../backlog/tasks/task-102%20-%20Decision-Revoke-policy.md) для conflict resolution. Storage через opaque adapter (TASK-108).
 
-Ничего не хранится. При recovery новое устройство просто **публикует новый KeyPackage** и ждёт, пока Танин / Петин телефон **добавит** его в группу. Пока другие offline — ничего не работает.
+### Δ.6 — SUPERSEDED (removed 2026-07-07)
 
-Плюс: server знает меньше.
-Минус: recovery ломается, если ни один peer не онлайн; в мульти-family scenario — Танин телефон должен добавить бабушку **в каждую** группу вручную.
+**Вопрос**: новый device pub-key + новый KeyPackage = новый участник? **Ответ (концепт валиден)**: для крипто-модели новый TreeKEM leaf, для application-модели та же identity.
 
-**Наш выбор: A**. Обоснование: бабушкин telefон — не только member, он **root of trust** для recovery. Ждать peer'а — не приемлемо.
-
-**На сервере это НЕ нарушает zero-knowledge**, потому что mls-state зашифрован под recovery envelope (ключ = HKDF(root_key, "mls-state")). Сервер видит blob, не видит содержимое.
-
-```mermaid
-sequenceDiagram
-    participant Т as Телефон
-    participant mls as mls-rs
-    participant lib as libsodium
-    participant С as Сервер
-
-    Note over Т,С: После каждого membership change (Add/Remove)
-    Т->>mls: Экспорт state (serialize)
-    mls-->>Т: opaque bytes (~10-50 KB)
-    Т->>lib: HKDF(root_key, "mls-state") → recovery_key
-    Т->>lib: AEAD.encrypt(mls_bytes, recovery_key)
-    lib-->>Т: ciphertext
-    Т->>С: PUT /users/бабушка/buckets/mls-state (overwrite)
-
-    Note over Т,С: При recovery
-    Т->>С: GET /users/бабушка/buckets/mls-state
-    С-->>Т: ciphertext
-    Т->>lib: Decrypt с recovery_key
-    lib-->>Т: mls_bytes
-    Т->>mls: Restore state (deserialize)
-    mls-->>Т: Готово, я снова в группах
-```
-
-### Δ.3 «MLS автоматически всех оповещает — значит FCM нужно? Про сервер всё продумано?»
-
-Да, FCM нужно, и да, сервер продуман.
-
-Важно разделить:
-- **MLS «автоматически»** относится к **криптографической логике**: как только commit применён, эпоха у всех обновляется. Ключевой момент — **что все получили commit**. MLS **не знает**, как commit доставить.
-- **Доставка commit'а** — наша ответственность. Мы используем ту же цепочку из Блока 7:
-
-```mermaid
-sequenceDiagram
-    participant Т as Танин телефон
-    participant W as Cloudflare Worker
-    participant С as Firestore
-    participant FCM as Google FCM
-    participant Б as Бабушкин телефон
-    participant П as Петин телефон
-
-    Т->>С: PUT /users/бабушка/mls-groups/main/commits/{n}
-    Т->>W: POST /push/notify {topic=group-{groupId}, kind="mls-commit"}
-    W->>W: Verify: Таня подписала commit? Она в roster группы?
-    W->>FCM: Send data message на topic
-    FCM->>Б: Push
-    FCM->>П: Push
-    Б->>С: GET latest commit
-    Б->>Б: mls-rs.process(commit)
-    П->>С: GET latest commit
-    П->>П: mls-rs.process(commit)
-```
-
-Что нам нужно построить на серверной стороне:
-1. **Firestore путь** `/users/{owner}/mls-groups/{groupId}/commits/{n}` — просто append-only коллекция.
-2. **Security Rules** — write разрешён только тем, кто в roster группы (public metadata: `{groupId, memberIds[]}`).
-3. **Cloudflare Worker endpoint** `/push/notify` — верифицирует authorization + отправляет FCM topic message. Уже есть в TASK-5.
-
-**Никаких сюрпризов на сервере в MVP.** Всё описано в спеках 014/016/017 (spec-driven track) — крипто-механика существующего Worker'а покроет MLS delivery как «ещё один event type».
-
-**Единственная новая нагрузка**: Firestore-коллекция commits растёт. Compaction (сжатие старых commits) — Phase-5 задача, обозначена в `docs/dev/project-backlog.md`.
-
-### Δ.4 «GET /users/tanya/mls-key-packages/{id} — как получаем данные о члене группы? Ключевой вопрос для мессенджера с 1000 участников»
-
-Это два разных вопроса, разделим.
-
-**Вопрос A: Откуда я получаю KeyPackage нового потенциального члена?**
-
-**KeyPackage directory** — публичный Firestore путь `/users/{stableId}/mls-key-packages/{deviceId}`. Каждое устройство:
-- При первом запуске **публикует** несколько KeyPackages (запас на N использований, обычно 10-100).
-- Каждый KeyPackage — «одноразовый пропуск»: содержит `identity_pub`, `device_pub`, подпись, срок годности.
-
-Кто хочет добавить меня в группу — читает мой KeyPackage. Это **публичная информация** — она нужна для крипто-механики. Server видит: у tanya есть N устройств и M ключ-пакетов на каждом.
-
-**Приватность**: server знает, **что** tanya существует и **сколько** у неё устройств, **не знает** — с кем она в группах (это encrypted в bucket'ах). Это компромисс, который мы **приняли явно** (см. «Trade-off» в Часть Ω).
-
-**Вопрос B: Кто что сделал в группе — как это узнать?**
-
-Внутри MLS каждое сообщение (application message или commit) **подписано device_key отправителя**. `mls-rs` при decrypt возвращает **`sender_index`** — номер листа в TreeKEM.
-
-`sender_index` → identity mapping:
-- Группа хранит **roster** — публичный список `[{leafIndex, stableId, identityPubHash}]`.
-- Roster обновляется на каждый Add/Remove commit.
-
-Когда мы получаем сообщение → `sender_index = 3` → смотрим в roster → «это Таня, устройство planshet». Всё автоматически, никаких доп-запросов.
-
-**Scale для 1000+ участников**:
-- Directory лукап: `/users/{stableId}/mls-key-packages/*` — небольшой (5-10 KP × 200 байт).
-- Roster: ~100 байт × N членов = 100 KB для 1000 членов. OK.
-- Delivery commit'а всем: FCM topic scale — миллионы subscribers, no problem.
-- **Проблема**: TreeKEM commit размер растёт как O(log N) — для 1000 членов ~2 KB. Приемлемо.
-
-**Для нашего MVP** (family 3-10, clinic 20-50) — вопрос scale вообще не встаёт. Явно оставляем 1000+ как Phase-5+ concern.
-
-### Δ.5 «Профиль edit — понятно, а фото контакта? Любое редактирование должно быть эквивалентно на всех телефонах группы»
-
-**Фото контакта** = слишком большое для MLS application message (обычно ~100 KB - 2 MB), не влезает в 1 MB Firestore document limit.
-
-Паттерн — тот же, что для «family album» (Блок 10):
-
-```mermaid
-sequenceDiagram
-    participant Т as Танин телефон
-    participant mls as mls-rs
-    participant R2 as Cloudflare R2
-    participant С as Firestore
-    participant Б as Бабушкин телефон
-
-    Т->>Т: Выбрать фото для «Внучка»
-    Т->>mls: Derive photo_key = exporter_key.derive("contact-photo:{contactId}")
-    Т->>mls: Encrypt(photo, photo_key)
-    mls-->>Т: ciphertext (~2 MB)
-    Т->>R2: PUT /photos/{random_id}
-    R2-->>Т: OK
-
-    Т->>Т: Обновить ProfileStoreState:<br/>contact.photoRef = {url=..., blobId=random_id}
-    Т->>mls: Encrypt(new ProfileStoreState, exporter_key)
-    Т->>С: PUT /users/бабушка/buckets/profile-store
-    Т->>С: Push topic=group-{gid}, kind=content-updated
-
-    Note over Б: Через пару секунд
-    Б->>С: GET profile-store
-    Б->>mls: Decrypt → новый Profile с photoRef
-    Б->>R2: GET /photos/{blobId}
-    R2-->>Б: ciphertext
-    Б->>mls: Derive photo_key → Decrypt
-    mls-->>Б: plaintext photo
-    Б->>Б: Показать в контактах
-```
-
-**Ключевая идея**: Profile (лёгкий JSON) идёт через MLS-encrypted bucket; фото (тяжёлое) идёт через R2 encrypted blob, а **указатель на blob** едет вместе с Profile. **Ключ фото** — производный от exporter_key группы, поэтому только члены группы могут расшифровать.
-
-**Эквивалентность редактирования** = каждое сохранение переписывает **весь Profile целиком** + генерирует новый **эпоха-ключ** через `mls-rs.commit()`. Все получают одно и то же (детерминированный merge).
-
-**Что если два admin'а редактируют одновременно?**
-- Editing lock (см. Блок 5) снижает вероятность.
-- Если всё же конфликт (Таня и Петя оба сохранили за 100ms) — **last-writer-wins по `updatedAt` server timestamp**. Проигравший admin получит push «Petя тоже сохранил», может retry.
-- **Никакого CRDT** в MVP. Может быть в Phase-5 если данные покажут проблему.
-
-### Δ.6 «Публикует новый device pub-key + новый MLS KeyPackage — значит это новый участник?»
-
-**Да, для крипто-модели это новый leaf в TreeKEM**, но для application-модели — **та же личность** (бабушка).
-
-MLS forward secrecy — фундаментальное свойство: **старый device_key нельзя переиспользовать**, даже если бы его private часть где-то сохранилась (её нет — Keystore недоступен без passphrase, а на новом телефоне его нет). Поэтому:
-- Старый leaf **Remove**'ится (Таниным телефоном).
-- Новый leaf **Add**'ится (тоже Таниным телефоном).
-- Приложение помечает в roster: `{oldLeafIndex: removed, newLeafIndex: {stableId=бабушка, deviceId=new}}` — это **та же бабушка**, но другой девайс.
-
-**Восстановить старую identity в MLS нельзя.** Это защита: если старый телефон украли и достали ключ — attacker не может продолжать быть «бабушкой» в группе, потому что новый leaf её вытеснил.
+Устарело: `stableId` naming; допущение что "Танин телефон" issue'ит Add/Remove (current model — **self-add** нового device_keypair, не peer-driven, per [TASK-101](../../backlog/tasks/task-101%20-%20Decision-Peer-confirmation-on-recovery.md)). При device compromise (не recovery) — separate revoke path через [TASK-102 profile reconciliation](../../backlog/tasks/task-102%20-%20Decision-Revoke-policy.md).
 
 ### Δ.7 «Новое устройство может расшифровать всё после нового входа? А что видит Танин телефон?»
 
-Разделяем.
+**Концепт валиден, некоторые упоминания устарели** (`mls-rs`, peer-driven Add — в current model recovery = self-add per [TASK-101](../../backlog/tasks/task-101%20-%20Decision-Peer-confirmation-on-recovery.md); история — [TASK-100](../../backlog/tasks/task-100%20-%20Decision-History-backup-strategy-for-MVP.md) не восстанавливается в MVP).
 
-**Что видит новое бабушкино устройство:**
-- **Сообщения группы** (MLS application messages) — только те, что **отправлены ПОСЛЕ его Welcome**. Старые не расшифрует никогда (post-compromise security как побочный эффект).
-- **Buckets (Profile, contacts, ...)** — **последнюю версию** может расшифровать, потому что мы храним последнюю версию как один blob (не как append log). Каждый `updateProfile()` → полная перезапись под текущий exporter_key. При Welcome → устройство узнаёт текущий exporter_key → декодирует последнюю версию.
-- **Историю правок** (кто когда что изменил) — **не расшифровывает**, если история хранится как append-only log под старыми эпохами. В MVP мы не храним историю Profile — только current state. Значит вопрос не возникает.
+**Что видит новое устройство при recovery:**
+- **Сообщения группы** (MLS application messages) — только отправленные **после Welcome**. Старые не расшифрует (post-compromise security как побочный эффект).
+- **Buckets** (Profile, contacts) — последнюю версию, поскольку хранится как один blob (перезаписывается целиком под текущий exporter_key).
+- **Историю правок** — не расшифровывает (append-only log под старыми epochs). В MVP история Profile не хранится (только current state); история сообщений/фото — отдельный decision [TASK-100](../../backlog/tasks/task-100%20-%20Decision-History-backup-strategy-for-MVP.md), не восстанавливается.
 
-**Что видит Танин телефон (admin 2):**
-- Танин телефон уже был в группе → получил Add(new_бабушкино устройство) commit → **эпоху обновил** → продолжает участие.
-- **До replacement**: Танин телефон видел всё, что было отправлено, — сохранил себе (в локальном encrypted storage).
-- **После replacement**: продолжает видеть новые сообщения (эпоха 2, 3, ...).
-- Никакой информации Танин телефон **не теряет** — replacement затрагивает только бабушкино устройство.
+**Что видит remote admin device (другой admin):**
+- Уже был в группе → получит Add(new device) commit → epoch обновит → продолжает участие. Ничего не теряет.
 
-Аналогия: MLS-группа — комната с автозамком. Ключ комнаты в течение старой эпохи был у бабушкиного устройства N1. Устройство N1 умерло, ключ утерян. Новый ключ комнаты выдан устройству N2 через Welcome (принёс его Танин телефон). Все, кто был в комнате до, — продолжают: у них уже был текущий ключ (Танин, Петин). Бабушка на новом N2 продолжает с этого момента.
+Аналогия: MLS-группа — комната с автозамком. Ключ комнаты в старой epoch был у устройства N1. N1 умерло — новое устройство N2 получает Welcome с текущим ключом и продолжает с этого момента. Старые сообщения (до Welcome) на N2 недоступны.
 
-### Δ.8 «Verify Firebase ID token + Verify Таня в group — легко ли перенести на свой сервер?»
+### Δ.8 «Verify JWT + Verify member в group — легко ли перенести на свой сервер?»
 
-**Да, тривиально.** Обе проверки — чистая математика без state'а.
-
-**Firebase ID token verify** — это верификация подписанного JWT:
-1. Скачать Google's public keys (JWK): `https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com` — кешируется 24 часа.
-2. Разобрать JWT header → выбрать нужный `kid`.
-3. Проверить подпись RSA-SHA256 (готовая функция в любой crypto lib).
-4. Проверить claims (`exp`, `iss`, `aud`).
-
-Средняя обработка: **~100 микросекунд** (одна крипто-верификация + JSON parse). CPU-bound, никакой БД.
-
-**Verify Таня в group**:
-1. Group roster хранится по пути `/users/бабушка/mls-groups/main/roster` (публичный, ~100 байт).
-2. Кешируется в edge cache Cloudflare / in-memory Go server.
-3. Проверка: `stableId(Таня) in roster.memberIds`.
-
-Скорость: **1 lookup + 1 comparison** ≈ **~10 микросекунд** при кеш-хите.
+**Концепт валиден** (обе проверки — чистая математика без state'а). Устаревшие детали:
+- Не «Firebase ID token» specifically — [TASK-105 baseline](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md) требует generic JWT verification (JWKS cache, expiration + clock skew, claim validation). Firebase Auth — один из возможных JWT issuers.
+- `stableId` naming → `identity_id = hash(root_public)` per [TASK-106](../../backlog/tasks/task-106%20-%20Decision-Sybil-resistance-and-signup-gate.md).
+- Roster path `/users/бабушка/mls-groups/main/roster` → opaque через adapter (TASK-108); MVP T0 может использовать identity_id прямым, T1 — HMAC pseudonym.
 
 **Portability на свой сервер (Go / Rust / что угодно)**:
-- Обе операции есть в готовых библиотеках любого языка (`github.com/coreos/go-oidc`, `jsonwebtoken` для Rust).
+- JWT verify — готовые библиотеки любого языка (`github.com/coreos/go-oidc`, `jsonwebtoken` для Rust).
 - Roster fetch — обычный HTTP или БД query.
-
-**Единственная зависимость от Firebase** — источник public keys. Если Firebase Auth заменяется на свой Identity Provider, JWT verify переключается на свои ключи. Wire format JWT — универсальный.
-
-**Стоимость миграции**: ~1 неделя (переписать Worker → Go microservice, поставить nginx / Fly.io / любой хостинг). Явно **two-way door** решение (обратимо).
+- Стоимость миграции Worker → Go microservice: ~1 неделя. **Two-way door** (обратимо).
 
 ### Δ.9 «Push для 3000 участников — это шторм?»
 
-**В MVP — нет.** Наши группы = 3-10 человек. Отправка = **1 API call на Cloudflare Worker** → Worker → **1 FCM topic message** → FCM fan-out'ит всем subscribers топика.
+**В MVP — нет** (концепт валиден). Наши группы = 3-10 человек. FCM topic делает fan-out на серверной стороне, sender делает **1 API call** на Cloudflare Worker → 1 FCM topic message.
 
-**Кто ответственен за отправку**:
-1. **Sender's device**: после `mls-rs.commit()` → PUT commit в Firestore → POST `/push/notify` на Worker с полем `topic=group-{groupId}`.
-2. **Worker**: верифицирует sender (Firebase JWT), проверяет что sender в roster → отправляет FCM с topic. **Это ОДИН вызов**, не N.
-3. **FCM**: делает fan-out на всех subscribers topic'а. Это Google's проблема, у них триллионы push в день, справятся.
-
-**Подписка на topic**: каждое устройство при join группы — вызывает `FirebaseMessaging.subscribeToTopic("group-{groupId}")`. Один раз.
-
-**Для 3000-member group**:
-- FCM topic subscribers: до **1 000 000** на topic без проблем (Firebase docs).
-- Latency delivery: 1-3 секунды до 95th percentile для 1000 devices (documented Firebase SLA).
-- Стоимость: **бесплатно на Spark plan**, только заплатить за Cloudflare Worker (~$5/месяц на весь traffic).
+Устаревшие naming: `mls-rs` → openmls, `group-{groupId}` → opaque `PushTopic` (per TASK-108: `HMAC(exporter_key, "push")` на T1), Firebase JWT → generic JWT per TASK-105.
 
 **Ограничения FCM topic'а**:
-- Payload ≤ 4KB — для sensitive data (SOS) inline'им ciphertext, для больших — только «wake-up + fetch».
-- 1000 push per second per project — hits at 10 000 events/second при 100 members per event. **Мы этого не увидим ближайшие 3 года**.
+- Payload ≤ 4KB — для SOS inline'им ciphertext, для больших — wake-up + fetch.
+- 1000 push per second per project — hits at 10 000 events/second при 100 members per event. Не увидим ближайшие 3 года.
+- Per-identity rate limit: 500 push/hour (TASK-108 quotas).
 
-**Явный exit ramp для scale**: если clinic с 3000 patients → own push service (Go microservice + APNs/FCM SDKs). Записан в `docs/dev/project-backlog.md`. Не блокирует MVP.
+**Exit ramp для scale**: clinic с 3000 patients → own push service (Go microservice + APNs/FCM SDKs). Записан в `docs/dev/server-roadmap.md`. Не блокирует MVP.
 
-### Δ.10 «Отозвать Таню — может только бабушка или любой member?»
+### Δ.10 — SUPERSEDED (removed 2026-07-07)
 
-**Application-rule: только owner managed identity (бабушка).**
+**Вопрос**: кто может отозвать admin'а? **Ответ (current model, per [TASK-102 Revoke policy](../../backlog/tasks/task-102%20-%20Decision-Revoke-policy.md))**:
 
-**Крипто-технически MLS позволяет любому члену commit'ить Remove.** Это дизайн — MLS даёт всем равные права, потому что был спроектирован под use case «Slack channel» где любой может leave / kick.
+Модель **fundamentally rewritten**: **bab's device (owner) = sole MLS Commit signer** для device management group. Admins **не могут** issue MLS Remove напрямую (ни через client bypass, ни peer-to-peer). Revocation flow:
 
-**Наша application-логика поверх**:
+1. Admin (или owner UI) редактирует profile: убирает target из `authorized_devices` list.
+2. Edit lock (через Cloudflare KV) снимает race conditions.
+3. Bab's device на sync сравнивает `authorized_devices` vs MLS roster → issues MLS Remove для diff.
+4. Post-compromise security применяется автоматически после epoch change.
 
-1. **Client-side проверка**: Танин UI **прячет** кнопку «revoke» для не-owner. Танин telefон не сможет случайно сделать commit.
-2. **Server-side проверка**: Firestore Security Rules на путь `/users/бабушка/access-grants/*` разрешают DELETE **только** от бабушкиного UID. Если Таня попробует hack'нуть — Firestore rules отвергнут.
-3. **Peer-side проверка**: каждый member перед `mls-rs.process(commit)` проверяет `commit.signer.identity == roster.owner`. Если Таня сгенерирует commit «Remove бабушки» — Танин Petya отклонит commit (**заглушая эффект** на своей стороне).
-4. **Cloudflare Worker**: на push endpoint для commit'а с kind `role-change` — верифицирует, что commit.signer.identity == group.owner. Если не так — отказ 403.
+Устарело: старая модель «application-layer role check» на 4 tier'ах (UI/server/peer/worker). Больше не нужна — architectural constraint (single signer) заменяет application enforcement. Owner lost device → recovery flow (self-add) восстанавливает owner на новом устройстве, revocations выполнимы снова.
 
-**Аналогия**: MLS даёт всем ключ от замка на комнате «управление roster'ом». Мы говорим: «этот ключ работает только если ты — owner». Другие можно, но UI + сервер + peer не позволяют.
-
-**Edge case: owner потерял устройство.** Тогда никто не может revoke. Решение: recovery flow (Блок 6) восстанавливает identity бабушки на новом телефоне → она снова owner → может revoke. Пока recovery не завершён — Таня остаётся admin (компромисс приемлем: recovery занимает минуты).
-
-**Что запишем в спеки**: этот application-rule должен быть **явным** в спеках владельца ролей. Прямо сейчас не написан. Записываю в `docs/dev/project-backlog.md` как задачу «Multi-admin role enforcement».
+См. [docs/architecture/crypto.md § Сценарий 4](../architecture/crypto.md).
 
 ### Δ.11 «Могут ли наши 10% быть настолько плохие, что разрушат систему?»
 
-**Да, наши 10% — самый высокий риск-на-строку кода**, потому что это склеивание разных примитивов, и любая ошибка склеивания разрушает гарантии внутренних библиотек.
+**Концепт валиден** — топ-7 способов «взорвать систему нашим кодом» — timeless developer principles. Устарели только конкретные упоминания (`mls-rs` → openmls, Firestore Rules → Worker validation + Firestore Rules combo per TASK-105 baseline, Firebase JWT → generic JWT per TASK-105).
 
-**Топ-7 способов взорвать систему нашим кодом:**
+**Топ-7 способов взорвать систему нашим кодом**:
 
-1. **Nonce reuse в AEAD**. libsodium сам генерирует nonce, если использовать `secretbox` API. Но если мы вручную формируем nonce (например «использую message counter») и **дважды используем то же значение под тем же ключом** — plaintext раскрывается математически. **Митигация**: используем только `libsodium.secretbox` / `crypto_secretstream` (random nonce), никогда не своё counter. Fitness function: тест «encrypt два раза одинаковое → выход разный».
-
-2. **Wrong Firestore Security Rules**. Если правило `allow write: if request.auth.uid != null` (любой авторизованный) вместо `if request.auth.uid == owner || uid in roster` — attacker становится admin для чужой identity. **Митигация**: rules tests с emulator, negative-path тесты, review 2-мя людьми.
-
-3. **Argon2id iteration count слишком низкий**. Если passphrase из 4 слов + iteration count 1000 (вместо 100 000) → brute-force за часы вместо десятилетий. **Митигация**: hardcoded константа в коде, roundtrip тест `assert Argon2id.iterations >= MIN_ITERATIONS`, review checklist.
-
-4. **QR wire format без schemaVersion**. Первая v1 QR-кода прошла в prod. Мы захотели добавить поле → **сломали всех**, кто ещё на v1. Rule 5 из CLAUDE.md прямо про это. **Митигация**: fitness function `roundtrip test v1 → parse v2 → OK`, обязательное поле `schemaVersion: 1`.
-
-5. **`android:allowBackup="true"` по умолчанию**. Android Auto Backup выкачивает Keystore ключи, если разработчик не отключил. Наш root_key может утечь в Google Cloud Backup. **Митигация**: `allowBackup="false"` + `dataExtractionRules.xml`, проверка в CI манифеста.
-
-6. **KeyPackage TTL = «навсегда»**. Если один KeyPackage переиспользуется многократно → forward secrecy теряется частично (compromised leaf key raskryvает несколько pairing'ов). **Митигация**: `mls-rs` их одноразовые по протоколу, мы соблюдаем протокол. Тест: KeyPackage marked used → refuse reuse.
-
-7. **Trust server для authorization вместо MLS group membership**. Если Cloudflare Worker выдаёт push «Тане» на основе только Firebase JWT (без проверки, что Таня в roster группы) — attacker с чужим JWT получит доступ. **Митигация**: Worker всегда verify JWT **И** roster membership.
+1. **Nonce reuse в AEAD** — используем только `libsodium.secretbox` / `crypto_secretstream` (random nonce), никогда не свой counter. Fitness function: «encrypt два раза одинаковое → выход разный».
+2. **Wrong Firestore Security Rules / Worker validation** — attacker с валидным JWT становится admin. Митигация: rules tests с emulator + Worker unit tests + negative-path тесты + review 2-мя людьми. См. [TASK-105 baseline](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md).
+3. **Argon2id iteration count слишком низкий** — brute-force за часы вместо десятилетий. Митигация: hardcoded константа + roundtrip тест `assert iterations >= MIN`.
+4. **QR wire format без `schemaVersion`** — сломали всех на v1 при добавлении поля. Rule 5 CLAUDE.md. Митигация: обязательное поле + fitness function roundtrip test.
+5. **`android:allowBackup="true"` по умолчанию** — root_key утечёт в Google Cloud Backup. Митигация: `allowBackup="false"` + `dataExtractionRules.xml` + CI check.
+6. **KeyPackage reuse** — forward secrecy частично теряется. Митигация: MLS протокол делает их одноразовыми (openmls соблюдает), тест на marked-used → refuse.
+7. **Trust JWT для authorization вместо MLS group membership** — attacker с чужим JWT получит доступ. Митигация: Worker всегда verify JWT **И** roster membership (rule 12 zero-trust posture, [TASK-105](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md)).
 
 **Как эти ошибки не сделать**:
-- **Checklists**: `checklist-security`, `checklist-wire-format`, `checklist-domain-isolation` — обязательны для каждого спека, затрагивающего крипту.
-- **Fitness functions**: import-lint (никаких SDK в domain), roundtrip tests (wire format), Rules unit tests (Firestore emulator).
-- **Independent review**: любой PR с крипто-кодом требует apply 2-х глаз.
-- **Explicit trade-offs**: каждый выбор «делаем сами вместо готового» — записан в ADR с exit ramp.
+- Checklists: `checklist-security`, `checklist-wire-format`, `checklist-domain-isolation`, `checklist-server-hardening` — обязательны для каждого крипто-спека.
+- Fitness functions: import-lint (никаких SDK в domain), roundtrip tests, Rules/Worker unit tests.
+- Independent review: любой PR с крипто-кодом — 2 глаза.
+- Explicit trade-offs: каждый выбор — в ADR / decision-task с exit ramp.
 
-**Вердикт**: 10% нашего кода — это **риск, но управляемый**. Управляем через процесс (checklists + tests + review), не через «пишем крипту сами». Если процесс работает — 10% значительно безопаснее, чем 30% чужого code review'а над своим DIY-крипто.
-
----
-
-## Часть Λ — Use case'ы из backlog, ещё не покрытые основной частью
-
-Ниже — сценарии из backlog task'ов, которые расширяют картину. Порядок — от близких к MVP к далёким. Стиль — краткий (без Mermaid, если не критично).
-
-### Блок 11 — Клонирование конфига между своими устройствами (TASK-20)
-
-**Простыми словами**: у Тани планшет и телефон, оба её. Она сделала конфиг wizard'а на телефоне (какие тайлы, темы, слоты). Хочет **клонировать** на планшет — без нового wizard'а.
-
-**Крипто-механика**: это **не отдельная фича**, это следствие Блока 3 (второе устройство). Как только планшет присоединился к MLS-группе Тани (self-group), он получает `PersonalPresetBundle` через `exporter_key`. Bundle содержит **общее** (theme, tile layout, wizard responses) и **исключает** device-specific (installed apps whitelist — они разные на планшете vs телефоне).
-
-**Wire format**: `PersonalPresetBundle` — JSON с `schemaVersion` (rule 5). Разделение на `commonPart` + `deviceOverrides` — mask в самом JSON.
-
-**Что готовое** — MLS group для self-group, wire format для presets.
-**Что наше** — UI «клонировать → выбрать target device», merge logic для device overrides.
-
-### Блок 12 — Инвентаризация устройств (TASK-24)
-
-**Простыми словами**: Таня хочет знать «какие приложения установлены на бабушкином телефоне», чтобы решить какие тайлы включить.
-
-**Крипто-механика**: бабушкин telefон периодически (раз в день) экспортирует **encrypted `AppInventory`** = `{packageId, appName, version, installedAt}[]` через MLS message → publish в bucket `/users/бабушка/buckets/app-inventory`.
-
-**Приватность**: список приложений — sensitive PII (revealing lifestyle, health apps, dating apps, ...). Не должен утечь на сервер. Bucket encrypted → сервер видит blob размер, не видит apps. **Rule 1 (domain isolation)**: `AppInventory` — pure domain type, не зависит от PackageManager API.
-
-**Что готовое** — MLS для передачи, libsodium для encrypt.
-**Что наше** — PackageManager wrapper (adapter), sync schedule, UI отображения.
-
-### Блок 13 — Audit log (TASK-32)
-
-**Простыми словами**: «кто когда добавил Петю в группу», «когда бабушка заменила телефон». Log событий, чтобы можно было расследовать инциденты.
-
-**Крипто-механика**: каждое membership-changing событие (Add, Remove, RoleChange) — уже подписано в MLS commit'е (Δ.4 «кто что сделал»). Audit log = **проекция** этих commits в человеко-читаемый формат.
-
-**Хранение**: append-only bucket `/users/бабушка/buckets/audit-log/{year-month}` — каждый item = encrypted event: `{timestamp, actor: stableId, action: enum, target: stableId, epoch: int}`.
-
-**Ключ**: тот же `exporter_key` MLS-группы. Все члены группы видят audit log — по дизайну **прозрачность у admins**.
-
-**Retention**: MVP — год, потом compact. Fitness function: тест «create 10 000 events, storage < 1 MB».
-
-**Что готовое** — MLS message как proof of authorship.
-**Что наше** — event schema, UI просмотра log'а, retention policy.
-
-### Блок 14 — Link-invite без QR (TASK-31)
-
-**Простыми словами**: бабушкин telefон **лежит в другом городе**. Таня, которая ещё не спарена, не может сфотографировать QR. Нужен способ pairing'а «по ссылке».
-
-**Крипто-механика** (упрощённо, детали — Блок 2 адаптированный):
-1. Бабушкин telefон генерирует **invite token** = `{claimToken, PSK, expiresAt}`.
-2. Публикует под путь `/pairing-invites/{claimToken}` с TTL 24 часа.
-3. Бабушка отсылает Тане **ссылку** типа `myapp://invite/{claimToken}?psk={base64PSK}` — через WhatsApp, SMS, что угодно.
-4. Таня открывает → приложение делает Noise handshake с обычным протоколом (Блок 2).
-
-**Проблема безопасности**: ссылка может утечь (WhatsApp скриншот, копия в буфере обмена). Митигация:
-- **PSK в hash-fragment ссылки** (`#psk=...`) — не идёт в HTTP referrer.
-- **TTL 24 часа** — окно узкое.
-- **Confirmation UX**: бабушка после первого attempt'а видит на своём telefоне «Кто-то использует твою ссылку. Показать fingerprint?» — сверяет с Таней голосом.
-
-**Rule 3 (one-way door)**: link-invite **менее безопасен** чем QR. Записан в `docs/dev/project-backlog.md` как «Phase-3 add-on», не MVP. Exit ramp: если нашли атаку — деактивируем, все pairing только через QR.
-
-**Что готовое** — Noise handshake из Блока 2.
-**Что наше** — invite token wire format, TTL enforcement (Firestore Rules), UI дополнительной верификации.
-
-### Блок 15 — Multi-app cohabitation (TASK-25)
-
-**Простыми словами**: наш launcher — не единственное приложение из проекта. Есть отдельные app'ы: «Health monitor» (планируется), «SOS button widget» и т.д. Они должны **разделять identity + группы** — не заставлять пользователя pairing'иться заново.
-
-**Крипто-механика**: **Android App Groups** (shared UID) или **Signed ContentProvider** — способ разделить keystore между app'ами одного вендора.
-
-**Detail**:
-- App'ы подписаны одним keystore → могут делить UID.
-- `root_key` хранится в keystore одного app'а («identity vault»).
-- Другие app'ы через ContentProvider читают identity + текущие MLS group states.
-- Каждое app'ы имеет свой **own MLS device leaf** (для forward secrecy — если один app скомпрометирован, другие сохранны).
-
-**Rule 2 (ACL)**: identity provision — port `IdentityVault`, adapter `AndroidContentProviderIdentityVault`.
-
-**Что готовое** — Android ContentProvider infrastructure.
-**Что наше** — schema shared identity, sync protocol между app'ами, тесты.
-
-### Блок 16 — 2FA escrow при recovery (TASK-21)
-
-**Простыми словами**: бабушка забыла свой passphrase. Recovery через один только Google login — недостаточно (Google login тоже могут украсть). Нужен **второй фактор** — например, «код на телефоне Тани» или «signed вещь от кого-то из семьи».
-
-**Крипто-механика (не окончательная, зависит от TASK-59 research):**
-
-**Подход A: Server-side counter (SVR-style)**:
-- Server считает попытки brute-force. После 5 неудачных — блокирует на час, после 20 — на день.
-- Требует server-side state, но не decrypting.
-
-**Подход B: Social recovery (M-of-N shares)**:
-- Passphrase → Shamir Secret Sharing на 3 shares → каждый share отправлен peer'у (Таня, Петя, Мама).
-- Recovery = собрать 2 из 3 shares → восстановить passphrase → расшифровать recovery-blob.
-
-**Подход C: 2FA HMAC-OTP на устройстве Тани**:
-- Recovery-blob шифруется под `HMAC(root_key, tanya_pubkey)`.
-- Recovery: бабушка вводит passphrase + подтверждает через Танин telefон (Tany знает свой pubkey → генерирует HMAC → отправляет).
-
-**Что нужно решить в TASK-59** — какой из подходов. Все три technically viable, различаются server complexity + UX.
-
-**Что готовое** — libsodium HMAC, Shamir Secret Sharing (готовые библиотеки существуют).
-**Что наше** — recovery UX (для каждого подхода разное), server logic (для A).
-
-### Блок 17 — Root key rotation (TASK-41, часть A)
-
-**Простыми словами**: раз в год бабушка меняет passphrase (например, потому что забыла старый или узнала утечку). Нужно, чтобы recovery-blob обновился, но **старые данные оставались доступны**.
-
-**Крипто-механика**:
-1. Бабушка вводит старый passphrase → декодирует root_key (уже в keystore, просто validate).
-2. Вводит новый passphrase → генерирует **новый recovery envelope** ключ через Argon2id.
-3. **Root key НЕ меняется** (это упростит логику). Меняется только recovery envelope.
-4. `PUT /users/бабушка/recovery-blob` — новый encrypted blob.
-
-**Что если хочу поменять сам root_key** (потому что подозреваю утечку)?
-- Generate `root_key_v2` = HKDF(root_key_v1, "rotation-{n}").
-- Все buckets rekey — читаются под v1, пишутся под v2. Слишком дорого для больших buckets.
-- **MVP решение**: не поддерживаем root rotation. Если утечка root_key → создать новый account (новый stableId). Логин через Google → тот же аккаунт → **нельзя**. Значит либо (а) full re-onboarding с потерей истории, либо (б) поменять linked Google account.
-- **Phase-5 решение**: implement key rotation, включая migration всех buckets. Записан в `docs/dev/server-roadmap.md`.
-
-### Блок 18 — Forward secrecy на уровне сообщения (TASK-41, часть B)
-
-**Простыми словами**: если сегодня украдут ключ группы, вчерашние сообщения **должны остаться недоступны** attacker'у.
-
-**Крипто-механика**: **это встроено в MLS.** Каждое application message использует **эпоха-ключ**, который derived через **ratchet** (HKDF chain) от предыдущего эпоха-ключа. Старые ключи **удаляются с устройства** после use. Attacker с текущим ключом **не может** восстановить прошлые.
-
-**Как MLS это делает**: TreeKEM structure — каждый commit добавляет entropy в дерево через paths. `mls-rs` реализует это as-is.
-
-**Что нам делать**: ничего сверх Блока 4. **Fitness function**: тест «получить сообщение эпохи 5, потом commit к эпохе 6, попробовать decrypt эпоху 5» → должно fail.
-
-**Соответственно, TASK-41 часть B — no-op**. Просто убедиться, что `mls-rs` инициализирован с правильным ciphersuite (MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519 — стандарт).
+**Вердикт**: 10% нашего кода — риск, но управляемый через процесс (checklists + tests + review), не «пишем крипту сами».
 
 ---
 
-## Часть Σ — Backlog cleanup: устаревшие / redundant task'и
+## Часть Λ — Use case'ы из backlog
 
-По результатам разбора backlog task'ов на предмет соответствия mentor-архитектуре — ниже task'и, которые нужно пересмотреть.
+> **⚠️ Superseded 2026-07-07** — блоки 11-18 суммировали backlog task'и с раннего этапа проекта. Часть task'ов эволюционировала (изменился scope, decision-модель), часть terminology outdated (`stableId`, `mls-rs`, прямые Firestore paths, Google login). Actual current state — читай task-файлы напрямую.
 
-**Легенда**:
-- 🔴 **Reset** — переписать задачу с нуля, старая формулировка не подходит.
-- 🟡 **Rewrite scope** — задача осмысленна, но конкретные AC / plan устарели.
-- 🟢 **Merge into** — задача дублирует другую, свернуть.
-- ⚫ **Split** — задача склеивает два разных concern'а.
-
-### 🔴 TASK-40 (Multi-device per user beyond F-4) — RESET
-
-**Старое допущение**: N устройств одного пользователя нуждаются в **server-mediated key sharing** — то есть server знает, что «телефон + планшет — один человек» и передаёт ключи между ними.
-
-**Почему устарело**: Zero-knowledge server architecture (TASK-57 → Article XX) запрещает server-mediated key sharing. Также **Блок 3 уже покрывает** multi-device через MLS Add — это чистая peer-to-peer механика, где server видит только opaque MLS commits.
-
-**Что вместо**: merge в TASK-58 (MLS group E2E decision). AC TASK-40 покрываются `mls-rs.add_member()` в контексте self-group (MLS-группа своих устройств). Сам TASK-40 закрыть как **duplicate of Блок 3 mentor-документа**.
-
-### 🔴 TASK-46 (Shared admin contact book) — RESET
-
-**Старое допущение**: multi-admin envelope через **recipient-list** — конверт с CEK'ами для каждого admin'а. Server видит список recipients.
-
-**Почему устарело**: (а) recipient-list раскрывает admin graph серверу (нарушает zero-knowledge); (б) envelope-with-recipient-set полностью заменён MLS-группой (Блок 4). MLS даёт то же самое (шифрование для N членов) **без** раскрытия списка серверу.
-
-**Что вместо**: merge в TASK-58 (MLS group E2E) + новый task «Contact book bucket поверх MLS-группы». Bucket = encrypted state `Contacts` через `exporter_key` группы. AC совпадают с Блоком 5 mentor-документа (edit propagation через MLS).
-
-### 🟡 TASK-42 (Family group encryption migration к Signal-style) — REWRITE
-
-**Старое допущение**: сейчас у нас envelope-with-recipient-set, потом мигрируем на Signal Sender Keys. Задача — «migration path».
-
-**Почему устарело**: mentor-документ явно **выбирает MLS**, не Signal. TASK-58 (research) должен подтвердить или опровергнуть этот выбор, но по mentor-документу это уже сделано.
-
-**Что вместо**: переименовать в «MLS group implementation foundation (Блоки 4, 5, 8 mentor)». Убрать упоминания Signal и migration path. Задача сохраняется — это же значительная имплементация, просто fram'ing поменялся.
-
-### ⚫ TASK-41 (Key rotation + forward secrecy) — SPLIT
-
-**Проблема**: смешаны два concern'а — root key rotation (**Блок 17** mentor) и message forward secrecy (**Блок 18** mentor). Они разной сложности, разной приоритетности.
-
-**Что вместо**: разделить на:
-- **TASK-41a (Message forward secrecy)** — заводится и **сразу закрывается** как «встроено в MLS через mls-rs default ciphersuite, fitness function test — 1 день работы». Merge в TASK-58 implementation phase.
-- **TASK-41b (Root key rotation)** — остаётся как Phase-5 parking-lot задача. Написать exit ramp в `docs/dev/server-roadmap.md`.
-
-### 🟡 TASK-39 (Social recovery) — REWRITE
-
-**Старое допущение**: friends-vouch attestations как **отдельный** recovery path от TASK-6/TASK-21.
-
-**Почему устарело**: (а) Блок 16 mentor определяет 2FA escrow как **зонтичную** тему для recovery — social recovery это подход B внутри неё; (б) отдельная social-recovery инфраструктура vs 2FA — дублирование эффорта.
-
-**Что вместо**: merge в TASK-21 как **альтернативу подхода B**. TASK-39 сохраняет свой AC, но становится «optional 3rd factor» в TASK-21 wizard'е. Если TASK-59 research покажет что social recovery неоправдан → TASK-39 закрывается «won't fix, no user demand».
-
-### 🟢 TASK-4 (F-5b Own config E2E encryption envelope) — MERGE (partial)
-
-**Что старое**: envelope с recipient list для «own config» (single-user, own devices).
-
-**Почему устарело**: с MLS self-group (Блок 3) own-config encryption — это просто ещё один bucket через group `exporter_key`. Отдельный envelope не нужен.
-
-**Что вместо**: TASK-4 не закрывать (в нём уже есть implementation, работает через libsodium+ionspin) — использовать как **тонкий stopgap**, пока MLS не готов. После TASK-58 (MLS implementation) — TASK-4 envelope заменяется MLS message wrap'ом. Wire format bucket'а остаётся тот же (schemaVersion + encrypted payload), меняется только источник ключа.
-
-**Alternative**: если TASK-58 займёт много месяцев — TASK-4 envelope остаётся навсегда для personal (self-group) buckets. Это две-way door, легко переделать.
-
-### ⚫ TASK-48 (Tamper resistance L1+L2+L3) — SPLIT / DEPRIORITIZE
-
-**Проблема**: L3 (Play Integrity API obfuscation) **не крипто-задача**, а anti-fraud. Крипто-архитектура mentor-документа никак не зависит от tamper-resistance — root_key в Keystore защищён на уровне hardware даже если app rooted.
-
-**Что вместо**:
-- **L1 (basic checks)** — 1 неделя работы, оставить в MVP.
-- **L2, L3** — Phase-5 parking-lot, зависит от business demand. ADR с trade-off (Play Integrity blocks non-Play distributions).
-
-### Task'и подтверждённо compatible (без изменений)
-
-**TASK-2** (F-CRYPTO Core), **TASK-3** (F-4 AuthProvider), **TASK-6** (Root Key Hierarchy), **TASK-27** (Messenger Jitsi — Блок 9), **TASK-28** (Family Album — Блок 10), **TASK-32** (Audit log — Блок 13), **TASK-51** (libsodium consolidation — infrastructure), **TASK-56** (namespace rename — cosmetic), **TASK-66** (Generic Encrypted Bucket Registry — базис для всех bucket'ов), **TASK-67** (Pairing Feature And Bucket — Блок 2 + Δ.1 pairing-edges bucket), **TASK-70** (Profile Sync — Блок 5).
-
-Эти task'и точно соответствуют mentor-документу и продолжают своим путём.
-
-### Research task'и, которые блокируют часть выше
-
-Эти четыре — **вход** к переработке верхнего списка:
-
-- **TASK-57** (Zero-Knowledge Server Architecture audit → Article XX). Определяет базовые ограничения. Часть выше исходит из тезиса, что TASK-57 принят.
-- **TASK-58** (Signal Sender Keys vs MLS). Mentor-документ выбрал MLS; TASK-58 либо подтверждает, либо возвращает нас к Sender Keys. Если Sender Keys — mentor-документ и часть Λ выше **надо переписать**.
-- **TASK-59** (Recovery vault counter — SVR vs OPAQUE vs HMAC). Определяет подход в Блоке 16.
-- **TASK-60** (Push payload encryption FCM 4KB). Уточняет Блок 7 — какие события inline'им.
-
-**Порядок работы** (рекомендация владельцу):
-1. Закрыть TASK-57 → Article XX в constitution.
-2. Закрыть TASK-58 → выбор MLS/Sender Keys подтверждён или пересмотрен.
-3. Если MLS выбран → обновить mentor-документ (пометить «choice confirmed»).
-4. TASK-59 + TASK-60 параллельно.
-5. После этого — переработка backlog по списку выше.
-
-Оценка: **3-4 недели research phase** до готовности начать implementation по mentor-документу.
-
----
-
-## Часть Θ — Финализация стека + open questions (из crypto-topics-handoff.md)
-
-Этот раздел сводит в mentor-документ то, что уже **принято** на handoff-сессиях по TASK-67, чтобы не потерять при compaction'е чата. Открытые вопросы (Темы 4-11) — не решены, разбираются отдельными сессиями.
-
-### Θ.1 Финализированный стек
-
-По результатам двух сессий (Тема 1 «Личность и корневой ключ», Тема 2 «QR-рукопожатие», Тема 3 «Profile как synced document») стек **зафиксирован**:
-
-| Слой | Выбор | Роль |
+| Блок | Backlog task | Current status / где актуально |
 |---|---|---|
-| Крипто-примитивы | **libsodium-kmp (ionspin) 0.9.5** | AEAD, Argon2id, HKDF, X25519, Ed25519. Уже в проекте. |
-| Handshake | **snow (Rust) через UniFFI** | Noise XXpsk3 для pairing. |
-| Group crypto | **mls-rs (AWS) через UniFFI** | MLS RFC 9420, TreeKEM, application messages. |
-| Transport | **Cloudflare Worker + Firestore** | Zero-knowledge relay для commits + KeyPackages + buckets. |
-| Push | **FCM data-messages** | Wake-up trigger + inline encrypted payload для SOS. |
+| 11 — Клонирование конфига между своими устройствами | [TASK-20](../../backlog/tasks/task-20%20-%20Config-Copy-Between-Own-Devices.md) | Follows recovery model per TASK-101 (self-add). Concept: MLS self-group даёт preset sync через exporter_key. |
+| 12 — Инвентаризация устройств | [TASK-24](../../backlog/tasks/task-24%20-%20Device-Inventory-Sync.md) | Bucket через TASK-66. Privacy: package list — PII, encrypted в bucket. |
+| 13 — Audit log | [TASK-32](../../backlog/tasks/task-32%20-%20Audit-Log-Infrastructure.md) | Depends on TASK-101 audit fields (`who_added / when / new_device_fingerprint`). |
+| 14 — Link-invite без QR | [TASK-31](../../backlog/tasks/task-31%20-%20Caregiver-Remote-Invite-LinkInvitePairingChannel.md) | Concept: Phase-3+ add-on к QR pairing (TASK-67). Reasoning про PSK hash fragment + TTL остаётся valid. |
+| 15 — Multi-app cohabitation | [TASK-25](../../backlog/tasks/task-25%20-%20Multi-app-Cohabitation-Chain-of-trust-Recovery.md) | Depends on cross-platform IdentityVault (Q-08 open per crypto-status.md). Android-first stance. |
+| 16 — 2FA escrow при recovery | [TASK-21](../../backlog/tasks/task-21%20-%20Account-Recovery-2FA-escrow.md) | Superseded by [TASK-101 Decision](../../backlog/tasks/task-101%20-%20Decision-Peer-confirmation-on-recovery.md): passphrase = base authentication; 2FA — separate opt-in feature (Phase-3+ RECOVERY-2FA-001). Options A/B/C ретроспективно: подходы всё ещё technically viable, но TASK-101 rejected обязательный ceremony, оставив 2FA opt-in. |
+| 17 — Root key rotation | [TASK-41](../../backlog/tasks/task-41%20-%20Key-rotation-forward-secrecy.md) | MVP решение "не поддерживаем root rotation" остаётся. Phase-5 задача в server-roadmap. |
+| 18 — Forward secrecy на уровне сообщения | [TASK-41](../../backlog/tasks/task-41%20-%20Key-rotation-forward-secrecy.md) part B | Встроено в openmls через default ciphersuite (MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519). No-op задача, покрывается fitness function. |
 
-**Что мы отвергли явно** (не пере-обсуждать):
-- ❌ **SGX enclave** — Cloudflare не поддерживает, не нужно нашему масштабу. Аналог SVR2/SVR3 (Signal) не строим никогда.
-- ❌ **Собственный ECDH handshake** — риск слишком высок, snow битвойпроверен (WireGuard, WhatsApp companion).
-- ❌ **Access-grant + envelope-per-recipient pattern** — заменён MLS group membership.
-- ❌ **External crypto audit pre-ship** — budget $15k total не позволяет. Замена: fitness tests + threat model + post-launch community bug bounty + академические review requests.
+---
 
-### Θ.2 Escape ramps (записать когда пойдёт в код)
+## Часть Σ — Backlog cleanup (historical audit)
 
-Каждый выбор выше — потенциальный one-way door. Exit ramp'ы:
+> **⚠️ Historical 2026-07-07** — этот раздел был one-shot backlog audit'ом с ранней mentor-сессии (~2026-05). После этого:
+> - Research tasks TASK-57 (Zero-Knowledge Architecture), TASK-58 (MLS choice), TASK-59 (recovery counter), TASK-60 (push encryption) частично закрыты (см. [`docs/dev/crypto-status.md`](crypto-status.md) и Done tasks в `backlog/tasks/`).
+> - Decision-tasks TASK-100..108 (2026-07-02 → 2026-07-06) заменили multiple предыдущие "SPLIT / RESET / REWRITE" рекомендации.
+> - TASK-40/TASK-46/TASK-42/TASK-41/TASK-39/TASK-4/TASK-48 — статусы могли измениться. Не полагаться на классификацию (🔴/🟡/⚫/🟢) из этого блока — проверять актуальный статус через `backlog task view task-N --plain` или напрямую в `backlog/tasks/`.
+>
+> Оставлено как historical запись process'а — не как action plan.
 
-| Опасение | Escape ramp | Стоимость |
-|---|---|---|
-| `mls-rs` deprecates или лицензия меняется | Swap на **OpenMLS** (Rust, ETH Zürich). Если `GroupCryptoPort` инкапсулирует их обоих — переключение 3-5 дней. | 3-5 дней |
-| `snow` deprecates или нужна кастомизация | Hand-roll Noise XX на libsodium (~150 строк) + cacophony test vectors для проверки соответствия RFC. | 1-2 недели |
-| KMP-native MLS созревает | Watch: **Nostr/Marmot** (Quartz KMP) Q4 2026 — если созреет, снимаем UniFFI слой. | Проверить осенью 2026 |
-| Firebase / Cloudflare тарифы взлетают | Watch: **Iroh + p2panda-encryption** — decentralized transport, замена Cloudflare/Firestore. | Явно Phase-5+ |
-| Firestore serverTimestamp недостаточен для MLS ordering | При миграции на свой сервер — Redis Streams или PostgreSQL SERIAL для commit sequence. Записать в server-roadmap. | 1 неделя |
+---
 
-### Θ.3 Кандидаты в backlog (session-scoped)
+## Часть Θ — Финализация стека + open questions
 
-По ходу обсуждений всплыли идеи, которые **не решаются сейчас**, но нужно поднять при review backlog'а:
-
-1. **CANDIDATE-1** — Recovery notification. Push старым устройствам «recovery на новом X, это ты?» + опция «kick старое устройство».
-2. **CANDIDATE-2** — Profile-level SAS verification policy: `SasRequirement = Off | Optional | Mandatory`. Family = Optional, clinic/B2B = Mandatory через preset.
-3. **CANDIDATE-3** — Fitness rule запретить `Clock.System.now()` в crypto-flows (использовать только Firestore serverTimestamp).
-4. **CANDIDATE-4** — Editing lock document: 20 мин TTL, per-session, force-override.
-5. **CANDIDATE-5** — Encrypted co-admin directory (display names для UI multi-admin). Отдельный bucket, шифруется через group exporter_key.
-6. **CANDIDATE-6** — Post-launch community bug bounty + академические review requests (замена external audit).
-7. **CANDIDATE-7 / -8** — Noise XXpsk3 через snow + MLS через mls-rs, оба под UniFFI. Один Rust source → Android + iOS + Google TV.
-8. **CANDIDATE-9** — Watch tasks для Nostr/Marmot Q4 2026 + Iroh на будущее.
-
-### Θ.4 Open topics (не решены, разбираются отдельными сессиями)
-
-Файл [crypto-topics-handoff.md](crypto-topics-handoff.md) содержит **8 неразобранных тем** для будущих mentor-сессий владельца. Каждая — самостоятельный разговор:
-
-- **Тема 4 — Revoke.** MLS Remove vs access-grant delete first; soft/hard revoke UX; group без admin'ов; self-revoke stolen device. (Частично в Блоке 8 + Δ.10.)
-- **Тема 5 — Multi-device одной identity.** Primary vs equal; offline add; concurrent edits ordering; push на все devices vs только активное. (Частично в Блоке 3 + Δ.2.)
-- **Тема 6 — Zero-knowledge + metadata leak.** MLS Group ID видна серверу как «граф связей»; sealed sender pattern; government legal requests; Firebase Rules vs Worker в каждый write path. (Частично в Δ.8.)
-- **Тема 7 — MLS overhead для 100-member clinic.** Bandwidth Welcome в большую группу; epoch counter overflow; cross-group operations. (Частично в Δ.4.)
-- **Тема 8 — Push payload > 4 KB (chunked large payloads).** Huawei без GMS fallback (MQTT/APNs); token rotation; SOS priority. (Частично в Блоке 7 + Δ.9.)
-- **Тема 9 — Recovery propagation.** Peer confirmation vs automatic trust; окно рассинхрона; attacker-recovered scenario detection. (Частично в Блоке 6 + Δ.7.)
-- **Тема 10 — Key rotation.** Identity_pub rotation отдельно от device rotation; verify старых MLS commits после rotation; cross-group implications. (Частично в Блоках 17-18.)
-
-Не пытаться закрыть все темы в одной сессии. Каждая тема = отдельный focused разговор с mentor-режимом.
+> **⚠️ Superseded 2026-07-07** — этот раздел фиксировал стек по итогам ранних mentor-сессий (~2026-05). Часть выборов обновлена в Decision blocks TASK-100..108.
+>
+> **Current stack** — см. [`docs/architecture/crypto.md`](../architecture/crypto.md) frontmatter + карта компонентов:
+> - Крипто-примитивы: libsodium-kmp (ionspin) 0.9.5 ✓ unchanged.
+> - Handshake: `snow` (Rust) через UniFFI, **Noise_XX** (не XXpsk3), см. [TASK-67](../../backlog/tasks/task-67%20-%20Pairing-Feature-And-Bucket.md).
+> - Group crypto: **openmls** (Rust, MIT, SRLabs audit 2024), не `mls-rs`. `mls-rs` (AWS) — exit ramp.
+> - Local storage: SQLCipher-backed openmls storage provider.
+> - Transport: Cloudflare Worker + Firestore ✓ unchanged; opaque `OwnerRef`/`BucketKey` через adapter (TASK-108).
+> - Push: FCM data-messages ✓ unchanged; per TASK-108 quotas (500 push/hour per identity).
+>
+> **Что мы отвергли явно** (не пере-обсуждать): SGX enclave, собственный ECDH handshake, access-grant + envelope-per-recipient pattern (заменён MLS group membership), external crypto audit pre-ship (замена: fitness tests + threat model).
+>
+> **Open topics (Темы 4-10)** — все либо закрыты Decision blocks TASK-100..108, либо parked в crypto-status.md priority queue:
+> - Тема 4 (Revoke) → **закрыта** [TASK-102](../../backlog/tasks/task-102%20-%20Decision-Revoke-policy.md).
+> - Тема 5 (Multi-device одной identity) → **закрыта** [TASK-101](../../backlog/tasks/task-101%20-%20Decision-Peer-confirmation-on-recovery.md) (multi-device как first-class).
+> - Тема 6 (Zero-knowledge + metadata leak) → **закрыта** [TASK-108](../../backlog/tasks/task-108%20-%20Decision-Metadata-privacy-what-server-sees.md).
+> - Тема 7 (MLS overhead для 100-member clinic) → parked, не MVP.
+> - Тема 8 (Push payload > 4 KB, Huawei fallback) → parked, physical device dependent (see crypto-status.md § Medium).
+> - Тема 9 (Recovery propagation) → **закрыта** [TASK-101](../../backlog/tasks/task-101%20-%20Decision-Peer-confirmation-on-recovery.md).
+> - Тема 10 (Key rotation) → parked, не MVP.
+>
+> **Session-scoped кандидаты** (CANDIDATE-1..9) — из ранней mentor-сессии, часть материализовалась в TASK-100..111, часть stale. Не полагаться на них как action items.
 
 ---
 
 ## Часть Ξ — Что видит сервер, что должен видеть, что скрыть можно позже
+
+> **⚠️ Superseded 2026-07-07 — базис для [TASK-108 Metadata privacy Decision](../../backlog/tasks/task-108%20-%20Decision-Metadata-privacy-what-server-sees.md)** (Done).
+>
+> **Current model (per TASK-108)**:
+> - **MVP ships at Tier T0**: content is E2E-encrypted, metadata (identity_id in URLs, bucket type in path, group ID in FCM topic, timing, sizes) is visible to server.
+> - **T1 designed-in as adapter-swap** (not built now). Seven ports use opaque types (`OwnerRef`, `BucketKey`, `GroupRef`, `MemberRef`, `PushTopic`, `RecoveryHandle`, `AuthCredential`) so identity_id → HMAC pseudonym migration is **2-3 weeks adapter work**, not domain refactor.
+> - **Quota table** (30 groups, 200 members, 100 MB blob storage, 500 push/hour, 100 KeyPackages per device) — preset-parameterizable для clinic segment.
+> - **T2+ (Signal-tier sealed sender, VOPRF anonymous credentials)** — parked, не MVP.
+>
+> Разделы Ξ.1-Ξ.8 ниже — mentor-discussion, из которой родилось TASK-108 Decision. Оставлены для reasoning archive; для контракта — читай Decision block в TASK-108.
 
 Владелец поднял два острых вопроса подряд:
 - **«Сервер видит слишком много метаинформации — как сделать тупее?»**
@@ -1228,6 +654,16 @@ class FirestoreBlindRemoteStorageAdapter(private val rootKey: RootKey) : RemoteS
 
 ## Часть Π — Anti-abuse **без чтения содержимого** (E2E-совместимый quota enforcement)
 
+> **⚠️ Superseded 2026-07-07 — базис для [TASK-111 Signed upload tokens, quotas, abuse response](../../backlog/tasks/task-111%20-%20Decision-Signed-upload-tokens-quotas-abuse-response.md)** (status Deferred; scope deferred until first paying user или Phase-3+ family album, per Article XX Pre-MVP no-migration override).
+>
+> **Current stance**:
+> - Server enforcement идёт через **signed upload tokens** (WhatsApp/Signal/R2 pattern) — Worker issues short-lived presigned URL с byte limit, R2 native size enforcement.
+> - **Quotas** — из TASK-108 table (100 MB blob per identity, 30 groups, 200 members, 500 push/hour).
+> - **Abuse response**: user-report → server hard-delete blob (без просмотра content) + rate-limit reporter identity.
+> - **TASK-105 baseline** покрывает rate-limit endpoint hardening.
+>
+> Разделы Π.1-Π.8 ниже — mentor-discussion, из которой родилось TASK-111 Draft. Для контракта — читай TASK-111 Decision block когда он созреет.
+
 Владелец поднял правильную атаку: **«если сервер не знает что внутри — как запретить залить 100 GB? Client-side лимит = ноль защиты, клиента можно пропатчить»**.
 
 Это стандартная дилемма E2E-систем. Решается **давно** — WhatsApp / Signal / iCloud E2E используют один и тот же pattern. Ключевая мысль:
@@ -1441,6 +877,16 @@ port QuotaEnforcer {
 
 ## Часть Ρ — Клиентская трансформация до шифрования (WhatsApp pattern)
 
+> **⚠️ Superseded 2026-07-07 — базис для [TASK-110 Client-side media transformation Decision](../../backlog/tasks/task-110%20-%20Decision-Client-side-media-transformation.md)** (Done).
+>
+> **Current model (per TASK-110)**:
+> - Медиа (фото/видео) обрабатываются **на клиенте** до шифрования: resize, transcoding, EXIF strip.
+> - Server видит только зашифрованный blob (не размеры, не EXIF, не GPS, не device fingerprint).
+> - Preset fields (compression profile, EXIF policy) — [TASK-16](../../backlog/tasks/task-16%20-%20Preset-schema-evolution.md) preset schema evolution.
+> - Combined with [TASK-111 signed upload tokens](../../backlog/tasks/task-111%20-%20Decision-Signed-upload-tokens-quotas-abuse-response.md) — full WhatsApp/Signal media pattern.
+>
+> Разделы Ρ.1-Ρ.5 ниже — mentor-discussion, из которой родилось TASK-110 Decision. Для контракта — читай Decision block в TASK-110.
+
 Владелец задал важный вопрос: **«В WhatsApp видео сжимается — значит Meta видит содержимое?»** и вспомнил правильно: **WhatsApp — E2E, Telegram — не E2E по умолчанию**. Разбираем механику, потому что мы копируем именно WhatsApp-паттерн для нашего family album (Блок 10) и любых будущих медиа.
 
 ### Ρ.1 Фактология
@@ -1574,48 +1020,12 @@ sequenceDiagram
 
 ## Блок 20 — History backup при recovery (Q-09 decision)
 
-### 20.1 Простыми словами
-
-MLS forward secrecy = новое устройство после recovery **не может** расшифровать сообщения / фото, отправленные **до** его вступления в группу. Это математика протокола, не bug.
-
-**Три подхода в индустрии**:
-- **Signal**: нет истории после recovery. Явное предупреждение в UX. История — только device-local, backup — только device-to-device sync.
-- **WhatsApp** (с 2021): E2E-encrypted local DB (SQLCipher) + backup в iCloud/Google Drive. Ключ backup'а — либо derived от пароля (простое), либо отдельный 64-digit код (безопаснее).
-- **Гибрид**: MVP как Signal, upgrade как WhatsApp позже.
-
-### 20.2 Решение
-
-**MVP: Signal-style — история недоступна после recovery.**
-
-Восстанавливается только **Profile state** (контакты, тайлы, layout, темы) через MLS bucket sync (Δ.2). Messages / photos / audit log отправленные до recovery — потеряны для нового устройства.
-
-**Setup wizard явно предупреждает** пользователя при onboarding'е (формулировка — тактический вопрос для /speckit.clarify TASK-67, отслеживается Q-21).
-
-**Phase-3+: WhatsApp-style E2E backup будет продуман отдельной задачей** когда будем строить messenger (TASK-27) и full family album (TASK-28). Подход по аналогии с WhatsApp E2E backup 2021+ — encrypted local DB + backup в iCloud/Drive/наш R2 с отдельным 64-digit code или passphrase-derived ключом (decision дефер).
-
-### 20.3 Rationale (почему не строим сейчас)
-
-**Article XX (Pre-MVP no-migration override)** снимает обычные exit-ramp обязательства. До первых реальных пользователей:
-- HKDF context strings — cheap, добавляются позже без миграции (`HKDF(root_key, "history-backup-v1")` через год = ноль стоимости сегодня).
-- Wire format сообщений — greenfield до messenger'а. Строим когда строим messenger.
-- KeyPackage retention policy — конфиг cleanup job'а, меняется на лету.
-
-**Ничего в код сегодня не добавляется** ради Phase-3 backup'а. Никаких «зарезервированных slot'ов», никаких TODO-комментариев в rootkey hierarchy.
-
-### 20.4 Что зафиксировано (единственная non-technical дверь)
-
-**User expectation management** при первом recovery:
-- Не обещать «backup появится в будущем» (может не сдержим слово).
-- Не молчать (первый recovery = «где моя переписка?» → отток).
-- **Явно сказать в wizard'е**: «На новом устройстве история чатов не восстанавливается. Контакты и настройки — сохранятся.»
-
-Точная формулировка — тактический вопрос Q-21 для /speckit.clarify TASK-67.
-
-### 20.5 Что закрывает наш выбор
-
-| Задача | Решение | Готовое или наше |
-|---|---|---|
-| Profile recovery | MLS bucket sync через recovery envelope (Δ.2) | Готовое ✅ |
-| Явное предупреждение в wizard'е | Наш UX text | Наше |
-| History backup implementation | Отложено на Phase-3+ (TASK-27 + TASK-28) | — |
-| Exit ramp записать | `docs/dev/server-roadmap.md` → пункт «HIST-BACKUP-001: E2E encrypted history backup, аналог WhatsApp 2021». | Наше (одна строка) |
+> **⚠️ Superseded 2026-07-07 — Decision closed as [TASK-100 History backup strategy for MVP](../../backlog/tasks/task-100%20-%20Decision-History-backup-strategy-for-MVP.md)** (Done, 2026-07-02).
+>
+> **Current model (per TASK-100)**:
+> - **MVP: Signal-style** — history не восстанавливается после recovery. Восстанавливается только current Profile snapshot (contacts + tiles + themes) через MLS bucket sync (TASK-66 buckets).
+> - **Phase-3+: WhatsApp-style E2E backup** — отдельная задача alongside messenger (TASK-27) + family album (TASK-28).
+> - **Exit ramp**: `HIST-BACKUP-001` в server-roadmap. Estimated 4-6 weeks impl + 2 weeks UX. Additive — no migration of existing MLS/bucket code.
+> - **Wizard warning** при onboarding: «На новом устройстве история чатов не восстанавливается. Контакты и настройки — сохранятся.» (точная формулировка — Q-21 for TASK-67 speckit-clarify).
+>
+> Rationale (per TASK-100 Decision): Article XX (Pre-MVP no-migration override) — HKDF context strings + wire format schema + retention policies остаются modifiable без cost до первых реальных пользователей. Ничего не добавляется в код сегодня ради Phase-3 backup'а.
