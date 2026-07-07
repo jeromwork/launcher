@@ -37,6 +37,7 @@
 | [TASK-111](../../backlog/tasks/task-111%20-%20Decision-Signed-upload-tokens-quotas-abuse-response.md) | Signed upload tokens + quotas | Draft (Deferred) | Cloudflare R2 presigned URL + DO counter per (pseudonym, resource). 100 MB per identity quota. Формально Deferred — реализация в TASK-11/28 vertical. |
 | [TASK-112](../../backlog/tasks/task-112%20-%20Decision-Cross-platform-IdentityVault.md) | KeyVault port boundary | Draft (2026-07-07) | `KeyVault` port + `Purpose` enum (4 variants) + sealed `VaultException` + `Ciphertext`/`Mac`/`DerivedKeyBytes` newtypes + inband schemaVersion prefix + AutoCloseable zeroize. Sync API (not suspend), Kotlin idiomatic exceptions (not Outcome). Migration path: existing `RootKey.bytes` → internal, `KeyRegistry` → internal helper, `ConfigCipher2` → refactored to consume `KeyVault`. |
 | [TASK-16](../../backlog/tasks/task-16%20-%20Preset-Schema-v2-Wizard-Engine.md) | Wire format evolution discipline | Draft (2026-07-07) | **Reformulated from stale "Preset Schema v2 + Wizard Engine"**. `schemaVersion: String` с Kubernetes-style suffix (`"1-alpha.N"` pre-MVP, `"1"` stable). Two modes / one enforcement point (fitness rule reads suffix). E2E-encrypted formats use Bitwarden first-byte inband; plain-JSON use top-level string field. Skill `checklist-wire-format` extended with bump discipline. Pre-MVP → GA switch = one-time ceremony (git tag + sweep). Preset shape reference short doc в `docs/architecture/INDEX.md`. Applies to all 7 wire formats (Profile / Preset / Recovery blob / Bucket / Ciphertext / QR / Push). |
+| [TASK-58](../../backlog/tasks/task-58%20-%20Research-Signal-Sender-Keys-vs-MLS-for-family-group-E2E.md) | MLS library formal choice | **Done — superseded** (2026-07-07) | Closed as superseded by TASK-104. MLS vs Sender Keys decided in early sessions (MLS chose for post-compromise security). openmls vs mls-rs decided in TASK-104 mentor-session. Formal Decision resides in `docs/architecture/crypto.md` frontmatter with 2026-07-07 evidence anchors (Wire production, Discord DAVE March 2026, RCS adoption, SRLabs 7/8 fixed, UniFFI KMP maturity). Implementation ownership → TASK-2 (F-CRYPTO) + TASK-42 (Family group encryption). |
 
 **Read Decision blocks (English) для machine-readable контракта** — downstream tasks должны иметь `dependencies: [TASK-N]` для этих decisions.
 
@@ -60,9 +61,9 @@
 
 **High** (recommended immediate next):
 
-1. **TASK-58** MLS library choice concrete. Research complete — **openmls chosen** per `docs/architecture/crypto.md` frontmatter (draft-pending). Ждёт формального Decision block с owner sign-off. Small scope, procedural.
-2. **TASK-16 implementation** — wire format discipline (CLAUDE.md rule 5 extension + fitness rule + skill extension + preset shape reference). Decision block закрыт 2026-07-07, готова к `/speckit.specify`. ~1 неделя (skill + docs + fitness rule).
-3. **TASK-112 implementation** — port `KeyVault` реализовать в `core/keys/`. Decision block закрыт 2026-07-07, готова к `/speckit.specify`. ~1 неделя mechanical work.
+1. **TASK-16 implementation** — wire format discipline (CLAUDE.md rule 5 extension + fitness rule + skill extension + preset shape reference). Decision block закрыт 2026-07-07, готова к `/speckit.specify`. ~1 неделя (skill + docs + fitness rule).
+2. **TASK-112 implementation** — port `KeyVault` реализовать в `core/keys/`. Decision block закрыт 2026-07-07, готова к `/speckit.specify`. ~1 неделя mechanical work.
+3. **TASK-2 implementation** — F-CRYPTO Core crypto module foundation (openmls integration через UniFFI, cargo-ndk build, adapter). Formal MLS library choice confirmed 2026-07-07 в crypto.md frontmatter. ~32-49 часов к emulator smoke.
 
 **Medium** (deferred, physical/platform-dependent):
 

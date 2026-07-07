@@ -1,19 +1,58 @@
 ---
 id: TASK-58
 title: 'Research: Signal Sender Keys vs MLS for family group E2E'
-status: Draft
+status: Done
 assignee: []
 created_date: '2026-06-26 13:56'
+updated_date: '2026-07-07'
 labels:
   - phase-2
   - crypto
   - research
   - server
+  - superseded
 milestone: m-1
 dependencies:
   - TASK-57
 priority: high
 ordinal: 58000
+decision-supersedes: []
+superseded-by: TASK-104
+---
+
+## Closure note (2026-07-07)
+
+**Superseded without formal implementation** — closed by decision decomposition.
+
+Original scope was to compare Signal Sender Keys vs MLS (RFC 9420) and pick a group E2E protocol. Both sub-decisions have been resolved in other places:
+
+1. **MLS vs Signal Sender Keys**: MLS chosen (post-compromise security requirement). Documented in `docs/dev/crypto-mentor-overview.md` (early sessions) and `docs/dev/crypto-topics-handoff.md`. Signal Sender Keys rejected because MVP threat model requires PCS via epoch rotation.
+
+2. **MLS library choice (openmls vs mls-rs vs MLSpp)**: resolved during **[TASK-104](task-104%20-%20Decision-KeyPackage-rate-limit.md)** mentor session 2026-07-02 (KeyPackage rate limit forced the choice — pool cap + dedup + last-resort semantics are openmls-native).
+
+3. **Formal evidence confirmation**: research delivered 2026-07-07 (Session log below). Confirmed openmls choice against current 2026 landscape (Wire production, Discord DAVE March 2026, RCS adoption, SRLabs 7/8 audit findings fixed, UniFFI KMP maturity).
+
+**All findings recorded in** `docs/architecture/crypto.md` frontmatter (mls-library, kotlin-binding, encrypted-keystore components — decision-status: confirmed, decision-task: TASK-104 pointer since actual choice happened there).
+
+**Implementation ownership**:
+- MLS library integration → **TASK-2** (F-CRYPTO Core crypto module foundation).
+- Group encryption using MLS → **TASK-42** (Family group encryption).
+- KeyPackage server-side logic → **TASK-104** implementation.
+
+**Downstream tasks not affected** — they already reference openmls-based decisions via TASK-102/104/108 dependencies.
+
+### Session log 2026-07-07 (research summary)
+
+Deep research delivered by AI covered:
+- Current MLS library landscape (openmls v0.8.1 stable Feb 2025; mls-rs no independent audit; MLSpp Cisco-only; Traderjoe95/mls-kotlin hobby project rejected).
+- Production evidence 2026: Wire ships openmls via core-crypto on Android/iOS/WASM; Discord DAVE (MLS-based voice/video E2EE) production 2026-03-02; RCS adopting MLS via IETF.
+- Rust FFI to Kotlin maturity: Element X Android (matrix-rust-sdk via UniFFI, weekly releases), Wire Android (core-crypto via UniFFI), Firefox mobile (application-services via UniFFI) — all production shipping.
+- SRLabs 2024 audit: 7/8 findings fixed by openmls 0.8.1, 1 Low remaining.
+- Concrete effort estimate for implementation (32-49 hours to green emulator smoke).
+- Exit ramp reality: openmls → mls-rs swap = ~1-2 weeks adapter rewrite (RFC 9420 wire format compatible, but on-disk state library-specific).
+
+Owner reviewed 2026-07-07 and closed task as superseded — implementation ownership belongs to TASK-2 and TASK-42; formal Decision block already lives in TASK-104 + crypto.md frontmatter (per rule 11 «cross-task references only via dependencies»).
+
 ---
 
 ## Description

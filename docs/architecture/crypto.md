@@ -6,25 +6,42 @@ purpose: Crypto layer snapshot — MLS library, KeyPackage management, group enc
 components:
   - id: mls-library
     choice: openmls
+    version-pinned: 0.8.1 (Feb 2025)
     language: Rust
-    license: MIT
-    audit: SRLabs 2024 (8 findings, 1 High, all fixed)
-    decision-task: TASK-58
-    decision-status: research-complete-owner-decision-pending
+    license: MIT + Apache-2.0
+    audit: SRLabs 2024 (8 findings; 7 fixed in 0.7.3/0.8.1, 1 Low remaining, tracked upstream)
+    decision-task: TASK-104
+    decision-status: confirmed (2026-07-07)
     ports: [CryptoPort, GroupPort, KeyPackagePort]
     adapter-location: app/adapters/openmls/
     native-lib-location: app/src/main/jniLibs/*/libopenmls_ffi.so
-    exit-ramp: swap with mls-rs (AWS Labs, same RFC 9420 wire format)
+    exit-ramp: swap with mls-rs (Apache-2.0/MIT, AWS Labs, same RFC 9420 wire format, ~1-2 weeks adapter rewrite)
+    production-references:
+      - Wire (via wireapp/core-crypto on Android, iOS, WASM)
+      - Discord DAVE (voice/video E2EE, production 2026-03-02)
+      - RCS (adopted MLS via IETF, rolling out via carrier stack)
+    rejected-alternatives:
+      - Traderjoe95/mls-kotlin (JVM-only hobby project, no audit, no releases, 1 contributor)
+      - MLSpp (C++ FFI worse than Rust for KMP)
+      - com.wire:core-crypto shortcut (GPL-3 contamination, breaks commercial subscription model)
   - id: kotlin-binding
     choice: UniFFI generated
-    decision-task: TASK-58
-    decision-status: research-complete-owner-decision-pending
+    decision-task: TASK-104
+    decision-status: confirmed (2026-07-07)
     build-tool: cargo-ndk + uniffi-bindgen-kotlin
+    production-references:
+      - Element X Android (matrix-rust-sdk via UniFFI, weekly releases through 2026)
+      - Wire Android (core-crypto via UniFFI)
+      - Firefox mobile (application-services via UniFFI)
     exit-ramp: manual JNI (2-3 weeks rewrite)
+    follow-up-flags:
+      - CI fitness function: uniffi-rs + uniffi-bindgen CLI + generated runtime version lockstep pin
+      - KMP fork (Ubique/Trixnity) lags mainline by ~1 version — budget +8-12h for iOS binding validation at TASK-26 time
+      - Panic-across-FFI: verify UniFFI panic catcher active per release (Rust panic = process abort otherwise)
   - id: encrypted-keystore
     choice: SQLCipher backed openmls storage provider
-    decision-task: TASK-58
-    decision-status: research-complete-owner-decision-pending
+    decision-task: TASK-104
+    decision-status: confirmed (2026-07-07)
     adapter-location: app/adapters/openmls/storage/
     exit-ramp: Room DB + separate Android Keystore for encryption key
   - id: keypackage-pool
@@ -61,7 +78,7 @@ components:
     decision-task: TASK-100
     decision-status: draft
     exit-ramp: HIST-BACKUP-001 (Phase-3+, ~4-6 weeks)
-last-synced: 2026-07-06
+last-synced: 2026-07-07
 ---
 
 # Домен: Крипто
