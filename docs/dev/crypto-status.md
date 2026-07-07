@@ -2,7 +2,21 @@
 
 **Purpose**: короткий "start here" файл для новой сессии AI или нового collaborator'а работающих над крипто-архитектурой проекта. Обновляется вручную после mentor-сессий.
 
-**Last updated**: 2026-07-03.
+**Last updated**: 2026-07-07.
+
+---
+
+## Reading order для fresh AI / new collaborator
+
+1. **This file** (`crypto-status.md`) — TL;DR + priority queue + Recently decided.
+2. **[`docs/architecture/crypto.md`](../architecture/crypto.md)** — authoritative current-state snapshot (frontmatter + сценарии).
+3. **Decision blocks в `backlog/tasks/task-100..114`** — детали каждого архитектурного решения (Discussion history + immutable Decision block).
+4. **Compact archives** (только если onboarding / historical context, ~300 строк total):
+   - [`crypto-mentor-overview.md`](crypto-mentor-overview.md) — ~150 строк novice glossary + preserved rationales.
+   - [`crypto-open-questions.md`](crypto-open-questions.md) — ~80 строк Q-N migration table + 3 remaining open questions.
+   - [`crypto-topics-handoff.md`](crypto-topics-handoff.md) — ~60 строк CANDIDATE resolution + themes 4-10 snapshot.
+
+**Ветка**: `crypto-backlog-migration-pilot`.
 
 ---
 
@@ -10,12 +24,7 @@
 
 1. **Модель работы**: [CLAUDE.md rule 11](../../CLAUDE.md) — architectural decisions живут как backlog-tasks в статусах `Discussion` → `Draft` → `Done` с immutable `### Decision (English, immutable) 🔒` блоками. Cross-task references — только через `dependencies:`.
 2. **Skills**: `mentor` (для Discussion sessions), `backlog-task-format` (формат task'ов), `procedure-decision-drift-check` (walk dependencies).
-3. **Пилотная миграция от legacy SoT-файлов запушена**: см. commit `1ed9c41` (bootstrap) + последующие. Ветка `crypto-backlog-migration-pilot`.
-4. **Legacy files с deprecation banner'ами**:
-   - [`crypto-mentor-overview.md`](crypto-mentor-overview.md) — 1994 строк, incremental migration on touch.
-   - [`crypto-open-questions.md`](crypto-open-questions.md) — register закрытых Q-NN; priority queue актуален.
-   - [`crypto-topics-handoff.md`](crypto-topics-handoff.md) — historical, may reference retired patterns.
-5. **Не создавать новые `docs/dev/*-mentor-overview.md` файлы**. Все architectural decisions — decision-task'и в backlog.
+3. **Не создавать новые `docs/dev/*-mentor-overview.md` файлы**. Все architectural decisions — decision-task'и в backlog.
 
 ---
 
