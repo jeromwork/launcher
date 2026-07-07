@@ -1,7 +1,7 @@
 ---
 id: TASK-112
-title: 'Decision: IdentityVault port boundary — operation-on-vault + narrow export'
-status: Discussion
+title: 'Decision: KeyVault port boundary — operation-on-vault + narrow export'
+status: Draft
 assignee: []
 created_date: '2026-07-07'
 updated_date: '2026-07-07'
@@ -188,5 +188,121 @@ internal class RootKey(internal val bytes: ByteArray)
 
 5. **`DerivedKeyBytes` lifetime** — `AutoCloseable` + `use { }` block?
    - **Bias**: yes, explicit close pattern из age/OpenMLS.
+
+### Session 2 — Decision (owner sign-off 2026-07-07)
+
+Additional research delivered to owner in mentor-mode by chat covering all 5 open questions with concrete library evidence (libsignal, OpenMLS, libsodium, Tink, keyring-rs, Bitwarden EncString, Signal SignalMessage, age Secret<>, RustCrypto zeroize, UniFFI Kotlin bindings, kotlinx.coroutines, JetBrains stdlib guidance).
+
+Additional Session 2 finding — **existing `Outcome<T, E>` sealed class is Rust-in-Kotlin-clothing** (Kotlin stdlib grain = throw + nullable pair; JetBrains discourages `kotlin.Result` for domain modeling; UniFFI Kotlin backend emits throwing methods not sealed Outcome; every referenced Kotlin crypto lib uses exceptions). `Outcome` currently used in 143 files, 358 occurrences, three parallel `Outcome.kt` definitions in `core/keys`, `core/push`, `core/`. Migration deferred to separate task (TASK-113) — not blocking TASK-112 Decision.
+
+### Decision (English, immutable) 🔒
+
+**Port name**: `KeyVault` — chosen over `IdentityVault` / `CryptoOperator` / `KeyBox` / `RootKeyBox`. Rationale: `Vault` conveys guarded storage (Azure KeyVault, HashiCorp Vault, 1Password Vault convention); `Key` scopes to root_key + all derived keys (not just root, not all crypto). Matches project port-naming convention (role, not type; no `Port` suffix — `RemoteStorage`, `ConfigSaver`, `KeyRegistry` precedent).
+
+**Port shape (Kotlin common)**:
+
+```kotlin
+package family.keys.api
+
+interface KeyVault {
+    // Operation-on-vault: 90% cases. Vault internally derives key + performs op.
+    @Throws(VaultException::class)
+    fun aeadSeal(purpose: Purpose, plaintext: ByteArray, aad: ByteArray): Ciphertext
+
+    @Throws(VaultException::class)
+    fun aeadOpen(purpose: Purpose, ciphertext: Ciphertext, aad: ByteArray): ByteArray
+
+    @Throws(VaultException::class)
+    fun mac(purpose: Purpose, message: ByteArray): Mac
+
+    // Narrow export hatch: for external Rust libs (openmls signature key,
+    // snow Noise handshake material) that manage raw material themselves.
+    @Throws(VaultException::class)
+    fun exportDerivedKey(purpose: Purpose, context: ByteArray, length: Int): DerivedKeyBytes
+}
+
+// Q1: Enum for compile-time exhaustiveness. Real Phase 2-3 purposes = 4.
+enum class Purpose {
+    CONFIG,          // ConfigCipher2 AEAD (existing consumer)
+    MLS_SIGNATURE,   // openmls signature key via exportDerivedKey (Phase 3+)
+    NOISE_STATIC,    // snow Noise handshake static key via exportDerivedKey (TASK-67)
+    RECOVERY_BLOB    // Recovery blob wrap (TASK-6 F-5, existing)
+}
+// External purposes (openmls internal HKDF-Expand-Label transcripts) live outside
+// this enum — callers of exportDerivedKey pass raw label bytes via a separate
+// Purpose.External(labelBytes: ByteArray) variant IF the enum is proved
+// insufficient. Not needed today.
+
+// Q3: Sealed exception hierarchy, grouped by nature (not by method).
+// Kotlin idiomatic: try/catch on call site. Same exception class may be
+// thrown from multiple methods (correct — same nature of failure).
+sealed class VaultException(message: String, cause: Throwable? = null)
+    : Exception(message, cause) {
+
+    // Category: hardware / platform
+    class HardwareBackedKeystoreUnavailable(cause: Throwable? = null)
+        : VaultException("hardware keystore not available on this device", cause)
+    class VaultLocked : VaultException("vault requires unlock (passphrase/biometric)")
+
+    // Category: user action
+    class AuthCancelled : VaultException("user cancelled biometric/passphrase prompt")
+
+    // Category: data integrity
+    class CorruptedCiphertext(cause: Throwable? = null)
+        : VaultException("ciphertext MAC verification failed or malformed", cause)
+    class UnsupportedSchemaVersion(val version: Int)
+        : VaultException("ciphertext schemaVersion=$version not supported")
+
+    // Category: programming error (should be caught in tests, not runtime)
+    class UnknownPurpose(val purpose: String) : VaultException("purpose $purpose unknown")
+}
+
+// Q4: schemaVersion in-band (first byte of `bytes`), class exposes parsed getter.
+// Survives serialization to wire (Firestore → future own-server migration transparent).
+// Matches Bitwarden EncString, Signal SignalMessage, MLS RFC 9420, age, JWE convention.
+class Ciphertext(val bytes: ByteArray, val purpose: Purpose) {
+    val schemaVersion: Int get() = bytes[0].toInt() and 0xFF
+}
+
+class Mac(val bytes: ByteArray, val purpose: Purpose)
+
+// Q5: Zeroize-on-close via AutoCloseable + Kotlin `use { }` block.
+// Best-effort on JVM (GC may have copied buffer; documented as such — matches
+// Tink #492 honesty). Prevents accidental key retention in the common case.
+class DerivedKeyBytes(val bytes: ByteArray, val purpose: Purpose) : AutoCloseable {
+    override fun close() { bytes.fill(0) }
+    // TODO(quality-check): heap dump test in built app to verify zeroization scope
+    // (e.g. via JVisualVM after `use { }` exits — check no residual key material).
+}
+```
+
+**Q2 sync/async**: **Sync** default. `suspend` reserved for biometric-gated methods (none exist today). Rationale: every reference lib is sync (Tink Android, AndroidX Security-Crypto, libsignal JNI, libsodium-kmp, OpenMLS). Google Android Keystore guidance: wrap call site in `Dispatchers.IO`, do not lie via `suspend` about I/O vs UI-blocking.
+
+**Purpose whitelist enforcement (Q1)**: enum with 4 variants covers Phase 2-3 reality (was mistakenly documented as 5+ in prior draft including "contacts"/"media" — those are stale KDoc examples, not production purposes; contacts live in Profile bucket, media transformation via TASK-110). If Phase-3+ modules exceed 8-10 purposes → revisit as `Purpose.External(labelBytes)` variant additively.
+
+**Existing code migration (`core/keys/`)**:
+- `RootKey(val bytes: ByteArray)` public class → **internal class** in `family.keys.impl.*`. External code goes through `KeyVault`.
+- `KeyRegistry.derive(stableId, purpose) → DerivedKey` — **remains** as internal helper used by `KeyVault` impl. Its public API status downgraded to `internal`.
+- `ConfigCipher2` — refactored to consume `KeyVault.aeadSeal / aeadOpen` instead of `DerivedKey.bytes`.
+- `KeyRegistry` KDoc — remove stale `"contacts"`, `"media"` examples (they refer to Profile buckets, not vault purposes).
+- **NOT touched in this task**: existing `Outcome<T, E>` return types on other ports. Those migrate via TASK-113.
+
+**Applies to**:
+- All downstream tasks awaiting: TASK-25 (multi-app cohabitation ChainOfTrustVerifier over `KeyVault`), TASK-26 (iOS Keychain adapter of `KeyVault`), TASK-29 (TV uses same Android adapter, zero port changes), TASK-67 (pairing via `exportDerivedKey(Purpose.NOISE_STATIC)`), TASK-11 / TASK-27 / TASK-28 (bucket AEAD via `aeadSeal / aeadOpen`).
+- Future platforms (HarmonyOS NEXT, desktop): new adapter of `KeyVault`, zero changes to domain or downstream tasks.
+
+**Trade-offs**:
+- Enum vs registry (Q1): trades extensibility for compile-time safety. If Phase-3+ hits >10 purposes, upgrade path is additive `Purpose.External(bytes)` variant, not enum→string breaking rewrite.
+- Sync vs suspend (Q2): trades ergonomics (caller wraps in `Dispatchers.IO`) for honest API (no false `suspend` on CPU-bound ops).
+- Sealed exceptions vs Outcome (Q3): trades one-time island-of-exceptions (until TASK-113 migrates rest) for idiomatic Kotlin + zero-friction UniFFI Rust FFI integration.
+- Inband schemaVersion (Q4): trades one byte of ciphertext for wire-safety across storage migrations (Firestore → Cloudflare KV → own PostgreSQL — all transparent).
+- AutoCloseable zeroize (Q5): trades caller discipline (must use `use { }`) for best-effort protection against heap dump leakage.
+
+**Exit ramp**:
+- Enum insufficient for external-lib label bytes → additive `Purpose.External(labelBytes: ByteArray)` variant (~0.5 day). Non-breaking.
+- Sync insufficient because biometric prompt required → add `@Throws(...) suspend fun signWithBiometric(...)` as separate method (~0.5 day). Non-breaking (only new method).
+- Sealed exceptions cause TASK-113 refactor pain → reverse decision Post-TASK-113 by wrapping `KeyVault` throws in `Outcome` at TASK-113 boundary (~1 day). Wire format unchanged.
+- Inband schemaVersion insufficient for cross-scheme evolution (e.g. algorithm bump not just version bump) → follow libsodium precedent, split port method (`aeadSealV2 / aeadSealV3`) instead of version bump (~2-3 days per algorithm).
+- Zeroization insufficient (heap dump test finds leaks) → escalate to native buffer allocation (`sun.misc.Cleaner` or `MemorySegment` in newer JDK) — Phase-4+ work.
 
 <!-- SECTION:DISCUSSION:END -->

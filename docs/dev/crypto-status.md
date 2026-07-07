@@ -35,6 +35,7 @@
 | [TASK-109](../../backlog/tasks/task-109%20-%20Decision-Durable-Objects-concrete-design-security-critical-endpoints.md) | Anti-brute-force / Durable Objects | **Paused** | Own-server phase concrete design. Baseline (TASK-105) уже определила ladder RATE_LIMITER → DO. Осталось: which endpoints classify security-critical + concrete DO schema. |
 | [TASK-110](../../backlog/tasks/task-110%20-%20Decision-Client-side-media-transformation.md) | Client-side media transformation | Draft | WhatsApp pattern: compression + EXIF strip + resize on client, потом encrypt. Server видит только encrypted blob. Preset fields via TASK-16. |
 | [TASK-111](../../backlog/tasks/task-111%20-%20Decision-Signed-upload-tokens-quotas-abuse-response.md) | Signed upload tokens + quotas | Draft (Deferred) | Cloudflare R2 presigned URL + DO counter per (pseudonym, resource). 100 MB per identity quota. Формально Deferred — реализация в TASK-11/28 vertical. |
+| [TASK-112](../../backlog/tasks/task-112%20-%20Decision-Cross-platform-IdentityVault.md) | KeyVault port boundary | Draft (2026-07-07) | `KeyVault` port + `Purpose` enum (4 variants) + sealed `VaultException` + `Ciphertext`/`Mac`/`DerivedKeyBytes` newtypes + inband schemaVersion prefix + AutoCloseable zeroize. Sync API (not suspend), Kotlin idiomatic exceptions (not Outcome). Migration path: existing `RootKey.bytes` → internal, `KeyRegistry` → internal helper, `ConfigCipher2` → refactored to consume `KeyVault`. |
 
 **Read Decision blocks (English) для machine-readable контракта** — downstream tasks должны иметь `dependencies: [TASK-N]` для этих decisions.
 
@@ -42,7 +43,15 @@
 
 ## Currently in Discussion
 
-- **[TASK-112](../../backlog/tasks/task-112%20-%20Decision-Cross-platform-IdentityVault.md)** (Discussion, Session 1 закрыла research 2026-07-07) — IdentityVault port boundary. Split от Q-08 (см. crypto-open-questions.md § Q-08). Session 2 ожидает owner Decision по 5 open questions (purpose whitelist, sync/suspend, error hierarchy, schema-version location, DerivedKeyBytes lifetime). Blocks TASK-25, TASK-26, TASK-29, TASK-67.
+*(нет активных Discussion — TASK-112 закрыта Decision Session 2 2026-07-07, статус → Draft)*
+
+---
+
+## Paused (waiting on trigger)
+
+- **[TASK-107](../../backlog/tasks/task-107%20-%20Decision-Abuse-response-mechanism-legal-minimum.md)** — Abuse response umbrella. Post-MVP, требует legal + product perspective. Blocks TASK-11, TASK-28.
+- **[TASK-109](../../backlog/tasks/task-109%20-%20Decision-Durable-Objects-concrete-design-security-critical-endpoints.md)** — Anti-brute-force / Durable Objects concrete design. Baseline (TASK-105) уже установила ladder RATE_LIMITER → DO. Ждёт owner input.
+- **[TASK-113](../../backlog/tasks/task-113%20-%20Refactor-Outcome-to-sealed-exceptions.md)** — Outcome → sealed exceptions refactor (2026-07-07). Не блокирует TASK-112. Триггер unpause: TASK-58 закрыта + начата implementation TASK-42/TASK-67 (Rust FFI активно используется).
 
 ---
 
@@ -50,9 +59,9 @@
 
 **High** (recommended immediate next):
 
-1. **TASK-112** — IdentityVault port boundary. Discussion started 2026-07-07, Session 2 awaiting owner. Blocks 4 downstream tasks. Small scope, ~1 mentor-session.
-2. **TASK-16** preset schema evolution. Должен интегрировать preset fields из **TASK-103** (`deviceLock` namespace: 5 fields) + **TASK-104** (`mls` namespace: 4 fields) + **TASK-110** (compression profile, EXIF policy) + **TASK-108** (preset-parameterizable quotas для clinic segment). Wire format versioning + roundtrip tests. Small scope, procedural.
-3. **TASK-58** MLS library choice concrete. Research complete — **openmls chosen** per `docs/architecture/crypto.md` frontmatter (draft-pending). Ждёт формального Decision block с owner sign-off. Small scope, procedural.
+1. **TASK-16** preset schema evolution. Должен интегрировать preset fields из **TASK-103** (`deviceLock` namespace: 5 fields) + **TASK-104** (`mls` namespace: 4 fields) + **TASK-110** (compression profile, EXIF policy) + **TASK-108** (preset-parameterizable quotas для clinic segment). Wire format versioning + roundtrip tests. Small scope, procedural.
+2. **TASK-58** MLS library choice concrete. Research complete — **openmls chosen** per `docs/architecture/crypto.md` frontmatter (draft-pending). Ждёт формального Decision block с owner sign-off. Small scope, procedural.
+3. **TASK-112 implementation** — port `KeyVault` реализовать в `core/keys/`. Decision block закрыт 2026-07-07, теперь `/speckit.specify` → `/speckit.plan` → `/speckit.implement`. ~1 неделя mechanical work.
 
 **Medium** (deferred, physical/platform-dependent):
 
