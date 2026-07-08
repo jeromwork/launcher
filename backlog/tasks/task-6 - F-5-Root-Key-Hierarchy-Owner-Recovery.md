@@ -132,11 +132,11 @@ EFFORT: Large (~2-3 weeks).
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 [hand] Upload-half: зашёл через Google + ввёл пароль → recovery blob улетел на Cloudflare Workers KV. DONE 2026-06-30 на Xiaomi 11T (`backup/<firebase-sub>/v1.json` verified). **Cross-device half** (recovery на втором устройстве с тем же паролем) → перенесён в **TASK-57 AC #1**.
+- [x] #1 [hand] Upload-half: зашёл через Google + ввёл пароль → recovery blob улетел на Cloudflare Workers KV. DONE 2026-06-30 на Xiaomi 11T (`backup/<firebase-sub>/v1.json` verified). **Cross-device half** (recovery на втором устройстве с тем же паролем) → перенесён в **TASK-118 AC #1**.
 - [ ] #2 [hand] Забыл пароль — увидел экран Fallback, могу начать с чистого листа без потери Google-аккаунта (single-device manual smoke на Xiaomi 11T).
 - [→ TASK-58 AC #1] #3 [hand] Huawei без Google-сервисов — приложение работает в локальном режиме. **Перенесён в TASK-58** (нет Huawei устройства).
 - [N/A] #4 [hand] Migration со старого варианта шифрования — N/A. MVP, в production никто не пользуется spec-018 ciphertext'ом — мигрировать нечего. Снято.
-- [→ TASK-57 AC #2] #5 [hand] Android Autofill cross-device — **перенесён в TASK-57** (требует два физических устройства).
+- [→ TASK-118 AC #2] #5 [hand] Android Autofill cross-device — **перенесён в TASK-118** (требует два физических устройства).
 - [x] #6 [hand] Документация recovery-flow.md написана простым русским, бабушка-админ может прочитать и понять — DONE (T673 committed 2026-06-29).
 - [x] #7 [auto:deferred-local-emulator] tasks.md 14/14 emulator-gated tasks — все закрыты (T642, T649-T652, T669-T670, T672, T630 N/A).
 - [ ] #8 [auto:deferred-physical-device] tasks.md 5/6 physical-device tasks — закрыты T643, T681, T684, T685; **открыт T682** (Fallback flow smoke on Xiaomi 11T).

@@ -60,11 +60,19 @@ last-synced: 2026-07-08
 
 # Домен: Сервер
 
+> **⚠️ PRE-TASK-57 SNAPSHOT (2026-07-08)**. Этот файл описывает **текущую** модель "умного" Cloudflare Worker'а с TASK-105 zero-trust baseline. Модель будет **переопределена** после закрытия [TASK-57 Zero-Knowledge Server Architecture audit](../../backlog/tasks/task-57%20-%20Zero-Knowledge-Server-Architecture-audit-Article-XX-adoption.md) Decision block.
+>
+> **Что изменится под TASK-57**: сервер видит только opaque blobs + Ed25519 signatures, не строит ACL graph, не понимает eventType / content / ownership relations. Всё membership / history rotation / forward unsharing / push routing — на клиенте. Endpoint contracts (`/v1/keypackage/*`, `/v1/group/*`, `/v1/profile/*` и т.д.) сохраняют HTTP shape, но их **семантика** (какие поля видит сервер, какие opaque) переформулируется.
+>
+> **До закрытия TASK-57 Decision block этот файл — reference snapshot текущего state'а, не canonical target architecture.** Fresh AI сессии должны читать этот файл ВМЕСТЕ с TASK-57 task-файлом чтобы понимать: current → target модель.
+
 <!-- AI-TLDR:BEGIN — READ THIS FIRST. If you can answer the user's question from this block alone, STOP reading further. Deeper sections are for endpoint spec authoring, migration planning, incident response. -->
 
 ## AI TL;DR — серверная система в 40 строк
 
-**Что делает**: транспортный слой для крипто (правило: server видит только encrypted envelopes, никогда plaintext / никогда ключи). Плюс координация concurrent-edits (edit lock) и rate limiting.
+**⚠️ PRE-TASK-57 SNAPSHOT**. TASK-57 audit переопределит модель на zero-knowledge (сервер видит только opaque blobs + Ed25519 signatures). См. banner выше и [TASK-57 task-file](../../backlog/tasks/task-57%20-%20Zero-Knowledge-Server-Architecture-audit-Article-XX-adoption.md).
+
+**Что делает** (current model): транспортный слой для крипто (правило: server видит только encrypted envelopes, никогда plaintext / никогда ключи). Плюс координация concurrent-edits (edit lock) и rate limiting.
 
 **Runtime**: Cloudflare Worker (TypeScript), edge-local, free tier. Deploy — `wrangler`. Location: `push-worker/src/index.ts`.
 
@@ -345,6 +353,12 @@ workers/device-lock/       # Go microservice: /v1/lock/*
 
 ## Open questions (pending decisions)
 
+**Foundation** (blocks this whole file):
+- **[TASK-57](../../backlog/tasks/task-57%20-%20Zero-Knowledge-Server-Architecture-audit-Article-XX-adoption.md)** (**Draft**) — Zero-Knowledge Server Architecture audit + Article XX adoption. Переопределяет модель сервера с "умного" (текущая, описана здесь) на "opaque blob store с Ed25519 signatures". Endpoint contracts сохраняют HTTP shape, но семантика (что сервер видит vs что opaque) изменится. Blocks TASK-59, TASK-60. **Триггер**: `/speckit.specify` можно запускать сейчас.
+- **[TASK-59](../../backlog/tasks/task-59%20-%20Research-Recovery-vault-anti-brute-force-counter-—-SVR-vs-OPAQUE-vs-simple-HMAC.md)** (**Draft**) — Recovery vault anti-brute-force research (SVR vs OPAQUE vs simple HMAC). Определяет server-side counter design для recovery vault. Depends TASK-57.
+- **[TASK-60](../../backlog/tasks/task-60%20-%20Research-Push-payload-encryption-FCM-4KB-constraint.md)** (**Draft**) — Push payload encryption + FCM 4KB constraint research. Определяет push wire format (data-only messages, receiver decrypt). Depends TASK-57.
+
+**Specific endpoints**:
 - **[TASK-109](../../backlog/tasks/task-109%20-%20Decision-Durable-Objects-concrete-design-security-critical-endpoints.md)** (**Paused**) — Concrete Durable Object schema для anti-brute-force. Baseline (TASK-105) declared ladder RATE_LIMITER → DO. Осталось: which endpoints classify security-critical + concrete DO schema (counter shape, TTL, key derivation). **Триггер unpause**: начало implementation первого TASK-105 endpoint'а.
 - **[TASK-107](../../backlog/tasks/task-107%20-%20Decision-Abuse-response-mechanism-legal-minimum.md)** (**Paused**) — Abuse response umbrella. Post-MVP: arbitration + open/closed groups + auto-detection. Blocks TASK-11, TASK-28. Требует legal + product perspective. **Триггер**: MVP-close момент / первый paying customer.
 - **[TASK-106](../../backlog/tasks/task-106%20-%20Decision-Sybil-resistance-and-signup-gate.md)** (**Discussion**) — Identity signup gate. Влияет на `POST /v1/identity/register`.
@@ -376,5 +390,6 @@ workers/device-lock/       # Go microservice: /v1/lock/*
 
 | Дата | Изменение |
 |---|---|
+| 2026-07-08 | v1.2 — добавлен PRE-TASK-57 SNAPSHOT banner (top of file + inside AI TL;DR). TASK-57/59/60 добавлены в Open questions § Foundation. Fresh AI сессии теперь знают что этот файл = current state, TASK-57 переопределит модель. |
 | 2026-07-08 | v1.1 — добавлен AI TL;DR block (~40 строк). Symmetric с crypto.md. |
 | 2026-07-08 | v1 — initial snapshot. Собран из TASK-105 baseline + crypto-relevant endpoints (TASK-102/103/104/108/111) + INDEX.md registry rows + migration path из server-roadmap.md. |
