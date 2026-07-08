@@ -976,3 +976,62 @@ JWT verification (Firebase ID-token validation) extracted в standalone TypeScri
 - [AWS Nitro Enclaves Attestation](https://docs.aws.amazon.com/enclaves/latest/user/nitro-enclave-concepts.html) — hardware attestation.
 - [GCP Confidential VMs](https://cloud.google.com/confidential-computing/confidential-vm/docs/about-cvm) — alternative.
 - [Signal — Sealed Sender](https://signal.org/blog/sealed-sender/) — metadata protection pattern (relevant к field-level encryption).
+
+## SRV-OPAQUE-TOKENS-001: Opaque token store for cross-app handoff (mentor session 2026-07-08)
+
+**Контекст**: обсуждение launcher-anchored spoke app onboarding (будущий TASK-115). Владелец подчеркнул: сервер **не должен знать содержимое handoff'а** между launcher'ом и spoke app'ом (мессенджер, фотоальбом). Роль сервера — минимально opaque bank: сохранить факт «был issued token X, действителен до T, single-use», проверить при redeem'е.
+
+**Требование к серверу (zero-knowledge invariants)**:
+
+1. **Store endpoint**:
+   ```
+   POST /v1/opaque-tokens/store
+   Authorization: Bearer <launcher_JWT>
+   Body: { "token_id": "<32 bytes hex, client-generated>", "ttl_seconds": 900 }
+   ```
+   - Rate limit per identity (не более N tokens/hour).
+   - Records: `{ token_id, issued_by: launcher_identity_id, expires_at, redeemed: false }`.
+   - **Не хранит**: содержимое handoff'а, target app_id, никакой семантики.
+
+2. **Redeem endpoint** (unauthenticated — spoke app ещё не в системе):
+   ```
+   POST /v1/opaque-tokens/redeem
+   Body: { "token_id": "<hex>" }
+   ```
+   - Returns: `{ valid: true, issued_by: launcher_identity_id }` если token существует, не истёк, не redeemed.
+   - Sets `redeemed = true` (single-use).
+   - Returns `{ valid: false }` иначе.
+
+3. **What server sees**:
+   - Authenticated identity создаёт opaque tokens (кто и когда).
+   - Некто redeem'ит tokens (без auth).
+   - Timing: token issued at T1, redeemed at T2.
+
+4. **What server does NOT see**:
+   - Содержимое handoff'а (encrypted client-side через sealed_box для spoke app's public key, доставляется через Play Install Referrer вне server visibility).
+   - Какой spoke app redeem'ит (не требуем app_id в redeem запросе).
+   - Отношение между tokens (batching / correlation resistance при rate limit).
+
+5. **Storage tier**: Cloudflare KV с TTL (auto-expiry). Не Durable Object — не нужна strong consistency (single-use redemption tolerable через optimistic check-then-set в KV).
+
+**Zero-trust baseline (TASK-105) compliance**:
+- Store: JWT verify, rate limit, input validation (`token_id` = 64 hex chars, `ttl_seconds` ≤ 900), idempotent (retry с тем же token_id — 409 conflict).
+- Redeem: без JWT (`[public]` justified — spoke app до redeem'а не имеет identity в нашей системе), rate limit per IP + per token_id (anti-brute-force для guessing token_id).
+
+**Metadata leakage assessment**:
+- Сервер видит паттерн «launcher X часто создаёт opaque tokens» — слабая signal.
+- **Не видит** какое приложение установлено, кому предназначен handoff, что внутри.
+- Considered acceptable для family threat model. Enterprise / clinic threat model — future review.
+
+**Migration path**:
+- Cloudflare Worker MVP — 1-2 дня implementation.
+- Own Go microservice — ~1 неделя (JWT verify + KV-like storage tier + rate limit).
+
+**Trigger**: активация TASK-115 (launcher-anchored spoke app onboarding) с реальной implementation. До тех пор — spec-only, не блокирует MVP приложения.
+
+**Cross-references**:
+- Consumer: будущий TASK-115.
+- Related: [TASK-105](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md) zero-trust baseline.
+- Related: [TASK-108](../../backlog/tasks/task-108%20-%20Decision-Metadata-privacy-what-server-sees.md) metadata privacy T0 tier.
+
+**Источник**: 2026-07-08 mentor-сессия про cross-app trust bootstrap.
