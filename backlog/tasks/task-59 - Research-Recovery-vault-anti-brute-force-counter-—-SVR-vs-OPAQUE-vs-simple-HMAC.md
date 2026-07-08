@@ -22,6 +22,8 @@ ordinal: 59000
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 
+> **SUPERSEDED (2026-07-08) by TASK-57 + `docs/dev/server-log.md`**. Владелец принял решение: отдельные server-research-task'и в launcher-репо не создаём. Server-thinking живёт **внутри** feature-task'а, которая до сервера коснулась (здесь — TASK-6 Root Key Hierarchy / TASK-21 Recovery). Research-scope этой task'и перенесён в [`docs/dev/server-log.md` Part B → Q-1 (Recovery vault anti-brute-force)](../../docs/dev/server-log.md). Deep research по трём подходам (SVR / OPAQUE / simple HMAC) произойдёт когда TASK-6 или TASK-21 берётся в работу — прогонит skill `checklist-zero-knowledge-server`, обновит server-log.md Part A с выбранным подходом. Эту карточку не удаляем — историческая справка о том, что вопрос был surfaced 2026-06-26.
+
 ## Что это простыми словами
 
 Recovery vault = зашифрованный root key пользователя, лежит на сервере, открывается через passphrase. Без anti-brute-force защиты атакующий может бесконечно подбирать passphrase (4-6 цифр) локально → взлом. Counter **должен** быть server-side, иначе обходится через Clear App Data / factory reset / root.

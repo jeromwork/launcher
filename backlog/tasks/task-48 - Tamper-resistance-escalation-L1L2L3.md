@@ -22,6 +22,9 @@ ordinal: 48000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+
+> **TASK-57 revisit (2026-07-08)**: концепция проверена против CLAUDE.md rule 13 (zero-knowledge server posture). **Rule 13 не пересекается** — TASK-48 про client-side attestation (Play Integrity / SafetyNet / R8 obfuscation) для защиты APK от modification, не про server-side visibility. Rule 12 (zero-trust) уже покрывает server-side JWT validation (L1). Task остаётся в parking-lot (m-4) с priority Low до появления abuse evidence через TASK-15 telemetry. Sketch TASK-57 предполагал возможный close/reset — не требуется.
+
 ## Что это простыми словами
 
 Эскалация anti-tamper защиты подписки (TASK-15) с уровня L1 (server JWT validation) до L2 (Play Integrity API) и L3 (SafetyNet + custom obfuscation). Активируется если статистика покажет abuse через модифицированные APK.

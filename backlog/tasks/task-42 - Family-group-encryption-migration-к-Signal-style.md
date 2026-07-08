@@ -4,7 +4,7 @@ title: Family group encryption migration к Signal-style
 status: Draft
 assignee: []
 created_date: '2026-06-23 05:44'
-updated_date: '2026-06-23 06:35'
+updated_date: '2026-07-08 11:02'
 labels:
   - phase-5
   - l-spec
@@ -15,7 +15,7 @@ labels:
 milestone: m-4
 dependencies:
   - TASK-4
-priority: low
+priority: high
 ordinal: 42000
 ---
 

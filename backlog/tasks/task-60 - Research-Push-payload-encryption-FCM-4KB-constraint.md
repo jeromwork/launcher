@@ -20,6 +20,8 @@ ordinal: 60000
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 
+> **SUPERSEDED (2026-07-08) by TASK-57 + `docs/dev/server-log.md`**. Владелец принял решение: отдельные server-research-task'и в launcher-репо не создаём. Server-thinking живёт **внутри** feature-task'а, которая до сервера коснулась (здесь — TASK-27 Messenger / TASK-31 Caregiver invite / любой future push-emitting endpoint). Research-scope этой task'и перенесён в [`docs/dev/server-log.md` Part B → Q-2 (Push payload encryption + FCM 4KB)](../../docs/dev/server-log.md). Deep research по overflow patterns (split vs fetch-trigger) и FCM metadata visibility произойдёт когда первый push-emitting endpoint берётся в работу. Эту карточку не удаляем — историческая справка о том, что вопрос был surfaced 2026-06-26.
+
 ## Что это простыми словами
 
 Под zero-knowledge моделью push payload **должен быть зашифрован** (сервер не должен видеть eventType типа «config-updated» или «sos-triggered»). FCM имеет жёсткий лимит **4KB** на payload. Простой replay attack защиты тоже надо проектировать.
