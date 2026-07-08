@@ -138,6 +138,35 @@ Launcher — лишь **interface surface**. Ядро продукта: забо
 
 ---
 
+## Watch list — тренды которые отслеживаем без коммитмента
+
+Добавлено 2026-07-07 per crypto audit. Это **не roadmap**, а **радар** — вещи, которые проверяем раз в квартал, чтобы вовремя реагировать. Не блокирует MVP.
+
+### MLS at scale — pre-clinic gate (item #7, Тема 7)
+
+**Что отслеживаем**: MLS overhead для 100-member группы (clinic use case: 20 patients × 5 caregivers).
+- Bandwidth Welcome message при join в большую группу.
+- Epoch counter overflow (~4B commits — не проблема практически, но осведомлённость).
+- Cross-group operations («выбрать контакт из семейной группы для добавления в клиническую»).
+
+**Триггер validation**: перед первым clinic-preset paying customer или перед enterprise sales conversation. До этого — family scale 5-7 работает out-of-the-box с openmls.
+
+**Where to look**: openmls issue tracker, MLS WG interop tests, Wire performance benchmarks (public reports).
+
+### Decentralized transport — long-term substitution (item #8, CANDIDATE-9)
+
+**Что отслеживаем**: возможность заменить Cloudflare Worker + Firestore на **decentralized** transport, если vendor lock-in станет реальной проблемой.
+
+- **Nostr / Marmot** (Quartz KMP) Q4 2026 — единственный KMP-native MLS если созреет.
+- **Iroh + p2panda-encryption** — future decentralized transport.
+- **Matrix federation** — proven pattern, но overhead для наших use cases.
+
+**Триггер evaluation**: (a) Cloudflare pricing change, ломающий unit economics; (b) regulatory pressure на centralized providers в конкретных регионах; (c) появление production-ready KMP-native MLS library с audit.
+
+**Where to look**: Nostr NIPs, Iroh releases, p2panda spec, KMP MLS libraries state (annual audit).
+
+---
+
 ## Связь с другими документами
 
 - **Use-cases и D-вопросы**: [`docs/product/use-cases/`](use-cases/README.md) — обязательная база для понимания vision.

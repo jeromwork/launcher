@@ -54,6 +54,16 @@ ordinal: 10000
 - App update deferral: SOS блокирует install update пока не отменён.
 - Admin notification handler в TASK-8 Admin App: open map + call action.
 
+**SOS payload wire format decision** (added 2026-07-07 per audit item #6 / Тема 8 / crypto-mentor Блок 7):
+- SOS payload может превышать 4KB FCM limit при inclusion location + optional context.
+- Concept: encrypted payload inline (≤ 2.5KB после base64), fallback = trigger + bucket ref для larger content.
+- **Wire format decision** (`SosPayload` newtype) — required при implementation этой задачи per TASK-16 wire format discipline. Options:
+  - Option A: strict cap ≤ 2.5KB inline, no chunk assembly, location as opaque token.
+  - Option B: chunk assembly (2-3 FCM messages, client re-assembles by `sos_id + chunk_index`).
+  - Option C: trigger-only push, actual payload via bucket sync post-trigger.
+- Decision to be made at `/speckit.specify` time, recorded в spec `contracts/sos-payload-v1.md` (per TASK-16 inband schemaVersion first-byte discipline).
+- Latency-critical: SOS <5s end-to-end (button → admin notification). Chunk assembly adds latency, option A preferred if payload constraints allow.
+
 ## Состояние
 
 **Planned.** Зависит от TASK-7 (Simple Launcher как UI host), TASK-8 (Admin App для recipient), TASK-5 (FCM push transport).

@@ -202,7 +202,6 @@ OUTCOME:
 
 - **Social engineering on peer** — атакующий звонит/пишет peer'у «нажми кнопку recovery». Mitigation: UI peer'а четко показывает контекст («бабушка восстанавливается с устройства <device_label> по email <email>»); тренинг seniors / family education о scams.
 - **Compromised email account** + compromised peer **одновременно** — recovery возможен атакующему. Это **3-фактор атака** (email + PIN + peer device) — высокий threshold, but not impossible. Accepted.
-- **Quantum threat to X25519** — `peer_nonce` zashифрован через `crypto_box_seal` (X25519). При появлении quantum computer'a с практической Shor's algorithm — нужен переход на post-quantum scheme. См. spec 011 §Out-of-scope FR-096 (libsodium upstream).
 
 ---
 

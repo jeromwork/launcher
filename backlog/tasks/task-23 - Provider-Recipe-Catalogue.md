@@ -65,7 +65,7 @@ ordinal: 23000
 
 ## Состояние
 
-**Planned.** Зависит от TASK-16 (P-1 v2 schema — место для `recipeId` в tile).
+**Planned.** Использует wire format discipline из TASK-16 (versioning convention + fitness rule). Поле `recipeId` в tile добавляется при implementation этого task'а (owned здесь, не в TASK-16).
 
 ---
 
@@ -96,7 +96,7 @@ SCOPE НЕ ВКЛЮЧАЕТ:
 - Recipe для приватных apps пользователя — explicitly NOT, только public catalog.
 
 DEPENDENCIES:
-- TASK-16 (P-1 schema v2 с recipeId в tile).
+- TASK-16 (wire format discipline; `recipeId` field added by this task at implementation).
 - TASK-24 (P-9 inventory) — optional, для intersection UX в admin UI.
 
 ACCEPTANCE CRITERIA:

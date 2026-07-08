@@ -16,7 +16,7 @@
 |---|---|---|
 | **API endpoints** | Cloudflare Worker (`launcher-push.<account>.workers.dev`) | Free tier: 100k req/day; vendor lock-in; URL привязан к личному аккаунту |
 | **Push delivery** | FCM через Worker → Firebase Cloud Messaging | Worker stateless; нет persistence между requests |
-| **Auth identity** | Firebase Anonymous Auth | UID сбрасывается при reinstall; нет cross-device identity |
+| **Auth identity** | LOCAL-first identity (`identity_id = hash(root_public)`, [TASK-106](../../backlog/tasks/task-106%20-%20Decision-Sybil-resistance-and-signup-gate.md)) + Google Sign-In lazy при первом cloud action ([TASK-3](../../backlog/tasks/task-3%20-%20F-4-AuthProvider-Google-Sign-In.md)). Firebase Auth = JWT issuer, не identity source. | Firebase JWT verification в Worker'е ([TASK-105](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md) baseline); переезд на own JWT issuer — SRV-BASELINE-002 ниже. |
 | **Rate limiting** | In-memory Map в Worker'е | Сбрасывается при перезапуске instance Worker'а (часто) |
 | **Data validation** | Firestore Security Rules + клиентская логика | Нет server-side transformations; нельзя enforced business rules sans rules.json |
 | **Server-side jobs** | **Нет** — никаких cron, triggers, batch operations | Cleanup (expired pairings, old history) — client-side, ненадёжно |
@@ -51,6 +51,72 @@
 - **Когда поедет:** триггер.
 - **Что должен делать сервер:** конкретика.
 - **Зависимости.**
+
+### SRV-BASELINE (zero-trust posture, [CLAUDE.md rule 12](../../CLAUDE.md) + [TASK-105](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md))
+
+Consolidated non-goals и exit ramps для defense mechanisms, **не** применённых в MVP baseline. Baseline (auth / rate-limit / input validation / observability / failure modes) определён в TASK-105; ниже — что мы **осознанно отложили**.
+
+**SRV-BASELINE-001: Persistent rate-limit tier для normal endpoints.**
+- *Сейчас:* in-memory Map в Worker (Cloudflare RATE_LIMITER binding для normal). Baseline TASK-105 использует free tier — resets on Worker restart, per-instance.
+- *Проблема:* attacker может обходить rate-limit через принудительный restart Worker'а (edge case) или burst из разных Cloudflare edge locations (Cloudflare distributes traffic).
+- *Сервер должен:* Cloudflare Durable Objects или KV для persistent counter (сохраняет state между Worker restart'ами и edge instances).
+- *Когда поедет:* Phase-3+ или при первом abuse incident. TASK-105 baseline даёт «good enough» защиту для MVP.
+- *Exit ramp:* upgrade normal-tier endpoints в RATE_LIMITER → DO ladder (TASK-105 ladder pattern extension).
+
+**SRV-BASELINE-002: Own JWT issuer.**
+- *Сейчас:* Firebase Auth = JWT issuer, Worker verify'ит Firebase JWT через JWKS cache.
+- *Проблема:* vendor lock-in на Firebase Auth; не может независимо issued custom claims (identity_id, delegation state); Firebase Auth pricing scales с MAU.
+- *Сервер должен:* own JWT issuer (Kotlin/Ktor + jose4j или Node/fastify-jwt); Google Sign-In → own JWT exchange endpoint; Google auth token остаётся только для Sign-In verification.
+- *Когда поедет:* при переезде на own backend или при первом billing pain point с Firebase Auth.
+- *Exit ramp:* заменить Firebase JWT verification в Worker'е на own JWKS URL (~1-2 недели).
+
+**SRV-BASELINE-003: Server-side DO для security-critical counters ([TASK-109](../../backlog/tasks/task-109%20-%20Decision-Durable-Objects-concrete-design-security-critical-endpoints.md) Paused).**
+- *Сейчас:* recovery attempts counter + unlock attempt tracker живут in-memory или отсутствуют.
+- *Проблема:* brute-force attacks против recovery blob passphrase не блокируются между Worker restart'ами.
+- *Сервер должен:* concrete DO schema для recovery attempts (per identity, sliding window), unlock attempts (per identity, exponential backoff), TASK-107 abuse report deduplication.
+- *Когда поедет:* когда TASK-109 unpauses и Decision block заполнен.
+- *Exit ramp:* SRV-BASELINE-001 + concrete DO schema per TASK-109.
+
+**SRV-BASELINE-004: Metadata T1 opaque adapters ([TASK-108](../../backlog/tasks/task-108%20-%20Decision-Metadata-privacy-what-server-sees.md)).**
+- *Сейчас:* T0 — `identity_id` visible в URLs, bucket type in path, `groupId` in FCM topic.
+- *Проблема:* metadata visible серверу (social graph, timing patterns, device switches).
+- *Сервер должен:* принимать `OwnerRef = HMAC(root_key, "server-pseudonym")`, `BucketKey = HMAC(root_key, bucket_type)`, `PushTopic = HMAC(exporter_key, "push")` вместо raw identity_id.
+- *Когда поедет:* client-side ports уже opaque (TASK-108 Decision). Server-side migration = adapter swap Worker route handlers (~2-3 недели).
+- *Exit ramp:* T1 = pseudonym HMAC (`SRV-BASELINE-004a`). T2 = VOPRF sealed sender (parked, не MVP).
+
+**SRV-BASELINE-005: Idempotency для state-modifying endpoints.**
+- *Сейчас:* endpoints без explicit idempotency key. Retries могут duplicate operations (обычно idempotent by content but not guaranteed).
+- *Проблема:* client retry loops могут создавать duplicate MLS commits, duplicate KeyPackage registration, duplicate config history entries.
+- *Сервер должен:* idempotency-key header + dedup cache (KV, TTL 24h) для all POST/PUT/DELETE endpoints.
+- *Когда поедет:* при первом incident с duplicate operations в production.
+- *Exit ramp:* Cloudflare KV с idempotency-key → response cache pattern (Stripe-style).
+
+---
+
+### SRV-LEGAL / SRV-BCP / SRV-LOG-RETENTION (added 2026-07-07 per audit item #5, Тема 6 adjacent concerns)
+
+**SRV-LEGAL-001: Government legal request procedure.**
+- *Сейчас:* legal request procedure не документирована. Мы не знаем что можем выдать при получении GDPR / 152-ФЗ / court subpoena.
+- *Что можем выдать (по существующей архитектуре)*: server видит metadata (identity_id, timestamps, IP addresses if not proxied, opaque bucket references, MLS commit sequence). Content — E2E encrypted, декодировать не можем даже под court order. Passphrase — never on server (Argon2id derivation client-side).
+- *Что нужно сделать сервером*: явный legal transparency report template + документированная procedure «что может выдать / что не может» + возможность user'а инициировать account delete с cryptographic proof (encrypted-deletion via wipe recovery blob + revoke MLS group).
+- *Когда поедет*: перед EU release / первым legal inquiry.
+- *Exit ramp*: transparency report page (like Signal / Matrix); Warrant Canary optional.
+
+**SRV-BCP-001: Business continuity — потеря Cloudflare account.**
+- *Сейчас*: Cloudflare Worker + Firestore + FCM = единая vendor-attached stack. Компрометация / банк Cloudflare account = catastrophic (потеря KeyPackage pool, message queue, recovery blobs — если users не имеют local copies).
+- *Проблема*: recovery blobs хранятся в Cloudflare KV → без backup mechanism = complete data loss for users не имеющих active session.
+- *Сервер должен*: (a) periodic export (encrypted) of Cloudflare KV recovery blobs в second storage (Backblaze B2 / R2 / self-hosted S3-compatible); (b) documented recovery procedure для restore из backup; (c) client-side hint при recovery «если backup недоступен, вот путь X».
+- *Когда поедет*: перед 100 paying users или при переезде на own-server (whichever first).
+- *Exit ramp*: multi-vendor storage strategy — SRV-STORAGE-001 расширение (уже есть). Encrypted blob copy pattern.
+
+**SRV-LOG-RETENTION-001: Server-side log retention policy.**
+- *Сейчас*: Cloudflare Worker logs, Firestore audit logs — retention default vendor (90 days Firestore, 3 days Worker). Не документировано что логируется, что нет.
+- *Проблема*: (a) logs могут содержать identity_id + IP + timing = privacy leak если leaked; (b) GDPR требует declared retention period + minimization; (c) court subpoena может требовать log preservation → нужна documented procedure.
+- *Сервер должен*: (a) explicit policy «что логируется» (только error metrics + abuse counters, никаких user identifiers в стандартных logs); (b) log retention 30 days default (configurable per region); (c) legal hold mechanism (при court order — preserve logs beyond retention); (d) user right to log deletion (GDPR Article 17).
+- *Когда поедет*: перед first paying customer / перед EU release.
+- *Exit ramp*: structured logging library (opentelemetry-compatible); log sink to own S3; retention policy как code (rotation job).
+
+---
 
 ### CONFIG SYNC + HISTORY (spec 008 / 009)
 
@@ -186,7 +252,7 @@
   - **Phase 1 — Coexistence**: новые клиенты пишут v2, старые продолжают читать v1. Защита от downgrade: Firestore Rule (FR-028a) + client TOLU (FR-028b) уже работают с дня релиза v2.
   - **Phase 2 — Auto-migration (months)**: новые клиенты при каждом успешном recovery (когда пользователь ввёл passphrase) **автоматически** re-encrypt root key в v2 и записывают обратно. Через несколько месяцев большинство данных мигрированы.
   - **Phase 3 — Deprecation (after ~12 месяцев)**: клиенты v2+ отказываются читать v1, запрашивают forced app update. Min app version повышается в Play Store metadata.
-- *Когда поедет:* когда XChaCha20-Poly1305 или Argon2id будут официально deprecated (или появится post-quantum requirement). Realistically — через 5-10 лет, но spec уже зарезервировал место.
+- *Когда поедет:* когда XChaCha20-Poly1305 или Argon2id будут официально deprecated. Realistically — через 5-10 лет, но spec уже зарезервировал место.
 
 **SRV-CRYPTO-006: Server-side ghost device detection / forward unsharing.**
 - *Сейчас:* удалённый из пары admin теряет доступ к **новым** версиям конфига, но **старые** версии (если они когда-нибудь были) остаются доступны под его ключом. Accepted limitation MVP.
@@ -267,6 +333,36 @@
 **Own-server destination**: authorization logic в обычном коде (typed, debuggable, fully testable).
 
 **Trigger**: первый Rules-related privacy bug → ускоряем переход.
+
+### Governance question — когда именно переезжаем (added 2026-07-08)
+
+Это не блокирует MVP приложения — крипта-архитектура и приложение развиваются независимо. Но чтобы **не пропустить момент**, требуется конкретный сигнал.
+
+**Не решаем сейчас** (нет backlog task — этот вопрос откроется когда команда возьмётся за server-side развитие). Ниже — inputs для будущего decision:
+
+- **Metric candidates** для complexity threshold:
+  - LOC в `firestore.rules` — превысило N (~500? ~1000?).
+  - Cyclomatic complexity одного правила — количество `&&`/`||`/nested `if` больше M.
+  - Depth вложенных `get()` calls — правило читает документ, читающий документ, ... > 3 уровней = red flag.
+  - Количество коллекций покрываемых правилами.
+  - Скорость роста — за квартал добавили > K новых условий или > L rule tests.
+
+- **Event triggers** параллельно с metric:
+  - Первый Rules-related privacy bug в production (уже declared выше).
+  - Rules test coverage упал < 80% (стало нельзя писать тесты быстрее чем правила).
+  - Первый feature, где Rules физически недостаточно (payments, complex sharing, cross-account operations).
+
+- **Migration path** (когда trigger сработал):
+  - Порядок endpoint'ов — от highest attack surface (auth, membership) к простейшим.
+  - **Coexistence period** — как долго Rules + Worker работают параллельно (probably weeks per collection).
+  - **Kill switch** — как быстро откатиться если migration нашла проблему.
+
+- **Governance workflow**:
+  - Кто мониторит metric — CI job раз в неделю? Manual review каждый квартал?
+  - Куда пишется результат мониторинга — новый server-roadmap entry? Отдельный dashboard?
+  - Threshold override — что делать если 90% threshold но нет ресурсов мигрировать?
+
+**Когда решается**: при создании первого server-side backlog task'а (например F-2 Capability Registry или отдельный «Migrate to own server phase 1»). До тех пор — работаем над приложением, крипта-decisions не блокируются этим вопросом.
 
 ## SRV-INFRA-003: Cloudflare Worker CPU time limit
 
@@ -880,3 +976,62 @@ JWT verification (Firebase ID-token validation) extracted в standalone TypeScri
 - [AWS Nitro Enclaves Attestation](https://docs.aws.amazon.com/enclaves/latest/user/nitro-enclave-concepts.html) — hardware attestation.
 - [GCP Confidential VMs](https://cloud.google.com/confidential-computing/confidential-vm/docs/about-cvm) — alternative.
 - [Signal — Sealed Sender](https://signal.org/blog/sealed-sender/) — metadata protection pattern (relevant к field-level encryption).
+
+## SRV-OPAQUE-TOKENS-001: Opaque token store for cross-app handoff (mentor session 2026-07-08)
+
+**Контекст**: обсуждение launcher-anchored spoke app onboarding (будущий TASK-115). Владелец подчеркнул: сервер **не должен знать содержимое handoff'а** между launcher'ом и spoke app'ом (мессенджер, фотоальбом). Роль сервера — минимально opaque bank: сохранить факт «был issued token X, действителен до T, single-use», проверить при redeem'е.
+
+**Требование к серверу (zero-knowledge invariants)**:
+
+1. **Store endpoint**:
+   ```
+   POST /v1/opaque-tokens/store
+   Authorization: Bearer <launcher_JWT>
+   Body: { "token_id": "<32 bytes hex, client-generated>", "ttl_seconds": 900 }
+   ```
+   - Rate limit per identity (не более N tokens/hour).
+   - Records: `{ token_id, issued_by: launcher_identity_id, expires_at, redeemed: false }`.
+   - **Не хранит**: содержимое handoff'а, target app_id, никакой семантики.
+
+2. **Redeem endpoint** (unauthenticated — spoke app ещё не в системе):
+   ```
+   POST /v1/opaque-tokens/redeem
+   Body: { "token_id": "<hex>" }
+   ```
+   - Returns: `{ valid: true, issued_by: launcher_identity_id }` если token существует, не истёк, не redeemed.
+   - Sets `redeemed = true` (single-use).
+   - Returns `{ valid: false }` иначе.
+
+3. **What server sees**:
+   - Authenticated identity создаёт opaque tokens (кто и когда).
+   - Некто redeem'ит tokens (без auth).
+   - Timing: token issued at T1, redeemed at T2.
+
+4. **What server does NOT see**:
+   - Содержимое handoff'а (encrypted client-side через sealed_box для spoke app's public key, доставляется через Play Install Referrer вне server visibility).
+   - Какой spoke app redeem'ит (не требуем app_id в redeem запросе).
+   - Отношение между tokens (batching / correlation resistance при rate limit).
+
+5. **Storage tier**: Cloudflare KV с TTL (auto-expiry). Не Durable Object — не нужна strong consistency (single-use redemption tolerable через optimistic check-then-set в KV).
+
+**Zero-trust baseline (TASK-105) compliance**:
+- Store: JWT verify, rate limit, input validation (`token_id` = 64 hex chars, `ttl_seconds` ≤ 900), idempotent (retry с тем же token_id — 409 conflict).
+- Redeem: без JWT (`[public]` justified — spoke app до redeem'а не имеет identity в нашей системе), rate limit per IP + per token_id (anti-brute-force для guessing token_id).
+
+**Metadata leakage assessment**:
+- Сервер видит паттерн «launcher X часто создаёт opaque tokens» — слабая signal.
+- **Не видит** какое приложение установлено, кому предназначен handoff, что внутри.
+- Considered acceptable для family threat model. Enterprise / clinic threat model — future review.
+
+**Migration path**:
+- Cloudflare Worker MVP — 1-2 дня implementation.
+- Own Go microservice — ~1 неделя (JWT verify + KV-like storage tier + rate limit).
+
+**Trigger**: активация TASK-115 (launcher-anchored spoke app onboarding) с реальной implementation. До тех пор — spec-only, не блокирует MVP приложения.
+
+**Cross-references**:
+- Consumer: будущий TASK-115.
+- Related: [TASK-105](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md) zero-trust baseline.
+- Related: [TASK-108](../../backlog/tasks/task-108%20-%20Decision-Metadata-privacy-what-server-sees.md) metadata privacy T0 tier.
+
+**Источник**: 2026-07-08 mentor-сессия про cross-app trust bootstrap.

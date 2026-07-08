@@ -54,6 +54,15 @@ ordinal: 32000
 - Admin UI: фильтрация по actor / time / type.
 - Retention: 90 дней по умолчанию (configurable per region).
 
+**Public MLS trail visibility** (added 2026-07-07 per audit item #4 / Тема 4 adjacent concern):
+- **MLS commits themselves** уже создают **public trail** — server видит sequence of MLS Add/Remove commits через `authorized_devices` reconciliation (per TASK-102). Это ортогонально audit log:
+  - **MLS commit trail** = server-visible sequence of membership changes (кто добавлен / кем удалён, timestamps). Server видит `identity_id` (T0 per TASK-108) или `pseudonym` (T1 future).
+  - **Audit log (this task)** = application-level structured entries (`action_type`, `target_id`) с encrypted details.
+- **Не дублировать**: audit log должен reference'ить MLS commit (`mlsCommitRef: opaque_id`) для revoke actions, не копировать содержимое.
+- **Consistency**: audit log entry для revoke создаётся **тем же device** что issued MLS Commit (bab's device per TASK-102), в **той же transaction**.
+- **Trade-off**: server видит MLS commit metadata (T0). Migration to T1 (opaque pseudonym) снимает identity leak в MLS trail — captured в TASK-108 exit ramp.
+- **Display names** для audit log UI («Мама Таня изменила config») — через encrypted directory (TASK-114), не plaintext.
+
 ## Состояние
 
 **Planned.** Зависит от TASK-31 (V-6 — нужны caregiver actions для логирования).

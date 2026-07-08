@@ -1,12 +1,19 @@
-# Multi-app Cohabitation + Chain-of-trust Recovery — research notes (P-10 in Phase 3)
+# Multi-app Cohabitation + Chain-of-trust Recovery — research notes (SUPERSEDED)
 
-**Status**: research notes для будущей P-10 спеки в Phase 3. Spec.md ещё не написан, ожидаемый trigger — перед messenger MVP (~2026-11). Номер реальной спеки будет назначен на момент `/speckit.specify`.
+> **⚠️ SUPERSEDED 2026-07-08**. Модель "три варианта B/C/hybrid" в этом файле устарела.
+>
+> **Актуальные task'и**:
+> - [TASK-115](../../../backlog/tasks/task-115%20-%20Decision-Launcher-anchored-spoke-app-onboarding.md) — Family app onboarding chain via Install Referrer (Discussion). Финальная модель: chain of symmetric trusted anchors через Play Install Referrer + sealed_box + opaque server tokens.
+> - [TASK-116](../../../backlog/tasks/task-116%20-%20Iconic-pairing-challenge-component.md) — Iconic pairing challenge component (Discussion).
+> - [TASK-117](../../../backlog/tasks/task-117%20-%20Social-recovery-attestor-infrastructure.md) — Universal attestation mechanism (Discussion).
+>
+> Этот файл сохранён как исторический контекст research-сессии 2026-06-18. Актуальные architectural decisions живут в task-файлах выше и в `docs/architecture/crypto.md § A2`.
 
-См. roadmap §P-10: [`docs/product/roadmap.md`](../roadmap.md).
+**Historical status** (2026-06-18): research notes для будущей P-10 спеки в Phase 3, ожидаемый trigger — перед messenger MVP.
 
 Created 2026-06-18 to lock context от mentor-сессии перед messenger spec. Перенесено сюда из `specs/017-multi-app-cohabitation/README.md` 2026-06-18 (вечер) после того, как номер 017 переназначен на F-4 AuthProvider + Google Sign-In.
 
-**Trigger**: создание полной спеки запускается **до** написания `spec.md` для messenger MVP (планируется ~2026-11 по owner-roadmap). По roadmap'у — после P-9 в Phase 3.
+**Original trigger** (superseded): создание полной спеки запускается **до** написания `spec.md` для messenger MVP.
 
 ---
 

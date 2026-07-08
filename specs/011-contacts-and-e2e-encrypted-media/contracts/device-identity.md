@@ -35,7 +35,7 @@
 | `signature` | `String` (base64 of 64 bytes) | ✓ | ✗ | **NEW в rev. 2** — Ed25519 signature над `{schemaVersion, deviceId, publicKey, signingPublicKey, signedTimestamp}` (canonical CBOR encoding, см. ниже). Created by own Ed25519 priv key. |
 | `createdAt` | `Timestamp` | ✓ | ✓ | server-set on document creation |
 | `updatedAt` | `Timestamp` | ✓ | ✓ | server-set; bumped on key rotation (spec 016) |
-| `algorithm` | `String` | ✓ | ✗ | `"x25519+ed25519"`. Forward-compat для post-quantum keys (~spec 020+). |
+| `algorithm` | `String` | ✓ | ✗ | `"x25519+ed25519"`. Forward-compat под будущую смену алгоритмов. |
 | `revokedAt` | `Timestamp?` | ✗ | ✗ | Set by owner on manual revoke (e.g. compromise suspicion). Readers MUST treat such device as no-encrypt target. |
 
 ---
