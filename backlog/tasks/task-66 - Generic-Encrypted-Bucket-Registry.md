@@ -42,7 +42,7 @@ references:
 
 1. **Multi-recipient резольвер уже реальный, не заглушка.** Функция «кому шифровать» уже смотрит на список моих устройств и всех «grant-holders» (кому я дал доступ). Когда TASK-67 (Pairing) допишет запись access-grant при спаривании, admin автоматически начнёт видеть шифрованные данные бабушки без каких-либо изменений в `core/keys`.
 2. **Firestore сегодня видит ключи в plaintext** (например, `/users/uid/data/config/default`) — это по факту утечка «здесь лежит конфиг». Не блокер MVP, но крючок на будущее оставлен как inline TODO в `RemoteStorage.kt`. Переход на opaque-хеши в будущем — **не** wire-format break, изменение только внутри caller'ов.
-3. **Recover-all на новом устройстве** — недостающий helper на ~20 строк (list + get всех своих). Не отдельная фича, попадёт в TASK-6 tail либо в TASK-57 (cross-device recovery на двух устройствах).
+3. **Recover-all на новом устройстве** — недостающий helper на ~20 строк (list + get всех своих). Не отдельная фича, попадёт в TASK-6 tail либо в TASK-118 (cross-device recovery на двух устройствах).
 4. **Push уже event-driven.** `PushHandlerRegistry` + типизированные events лучше, чем «тупой wakeup», который предполагала эта задача.
 
 ### Что осталось в этом PR
@@ -502,7 +502,7 @@ TASK-66 closed 2026-07-01 as **resolved-by-existing-code**. Two `/speckit.clarif
 
 Residual open questions surfaced during clarify are routed to their proper owners:
 - **Access-grant creation** (missing bridge between pairing and multi-recipient encryption) → TASK-67 (Pairing).
-- **Recover-all helper** (~20 lines: list + get each) → TASK-6 tail or TASK-57.
+- **Recover-all helper** (~20 lines: list + get each) → TASK-6 tail or TASK-118.
 - **Grant scope granularity** → future evolution when the scenario surfaces.
 - **Opaque server-blind keys** → inline TODO in `RemoteStorage.kt`, not scheduled.
 

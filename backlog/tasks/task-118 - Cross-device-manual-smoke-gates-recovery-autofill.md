@@ -1,10 +1,10 @@
 ---
-id: TASK-57
+id: TASK-118
 title: Cross-device manual smoke gates (recovery + autofill + future)
 status: Draft
 assignee: []
 created_date: '2026-06-30 08:30'
-updated_date: '2026-06-30 08:45'
+updated_date: '2026-07-08'
 labels:
   - verification
   - cross-device
@@ -14,8 +14,10 @@ milestone: m-0
 dependencies:
   - TASK-6
 priority: high
-ordinal: 57000
+ordinal: 118000
 ---
+
+> **Renumbered 2026-07-08 from TASK-57 → TASK-118**. Was ID collision с [TASK-57 Zero-Knowledge Server Architecture audit](task-57%20-%20Zero-Knowledge-Server-Architecture-audit-Article-XX-adoption.md) (2026-06-26 task). Both files had same id: TASK-57 в frontmatter. Renamed this file (created later, 2026-06-30) to next free number.
 
 ## Description
 
