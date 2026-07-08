@@ -1,9 +1,10 @@
 ---
 id: TASK-57
-title: Zero-Knowledge Server Architecture audit + Article XX adoption
-status: Draft
+title: Zero-Knowledge Server Architecture audit + CLAUDE.md rule 13 adoption
+status: Done
 assignee: []
 created_date: '2026-06-26 13:53'
+updated_date: '2026-07-08 10:00'
 labels:
   - phase-2
   - architecture
@@ -18,6 +19,8 @@ ordinal: 57000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+
+> **Revision note (2026-07-08)**: изначально sketch предлагал «Article XX/XXI в constitution.md». Пересмотрено с владельцем 2026-07-08: правило про сервер — **архитектурный invariant**, не продуктовый/процессный. Место — **CLAUDE.md rule 13** (parity с rule 12 zero-trust, rule 1 domain isolation). Constitution.md не трогаем. Разделы «Article XX — draft содержания» и «Готовый промт для /speckit.specify» ниже — historical sketch, читать с учётом этой revision. Также владелец принял решение: TASK-57 идёт **без speckit-нотации** — фичи не пишем, только docs + skill + audit; работаем прямо по AC #1-9.
 
 ## Что это простыми словами
 
@@ -382,13 +385,47 @@ EFFORT
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Article XX «Zero-Knowledge Server Architecture» добавлен в .specify/memory/constitution.md с тремя принципами (Sealed Server Default, Client Coordinates Server Stores, Opaque Identifiers Everywhere)
-- [ ] #2 checklist-zero-knowledge-server skill создан в .claude/skills/ и зарегистрирован в procedure-assess-spec-complexity
-- [ ] #3 server-requirements.md v2 перепроверен на корректность — каждый Tier 0/1/2 endpoint обоснован industry pattern reference (Signal/MLS/Tresorit/Bitwarden) с актуальными ссылками
-- [ ] #4 client-requirements-for-zero-knowledge-server.md перепроверен — C1-C20 deltas покрывают все endpoints из server-requirements.md, нет дыр
-- [ ] #5 audit backlog: каждый из 🟡/🔴 task-ов получил пометку в description о необходимости pre-spec design review против Article XX
-- [ ] #6 ADR-008 social recovery помечен «superseded by zero-knowledge model» без удаления исторического контекста
-- [ ] #7 TASK-42 Family group encryption Signal-style priority поднят с LOW до HIGH (foundation для TASK-27/28/30/32/46)
-- [ ] #8 TASK-48 Tamper-resistance L1+L2+L3 концепция пересмотрена или закрыта
-- [ ] #9 docs/dev/server-roadmap.md журнал содержит запись 2026-06-26 о принятии Article XX
+- [x] #1 [hand] CLAUDE.md rule 13 «Zero-knowledge server posture» добавлен (3 принципа: Sealed Server Default, Client Coordinates Server Stores, Opaque Identifiers Everywhere) + refuse patterns 21-28 в топ-level списке. Constitution.md НЕ трогается — правило архитектурное, не продуктовое; parity с rule 12 (zero-trust)
+- [x] #2 [hand] checklist-zero-knowledge-server skill создан в .claude/skills/ (11 principles-based CHK items + server-log update procedure + refuse pattern citing rules 21-28); зарегистрирован в procedure-assess-spec-complexity (одновременно добавлена пропущенная строка checklist-server-hardening)
+- [x] #3 [hand] server-requirements.md v2 assumption-level banner добавлен; open questions 1-5 вынесены в server-log.md Part B как Q-9/Q-10/Q-11/Q-12 (Q-4 sealed-at-rest merged в existing Q-3). Deep production-reference validation deferred в момент feature-spec'и через skill
+- [x] #4 [hand] client-requirements-for-zero-knowledge-server.md assumption-level banner добавлен; open questions 1-5 вынесены как Q-13/Q-14/Q-15/Q-16 (Q-3 push 4KB merged в existing Q-2). Deep C1-C20 validation deferred аналогично
+- [x] #5 [hand] audit backlog: 43 task'а классифицированы safe/at-risk/needs-reset в server-log.md Part A entry A-7 (backlog audit table). Skill автоматически перепрогонит каждый при взятии в работу вместо per-task description-патчей (экономит hand-work + всё равно проверит формально)
+- [x] #6 [hand] ADR-008 social recovery помечен ⚠ SUPERSEDED banner'ом со ссылками на server-log.md Q-1/Q-13/Q-16. Исторический контекст сохранён — вернуться при multi-device-recovery spec
+- [x] #7 [hand] TASK-42 Family group encryption Signal-style priority поднят LOW → HIGH через `backlog task edit`
+- [x] #8 [hand] TASK-48 revisit прошёл: rule 13 не пересекается (client-side attestation, не server visibility). Revision note добавлена в description. Task остаётся parking-lot до abuse evidence через TASK-15 telemetry — концепция не reset
+- [x] #9 [hand] docs/dev/server-roadmap.md журнал содержит запись 2026-07-08 о принятии CLAUDE.md rule 13 + server-log.md как накопителя + SUPERSEDED TASK-59/60/ADR-008
+- [x] #10 [hand] docs/dev/server-log.md создан со структурой (Part A confirmed patterns / Part B open questions / Part C contradictions + Journal + rules консистентности). Part A = 6 patterns (Sealed default / Client coordinates / Opaque IDs / Client history rotation / Push forwarding / Zero-trust orthogonal). Part B = 16 open questions
+- [x] #11 [hand] TASK-59, TASK-60 помечены SUPERSEDED в description с ссылкой на Q-1 (recovery vault) и Q-2 (push 4KB) в server-log.md. Статус оставлен Draft (backlog не имеет статуса Superseded; ставить Done семантически неверно — работа перенесена, не сделана). TASK-58 не про сервер (Huawei non-GMS smoke gates) — не трогается
 <!-- AC:END -->
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+
+## Final Summary
+
+**Что сделано** (branch `task-57-zero-knowledge-server-audit`, 2026-07-08):
+
+1. **CLAUDE.md rule 13** «Zero-knowledge server posture» добавлен ([CLAUDE.md#L261](../../CLAUDE.md#L261)) с тремя принципами (Sealed Server Default / Client Coordinates Server Stores / Opaque Identifiers Everywhere), reference architecture, server-log accumulator, skill enforcement, cross-refs. Constitution.md **не** трогается — правило архитектурное (parity с rule 12 zero-trust), не продуктовое.
+2. **Refuse patterns 21-28** добавлены в CLAUDE.md.
+3. **Skill [`checklist-zero-knowledge-server`](../../.claude/skills/checklist-zero-knowledge-server/SKILL.md)** создан: 11 CHK items (Principle 1/2/3 + wire format + server-log accumulator + non-goals) + server-log update procedure + refuse pattern citing rules 21-28.
+4. **`procedure-assess-spec-complexity`** обновлён — добавлены **две** строки: пропущенный `checklist-server-hardening` (rule 12) и новый `checklist-zero-knowledge-server` (rule 13).
+5. **[`docs/dev/server-log.md`](../../docs/dev/server-log.md)** — новый накопитель:
+   - Part A = 7 confirmed patterns (Sealed default / Client coordinates / Opaque IDs / Client history rotation / Push forwarding / Zero-trust orthogonal + backlog audit table на 43 tasks).
+   - Part B = 16 open questions (Q-1..Q-16, аккумулированные из superseded TASK-59/60 + V2 sketch open questions + пересечений с TASK-104/105/108).
+   - Part C = empty.
+   - Journal + правила консистентности + skill update procedure.
+6. **Source docs** ([`server-requirements.md`](../../docs/dev/server-requirements.md), [`client-requirements-for-zero-knowledge-server.md`](../../docs/dev/client-requirements-for-zero-knowledge-server.md)) — assumption-level banner в начале со ссылкой на server-log.md.
+7. **[`docs/dev/server-roadmap.md`](../../docs/dev/server-roadmap.md)** — journal entry 2026-07-08.
+8. **[ADR-008](../../docs/adr/ADR-008-social-recovery-architecture.md)** помечен ⚠ SUPERSEDED banner'ом со ссылками на server-log.md Q-1/Q-13/Q-16 (helper graph переработан на client-coordinated).
+9. **TASK-42** priority LOW → HIGH через `backlog task edit`.
+10. **TASK-48** revisit прошёл; rule 13 не пересекается; task остаётся parking-lot (revision note добавлена).
+11. **TASK-59, TASK-60** SUPERSEDED banners в description; статус Draft оставлен (backlog не имеет "Superseded"; Done семантически неверно — работа перенесена).
+
+**Не сделано в этой task'е** (по договорённости с владельцем):
+- Deep production-reference validation каждого V2 endpoint — deferred, происходит в момент feature-spec'и через skill.
+- Реализация server-side C1-C20 client components — отдельные feature-tasks.
+- Speckit-нотация (`/speckit.specify`) — не применялась, так как TASK-57 = docs + skill + audit, не production code.
+- Article XX/XXI в constitution.md — не создан, правило живёт в CLAUDE.md как rule 13 (архитектурное, не продуктовое).
+
+**Key mechanism established** — «fast filter (skill) + memory (server-log.md) + deep research по триггеру». Каждая future feature-task, касающаяся сервера, автоматически прогонит `checklist-zero-knowledge-server`, зафиксирует decisions в Part A либо questions в Part B, никаких дополнительных research-task'ов в этом репо не плодит. Когда придёт время строить own-server (отдельный repo per rule 8) — server-log.md = входной context.
+
+<!-- SECTION:FINAL_SUMMARY:END -->

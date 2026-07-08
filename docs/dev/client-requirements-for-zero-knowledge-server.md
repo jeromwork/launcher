@@ -1,10 +1,17 @@
 # Client Requirements — что добавить в launcher для zero-knowledge сервера
 
+> **⚠️ ASSUMPTION-LEVEL SKETCH (reviewed 2026-07-08 in TASK-57)**. Этот документ — draft уровня «direction», не «finalised specification». C1-C20 client components — sketch shape, not verified port contracts. Effort estimates (Low/Medium/High) — best-guess, real numbers появятся в момент конкретной feature-task'и. Deep validation каждого component'а произойдёт когда соответствующая feature-task (TASK-6 recovery → C18, TASK-27 messenger → C2/C3/C8, TASK-102 → C20, etc.) берётся в работу через skill [`checklist-zero-knowledge-server`](../../.claude/skills/checklist-zero-knowledge-server/SKILL.md). Открытые вопросы (5 штук в секции «Открытые вопросы» ниже + пересечения с server-requirements) вынесены в [`docs/dev/server-log.md` Part B](server-log.md) как Q-13..Q-16 (multi-device / group size / atomic keyring / self-state backup) + перекрёстные Q-2 (push 4KB). TASK-57 review не переписал этот документ — только промаркировал assumption-level и вынес questions в накопитель.
+>
+> **Не путать с**:
+> - [`docs/dev/server-requirements.md`](server-requirements.md) — парный server-side sketch (тоже assumption-level).
+> - [`docs/dev/server-log.md`](server-log.md) — растущий накопитель confirmed patterns + open questions + contradictions.
+> - [`docs/architecture/client-android.md`](../architecture/client-android.md) — current-state architecture snapshot (skeleton).
+
 **Назначение**: парный документ к [server-requirements.md](server-requirements.md). Перенос логики со «smart server» на «sealed server» означает, что **клиент берёт на себя** то, что раньше делал сервер. Этот файл — список **delta'ов** для launcher-клиента.
 
 **Принцип**: zero-knowledge сервер работает только если клиент достаточно умный. Сервер — тупой storage; клиент — координатор всех бизнес-операций.
 
-**Snapshot date**: 2026-06-26.
+**Snapshot date**: 2026-06-26 (initial) / 2026-07-08 (assumption-level review TASK-57).
 
 **Связь**:
 - [server-requirements.md](server-requirements.md) — то, что сервер делает (минимум).
