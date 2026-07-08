@@ -60,6 +60,55 @@ last-synced: 2026-07-08
 
 # Домен: Сервер
 
+<!-- AI-TLDR:BEGIN — READ THIS FIRST. If you can answer the user's question from this block alone, STOP reading further. Deeper sections are for endpoint spec authoring, migration planning, incident response. -->
+
+## AI TL;DR — серверная система в 40 строк
+
+**Что делает**: транспортный слой для крипто (правило: server видит только encrypted envelopes, никогда plaintext / никогда ключи). Плюс координация concurrent-edits (edit lock) и rate limiting.
+
+**Runtime**: Cloudflare Worker (TypeScript), edge-local, free tier. Deploy — `wrangler`. Location: `push-worker/src/index.ts`.
+
+**API shape**: `POST /v1/<domain>/<action>` + JSON `{ schemaVersion: N, ...payload }` → `{ schemaVersion: N, data | error }`. Правило 5 (wire format evolution, TASK-16).
+
+**Zero-trust baseline (TASK-105)** — каждый endpoint обязан:
+1. **JWT verify** (`jose` npm + JWKS cache 10 min).
+2. **Rate limit** — ladder: RATE_LIMITER binding (normal) → Durable Object counter (critical, anti-brute-force).
+3. **Input validation** — `zod` schema + size limit (default 1 MB).
+4. **Observability** — structured JSON logs + Analytics Engine counters (`rate_limit_hit`, `auth_failure`, `malformed`, `5xx`).
+5. **Explicit failures** — 400 / 401 / 404 / 409 (conflict) / 429 (+Retry-After) / 503.
+6. **Idempotency** (state-modifying): natural dedup OR `Idempotency-Key` header.
+
+Отказ от любого property требует `[public]` reasoning в spec'е (refuse pattern 20).
+
+**Крипто-relevant endpoints** (детали → § Крипто-relevant endpoints):
+- `/v1/keypackage/publish|claim` — pool 100 KP/identity, dedup 10 min, last-resort rotation 7d (TASK-104).
+- `/v1/group/send` + `/v1/group/inbox` — MLS Welcome/Commit/AppMessage fanout + poll fallback (TASK-108 T0 metadata visibility).
+- `/v1/profile/lock|unlock` + `PUT /v1/profile/{id}` — revoke via reconciliation, TTL 5 min lock (TASK-102).
+- `/v1/lock/trigger` + status — remote app lock (TASK-103).
+- `/v1/identity/register` — LOCAL→CLOUD upgrade (TASK-106 signup gate — Discussion).
+
+**Storage tiers**:
+- Cloudflare **KV** — pool, inbox, profile store, dedup caches (eventually-consistent).
+- Cloudflare **Durable Object** — atomic counters + edit locks (strong-consistent, sharded).
+- Cloudflare **Analytics Engine** — metrics counters.
+- In-memory (per-isolate) — JWKS cache, short dedup.
+
+**Migration path (правило 8)**: Cloudflare Worker → Go microservices (`workers/identity/`, `workers/keypackage-store/`, `workers/message-fanout/`, `workers/device-lock/`). Trigger: 100k req/day sustained, p95 > 200ms, need long-running task, vendor lock-in exit-ramp verification. Estimated ~1 неделя per microservice. Two-way door.
+
+**Rejected**: Firebase Cloud Functions (cold start + vendor lock), AWS Lambda (cold start + VPC overhead), server-side session state (все endpoints stateless), gRPC (JSON проще на этом scale), server-side crypto (нарушает E2E).
+
+**Что открыто**: TASK-109 concrete DO schema (Paused, ждёт первого TASK-105 endpoint impl). TASK-107 abuse response (Paused, post-MVP legal). TASK-106 signup gate (Discussion).
+
+**Как AI должен использовать этот файл**:
+- Routine question про endpoint / storage / baseline — TL;DR достаточно.
+- Работа над новой endpoint spec — читать § Zero-trust baseline + § Крипто-relevant endpoints + § Storage tiers.
+- Migration planning — читать [server-roadmap.md](../dev/server-roadmap.md) (rule 8 SRV-* tracking).
+- Крипто-cross-refs — переходить в [crypto.md](crypto.md) сценарии, не дублировать здесь.
+
+<!-- AI-TLDR:END -->
+
+---
+
 **Сервер отвечает за то, чтобы**:
 
 1. **Доставить зашифрованные конверты** между устройствами (MLS Welcome / Commit / AppMessage, config sync payloads, push wake-ups) — не читая содержимого.
@@ -327,4 +376,5 @@ workers/device-lock/       # Go microservice: /v1/lock/*
 
 | Дата | Изменение |
 |---|---|
+| 2026-07-08 | v1.1 — добавлен AI TL;DR block (~40 строк). Symmetric с crypto.md. |
 | 2026-07-08 | v1 — initial snapshot. Собран из TASK-105 baseline + crypto-relevant endpoints (TASK-102/103/104/108/111) + INDEX.md registry rows + migration path из server-roadmap.md. |

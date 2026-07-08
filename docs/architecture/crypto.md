@@ -83,6 +83,71 @@ last-synced: 2026-07-08
 
 # Домен: Крипто
 
+<!-- AI-TLDR:BEGIN — READ THIS FIRST. If you can answer the user's question from this block alone, STOP reading further. Deeper sections are for owner explanation / spec authoring / audit, not routine AI work. -->
+
+## AI TL;DR — крипто-система в 60 строк
+
+**Что защищаем**: E2E-encrypted семейное общение (config sync MVP → messenger + photo album Phase-3+). Server видит только конверты. Forward secrecy + post-compromise security через MLS ratchet.
+
+**Stack (готовые компоненты, ~90% кода не наш)**:
+
+| Слой | Компонент | Язык | License | Version |
+|---|---|---|---|---|
+| Primitives (AEAD, ECDH, sign, KDF, CSPRNG) | libsodium via [ionspin KMP](https://github.com/ionspin/kotlin-multiplatform-libsodium) | Kotlin | ISC | 0.9.5 |
+| Group protocol (RFC 9420) | [openmls](https://github.com/openmls/openmls) | Rust | MIT | 0.8.1 |
+| Handshake (Noise_XX) | `snow` | Rust | Apache-2.0 | pinned |
+| FFI bridge | UniFFI | Rust→Kotlin gen | Mozilla | — |
+| Encrypted at-rest | SQLCipher (openmls storage provider) + Android Keystore wrap | C + Android | BSD-style | — |
+| Delivery service | Cloudflare Worker (TS) | TypeScript | — | — |
+| Push | FCM | — | Firebase Spark | — |
+
+**Наш код (~10%)**: domain ports (`core/src/commonMain/kotlin/domain/crypto/`), UniFFI wrapper, wire format + roundtrip tests, storage adapter, UI wizards.
+
+**Domain ports (правило 1 — domain talks only to ports)**:
+
+- `CryptoPort` — encrypt / decrypt message.
+- `GroupPort` — create group / add member / remove member / process commit.
+- `KeyPackagePort` — publish / claim KeyPackage batches.
+- `IdentityVaultPort` (a.k.a. `KeyVault`) — operation-on-vault + narrow `exportDerivedKey` hatch. See TASK-112.
+
+**Adapter modules (правило 2 — ACL за каждым внешним SDK)**:
+
+- `app/adapters/openmls/` — Kotlin adapter → UniFFI → openmls Rust.
+- `app/adapters/openmls/storage/` — SQLCipherStorageProvider.
+- `app/adapters/keystore/` — Android Keystore AES-256-GCM wrap для priv keys.
+- Native lib: `app/src/main/jniLibs/*/libopenmls_ffi.so` (cross-compiled cargo-ndk).
+
+**Как это работает (одна фраза)**: домен вызывает `CryptoPort.encryptMessage(groupId, plaintext)` → Kotlin adapter → UniFFI JNI → openmls Rust читает group state из SQLCipher → делает MLS PrivateMessage encapsulation → ratchet шагает вперёд (старый ключ уничтожен = forward secrecy) → возвращает ciphertext. Сервер видит только конверт. Полные сценарии — § «Как это работает — сценарии».
+
+**Server contract (что зашифрованные endpoints делают)** — см. [server.md § Крипто-relevant endpoints](server.md#крипто-relevant-endpoints-карта):
+- `POST /v1/keypackage/publish|claim` — pool одноразовых ключей.
+- `POST /v1/group/send` + `GET /v1/group/inbox` — fanout + poll fallback.
+- `POST /v1/profile/lock|unlock` + `PUT /v1/profile/{id}` — revoke via reconciliation (TASK-102).
+- `POST /v1/lock/trigger` — remote app lock (TASK-103).
+- Все endpoints — zero-trust (JWT + rate limit + validate + observe + explicit failure), правило 12.
+
+**Ключевые решения (frozen)**: MLS TreeKEM > Sender Keys (post-compromise security). openmls > mls-rs > CoreCrypto (лицензия + аудит). UniFFI > manual JNI (indus standard). SQLCipher > Room+Keystore split (openmls storage provider ready). Weekly rotation last-resort key. Bab's device = sole MLS Commit signer (device management model). Signal-style no-history MVP.
+
+**Rejected (do not re-litigate)**: SGX, свой ECDH, свой MLS wire format, access-grant envelope-per-recipient, `mls-kotlin` (hobby), `libsignal` (AGPL), `matrix-rust-sdk` (AGPL + Synapse), `CoreCrypto` (GPL), `Kalium` (GPL). Полный список — § «Rejected alternatives».
+
+**Что открыто** (parked / discussion — с триггерами):
+- TASK-107 abuse response umbrella (Paused, post-MVP).
+- TASK-109 concrete DO schema (Paused, ждёт первого TASK-105 endpoint).
+- TASK-113 Outcome→exceptions refactor (Paused, ждёт активного FFI use).
+- Q-05 zombie devices (Phase-3+), Q-13 Huawei без GMS (physical device dependent), Q-16 sealed sender.
+- A2 multi-app cohabitation (chain-of-trust, triggers = messenger spec).
+
+**Как AI должен использовать этот файл**:
+- Routine question про крипту (какой primitive, где живёт, кто решил) — **этот TL;DR + § Decision index** достаточно, остальное **не читать**.
+- Работа над спекой / crypto change / audit — читать сценарии + validation set + известные риски.
+- Работа над server endpoint — читать [server.md](server.md), крипто-cross-refs здесь только index-form.
+- Novice explanation для владельца — читать § «Как работает MLS — простыми словами» + § «Novice glossary».
+- Onboarding в архитектуру — читать сначала [INDEX.md](INDEX.md).
+
+<!-- AI-TLDR:END -->
+
+---
+
 **Крипто-слой отвечает за то, чтобы**:
 
 1. **Сообщение в family-чате мог прочитать только его адресат**, а не сервер и не атакующий, перехвативший трафик.
@@ -1073,6 +1138,7 @@ F-CRYPTO 1.0.0 включает `iosX64`, `iosArm64`, `iosSimulatorArm64` target
 
 | Дата | Изменение |
 |---|---|
+| 2026-07-08 | v6 — добавлен AI TL;DR block (~60 строк) в начало файла. Compact snapshot всей системы для fresh AI без чтения 1080 строк. Pattern распространяется на все architecture domain files (CLAUDE.md updated). |
 | 2026-07-08 | v5 — full consolidation: перенесены Decision index + Downstream tasks trace + Primitives + Validation set A-F + Post-MVP roadmap (A1 iOS / A2 multi-app / A3 data export / A4 pre-release checklist / A5 deferred) + Known risks + Cross-reference index. Источники crypto-review.md + crypto-status.md удалены. Priority queue = backlog Kanban (`backlog sequence list --plain`). |
 | 2026-07-08 | v4 — consolidation: перенесены Rejected alternatives + Novice glossary + Terminology mapping + Топ-7 способов взорвать + расширены открытые вопросы (Q-05/Q-13/Q-16). Источники crypto-mentor-overview.md / crypto-open-questions.md / crypto-topics-handoff.md удалены. |
 | 2026-07-06 | v3 — сценарии переработаны под device management model (TASK-102 rewrite). Сценарий 2: QR pairing + bab's device как sole executor вместо peer-admin add. Сценарий 4: revoke через profile reconciliation вместо peer-admin kick. Section 5 Revoke policy обновлена. |
