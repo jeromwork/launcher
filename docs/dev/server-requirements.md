@@ -1,8 +1,15 @@
 # Server Requirements — Zero-Knowledge модель
 
+> **⚠️ ASSUMPTION-LEVEL SKETCH (reviewed 2026-07-08 in TASK-57)**. Этот документ — draft уровня «architectural direction», не «engineering research». Написан в одной сессии 2026-06-26 с industry references на уровне «есть такой pattern», не «мы проверили что именно так делают в production». Deep validation каждого endpoint произойдёт **в момент** соответствующей feature-task'и через skill [`checklist-zero-knowledge-server`](../../.claude/skills/checklist-zero-knowledge-server/SKILL.md) — не сейчас. Открытые вопросы (5 штук в секции «Открытые вопросы» ниже + 11 других surfaced из cross-check с client-requirements + TASK-104/105/108) вынесены в [`docs/dev/server-log.md` Part B](server-log.md) как Q-1..Q-16. Каждая feature-task, планирующая работать над Q, сначала обновляет статус в server-log.md, потом решает в своей spec'е. TASK-57 review не переписал этот документ — только промаркировал assumption-level и вынес questions в накопитель.
+>
+> **Не путать с**:
+> - [`docs/architecture/server.md`](../architecture/server.md) — current-state snapshot текущей "умной" Cloudflare Worker модели (pre-zero-knowledge migration).
+> - [`docs/dev/server-log.md`](server-log.md) — растущий накопитель confirmed patterns (Part A) + open questions (Part B) + contradictions (Part C).
+> - [`docs/dev/server-roadmap.md`](server-roadmap.md) — operational migration plan.
+
 **Назначение**: единый список **функциональных и нефункциональных требований** launcher-клиента к серверной части, спроектированный по **zero-knowledge / sealed-server** принципу. Уровень абстракции — «что должно делать», не «как реализовано». Файл standalone — можно подгружать AI-агенту для дизайн-обсуждений серверной архитектуры без чтения остального проекта.
 
-**Snapshot date**: 2026-06-26.
+**Snapshot date**: 2026-06-26 (initial) / 2026-07-08 (assumption-level review TASK-57).
 **Версия**: v2 (zero-knowledge rewrite, заменяет v1 «smart server»).
 
 **Связь с другими документами**:

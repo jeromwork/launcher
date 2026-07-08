@@ -258,6 +258,32 @@ Plus for state-modifying endpoints (POST/PUT/DELETE): **idempotency** approach d
 
 Feature tasks introducing endpoints (TASK-104 KeyPackage, TASK-67 pairing, TASK-6 recovery, TASK-27 messenger, TASK-19 config sync) add `dependencies: [TASK-105]`.
 
+## 13. Server sees only opaque blobs (zero-knowledge posture)
+
+Rule 12 (zero-trust) covers **how** we defend each endpoint. Rule 13 covers **what** the server is allowed to know at all. The pair is deliberate: authenticated ≠ trusted, and even trusted requests must not reveal business meaning to the server.
+
+Every server-side component (Cloudflare Worker today, own-server microservices later per rule 8) MUST be designed so the server sees **only opaque blobs and opaque identifiers**. It MUST NOT see plaintext content, ownership graph, event types, membership relations, or business semantics.
+
+**Three principles** (all mandatory):
+
+1. **Sealed Server Default** — every endpoint defaults to Tier 0 (sealed storage). Server sees: opaque namespace ID + opaque key + ciphertext + namespace-owner Ed25519 signing pubkey. Authorization = signature verification against namespace-recorded pubkey, NOT an ACL graph. Tier elevation requires explicit justification:
+   - **Tier 1 (minimal directory)**: only for async pubkey discovery patterns (X3DH prekey lookup, FCM token routing). Server sees opaque ID → pubkey bytes mapping, no relationships.
+   - **Tier 2 (server-required logic)**: only when client-side bypass is possible through Clear App Data / factory reset / root. Currently justified: anti-brute-force vault counter, subscription entitlement timer, JWT issuance for anti-abuse.
+
+2. **Client Coordinates, Server Stores** — business logic lives on the client, server is a sealed storage appliance. Specifically the server MUST NOT do: group membership management (use keyring blob inside namespace), history rotation by business rule (client LIST+DELETE, server does cron-TTL only), schema transformers vN→vCurrent (client lazy migration), forward unsharing on member removal (client re-key + re-encrypt), push routing by event type (encrypted payload, server forwards opaque), audit log of user operations (client encrypted append-only blob), GDPR export of business meaning (client decrypts own blobs), recipient resolution for delivery (client provides explicit opaque token list).
+
+3. **Opaque Identifiers Everywhere** — every ID visible to the server is an opaque UUID NOT derivable from identity-provider primary keys (no Google `sub`, no email, no phone number as server routing key). The `userUid → namespace` mapping lives only on the client. URL paths use `/namespaces/{nsId}/blobs/{key}`, never `/users/{uid}/data/{key}`. No `linkId` as a primary concept exposing pairing graph. No server-side join between `identity-links` and `data` tables.
+
+**Reference architecture** — `docs/dev/server-requirements.md` v2 (sketch), `docs/dev/client-requirements-for-zero-knowledge-server.md` (client-side deltas), `docs/architecture/server.md` (current-state snapshot — pre-migration to full zero-knowledge). Industry patterns supporting this: Signal Sender Keys / Sealed Sender, MLS (RFC 9420), Tresorit envelope wrapping, WhatsApp E2E Encrypted Backup, Bitwarden vault sharing, Apple iCloud Advanced Data Protection.
+
+**Server-log accumulator** — `docs/dev/server-log.md` is the growing record of confirmed patterns (Part A), open questions (Part B), and detected contradictions (Part C). Every feature-task touching the server MUST leave an entry there via the skill `checklist-zero-knowledge-server`. This replaces standalone server-research-tasks in this repo: server-thinking lives **inside** the feature-task that touched the server, but the accumulated context accrues in `server-log.md` for the future own-server repo.
+
+**Skill enforcement** — `.claude/skills/checklist-zero-knowledge-server/SKILL.md` runs on any spec introducing / modifying a server-side component (auto-triggered by `procedure-assess-spec-complexity`). The skill (a) verifies the three principles above, (b) sanity-checks consistency against `server-log.md` Part A, (c) records new confirmed patterns or open questions, (d) blocks the spec if a Part C contradiction is detected.
+
+**Rationale** — without this rule each feature drifts toward smart-server by convenience ("just store the eventType, it's easier"). Once shipped, zero-knowledge pivot is impossible (wire format is frozen, server state is populated). Rule 13 is the brake for convenient-but-wrong choices. Combined with rule 12 (zero-trust) it forms the full server posture: rule 12 makes each endpoint hostile-request-resistant, rule 13 keeps the server ignorant of business meaning even under valid authenticated requests.
+
+**Cross-refs** — rule 8 (server-roadmap for exit ramps), rule 12 (zero-trust baseline), rule 5 (wire format versioning applies to every opaque blob shape), rule 9 (shareability-readiness applies to non-identity payloads).
+
 ## Refuse and propose alternative if you see
 
 1. Vendor or system type embedded in a domain value.
@@ -280,6 +306,14 @@ Feature tasks introducing endpoints (TASK-104 KeyPackage, TASK-67 pairing, TASK-
 18. Architecture decision дублирован inline в другом task'е вместо `dependencies: [TASK-N]` — sync сломается когда upstream Decision изменится (нарушает rule 11 cross-task references). Alternative: удалить дублирование, добавить в `dependencies:`, prose ссылку «See TASK-N Decision».
 19. Новый `docs/dev/*-mentor-overview.md` файл создан для нового архитектурного домена (backend, UX, i18n) вместо backlog-tasks в статусе Discussion — повторяет ошибку старой модели, ведёт к desync (нарушает rule 11 universality). Alternative: создать decision-task'и с меткой домена (`decision + <domain>`), использовать backlog Kanban как Discussion queue.
 20. Server endpoint defined in spec без всех пяти required properties (auth / rate limit / input validation / observability / failure modes) и без явного `[public]` reasoning для missing JWT — нарушает rule 12 (zero-trust posture). Downstream: authenticated ≠ trusted, endpoint становится abuse vector под valid JWT. Alternative: STOP, вызвать skill [`checklist-server-hardening`](.claude/skills/checklist-server-hardening/SKILL.md), заполнить missing properties concrete values (rate dimensions + numbers, JWT library + JWKS caching, input schema, observability wiring, failure HTTP codes), либо `[public]` justification. State-modifying endpoints также требуют declared idempotency approach.
+21. Server endpoint accepts `userUid` (Google `sub`, email, phone number, Firebase Auth UID) as routing identifier or storage key — нарушает rule 13 (opaque identifiers everywhere). Downstream: server learns ownership graph, DB dump reveals who owns what. Alternative: opaque UUID / `nsId` in URL path, `userUid → nsId` mapping stays client-side.
+22. Server endpoint understands `eventType` — reads a `type` field to route push, decide storage bucket, apply business rule — нарушает rule 13 (client coordinates, server stores). Downstream: server learns which events are happening for whom. Alternative: encrypt eventType inside opaque payload, use opaque routing key (target token ID) that server treats as bytes.
+23. Server-side ACL graph / membership table / access-grant relation — нарушает rule 13 principle 2. Downstream: server becomes single source of truth for group membership, kick/unshare requires server round-trip, DB dump reveals social graph. Alternative: client-coordinated keyring blob inside namespace, MLS group state on client, server verifies signature not membership.
+24. Server-side business-rule retention («keep last 10 configs», «delete when refcount=0», «purge inactive namespaces») — нарушает rule 13 principle 2. Alternative: cron-time-based TTL header (client specifies at PUT), business retention on client via LIST+DELETE.
+25. Tier 2 endpoint (server-side stateful counter / timer / entitlement check) без explicit justification что client-side bypass возможен (Clear App Data / factory reset / root) — нарушает rule 13 principle 1. Downstream: unnecessary server-side state, hard to migrate to own-server, metadata leak. Alternative: prove bypass possibility with concrete scenario OR downgrade to Tier 0 (opaque blob with client-side check).
+26. Push endpoint routes by content — server reads decrypted body or event type to decide fanout / priority / template — нарушает rule 13 principle 2. Alternative: encrypted opaque payload + opaque target token list + collapse key as opaque hash.
+27. Feature spec introduces new server touch point without leaving an entry in `docs/dev/server-log.md` (Part A confirmed pattern OR Part B open question) — нарушает rule 13 skill-enforcement. Downstream: cross-feature drift, future own-server repo loses accumulated context. Alternative: STOP, run skill `checklist-zero-knowledge-server`, record an entry, then proceed.
+28. Standalone server-research-task created in this repo (like the retired TASK-59 / TASK-60 pattern) instead of leaving an entry in `server-log.md` under the feature-task that surfaced it — нарушает rule 13 accumulator model. Alternative: fold the research question into `server-log.md` Part B under the source feature-task; deep investigation happens when that feature-task reaches implementation.
 
 For each: surface the issue in one sentence, propose the corrected shape, then continue.
 

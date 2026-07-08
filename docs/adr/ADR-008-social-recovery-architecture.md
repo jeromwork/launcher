@@ -1,5 +1,12 @@
 # ADR-008: Social Recovery Architecture для приватных ключей без server-side key escrow
 
+> **⚠️ SUPERSEDED by CLAUDE.md rule 13 zero-knowledge posture (2026-07-08, TASK-57)**. This ADR предполагает "smart-server" модель, где сервер знает helper relationships (кто у кого peer helper), grant graph, notification routing по helper role. Под rule 13 (zero-knowledge server) — сервер не должен видеть helper graph как first-class concept. Recovery vault остаётся Tier 2 endpoint (единственный оправданный server-side counter — см. [server-log.md Q-1](../dev/server-log.md#q-1--recovery-vault-anti-brute-force--svr-vs-opaque-vs-simple-hmac)), но social/peer-helper architecture требует переработки: helper relationships должны быть client-coordinated keyring blob внутри recovery namespace, не server-side ACL graph. Historical context ниже сохранён — вернуться при реализации multi-device-recovery spec (TBD number). Не удалять — служит основой обсуждения.
+>
+> **Что переоценить при следующем touch этого ADR** (multi-device-recovery spec берётся в работу):
+> - Peer helper approve flow — как передаётся approve token между helper'ами БЕЗ server-side routing по «helper role»? Кандидат: encrypted push с opaque payload, receiver сам решает helper он или нет.
+> - Grant graph — вместо server-side helper table, client-coordinated blob в recovery namespace содержит list of helper pubkeys.
+> - См. [server-log.md](../dev/server-log.md) Part B → Q-1 (vault counter), Q-13 (multi-device sync), Q-16 (self-state backup) — все три пересекаются.
+
 > **Numbering note 2026-06-18**: This ADR previously reserved spec 017 for multi-device-recovery. Owner reassigned spec 017 to F-4 AuthProvider + Google Sign-In. Multi-device-recovery spec will receive its number when `/speckit.specify` is run for it.
 
 **Status**: Draft (2026-05-23); ренумерация 2026-06-17 → finalize в **future multi-device-recovery spec (TBD number, will be assigned at /speckit.specify time; spec 017 reassigned to F-4 AuthProvider 2026-06-18)** (после того как 016 = F-CRYPTO `core/crypto/` KMP module foundation).
