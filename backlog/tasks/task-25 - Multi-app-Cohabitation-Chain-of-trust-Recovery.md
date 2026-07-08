@@ -1,10 +1,10 @@
 ---
 id: TASK-25
 title: Multi-app Cohabitation + Chain-of-trust Recovery
-status: Draft
+status: Done
 assignee: []
 created_date: '2026-06-23 05:39'
-updated_date: '2026-06-23 06:26'
+updated_date: '2026-07-08'
 labels:
   - phase-3
   - p-spec
@@ -13,6 +13,7 @@ labels:
   - crypto
   - recovery
   - one-way-door
+  - superseded
 milestone: m-2
 dependencies:
   - TASK-2
@@ -21,6 +22,21 @@ dependencies:
   - TASK-21
 priority: high
 ordinal: 25000
+superseded-by: TASK-115
+---
+
+> **⚠️ SUPERSEDED 2026-07-08 by [TASK-115](task-115%20-%20Decision-Launcher-anchored-spoke-app-onboarding.md)**.
+>
+> After research session 2026-07-08 (cross-app trust patterns in Signal / WhatsApp / Google / Microsoft / Bitwarden / 1Password / Matrix + Play Install Referrer API mechanics) the model evolved:
+> - "Three variants B/C/hybrid" (this task) → **chain of symmetric trusted anchors via Play Install Referrer + sealed_box handoff + opaque server tokens** (TASK-115).
+> - "Launcher = anchor, spoke apps = subordinate" (interim) → **any recovered family app can invite the next family app** (final).
+> - Universal attestation mechanism split out into [TASK-117](task-117%20-%20Social-recovery-attestor-infrastructure.md).
+> - Iconic pairing challenge for visual confirmation split out into [TASK-116](task-116%20-%20Iconic-pairing-challenge-component.md).
+>
+> Downstream tasks (TASK-6/12/21/27/32/57/101/102/103/112) still reference "TASK-25 multi-app cohabitation" in Decision blocks and Applies-to sections — those are historical immutable per CLAUDE.md rule 11. On next non-Decision touch, prose references should be updated to "TASK-115 (superseded TASK-25)".
+>
+> Historical content below preserved for context.
+
 ---
 
 ## Description

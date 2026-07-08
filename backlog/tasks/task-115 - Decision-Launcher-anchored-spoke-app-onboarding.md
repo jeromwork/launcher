@@ -11,6 +11,8 @@ labels:
   - ux
   - onboarding
   - phase-2
+  - multi-app
+  - p-10
 milestone: m-1
 dependencies:
   - TASK-101
@@ -20,7 +22,8 @@ dependencies:
   - TASK-117
 priority: high
 ordinal: 115000
-decision-supersedes: []
+decision-supersedes:
+  - TASK-25
 superseded-by: null
 ---
 
