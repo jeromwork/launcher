@@ -78,7 +78,7 @@ components:
     decision-task: TASK-100
     decision-status: draft
     exit-ramp: HIST-BACKUP-001 (Phase-3+, ~4-6 weeks)
-last-synced: 2026-07-07
+last-synced: 2026-07-08
 ---
 
 # Домен: Крипто
@@ -689,11 +689,383 @@ Errors:   401 (auth), 404 (target unknown), 429 (edge rate limit hit)
 
 ---
 
+## Открытые вопросы (pending decisions) — расширено
+
+Дополнительно к списку выше (TASK-58, TASK-112, on-use rotation, cross-region drain, sealed-KP claim):
+
+- **Q-05 Zombie devices** — устройства не активные 6+ месяцев, auto-cleanup из MLS group. Edge case, Phase-3+ или позже. Не блокирует MVP.
+- **Q-13 Huawei без GMS push fallback** — HMS Push Kit / MQTT / WebSocket. Blocks Huawei smoke gates. Physical device dependent (у владельца нет Huawei), парковка — ждём железа.
+- **Q-16 Group ID visible серверу** — sealed sender pattern (Signal-tier). Absorbed как TASK-108 T2 future tier, не MVP. Не standalone task.
+
+---
+
+## Rejected alternatives (do not re-litigate)
+
+Эти варианты обсуждались и отброшены в mentor-сессиях. Не пере-обсуждать без нового evidence.
+
+**Cryptography / protocol level:**
+- ❌ SGX enclave — не строим никогда. Ограниченная availability на consumer Android, complexity не оправдана.
+- ❌ Собственный ECDH handshake — используем `snow` (Rust via UniFFI). Правило 6 (mock-first) + правило 2 (ACL).
+- ❌ Access-grant + envelope-per-recipient — заменён MLS group membership. Whole pattern superseded в [Сценарий 4](#сценарий-4--таня-отзывает-петю-через-редактирование-профиля-revoke-via-reconciliation).
+- ❌ Собственный MLS wire format — используем RFC 9420 conformance для interop path через MIMI IETF standard.
+
+**Libraries rejected:**
+- ❌ `mls-kotlin` (Traderjoe95) — JVM-only hobby project, no audit, no releases, 1 contributor. См. [TASK-104](../../backlog/tasks/task-104%20-%20Decision-KeyPackage-rate-limit.md).
+- ❌ `com.wire:core-crypto` shortcut — GPL-3 contamination breaks commercial subscription model.
+- ❌ `libsignal` — AGPL-3.0 + "unsupported outside Signal".
+- ❌ `matrix-rust-sdk` — AGPL-3.0 + требует Synapse backend.
+- ❌ `Kalium` / `CoreCrypto` (Wire) — GPL blocks proprietary distribution.
+
+**Multi-app cohabitation:**
+- ❌ `android:sharedUserId` — deprecated в Android 10, удалён в Android 13.
+- ❌ `MODE_WORLD_READABLE` для shared crypto files — Android Security Bulletin SA-2017, deprecated.
+- ❌ Один master ключ через сервер для всех app семейства — концентрация риска.
+- ❌ iCloud Keychain как cross-app sync механизм — only-Apple-id-tied, не работает cross-platform.
+
+**Process:**
+- ❌ External crypto audit pre-ship — заменён на fitness tests + threat model + bug bounty + agent-audit (см. § Post-MVP roadmap → A4 в этом файле).
+
+---
+
+## Novice glossary (аналогии для базовых понятий)
+
+Полезно для fresh AI onboarding и для владельца при возврате к теме через месяцы.
+
+- **Паспорт человека** = **identity_id** — уникальный номер, детерминистически = `hash(root_public)`, не меняется.
+- **Пароль от сейфа** = **passphrase** — что человек помнит.
+- **Домашний ключ** = **root key** — сам сейф, из которого рождаются все остальные ключи.
+- **Личный автограф** = **identity key** — доказывает «это я как личность».
+- **Ключ от квартиры** = **device key** — принадлежит конкретному телефону.
+- **Общая комната с замком** = **MLS group** — у всех членов свои пропуска, ключ комнаты общий.
+- **Список членов комнаты** = **MLS roster** — кто внутри.
+- **Ритуал знакомства** = **handshake** — два устройства впервые встречаются.
+- **Личная записная книжка** = **TrustEdge** — мои имена для знакомых.
+- **Сейф с храповиком** = **ratcheting** — ключ шифрования после каждого сообщения необратимо меняется. Даёт **forward secrecy**.
+- **Дерево ключей** = **TreeKEM** — MLS основа. Каждый member = лист, корень = групповой ключ. `O(log N)` обновлений вместо `O(N)` у Sender Keys.
+- **Версия ключа** = **epoch** — каждый add/remove/update повышает. Между epoch ключ полностью новый = **post-compromise security**.
+- **Одноразовые пакеты** = **KeyPackage** — публичные ключи, публикуемые заранее для добавления пока вы офлайн.
+- **Стартовое сообщение** = **Welcome** — для новичка при add, полный snapshot group state, зашифрован на его init_key.
+
+### Наши инструменты (что делают)
+
+Мы не пишем крипту сами — склеиваем три готовых инструмента:
+
+| Инструмент | Что делает | Кто ещё использует |
+|---|---|---|
+| **libsodium** (ionspin KMP) | Крипто-примитивы (шифрование, ключи, KDF) | Signal, WhatsApp, Wire |
+| **snow** (Rust via UniFFI) | Handshake Noise_XX | WireGuard, WhatsApp companion |
+| **openmls** (Rust via UniFFI) | Групповая крипта MLS RFC 9420 | Wire, Cisco Webex, Discord DAVE |
+
+**Наш код (~10%)**: domain ports, UniFFI wrapper, wire format + roundtrip тесты, storage adapter, UI wizard'ов.
+
+---
+
+## Terminology mapping (old → current)
+
+Для чтения старых спек / decisions / чат-логов до 2026-07-07 сессий.
+
+| Old | Current | Where |
+|---|---|---|
+| `stableId` | `identity_id = hash(root_public)` | TASK-106 |
+| `mls-rs` (main choice) | `openmls` (main), `mls-rs` (exit ramp) | этот файл, frontmatter |
+| Firestore paths `/users/{stableId}/*` | opaque `OwnerRef` via adapter | TASK-108 |
+| Google Sign-In at first launch | LOCAL identity, cloud upgrade lazy at pairing | TASK-106 |
+| Peer-admin MLS Remove kick | bab's device sole executor + profile reconciliation | TASK-102 |
+| Access-grants + envelope-per-recipient | MLS group membership | Сценарий 4 |
+| Firebase ID token (hardcoded) | Generic JWT verification | TASK-105 |
+| Noise XXpsk3 | Noise_XX | TASK-67 |
+
+---
+
+## Топ-7 способов взорвать систему нашим кодом
+
+Timeless engineering principles — актуальны через любые технологические изменения. Каждый пункт закрывается concrete митигацией.
+
+1. **Nonce reuse в AEAD** — используем только `libsodium.secretbox` / `crypto_secretstream` (random nonce), никогда свой counter. Fitness: «encrypt два раза одинаковое → выход разный».
+2. **Wrong Server Rules / Worker validation** — attacker с валидным JWT становится admin. Митигация: rules tests + Worker unit tests + negative-path + 2-глазный review. См. [TASK-105](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md).
+3. **Argon2id iteration count слишком низкий** — brute-force за часы вместо десятилетий. Митигация: hardcoded константа + roundtrip test `assert iterations >= MIN`.
+4. **QR wire format без `schemaVersion`** — сломали всех на v1 при добавлении поля. Правило 5. Митигация: обязательное поле + [TASK-16 fitness rule](../../backlog/tasks/task-16%20-%20Preset-Schema-v2-Wizard-Engine.md).
+5. **`android:allowBackup="true"` по умолчанию** — root_key утечёт в Google Cloud Backup. Митигация: `allowBackup="false"` + `dataExtractionRules.xml` + CI check.
+6. **KeyPackage reuse** — forward secrecy теряется. Митигация: openmls соблюдает одноразовость + test on marked-used → refuse.
+7. **Trust JWT для authorization вместо MLS group membership** — attacker с чужим JWT получит доступ. Митигация: Worker всегда verify JWT **И** roster membership (правило 12 zero-trust).
+
+**Как не сделать**: `checklist-security`, `checklist-wire-format`, `checklist-domain-isolation`, `checklist-server-hardening` — обязательны для каждого крипто-спека.
+
+---
+
+## Decision index (что закрыто, статус, что решено)
+
+Snapshot decision-tasks 100..114 + TASK-16 + TASK-58. Обновляется при закрытии Decision или переходе статуса.
+
+| Task | Title | Status | Кратко |
+|---|---|---|---|
+| [TASK-16](../../backlog/tasks/task-16%20-%20Preset-Schema-v2-Wizard-Engine.md) | Wire format evolution discipline | Draft | `schemaVersion: String` Kubernetes-style suffix, two modes / one fitness rule, Bitwarden first-byte inband для E2E форматов. Applies to 7 wire formats. |
+| [TASK-58](../../backlog/tasks/task-58%20-%20Research-Signal-Sender-Keys-vs-MLS-for-family-group-E2E.md) | MLS library formal choice | Done — superseded | MLS vs Sender Keys — MLS. openmls vs mls-rs — openmls (mls-rs = exit ramp). Formal Decision в этом файле frontmatter. |
+| [TASK-100](../../backlog/tasks/task-100%20-%20Decision-History-backup-strategy-for-MVP.md) | History backup strategy | Done | MVP Signal-style (нет истории после recovery); Phase-3+ WhatsApp-style opt-in backup. |
+| [TASK-101](../../backlog/tasks/task-101%20-%20Decision-Peer-confirmation-on-recovery.md) | Peer confirmation on recovery | Draft | Chrome-model auto-add + post-facto notification. Multi-device как first-class. |
+| [TASK-102](../../backlog/tasks/task-102%20-%20Decision-Revoke-policy.md) | MLS revoke policy | Draft | Three-tier language (owner/admin/other), MVP flat + admin, identity-level UI, no blacklist. |
+| [TASK-103](../../backlog/tasks/task-103%20-%20Decision-Remote-app-lock-for-stolen-device.md) | Remote app lock for stolen device | Draft | Full logout + Keystore wipe = crypto defense (не UX). 5 preset fields. |
+| [TASK-104](../../backlog/tasks/task-104%20-%20Decision-KeyPackage-rate-limit.md) | KeyPackage rate limit | Draft | Signal-inspired hybrid: pool cap + claim dedup + last-resort. 4 preset fields. |
+| [TASK-105](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md) | Server-side abuse defense baseline | Draft | Contract stability first-class + zero-trust posture. CLAUDE.md rule 12 + refuse pattern 20. |
+| [TASK-106](../../backlog/tasks/task-106%20-%20Decision-Sybil-resistance-and-signup-gate.md) | Sybil resistance / signup gate | Draft | LOCAL-first identity generation; QR pairing = cloud gate. `identity_id = hash(root_public)`. |
+| [TASK-107](../../backlog/tasks/task-107%20-%20Decision-Abuse-response-mechanism-legal-minimum.md) | Abuse response umbrella | **Paused** | Post-MVP: arbitration + open/closed groups + auto-detection. Blocks TASK-11, TASK-28. |
+| [TASK-108](../../backlog/tasks/task-108%20-%20Decision-Metadata-privacy-what-server-sees.md) | Metadata privacy | Draft | T0 MVP (identity_id + roster + timing visible). Opaque ports для T1 adapter swap ~2-3 недели. |
+| [TASK-109](../../backlog/tasks/task-109%20-%20Decision-Durable-Objects-concrete-design-security-critical-endpoints.md) | Anti-brute-force / Durable Objects | **Paused** | Own-server phase concrete DO schema. Ladder RATE_LIMITER → DO уже определен TASK-105. |
+| [TASK-110](../../backlog/tasks/task-110%20-%20Decision-Client-side-media-transformation.md) | Client-side media transformation | Draft | WhatsApp pattern: compression + EXIF strip + resize на клиенте, потом encrypt. |
+| [TASK-111](../../backlog/tasks/task-111%20-%20Decision-Signed-upload-tokens-quotas-abuse-response.md) | Signed upload tokens + quotas | Draft (Deferred) | R2 presigned URL + DO counter per (pseudonym, resource). 100 MB quota per identity. |
+| [TASK-112](../../backlog/tasks/task-112%20-%20Decision-Cross-platform-IdentityVault.md) | KeyVault port boundary | Draft | `KeyVault` port + `Purpose` enum + sealed `VaultException` + newtype-per-object. Sync API. |
+| [TASK-113](../../backlog/tasks/task-113%20-%20Refactor-Outcome-to-sealed-exceptions.md) | Outcome → sealed exceptions refactor | **Paused** | Триггер unpause: начата implementation TASK-42/TASK-67 (Rust FFI активно). |
+| [TASK-114](../../backlog/tasks/task-114%20-%20Decision-Encrypted-co-admin-display-directory.md) | Encrypted co-admin display directory | Draft | UI multi-admin показывает display names без metadata leak. `AdminDisplayDirectoryPort` в domain. |
+
+**Как читать**: Decision blocks (English) в task-файлах — machine-readable контракт. Downstream feature-tasks добавляют `dependencies: [TASK-N]` при следующем touch'е.
+
+### Downstream tasks awaiting Decision integration
+
+Feature-tasks, которые при следующем touch должны добавить соответствующие dependencies:
+
+- **TASK-6** (Root Key Hierarchy) → TASK-100, 101, 102, 103, 105.
+- **TASK-25** (Multi-app cohabitation) → TASK-101, 102, 103.
+- **TASK-27** (Messenger Jitsi) → TASK-100, 105.
+- **TASK-28** (Full family album) → TASK-100, 105.
+- **TASK-32** (Audit log) → TASK-100, 102, 103.
+- **TASK-40** (Multi-device) → unparked by TASK-101 (multi-device first-class).
+- **TASK-42** (Family group encryption) → TASK-102, 58, 104.
+- **TASK-46** (Shared admin book) → TASK-102.
+- **TASK-67** (Pairing feature) → TASK-101, 102, 103, 104, 105.
+- **TASK-70** (Profile sync) → TASK-100, 105.
+- **TASK-16** (Preset Schema v2) → должен интегрировать preset fields из TASK-103 (`deviceLock` namespace: 5 fields) + TASK-104 (`mls` namespace: 4 fields).
+- **TASK-19** (Config sync) → TASK-105.
+
+Integration — на touch каждого task, не bulk update. Rule 11 «migration by touch».
+
+---
+
+## Primitives в production (текущий инвентарь)
+
+Все primitives — libsodium через [`ionspin/kotlin-multiplatform-libsodium`](https://github.com/ionspin/kotlin-multiplatform-libsodium) pinned **`0.9.5`** (released 2025-11-23).
+
+| Purpose | Primitive | Adapter |
+|---|---|---|
+| AEAD (envelope encryption) | XChaCha20-Poly1305 IETF (24-byte nonce) | [`LibsodiumAeadCipher`](../../core/crypto/src/commonMain/kotlin/cryptokit/crypto/libsodium/LibsodiumAeadCipher.kt) |
+| Key agreement | X25519 raw `crypto_scalarmult` (RFC 7748) | `LibsodiumAsymmetricCrypto.deriveSharedSecret` |
+| Digital signatures | Ed25519 detached (`crypto_sign_detached`) | `LibsodiumAsymmetricCrypto.sign` / `verify` |
+| Sealed-box envelope | `crypto_box_seal` / `crypto_box_seal_open` | `LibsodiumAsymmetricCrypto.sealForRecipient` / `openSealed` |
+| Key derivation | HKDF-SHA256 (RFC 5869) — hand-rolled over platform HMAC-SHA256 | [`LibsodiumKeyDerivation`](../../core/crypto/src/commonMain/kotlin/cryptokit/crypto/libsodium/LibsodiumKeyDerivation.kt) + `HmacSha256` expect/actual |
+| CSPRNG | libsodium `randombytes_buf` | `LibsodiumRandomSource` |
+| Key-at-rest (Android) | Android Keystore AES-256-GCM wrap, StrongBox where available, TEE fallback | [`SecureKeyStore.android.kt`](../../core/crypto/src/androidMain/kotlin/cryptokit/crypto/SecureKeyStore.android.kt) |
+
+**iOS adapters** — stub-screamers, реализация при V-1 (iOS Admin Preset). См. § Post-MVP roadmap → A1.
+
+### Industrial reference baseline (кто ещё использует)
+
+- **XChaCha20-Poly1305** — WireGuard file format, age, Signal Sealed Sender, Threema, Bitwarden Send. IRTF draft-irtf-cfrg-xchacha-03.
+- **X25519 ECDH** — Signal Protocol, WhatsApp, WireGuard, Wire, age. RFC 7748.
+- **Ed25519** — Signal Sealed Sender, age, OpenSSH default, Tor, WireGuard handshake. RFC 8032.
+- **HKDF-SHA256** — TLS 1.3, Signal Double Ratchet, age, WireGuard, MLS. RFC 5869.
+- **Android Keystore wrap для Curve25519** — Signal Android (`IdentityKeyUtil`), Bitwarden Android, Threema Android. Android Keystore не хранит Curve25519 native — все wrap raw priv под TEE-resident AES key.
+
+**Не изобретаем крипту.** Где diff с вендором (например hand-rolled HKDF до появления в ionspin) — маленький, проверен против RFC verbatim.
+
+---
+
+## Validation set (как проверяем что не сломали)
+
+Заменяет разовую friend-review постоянным CI-runnable набором. Решение drop friend review 2026-06-17.
+
+### A. RFC Known-Answer-Test vectors
+
+Живут под `core/crypto/src/jvmTest/kotlin/family/crypto/kat/`. Каждый тест asserts байт-в-байт против RFC.
+
+| Test class | RFC | Coverage |
+|---|---|---|
+| `X25519KatTest` | RFC 7748 §5.2 + §6.1 | 2 scalar*basepoint vectors + Alice/Bob ECDH symmetry vector |
+| `Ed25519KatTest` | RFC 8032 §7.1 | TEST 1-3 + tamper-fails-verify |
+| `ChaCha20Poly1305KatTest` | RFC 8439 §2.8.2 + draft-irtf-cfrg-xchacha-03 §A.3 | ChaCha20-Poly1305 IETF + XChaCha20 forced nonce + tamper detection |
+| `HkdfKatTest` | RFC 5869 §A.1 + §A.3 | Test Case 1 + Test Case 3 (zero-length salt+info) |
+| `SealedBoxRoundtripTest` | libsodium spec | roundtrip + wrong-recipient rejection + CSPRNG sanity |
+
+CI: `./gradlew :core:crypto:jvmTest` на каждом PR.
+
+### B. Google Wycheproof subset
+
+Adversarial test corpus. Full ~50 MB — out of scope MVP; берём subset на failure modes самые опасные:
+- X25519 low-order points — `deriveSharedSecret` reject (`CryptoException.InvalidPublicKey`).
+- Ed25519 malleable signatures — must fail verify.
+- ChaCha20-Poly1305 AAD edge cases (empty, large).
+
+**Pinning policy**: pinned to Wycheproof commit SHA `<TBD-in-T658>`. Subset под `core/crypto/src/commonTest/resources/wycheproof-subset/`. Bump = deliberate PR, CI не auto-update.
+
+### C. Property-based tests (1000 iterations, deterministic seeds)
+
+`core/crypto/src/commonTest/kotlin/family/crypto/property/`:
+- `AeadRoundtripPropertyTest` — 1000 encrypt→decrypt + 200 tamper-detection.
+- `EcdhSymmetryPropertyTest` — 1000 `DH(a, B) == DH(b, A)`.
+- `SignVerifyTamperPropertyTest` — 1000 sign+verify + 200 signature tamper + 200 message tamper.
+- `NonceReuseRejectionPropertyTest` — forced-nonce-reuse → `CryptoException.NonceReuseDetected`.
+- `KeyIdPrefixPropertyTest` — 100 valid + 100 invalid prefixes.
+
+### D. Cross-platform byte parity
+
+`KeyBlobCrossPlatformParityTest` + planned encryption-vector parity assert JSON `KeyBlob` + deterministic AEAD output совпадают JVM ↔ Android. Это FR-022 guarantee что config написанный Android launcher-ом читается iOS/desktop launcher-ом.
+
+### E. Backward-compat fixtures (FR-026)
+
+`v1-sample.json` + `v1-retired-sample.json` **frozen at F-CRYPTO 1.0.0**. Future minor releases must continue to parse them. `KeyBlobBackwardCompatReadTest` также verifies `UnsupportedSchemaVersion` throws при `schemaVersion=999`.
+
+### F. Android Keystore instrumentation
+
+`core/crypto/src/androidInstrumentedTest/kotlin/family/crypto/`:
+- `SecureKeyStorePersistenceTest` (SC-008) — store/load против real TEE.
+- `SecureKeyStoreNoPlaintextLeakTest` (SC-009) — disk-resident blob НЕ содержит 4-byte plaintext subsequence секрета.
+
+Verified эмулятор API 34/35; physical-device verification pending (`TODO(physical-device)`).
+
+---
+
+## Post-MVP roadmap (что отложено и триггер)
+
+### A1. iOS reuse strategy
+
+F-CRYPTO 1.0.0 включает `iosX64`, `iosArm64`, `iosSimulatorArm64` targets. `commonMain` переиспользуется 1-к-1 (ionspin libsodium binding поддерживает iOS).
+
+**Что нужно заменить на iOS** (3 файла):
+
+1. **`iosMain/SecureKeyStore.ios.kt`** (сейчас stub). Замена — iOS Keychain Services:
+   - `kSecClass = kSecClassGenericPassword`.
+   - `kSecAttrAccount = keyId.raw`.
+   - `kSecAttrService = "cryptokit.crypto.v1"`.
+   - `kSecAttrAccessible = kSecAttrAccessibleAfterFirstUnlock`.
+
+2. **`iosMain/HmacSha256.ios.kt`** (сейчас stub). Замена — `CCHmac(kCCHmacAlgSHA256, ...)` из CommonCrypto.
+
+3. **Никаких изменений в commonMain** — нарушение правила 1.
+
+**Wire format compat**: `KeyBlob` JSON от Android читается на iOS байт-в-байт. **Wrapped private keys** — НЕ переносимы (Android Keystore alias ≠ iOS Keychain). Cross-device migration = ADR-008 social recovery, не direct file transfer.
+
+**iOS Team ID**: все 3 app семейства (launcher + messenger + photo) — один Apple Developer account для App Groups + shared Keychain access groups.
+
+**Testing**: `:core:crypto:iosTest` требует macOS host. Триггер implementation — покупка Mac + активация V-1 spec.
+
+### A2. Multi-app cohabitation — chain-of-trust
+
+**MVP каждого app** — Вариант A (Independent): свои ключи, свой social recovery flow.
+
+**Long-term видение** (owner 2026-06-18): после recovery launcher становится trusted introducer для same-family app на этом устройстве. Messenger при setup видит «launcher trusted» → одна подпись через App-to-App → skip отдельный recovery.
+
+**Три варианта для research P-10 в Phase 3**:
+- **B. ContentProvider + custom permission** (Signal-style) — cohabitation на одной платформе.
+- **C. Server-mediated handoff** — cross-device (Android → iPhone).
+- **B + C hybrid** — recommended.
+
+**Триггер решения**: создание messenger spec.md. Research notes — `docs/product/future/multi-app-cohabitation.md`.
+
+### A3. Data export (EU Data Act)
+
+**Решение owner 2026-06-18**: кнопка «Экспорт моих данных» → **plaintext ZIP** с warning UI на простом русском:
+
+> «**Внимание**: экспортированный файл **не зашифрован**. Любой, кто получит этот файл, увидит ваши контакты, фото, настройки. Храните его в безопасном месте.»
+
+`KeyEscrow` port НЕ используется для этого — разные flows (recovery vs compliance dump).
+
+**Триггер**: EU users в base или Data Act enforcement.
+
+### A4. Pre-release audit checklist
+
+**Стратегия**: внешний платный crypto-аудит **не проводится** до накопления user base + запуска монетизации. До этого — **agent-based pre-release audit** перед каждым крупным релизом.
+
+Каждый пункт — вопрос агенту. Ответ «не закрыто» → релиз не уходит.
+
+**Cryptography correctness:**
+- [ ] Wycheproof subset SHA pinned, файлы в `core/crypto/src/commonTest/resources/wycheproof-subset/`.
+- [ ] Все RFC KAT зеленые на JVM и iOS (если iOS релиз).
+- [ ] Property tests зеленые на JVM, Android, iOS.
+- [ ] CVE database (NVD, GHSA) для libsodium / ionspin — no unpatched HIGH/CRITICAL.
+
+**Android Keystore security:**
+- [ ] Real-device verification Pixel (StrongBox) + Samsung Galaxy A-series (Knox).
+- [ ] `SecureKeyStoreNoPlaintextLeakTest` зеленый на физическом устройстве.
+- [ ] `KeyInfo.isInsideSecureHardware` проверяется на init — false → log + telemetry.
+- [ ] TEE attestation hard-fail wired для billing-protected features.
+
+**iOS Keychain security** (если iOS релиз):
+- [ ] `iosMain/SecureKeyStore.ios.kt` + `HmacSha256.ios.kt` реализованы.
+- [ ] `:core:crypto:iosTest` зеленый на macOS host.
+- [ ] Verified на физическом iPhone.
+
+**Wire format integrity:**
+- [ ] `KeyBlob v1-sample.json` + `v1-retired-sample.json` НЕ изменялись (frozen since 1.0.0).
+- [ ] Schema version check (UnsupportedSchemaVersion) работает.
+
+**Production hygiene:**
+- [ ] `verifyCryptoIsolation` Gradle task зеленый — `:core:crypto` не зависит от других модулей.
+- [ ] Konsist fitness `NoFakeCryptoInAppTest` зеленый — нет `cryptokit.crypto.fake.*` imports в `app/src/main`.
+- [ ] R8/ProGuard рулы strip `cryptokit.crypto.fake.**` из release APK.
+- [ ] `assertNoFakeCryptoInRelease()` вызывается в `LauncherApplication.onCreate` под `!BuildConfig.DEBUG`.
+
+**Backup safety:**
+- [ ] `data_extraction_rules.xml` + `backup_rules.xml` exclude `keys/`.
+- [ ] Manual test: cloud backup + restore — wrapped keys НЕ переносятся.
+
+**Multi-app cohabitation** (если ≥2 app):
+- [ ] P-10 chain-of-trust strategy выбрана (B / C / hybrid) и реализована.
+- [ ] Cross-app sealed-box handoff протестирован end-to-end.
+
+**Data sovereignty:**
+- [ ] Data export UI реализован с senior-safe warning.
+- [ ] Google Play Data Safety form заполнен.
+- [ ] Apple App Privacy nutrition labels заполнены (если iOS релиз).
+
+**Research before release:**
+- [ ] Прогон по Signal Android, Bitwarden Android, Threema Android — что появилось за прошедшие месяцы.
+- [ ] Актуальные Wycheproof commits — pin последний.
+- [ ] Android Keystore behavior changes в latest Android version.
+- [ ] iOS Keychain behavior changes в latest iOS version.
+
+**Когда переходим к платному аудиту** ($3-12k, Cure53 / 7ASecurity / Radically Open Security / Trail of Bits): монетизация запущена + user base ≥ 10k активных + revenue ≥ $50/мо устойчиво; **ИЛИ** PR-инцидент / CVE.
+
+### A5. Deferred items (сводка триггеров)
+
+| Item | Триггер «делать сейчас» | Текущий статус |
+|---|---|---|
+| Wycheproof subset SHA pin | Перед Play Store submission | TODO + checklist |
+| iOS Keychain + HmacSha256 | Решение делать iOS-релиз | stub-screamer + reuse strategy в A1 |
+| TEE attestation hard-fail | Перед платным релизом | Документировано в A4 |
+| Library extract `family-crypto-kmp` | До 2-го потребителя (messenger spec.md) | TODO inline |
+| Real-device StrongBox verification | Покупка Pixel б/у | Запланировано |
+| Multi-app cohabitation chain-of-trust | Создание messenger спеки | P-10 в Phase 3, research notes: `docs/product/future/multi-app-cohabitation.md` |
+| Data export UI | EU релиз или Data Act enforcement | TODO в коде |
+| Платный crypto-аудит | User base ≥ 10k + revenue ≥ $50/мо | Agent-audit до этого |
+
+**Grep-discoverable**: `grep -r "TODO(pre-release-audit):" core/ app/ docs/` — живой список открытых пунктов.
+
+---
+
+## Known risks / open TODOs (текущий момент)
+
+- **`crypto_box_seal` / HKDF-SHA256 not в ionspin public API** — Phase 5 использует `Box.seal` / `Box.sealOpen` + hand-rolled HKDF. Future ionspin релиз с first-class HKDF → switch + remove hand-rolled.
+- **iOS path — stub-only.** Replaced with Keychain при V-1.
+- **TEE attestation not enforced.** `KeyInfo.isInsideSecureHardware == false` на эмуляторах logged но не hard-fail на MVP. При billing — hard-fail.
+- **Wycheproof subset not yet pinned.** T658 picks commit SHA во время full Phase 5 impl.
+- **Key rotation interface-only.** `StubKeyRotation` throws `NotImplementedError` с cross-ref. Real impl в [SRV-CRYPTO-002](../dev/server-roadmap.md#srv-crypto-002).
+
+---
+
+## Cross-reference index
+
+- Spec F-CRYPTO: [`specs/016-f-crypto-core-module/spec.md`](../../specs/016-f-crypto-core-module/spec.md).
+- Plan: [`specs/016-f-crypto-core-module/plan.md`](../../specs/016-f-crypto-core-module/plan.md).
+- Research (one-way-door analysis): [`specs/016-f-crypto-core-module/research.md`](../../specs/016-f-crypto-core-module/research.md).
+- Wire-format contract: [`specs/016-f-crypto-core-module/contracts/key-blob-v1.md`](../../specs/016-f-crypto-core-module/contracts/key-blob-v1.md).
+- Server-roadmap entries: [SRV-CRYPTO-001](../dev/server-roadmap.md#srv-crypto-001), [SRV-CRYPTO-002](../dev/server-roadmap.md#srv-crypto-002), SRV-CRYPTO-003 (paid audit gate).
+
+---
+
 ## Related domains
 
 - [identity.md](identity.md) — signup gate (TASK-106 pending), identity model (LOCAL/CLOUD), recovery (TASK-101), remote lock (TASK-103).
-- [server.md](server.md) — Cloudflare Worker runtime, rate limits, storage tiers, Go migration path.
+- [server.md](server.md) — Cloudflare Worker runtime, zero-trust baseline, крипто-relevant endpoints, migration path.
 - [client-android.md](client-android.md) — Compose UI, DI wiring, adapter modules organization.
+- [../dev/server-roadmap.md](../dev/server-roadmap.md) — SRV-* migration tracking (правило 8).
 
 ---
 
@@ -701,6 +1073,8 @@ Errors:   401 (auth), 404 (target unknown), 429 (edge rate limit hit)
 
 | Дата | Изменение |
 |---|---|
+| 2026-07-08 | v5 — full consolidation: перенесены Decision index + Downstream tasks trace + Primitives + Validation set A-F + Post-MVP roadmap (A1 iOS / A2 multi-app / A3 data export / A4 pre-release checklist / A5 deferred) + Known risks + Cross-reference index. Источники crypto-review.md + crypto-status.md удалены. Priority queue = backlog Kanban (`backlog sequence list --plain`). |
+| 2026-07-08 | v4 — consolidation: перенесены Rejected alternatives + Novice glossary + Terminology mapping + Топ-7 способов взорвать + расширены открытые вопросы (Q-05/Q-13/Q-16). Источники crypto-mentor-overview.md / crypto-open-questions.md / crypto-topics-handoff.md удалены. |
 | 2026-07-06 | v3 — сценарии переработаны под device management model (TASK-102 rewrite). Сценарий 2: QR pairing + bab's device как sole executor вместо peer-admin add. Сценарий 4: revoke через profile reconciliation вместо peer-admin kick. Section 5 Revoke policy обновлена. |
 | 2026-07-06 | v2 — rewrite in mentor style. Карта компонентов вынесена наружу, каждый сценарий склеен с пошаговым разбором inline, убрана дублирующая секция "Какие проблемы решает". |
 | 2026-07-06 | v1 — initial version. |

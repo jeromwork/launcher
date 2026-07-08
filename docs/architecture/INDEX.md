@@ -12,8 +12,8 @@ domains:
     status: skeleton — full content pending TASK-106 Decision.
   - id: server
     file: server.md
-    scope: Cloudflare Worker runtime, rate limiting tiers, storage, migration to Go microservices.
-    status: skeleton — full content pending.
+    scope: Cloudflare Worker runtime, zero-trust baseline (TASK-105), crypto-relevant endpoints, storage tiers, migration to Go microservices.
+    status: v1 snapshot (2026-07-08) — consolidated from TASK-105 baseline + crypto-relevant endpoint decisions.
   - id: client-android
     file: client-android.md
     scope: core/ domain layer, adapter modules, Compose UI structure.
@@ -235,4 +235,5 @@ flowchart LR
 
 | Дата | Изменение | Commit |
 |---|---|---|
+| 2026-07-08 | server.md v1 snapshot создан. Крипто-документация полностью консолидирована из `docs/dev/crypto-*` (5 файлов удалено). | (pending) |
 | 2026-07-06 | Initial version. Registry заполнен по Decision blocks TASK-100…105. TASK-106 pending. | (pending) |
