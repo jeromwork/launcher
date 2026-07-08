@@ -882,9 +882,9 @@ Snapshot decision-tasks 100..114 + TASK-16 + TASK-58. Обновляется п�
 | [TASK-112](../../backlog/tasks/task-112%20-%20Decision-Cross-platform-IdentityVault.md) | KeyVault port boundary | Draft | `KeyVault` port + `Purpose` enum + sealed `VaultException` + newtype-per-object. Sync API. |
 | [TASK-113](../../backlog/tasks/task-113%20-%20Refactor-Outcome-to-sealed-exceptions.md) | Outcome → sealed exceptions refactor | **Paused** | Триггер unpause: начата implementation TASK-42/TASK-67 (Rust FFI активно). |
 | [TASK-114](../../backlog/tasks/task-114%20-%20Decision-Encrypted-co-admin-display-directory.md) | Encrypted co-admin display directory | Draft | UI multi-admin показывает display names без metadata leak. `AdminDisplayDirectoryPort` в domain. |
-| [TASK-115](../../backlog/tasks/task-115%20-%20Decision-Launcher-anchored-spoke-app-onboarding.md) | Launcher-anchored spoke app onboarding | **Discussion** (2026-07-08) | Launcher = trusted anchor, spoke apps (мессенджер/фотоальбом) subordinate. Play Install Referrer + opaque server tokens (SRV-OPAQUE-TOKENS-001) + iconic pairing challenge. Zero-knowledge server. |
+| [TASK-115](../../backlog/tasks/task-115%20-%20Decision-Launcher-anchored-spoke-app-onboarding.md) | Family app onboarding chain via Install Referrer | **Discussion** (2026-07-08, updated) | Chain of symmetric trusted anchors — любое recovered family app приглашает следующее через Play Install Referrer + sealed handoff + opaque server tokens (SRV-OPAQUE-TOKENS-001). Consumes TASK-116, TASK-117. Blocks messenger release (one-way door). |
 | [TASK-116](../../backlog/tasks/task-116%20-%20Iconic-pairing-challenge-component.md) | Iconic pairing challenge component | **Discussion** (2026-07-08) | Deterministic SVG icons из seed, N-of-3 challenge для visual social confirmation. Reused по 5+ use cases (cross-app / QR SAS / recovery / SOS / avatars). |
-| [TASK-117](../../backlog/tasks/task-117%20-%20Decision-Social-recovery-attestor-infrastructure.md) | Social recovery + attestor infrastructure | **Discussion** (2026-07-08) | Общий attestation protocol для recovery (peer attestor) и cross-app trust (local launcher attestor). Threshold N-of-M per preset. Consumes TASK-116, extends TASK-101. |
+| [TASK-117](../../backlog/tasks/task-117%20-%20Social-recovery-attestor-infrastructure.md) | Universal attestation mechanism | **Discussion** (2026-07-08, updated) | Mechanism-only (не policy). Attestor подписывает утверждение о заявителе, verifier проверяет. Использ. cross-app (TASK-115), recovery (TASK-101), admin approval (future), multi-device (future). Policy — в consumer tasks. |
 
 **Как читать**: Decision blocks (English) в task-файлах — machine-readable контракт. Downstream feature-tasks добавляют `dependencies: [TASK-N]` при следующем touch'е.
 
@@ -924,9 +924,9 @@ Snapshot decision-tasks 100..114 + TASK-16 + TASK-58. Обновляется п�
 
 **Волна 2 — new decision cluster (2026-07-08, все Discussion)**:
 
-- [TASK-116](../../backlog/tasks/task-116%20-%20Iconic-pairing-challenge-component.md) Iconic pairing challenge — **Discussion**. Реюзабельный UI компонент, foundation для attestation UX.
-- [TASK-117](../../backlog/tasks/task-117%20-%20Decision-Social-recovery-attestor-infrastructure.md) Social recovery + attestor infra — **Discussion**. Обобщает TASK-101. Consumes TASK-116.
-- [TASK-115](../../backlog/tasks/task-115%20-%20Decision-Launcher-anchored-spoke-app-onboarding.md) Launcher-anchored spoke app onboarding — **Discussion**. Consumes TASK-116 + TASK-117. Specific case для family app cluster.
+- [TASK-116](../../backlog/tasks/task-116%20-%20Iconic-pairing-challenge-component.md) Iconic pairing challenge — **Discussion**. Реюзабельный UI компонент, foundation для attestation UX (5+ use cases).
+- [TASK-117](../../backlog/tasks/task-117%20-%20Social-recovery-attestor-infrastructure.md) Universal attestation mechanism — **Discussion**. Mechanism-only (не policy). Consumers: TASK-115 (cross-app), TASK-101 (recovery peer confirmation), future social recovery, future admin approval flows.
+- [TASK-115](../../backlog/tasks/task-115%20-%20Decision-Launcher-anchored-spoke-app-onboarding.md) Family app onboarding chain — **Discussion**. Consumes TASK-116 + TASK-117. Chain of symmetric trusted anchors через Play Install Referrer. **Blocks messenger release** (one-way door — architecture identity-link cross_app_attestation_key должна быть в первой версии launcher'а в production).
 
 **Волна 3 — paused / deferred (ждут внешних триггеров)**:
 
