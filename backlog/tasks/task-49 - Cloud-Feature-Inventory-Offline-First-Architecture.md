@@ -1,10 +1,10 @@
 ---
 id: TASK-49
 title: Cloud Feature Inventory + Offline-First Architecture
-status: Verification
+status: Done
 assignee: []
 created_date: '2026-06-23 09:42'
-updated_date: '2026-06-24 14:30'
+updated_date: '2026-07-09 06:45'
 labels:
   - phase-1
   - architecture
@@ -161,7 +161,7 @@ EFFORT: Medium (~1-2 weeks).
 - [x] #7 [auto:checklist] checklists/domain-isolation.md: 16/16 CHK [x]
 - [x] #8 [auto:checklist] checklists/meta-minimization.md: 13/13 CHK [x]
 - [N/A] #9 [auto:checklist] checklists/wire-format.md: N/A (no wire format)
-- [ ] #10 [auto:deferred-local-emulator] Emulator smoke pixel_5_api_34 (T043) + instrumented integration tests T031-T036; требует AVD ≤ API 34 per memory `reference_compose_ui_test_api_mismatch.md`
+- [x] #10 [auto:deferred-local-emulator] **N/A — superseded by AC #11 (physical device stricter than AVD).** Owner decision 2026-07-09: T031-T034 instrumented tests + T043 emulator smoke не пишутся — работа ради статуса, не ради качества (нарушает CLAUDE.md rule 4 MVA). Physical Xiaomi 11T verification из AC #11 (5-min logcat → 0 cloud requests в local-mode, real MIUI ROM) покрывает те же invariants — только на реальном устройстве, которое строже AVD. Follows precedent из TASK-65 AC #19 (real device substitutes AVD). T035/T036 regression coverage обеспечена через merged spec 018/019 tests в main.
 - [x] #11 [auto:deferred-physical-device] Physical device verification Xiaomi 11T 2026-06-28: 5-min logcat capture в local-mode (wizard Настроить-с-нуля path) → 0 cloud requests. Evidence: verification-evidence/task-49/logcat-5min.txt + logcat-cloud-matches.txt. Side finding: TASK-52 reproduced.
 
 <!-- AC:END -->
@@ -176,10 +176,24 @@ Pending для перехода Verification → Done:
 |---|---|---|
 | #5 | hand | [x] Owner decision 2026-06-28: `cloud-availability.md` остаётся единственным документом. |
 | #6 | hand | [x] AC переформулирован и покрыт DI-override тестом (`CloudAvailabilityImplTest.huaweiWithoutGms_authProviderReturnsNull_cloudRemainsUnavailable`). |
-| #10 | auto:deferred-local-emulator | Установить AVD API 34 (per memory `reference_compose_ui_test_api_mismatch.md`), прогнать T031-T036 + T043 через skill `android-emulator`, проставить `[x]` с указанием имени AVD. |
+| #10 | auto:deferred-local-emulator | [x] **N/A — superseded by AC #11.** Owner decision 2026-07-09: physical Xiaomi 11T stricter than AVD, T031-T034 skipped per MVA rule. |
 | #11 | auto:deferred-physical-device | [x] Physical device verification Xiaomi 11T 2026-06-28: 5-min logcat capture в local-mode (wizard Настроить-с-нуля path) → 0 cloud requests. Evidence: verification-evidence/task-49/logcat-5min.txt + logcat-cloud-matches.txt. Side finding: TASK-52 reproduced. |
 
 Re-run `pre-pr-backlog-sync` после каждого закрытого AC. Переход в Done — когда все deferred закрыты.
 
 **Lesson logged in memory** (`feedback_backlog_sync_verify_against_tasks.md`): при retroactive sync не верить «всё выполнено» на слово; обязательно grep'ить tasks.md на `[deferred-*]` маркеры и сверять `checklists/*.md`.
+
+**2026-07-09 update**: все AC closed. AC #10 (emulator smoke) переведён в N/A — superseded by AC #11 physical Xiaomi verification (physical device stricter than AVD, precedent от TASK-65 AC #19). Status → Done.
 <!-- SECTION:VERIFICATION_PENDING:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+**Closed 2026-07-09.** Offline-first architecture merged via PR #27 (commit 2ac2063). CloudAvailability port + Android adapter shipped. FcmTokenRegistrationGuard откладывает FCM token registration до explicit cloud-action (fixes spec 019 regression). Documentation `docs/dev/cloud-availability.md` written in plain Russian for non-developer owner.
+
+**Verification path**: physical Xiaomi 11T (5-min logcat capture в local-mode = 0 cloud requests, MIUI ROM). Emulator smoke path (AC #10) отклонён owner decision 2026-07-09 as work-for-status-not-quality (CLAUDE.md rule 4 MVA). Precedent: TASK-65 AC #19 real device substitutes AVD.
+
+**Unblocked**: TASK-6 (Root Key Hierarchy + Recovery) — closed 2026-07-09. TASK-49 was TASK-6's blocking dependency for "what counts as first cloud-action" trigger.
+
+**Side finding**: TASK-52 reproduced during Xiaomi 11T verification, tracked separately.
+<!-- SECTION:FINAL_SUMMARY:END -->

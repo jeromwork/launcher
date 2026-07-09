@@ -1,10 +1,10 @@
 ---
 id: TASK-119
 title: 'UX fix: recovery wizard copy + back button on AuthChoice'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-07-08 12:02'
-updated_date: '2026-07-08 12:37'
+updated_date: '2026-07-09 06:37'
 labels:
   - phase-1
   - ux
