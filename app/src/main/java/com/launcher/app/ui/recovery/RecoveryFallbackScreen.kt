@@ -4,10 +4,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -32,6 +37,12 @@ fun RecoveryFallbackScreen(
     onSetupAsNewDevice: () -> Unit,
     onRetry: () -> Unit
 ) {
+    // TASK-6 T682 (2026-07-09) — double-confirm dialog before the destructive
+    // path. Recovery blob deletion + attempt-counter reset is one-way: user
+    // must explicitly acknowledge that data encrypted under the old passphrase
+    // becomes unrecoverable. Elderly-friendly copy in plain Russian.
+    var showConfirmDialog by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -61,7 +72,7 @@ fun RecoveryFallbackScreen(
                 "будет начата с нуля. Локальные данные на этом телефоне (если есть) — сохранятся."
         )
 
-        Button(onClick = onSetupAsNewDevice) {
+        Button(onClick = { showConfirmDialog = true }) {
             Text("Настроить как новое устройство")
         }
 
@@ -70,5 +81,37 @@ fun RecoveryFallbackScreen(
                 Text("Попробовать ещё раз позже")
             }
         }
+    }
+
+    if (showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            title = {
+                Text(
+                    text = "Начать с нуля?",
+                    modifier = Modifier.semantics { contentDescription = "Подтверждение сброса резервной копии" }
+                )
+            },
+            text = {
+                Text(
+                    text = "Старая резервная копия и все данные, зашифрованные " +
+                        "старым паролем, будут удалены безвозвратно. " +
+                        "Это действие нельзя отменить.",
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showConfirmDialog = false
+                    onSetupAsNewDevice()
+                }) {
+                    Text("Да, начать заново")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDialog = false }) {
+                    Text("Отмена")
+                }
+            },
+        )
     }
 }

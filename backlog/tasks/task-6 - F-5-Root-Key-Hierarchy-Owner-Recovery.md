@@ -1,10 +1,10 @@
 ---
 id: TASK-6
 title: Root Key Hierarchy + Owner Recovery
-status: Paused
+status: Done
 assignee: []
 created_date: '2026-06-23 05:01'
-updated_date: '2026-07-08 12:07'
+updated_date: '2026-07-09 09:20'
 labels:
   - phase-1
   - F-feature
@@ -133,33 +133,53 @@ EFFORT: Large (~2-3 weeks).
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 [hand] Upload-half: зашёл через Google + ввёл пароль → recovery blob улетел на Cloudflare Workers KV. DONE 2026-06-30 на Xiaomi 11T (`backup/<firebase-sub>/v1.json` verified). **Cross-device half** (recovery на втором устройстве с тем же паролем) → перенесён в **TASK-118 AC #1**.
-- [ ] #2 [hand] Забыл пароль — увидел экран Fallback, могу начать с чистого листа без потери Google-аккаунта (single-device manual smoke на Xiaomi 11T).
+- [x] #2 [hand] Забыл пароль — увидел экран Fallback, могу начать с чистого листа без потери Google-аккаунта. **DONE 2026-07-09 на Xiaomi 11T** — 3 wrong passphrases → RecoveryFallbackScreen → «Настроить как новое устройство» → **double-confirm AlertDialog «Начать с нуля?»** → «Да, начать заново» → `F5Wipe: recovery blob deleted from Worker` + `F5Wipe: attempt counter cleared` → RecoveryPassphraseSetupScreen открывается заново. Google-аккаунт сохранён.
 - [→ TASK-58 AC #1] #3 [hand] Huawei без Google-сервисов — приложение работает в локальном режиме. **Перенесён в TASK-58** (нет Huawei устройства).
 - [N/A] #4 [hand] Migration со старого варианта шифрования — N/A. MVP, в production никто не пользуется spec-018 ciphertext'ом — мигрировать нечего. Снято.
 - [→ TASK-118 AC #2] #5 [hand] Android Autofill cross-device — **перенесён в TASK-118** (требует два физических устройства).
 - [x] #6 [hand] Документация recovery-flow.md написана простым русским, бабушка-админ может прочитать и понять — DONE (T673 committed 2026-06-29).
 - [x] #7 [auto:deferred-local-emulator] tasks.md 14/14 emulator-gated tasks — все закрыты (T642, T649-T652, T669-T670, T672, T630 N/A).
-- [ ] #8 [auto:deferred-physical-device] tasks.md 5/6 physical-device tasks — закрыты T643, T681, T684, T685; **открыт T682** (Fallback flow smoke on Xiaomi 11T).
-- [ ] #9 [auto:deferred-external] tasks.md 0/1 — **открыт T686** (owner peer-review docs/recovery-flow.md).
+- [x] #8 [auto:deferred-physical-device] tasks.md 6/6 physical-device tasks — закрыты T643, T681, T684, T685; **T682 closed 2026-07-09** (Fallback flow smoke на Xiaomi 11T — включает double-confirm dialog + server blob delete + counter clear + Setup screen re-open; server KV пустой после wipe verified через `wrangler kv key list --namespace-id 13e77e09a77a4faba6e743f1a59feff0 --remote`).
+- [x] #9 [auto:deferred-external] tasks.md 1/1 — **T686 closed 2026-07-09** (owner peer-review `docs/recovery-flow.md` — принцип и логика recovery/fallback потока описаны корректно. Минорные copy-расхождения в UI-названиях экранов и кнопок (owner подтвердил не важно, docs всё равно будут переписаны) не влияют на архитектурную корректность документа).
 <!-- AC:END -->
 
-<!-- SECTION:PAUSE_REASON:BEGIN -->
-**Paused 2026-07-08** — during T682 physical smoke owner discovered three UI copy / navigation defects (ambiguous "Войти в Google для восстановления настроек" title, ambiguous "Придумайте пароль для восстановления" title, missing back button on AuthChoice). SC-002 and SC-006 attest cannot PASS until UI is unambiguous for elderly user. Blocking task: **TASK-119** (UX fix: recovery wizard copy + back button on AuthChoice, timebox 4 hours). Once TASK-119 merges → rebuild APK → resume T682 smoke + T686 review here → Done.
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+**Done 2026-07-09** — all AC closed on Xiaomi 11T against the deployed
+auth-worker + backup-worker (post-TASK-119 architecture).
 
-Partial state: passphrase Setup screen shown in ambiguous form, blob was written to Cloudflare Workers KV during smoke (that half still works). No git changes on TASK-6 branch — pause is clean.
-<!-- SECTION:PAUSE_REASON:END -->
+Two-branch history:
+- Upload half (AC #1) closed 2026-06-30 during initial task-6 wiring.
+- Fallback half (AC #2, #8, #9) closed 2026-07-09 after TASK-119 merged.
+  Discovered a gap in the pre-existing Fallback wiring:
+  `renderRecoveryFallbackStep.onSetupAsNewDevice` was a direct
+  `::renderRecoverySetupStep` reference — no double-confirm dialog, no
+  server-side blob delete, no attempt-counter reset. Fixed by:
+  1. Adding an `AlertDialog` inside `RecoveryFallbackScreen` («Начать с
+     нуля?» / «Да, начать заново» / «Отмена») so a single mis-tap can't
+     wipe the blob.
+  2. New `wipeAndRestartSetup()` in `FirstLaunchActivity` — after the
+     user confirms, calls `recoveryKeyBackup.deleteBlob(stableId)`,
+     `attemptCounter.clear(stableId)`, then `renderRecoverySetupStep()`.
+  3. Failure on deleteBlob is logged and the wizard still advances —
+     the next Setup upload overwrites the orphan blob under the same
+     `authed.stableId` in the backup Worker's KV.
 
-<!-- SECTION:VERIFICATION_PENDING:BEGIN -->
-**Verification pending 2026-06-30** — PR opens in Verification state per CLAUDE.md status workflow.
+Verification evidence:
+- Fresh Setup + Recovery both work in a single fetchBlob call (no
+  retries, no races) — inherited from TASK-119 server rework.
+- Fallback flow verified: 3 wrong passphrases → `RecoveryFallbackScreen`
+  → destructive button → confirm dialog → `F5Wipe: recovery blob
+  deleted from Worker for stableId=f808632f-...` + `F5Wipe: attempt
+  counter cleared` → `RecoveryPassphraseSetupScreen` re-opens.
+- Server KV empty after wipe verified via `wrangler kv key list
+  --namespace-id 13e77e09a77a4faba6e743f1a59feff0 --remote` → `[]`.
 
-Pending AC for Done transition:
-- #2 / #8 [auto:deferred-physical-device] — T682 Fallback flow on Xiaomi 11T (5 wrong passphrases → Fallback screen → wipe → setup reopens).
-- #9 [auto:deferred-external] — T686 docs/recovery-flow.md peer review.
-
-Acquisition: both can run on the same Xiaomi 11T currently installed. No additional hardware needed.
-
-Once both close → re-run `pre-pr-backlog-sync` → status → Done.
-<!-- SECTION:VERIFICATION_PENDING:END -->
+Deferred to follow-ups (not blockers):
+- AC #3 → TASK-58 (Huawei / non-GMS smoke, no hardware available).
+- AC #5 → TASK-118 (Autofill cross-device, needs two physical devices).
+- Old FirebaseUID-keyed blob (`backup/GUOJK.../v1.json`) already
+  cleaned up during TASK-119 verification — no migration needed.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Implementation Notes
 
