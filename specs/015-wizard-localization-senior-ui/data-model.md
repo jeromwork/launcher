@@ -204,7 +204,7 @@ data class WizardManifest(
   val id: String,                               // "wizard-manifest.simple-launcher"
   val nameKey: String, val descriptionKey: String,
   val deviceClass: List<String>,
-  val appFamilyId: String,
+  val presetId: String,
   val steps: List<StepEntry>?,                  // null если autoOrder = true
   val autoOrder: Boolean = false                // FR-014c
 )

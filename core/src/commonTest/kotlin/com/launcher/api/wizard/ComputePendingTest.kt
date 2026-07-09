@@ -42,7 +42,6 @@ class ComputePendingTest {
     private fun manifest(steps: List<StepEntry>): WizardManifest = WizardManifest(
         header = header,
         body = WizardManifestBody(
-            appFamilyId = "task7-fixture",
             autoOrder = false,
             steps = steps,
         ),

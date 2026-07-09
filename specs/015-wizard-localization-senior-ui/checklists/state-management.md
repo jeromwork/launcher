@@ -37,7 +37,7 @@
 ## Recreation correctness
 
 - [✓] **CHK008** No "first-only" navigation logic.
-  - FR-005 `wizardCompleted(appFamilyId)` flag prevents re-show **после завершения** wizard'а.
+  - FR-005 `wizardCompleted(presetId)` flag prevents re-show **после завершения** wizard'а.
   - FR-004 restores `currentStepIndex` from checkpoint on each run — нет «navigate only on null savedInstanceState» антипаттерна.
 
 - [✗] **CHK009** Form input survives rotation without re-query.

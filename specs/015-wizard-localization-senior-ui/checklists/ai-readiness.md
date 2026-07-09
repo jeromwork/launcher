@@ -11,7 +11,7 @@
 ## Capability shape
 
 - [✓] **CHK001** Domain verbs.
-  - AI Affordance lists: `wizard.start(appFamilyId)`, `wizard.skipToStep(stepId)`, `localization.resolve(key, locale, args)`, `tileSet.list(deviceClass)`. ✓ Pure domain verbs.
+  - AI Affordance lists: `wizard.start(presetId)`, `wizard.skipToStep(stepId)`, `localization.resolve(key, locale, args)`, `tileSet.list(deviceClass)`. ✓ Pure domain verbs.
 
 - [✓] **CHK002** No Gemini / OpenAI / Claude / MCP types в signatures.
   - All capability signatures use domain types (String, ConfigSummary, etc.). ✓
@@ -99,7 +99,7 @@
 ```
 | Capability | Read/Write | Idempotent? | Reversible? |
 |---|---|---|---|
-| `wizard.start(appFamilyId)` | Write | Yes (returns current state if already started) | Yes (cancel + restart) |
+| `wizard.start(presetId)` | Write | Yes (returns current state if already started) | Yes (cancel + restart) |
 | `wizard.skipToStep(stepId)` | Write | Yes | Yes (navigate back) |
 | `localization.resolve(key, locale, args)` | Read | Yes | N/A (pure read) |
 | `tileSet.list(deviceClass)` | Read | Yes | N/A (pure read) |

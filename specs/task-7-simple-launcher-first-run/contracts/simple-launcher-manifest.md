@@ -20,7 +20,7 @@ The wire format itself (`wizard.manifest` schema) is owned by F-3 / spec 015 and
   "description": "wizard_manifest_simple_launcher_desc",
   "deviceClass": ["android-phone"],
   "body": {
-    "appFamilyId": "simple-launcher",
+    "presetId": "simple-launcher",
     "autoOrder": false,
     "steps": [
       {

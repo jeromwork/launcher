@@ -266,7 +266,7 @@
 
         <!--
           Spec 015 (F-3) FR-007: first-run wizard entry. Routed to from
-          FirstLaunchActivity when `wizardCompleted(appFamilyId)` is false.
+          FirstLaunchActivity when `wizardCompleted(presetId)` is false.
           Not exported — never reachable from outside the app.
         -->
         <activity

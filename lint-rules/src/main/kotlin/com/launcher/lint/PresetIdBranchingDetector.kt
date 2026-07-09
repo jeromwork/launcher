@@ -12,8 +12,8 @@ import org.jetbrains.kotlin.psi.KtIfExpression
 import org.jetbrains.kotlin.psi.KtWhenExpression
 
 /**
- * FR-020 — refuses equality / when branching on preset identity fields
- * (presetId, appFamilyId) outside the whitelisted packages.
+ * FR-020 — refuses equality / when branching on the preset identity field
+ * (presetId) outside the whitelisted packages.
  *
  * Whitelist: source files under com/launcher/api/preset/ (identity owners)
  * or com/launcher/architecture/ (fitness tests that legitimately reference
@@ -24,12 +24,12 @@ class PresetIdBranchingDetector(config: Config = Config.empty) : Rule(config) {
     override val issue: Issue = Issue(
         id = "PresetIdBranching",
         severity = Severity.Defect,
-        description = "Do not branch on presetId / appFamilyId outside the " +
-            "preset identity layer. Use polymorphism or config-driven dispatch.",
+        description = "Do not branch on presetId outside the preset identity " +
+            "layer. Use polymorphism or config-driven dispatch.",
         debt = Debt.TWENTY_MINS,
     )
 
-    private val triggerNames = setOf("presetId", "appFamilyId")
+    private val triggerNames = setOf("presetId")
 
     private val whitelist = listOf(
         "com/launcher/api/preset/",

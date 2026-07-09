@@ -138,7 +138,7 @@ All 120 tasks landed across 9 commits on branch `015-wizard-localization-senior-
 - [x] **T051** Implement `WizardEngine` interface + impl `WizardEngineImpl` в commonMain. State machine: `run(manifest) → traverse steps → checkpoint after each → return WizardOutcome`. (FR-002, FR-003)
 - [x] **T052** [US-2] Implement checkpoint resume logic: load existing checkpoint at `run()` start; resume from `currentStepIndex`; restore `answers`. (FR-004, SC-005)
 - [x] **T053** [US-2] Implement in-progress answer preservation via `rememberSaveable` pattern (documented для Compose host integration). (FR-003a, SC-005a)
-- [x] **T054** Implement `wizardCompleted(appFamilyId)` flag persistence via `UserPreferencesStore` extension. (FR-005)
+- [x] **T054** Implement `wizardCompleted(presetId)` flag persistence via `UserPreferencesStore` extension. (FR-005)
 - [x] **T055** [US-3 cross-cut] Implement `WizardEngine.diffPending(savedManifest, currentManifest)` для delta wizard. (FR-014b, SC-002a)
 - [x] **T056** Implement `autoOrder` support: если `wizard.manifest.body.autoOrder = true`, engine ignores explicit `steps[]`, генерирует Required-first order из обоих pools. (FR-014c, SC-002b)
 - [x] **T057** [US-1] Implement `UIChoiceStep`: reads `UIOptionEntry` from ui-pool; renders Compose UI (simple-choice via radio, pick-from-bundled via list); writes result to `UserPreferencesStore` или ConfigDocument depending on option. (FR-008)
@@ -233,7 +233,7 @@ All 120 tasks landed across 9 commits on branch `015-wizard-localization-senior-
 - [x] **T107** Create `WizardActivity` в :app: host для WizardEngine flow. Compose-based. Wires DI module. (Plan §4)
 - [x] **T108** Create `PlayStoreFallbackActivity` в :app: shown on `ConfigSourceResult.IncompatibleVersion`. «Обновите приложение» + Play Store deep-link. (FR-016, EF-3)
 - [x] **T109** Create `AppWizardModule` (DI binding): production wires Persistent*Store, AndroidSystemSettingAdapter, BundledConfigSource. Steps Map<StepType, WizardStep> с 3 entries (UIChoice, SystemSetting, TutorialHint). (FR-009, Plan §4)
-- [x] **T110** WizardEngine routing on app cold start: check `wizardCompleted(appFamilyId)` → if false, route to WizardActivity; else route to HomeActivity (existing). (FR-005)
+- [x] **T110** WizardEngine routing on app cold start: check `wizardCompleted(presetId)` → if false, route to WizardActivity; else route to HomeActivity (existing). (FR-005)
 
 ### READMEs (extraction discipline)
 

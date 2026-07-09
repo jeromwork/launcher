@@ -275,7 +275,7 @@ adb shell pm clear com.launcher.app
 - Plan: [`plan.md`](plan.md).
 - Research decisions: [`research.md`](research.md).
 - Data model: [`data-model.md`](data-model.md).
-- Contracts: [`contracts/preset-wire-format.md`](contracts/preset-wire-format.md), [`profile-store-format.md`](contracts/profile-store-format.md), [`pool-naming.md`](contracts/pool-naming.md).
+- Contracts: [`contracts/preset-wire-format.md`](contracts/preset-wire-format.md), [`profile-store-format.md`](contracts/profile-store-format.md), [`pool-naming.md`](../../../docs/architecture/pool-naming.md).
 
 ---
 

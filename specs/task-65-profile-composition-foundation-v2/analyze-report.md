@@ -29,7 +29,7 @@ CROSS-ARTIFACT TRACE:
   ✓ All 5 sequences (SEQ-1..SEQ-5) trace to USs and FRs
   ✓ 3 contracts have roundtrip tests scheduled (T666, T668, T66C, T66A)
   ✓ All ports have fake-adapter coverage (FakeConfigSource, FakePoolSource, FakeProfileStore, FakeSystemSettingPort)
-  ✓ Delete tasks have grep-verification (T645 grep appFamilyId)
+  ✓ Delete tasks have grep-verification (T645 grep presetId)
 
 CHECKLISTS (12 new + 7 re-run from clarify):
   always-on/requirements-quality           : 16/16 ✓ (re-run, stable)
@@ -54,8 +54,8 @@ CHECKLISTS (12 new + 7 re-run from clarify):
 
 SCANS:
   ✓ No vague-language survivors (simple appears only as preset slug «simple-launcher», immutable)
-  ⚠ Drift signal #1: docs/product/glossary.md uses pre-Amendment-1.11 terminology («App-family», «appFamilyId committed»). NOT in TASK-65 scope (per CLAUDE.md «do not preemptively migrate»). Flag for next glossary touch.
-  ⚠ Drift signal #2: specs/015-wizard-localization-senior-ui/checklists/* reference appFamilyId. Historical, not blocker.
+  ⚠ Drift signal #1: docs/product/glossary.md uses pre-Amendment-1.11 terminology («App-family», «presetId committed»). NOT in TASK-65 scope (per CLAUDE.md «do not preemptively migrate»). Flag for next glossary touch.
+  ⚠ Drift signal #2: specs/015-wizard-localization-senior-ui/checklists/* reference presetId. Historical, not blocker.
   ✓ All wire-format files have schemaVersion (preset.json v1, wizard.manifest v2, ProfileStoreState v1).
   ✓ Source-set placement consistent: commonMain (pure types + ports), androidMain (adapters + UI).
   ✓ All ADR references linked (ADR-011 in spec.md and plan.md).
@@ -69,7 +69,7 @@ VERDICT: READY-WITH-CAVEATS
 
   2 non-blocking drift signals (not in TASK-65 scope):
     - glossary.md uses pre-Amendment-1.11 terminology — flag for next touch.
-    - specs/015 checklists reference appFamilyId — historical.
+    - specs/015 checklists reference presetId — historical.
 
   After T65A/T65B/T65D implementation: re-run accessibility + localization-ui + ux-quality на actual Compose code (UI smoke checkpoint per CLAUDE.md skill `android-emulator`). Cleared for implementation.
 ```
@@ -201,8 +201,8 @@ Per Article XVI, 8 gates re-evaluated:
 | FR | Tasks |
 |---|---|
 | FR-001 (preset.json wire format) | T611, T650, T651, T652, T666 |
-| FR-002 (remove appFamilyId) | T643, T644, T645, T66A |
-| FR-003 (pool-naming docs) | done в contracts/pool-naming.md |
+| FR-002 (remove presetId) | T643, T644, T645, T66A |
+| FR-003 (pool-naming docs) | done в ../../../docs/architecture/pool-naming.md |
 | FR-004 (ConfigKind.Preset) | T614, T669 |
 | FR-005 (PoolSource port) | T621 |
 | FR-006 (HardcodedPoolSource) | T630 |
@@ -227,7 +227,7 @@ Per Article XVI, 8 gates re-evaluated:
 | FR-025 (regression test) | T66G |
 | FR-026 (generic engine fitness) | T66D |
 | FR-027 (PoolSource roundtrip) | T66C |
-| FR-028 (pool-naming docs) | done в contracts/pool-naming.md |
+| FR-028 (pool-naming docs) | done в ../../../docs/architecture/pool-naming.md |
 | FR-029 (boot callback check) | T659, T67J |
 | FR-030 (critical-missing banner) | T658, T65B, T659, T67I |
 | FR-031 (non-critical silent) | T658, T659 |
@@ -253,18 +253,18 @@ Per Article XVI, 8 gates re-evaluated:
 ### #1 — `docs/product/glossary.md` uses pre-Amendment-1.11 terminology
 
 Lines 7, 27, 33, 45 say:
-- «`appFamilyId` (committed wire format, не меняется per CLAUDE.md rule 5)»
-- «`wizard.manifest`. Поля: `appFamilyId` (= profile id)»
+- «`presetId` (committed wire format, не меняется per CLAUDE.md rule 5)»
+- «`wizard.manifest`. Поля: `presetId` (= profile id)»
 
 After TASK-65 implementation:
-- `appFamilyId` is REMOVED from wizard.manifest.
+- `presetId` is REMOVED from wizard.manifest.
 - New term is `presetId` / `PresetRef`.
 
 **Resolution**: NOT in TASK-65 scope per CLAUDE.md «do not preemptively migrate existing files». glossary.md should be updated on next touch. Flag for owner awareness; no fix needed for TASK-65 merge.
 
-### #2 — `specs/015-wizard-localization-senior-ui/checklists/*.md` reference `appFamilyId`
+### #2 — `specs/015-wizard-localization-senior-ui/checklists/*.md` reference `presetId`
 
-Historical checklist artifacts from spec 015 mention `wizard.start(appFamilyId)` capability + `wizardCompleted(appFamilyId)` flag.
+Historical checklist artifacts from spec 015 mention `wizard.start(presetId)` capability + `wizardCompleted(presetId)` flag.
 
 **Resolution**: Historical, do not migrate. These are records of past analysis on spec 015 (pre-Amendment-1.11 reality).
 
@@ -313,7 +313,7 @@ After UI implementation (Phase 5) — re-run the 3 deferred checklists на actu
 - UX manual smoke — глаза проверяют «интуитивно ли» — после Phase 5.
 
 **2 drift signals** (наблюдения для будущего):
-- `docs/product/glossary.md` использует старую терминологию (`appFamilyId`). Не в scope TASK-65; обновится при следующем touch.
-- `specs/015/checklists/*.md` ссылаются на `appFamilyId` — историческое, не трогаем.
+- `docs/product/glossary.md` использует старую терминологию (`presetId`). Не в scope TASK-65; обновится при следующем touch.
+- `specs/015/checklists/*.md` ссылаются на `presetId` — историческое, не трогаем.
 
 **Что дальше**: `/speckit.implement` — собственно код. 50 задач, 7 фаз. Начинать с Phase 0 (inventory `ProfileSnapshot`).

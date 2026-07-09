@@ -40,13 +40,7 @@ object ConfigParser {
             if (kind == ConfigKind.Preset) {
                 return parsePreset(root)
             }
-            // T644 — migrate legacy v1 wizard manifest in-place before header decode.
-            val maybeMigrated = if (kind == ConfigKind.WizardManifest) {
-                migrateLegacyWizardManifest(root)
-            } else {
-                root
-            }
-            val header = decodeHeader(maybeMigrated)
+            val header = decodeHeader(root)
                 ?: return ConfigSourceResult.ParseError("missing or invalid 6-field header")
             if (header.schemaVersion > KNOWN_VERSION) {
                 return ConfigSourceResult.IncompatibleVersion(
@@ -54,7 +48,7 @@ object ConfigParser {
                     known = KNOWN_VERSION,
                 )
             }
-            val body = maybeMigrated["body"]?.jsonObject
+            val body = root["body"]?.jsonObject
                 ?: return ConfigSourceResult.ParseError("missing body")
 
             val document: ConfigDocument = when (kind) {

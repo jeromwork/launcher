@@ -42,7 +42,7 @@ Applied: 2026-06-30 (2nd pass).
 
 ## Removal validation
 
-- [x] CHK012 Dangling references audited — **partial**. `appFamilyId` removal from wizard.manifest → grep по codebase в plan'е.
+- [x] CHK012 Dangling references audited — **partial**. `presetId` removal from wizard.manifest → grep по codebase в plan'е.
 - [x] CHK013 Removed code has removal task — **partial**. ProfileSnapshot existing → decision в plan.
 
 ---

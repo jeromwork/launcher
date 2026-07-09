@@ -298,7 +298,7 @@ For each new port:
 
 `Task7ArchitectureTest.kt` (androidUnitTest) asserts:
 - T7-001: No Gradle module dedicated to `simple-launcher` (Article VII §13).
-- T7-002: No `if (appFamilyId == "simple-launcher")` or `when (appFamilyId)` branches in business logic (Article VII §13).
+- T7-002: No `if (presetId == "simple-launcher")` or `when (presetId)` branches in business logic (Article VII §13).
 - T7-003: `ConfigKind` enum has exactly the existing 5 entries — no new kinds added (Article VII §10).
 - T7-004: `CheckSpec` and `ApplySpec` sealed classes in commonMain do NOT import Android types (Article VII §15 + CLAUDE.md rule 1).
 - T7-005: `AppCompatDelegate.setApplicationLocales()` called only from `app/` or `core/androidMain/`, never from commonMain.

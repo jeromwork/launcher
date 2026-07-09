@@ -4,7 +4,7 @@ title: workspace profile preset (JSON content)
 status: Draft
 assignee: []
 created_date: '2026-06-28 18:30'
-updated_date: '2026-06-28 18:30'
+updated_date: '2026-07-09 10:59'
 labels:
   - phase-2
   - profile-content
@@ -13,7 +13,7 @@ milestone: m-1
 dependencies:
   - TASK-65
   - TASK-67
-  - TASK-3
+  - TASK-120
 priority: high
 ordinal: 68000
 ---

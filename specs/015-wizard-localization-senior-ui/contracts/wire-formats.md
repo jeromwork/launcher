@@ -41,7 +41,7 @@ All share the **6-field common header** (per glossary §4.1):
 
 ```json
 {
-  "appFamilyId": "simple-launcher",
+  "presetId": "simple-launcher",
   "autoOrder": true,
   "steps": [
     {
@@ -68,7 +68,7 @@ All share the **6-field common header** (per glossary §4.1):
   "description": "wizard_manifest.simple_launcher.desc",
   "deviceClass": ["android-phone"],
   "body": {
-    "appFamilyId": "simple-launcher",
+    "presetId": "simple-launcher",
     "autoOrder": true,
     "steps": null
   }

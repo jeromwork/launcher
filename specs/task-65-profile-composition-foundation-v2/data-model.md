@@ -352,7 +352,7 @@ ProfileSwitchStrategy
 | Wire format | Current version | Read first? | Migration writer |
 |---|---|---|---|
 | `preset.json` | 1 | yes | n/a (version 1 launch) |
-| `wizard.manifest` | 2 (bump from 1) | yes | `migrateLegacyWizardManifest(v1) → v2` (removes `appFamilyId`) per R6 |
+| `wizard.manifest` | 2 (bump from 1) | yes | `migrateLegacyWizardManifest(v1) → v2` (removes `presetId`) per R6 |
 | `Pool` per `*.pool.json` | per-pool | yes | n/a until 2nd version |
 | `ProfileStoreState` (DataStore) | 1 | yes | n/a (version 1 launch); future migrations via `migrateProfileStore(vN → vN+1)` pattern |
 
@@ -378,4 +378,4 @@ All formats: unknown variant → `Indeterminate` (graceful), not crash (Article 
 
 6. **`CheckSpec.UIFont`** — новый вариант проверки (размер шрифта). Используется в `test-preset.json` чтобы доказать что движок generic (умеет проверять не только Android-permissions).
 
-**Схема версионирования**: каждый формат имеет `schemaVersion: Int`, читается первым. Для breaking изменений пишется migration writer ДО того как breaking изменение шипится. `appFamilyId` field удаляется через migration writer ДО merge TASK-65.
+**Схема версионирования**: каждый формат имеет `schemaVersion: Int`, читается первым. Для breaking изменений пишется migration writer ДО того как breaking изменение шипится. `presetId` field удаляется через migration writer ДО merge TASK-65.

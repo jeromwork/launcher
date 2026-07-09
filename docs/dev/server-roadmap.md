@@ -443,7 +443,7 @@ Consolidated non-goals и exit ramps для defense mechanisms, **не** при�
 
 ## SRV-PREFS-001: UserPreferences cloud sync (F-3 → spec 008)
 
-**Контекст**: F-3 (spec 015) `UserPreferences` (theme, fontScale, languageOverride, attestedSettings, wizardCompletedAppFamilies) persisted locally в DataStore. Если у пользователя несколько устройств (managed phone + tablet) — настройки не синхронизируются.
+**Контекст**: F-3 (spec 015) `UserPreferences` (theme, fontScale, languageOverride, attestedSettings, wizardCompletedPresets) persisted locally в DataStore. Если у пользователя несколько устройств (managed phone + tablet) — настройки не синхронизируются.
 
 **Own-server destination**:
 - F-4 + spec 008 add `ConfigDocument.userPreferences` slot — F-3 store migrates into it.

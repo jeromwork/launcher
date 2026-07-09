@@ -6,6 +6,6 @@ interface UserPreferencesStore {
     suspend fun save(prefs: UserPreferences)
     fun observe(): Flow<UserPreferences>
     suspend fun current(): UserPreferences
-    suspend fun markWizardCompleted(appFamilyId: String)
-    suspend fun isWizardCompleted(appFamilyId: String): Boolean
+    suspend fun markWizardCompleted(presetId: String)
+    suspend fun isWizardCompleted(presetId: String): Boolean
 }

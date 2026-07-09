@@ -192,7 +192,7 @@ data class UserPreferences(
   val fontScale: Float? = null,
   val languageOverride: String? = null,
   val attestedSettings: Map<String, AttestationRecord> = emptyMap(),
-  val wizardCompletedAppFamilies: Set<String> = emptySet(),
+  val wizardCompletedPresets: Set<String> = emptySet(),
 ) {
   // NEW helper in TASK-7
   fun hasValueFor(refId: String): Boolean = when (refId) {

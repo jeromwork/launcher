@@ -22,10 +22,10 @@ class PresetIdBranchingDetectorTest {
     }
 
     @Test
-    fun flagsWhenAppFamilyIdInCoreWizard() {
+    fun flagsWhenPresetIdInCoreWizard() {
         val code = """
             package com.launcher.api.wizard
-            fun route(appFamilyId: String) = when (appFamilyId) {
+            fun route(presetId: String) = when (presetId) {
                 "a" -> 1
                 else -> 0
             }

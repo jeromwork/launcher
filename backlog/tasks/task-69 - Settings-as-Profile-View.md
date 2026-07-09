@@ -4,7 +4,7 @@ title: Settings as Profile View
 status: Draft
 assignee: []
 created_date: '2026-06-30 20:00'
-updated_date: '2026-06-30 20:00'
+updated_date: '2026-07-09 10:58'
 labels:
   - phase-2
   - foundation
@@ -14,6 +14,7 @@ labels:
 milestone: m-1
 dependencies:
   - TASK-65
+  - TASK-120
 priority: medium
 ordinal: 69000
 ---

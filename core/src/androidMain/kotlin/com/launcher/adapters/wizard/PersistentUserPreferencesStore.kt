@@ -33,13 +33,13 @@ class PersistentUserPreferencesStore(
 
     override suspend fun current(): UserPreferences = decode(dataStore.data.first()[KEY_PAYLOAD])
 
-    override suspend fun markWizardCompleted(appFamilyId: String) {
+    override suspend fun markWizardCompleted(presetId: String) {
         val now = current()
-        save(now.copy(wizardCompletedAppFamilies = now.wizardCompletedAppFamilies + appFamilyId))
+        save(now.copy(wizardCompletedPresets = now.wizardCompletedPresets + presetId))
     }
 
-    override suspend fun isWizardCompleted(appFamilyId: String): Boolean =
-        appFamilyId in current().wizardCompletedAppFamilies
+    override suspend fun isWizardCompleted(presetId: String): Boolean =
+        presetId in current().wizardCompletedPresets
 
     private fun decode(raw: String?): UserPreferences {
         if (raw.isNullOrBlank()) return UserPreferences()

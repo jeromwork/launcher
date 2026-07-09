@@ -272,7 +272,7 @@ After mentor-mode dialog, owner provided product-level direction. Below are reso
 
 ### User Story 5 — Reboot persistence (Priority: P2)
 
-После wizard'а: `UserPreferences.wizardCompletedAppFamilies` содержит `"simple-launcher"` (per F-3 spec 015 FR-007). Reboot устройства → wizard не повторяется; FirstLaunchActivity routes directly to HomeActivity.
+После wizard'а: `UserPreferences.wizardCompletedPresets` содержит `"simple-launcher"` (per F-3 spec 015 FR-007). Reboot устройства → wizard не повторяется; FirstLaunchActivity routes directly to HomeActivity.
 
 **Why this priority**: edge case robustness; механизм уже инфраструктурно сделан в F-3 и spec 010.
 
@@ -390,7 +390,7 @@ Wizard выглядит и ведёт себя **одинаково** незав
   - `Custom` → always include (no generic state check; Custom step handler decides).
 - **FR-014**: `WizardEngine.run(manifest)` MUST call `computePending(manifest)` as **pre-flight**. If returned list is empty → return `WizardOutcome.Completed` immediately without traversal. If non-empty → traverse only pending steps. **Replaces** the existing linear traversal of all manifest steps in `WizardEngineImpl.run()`.
 - **FR-014a**: Settings UI MUST include a button «Пройти все настройки пошагово» (label key `settings_walk_through_all_label`) that re-launches wizard UI in **walk-through mode**: traverses **all** manifest steps (not filtered by `computePending`), with each step pre-populated with current value as default and offering «Оставить» / «Изменить» actions. Walk-through mode requires a new `WizardEngine` parameter or sibling method (e.g., `engine.runWalkThrough(manifest)`). Visible state changes per step are saved immediately (not transactional) per Trouble case 5.b. **UX precedent**: Apple Setup Assistant on factory reset, Windows OOBE on rerun, TurboTax sections walk (per Article XV §14).
-- **FR-015**: `WizardActivity` SHOULD also expose `computePending(manifest)` ahead of `engine.run(...)` to **decide** whether to launch wizard at all vs route directly to `HomeActivity`. This complements `UserPreferencesStore.isWizardCompleted(appFamilyId)` boolean: even if `isWizardCompleted == true`, if a profile/pool update added new pending steps, wizard runs as donastroika.
+- **FR-015**: `WizardActivity` SHOULD also expose `computePending(manifest)` ahead of `engine.run(...)` to **decide** whether to launch wizard at all vs route directly to `HomeActivity`. This complements `UserPreferencesStore.isWizardCompleted(presetId)` boolean: even if `isWizardCompleted == true`, if a profile/pool update added new pending steps, wizard runs as donastroika.
 - **FR-016**: `diffPending(savedCompletedManifest, currentManifest)` method on `WizardEngine` is **deprecated** by FR-013 (snapshot-based approach not used). Kept for backward compat; documented as deprecated; remove in TASK-22 (Optional Step Reminder System) or sooner.
 
 #### Part D — App-level locale override
@@ -430,7 +430,7 @@ Wizard выглядит и ведёт себя **одинаково** незав
 #### Cross-cutting
 
 - **FR-032**: TASK-7 MUST NOT add new Gradle modules dedicated to simple-launcher (constitution Article VII §13).
-- **FR-033**: TASK-7 MUST NOT add code branches keyed on `appFamilyId == "simple-launcher"` в business logic (constitution Article VII §13).
+- **FR-033**: TASK-7 MUST NOT add code branches keyed on `presetId == "simple-launcher"` в business logic (constitution Article VII §13).
 - **FR-034**: TASK-7 MUST NOT introduce new `ConfigKind` enum entries (constitution Article VII §10) — uses existing five.
 - **FR-035**: TASK-7 MAY add new ports (`CheckHandler`, `ApplyHandler`) where this clearly reduces handler-dispatch complexity (rule 4 MVA exception justified because handler-per-CheckSpec-variant is the Capability Registry seam — pre-replacing for future Article VII §10 evolution + MCP integration).
 
@@ -463,7 +463,7 @@ Wizard выглядит и ведёт себя **одинаково** незав
 - **SC-007 [backlog]**: Senior-safe walkthrough на эмуляторе через skill `android-emulator` — assisting проходит wizard без подсказок (manual `[hand]` AC).
 - **SC-008**: Roundtrip test проходит для pool v2 JSON (CLAUDE.md rule 5).
 - **SC-009**: Backward-compat test проходит — v1 pool entries (no `check` block) читаются через v2 reader без потери fields.
-- **SC-010**: Fitness function tests проходят: (a) нет новых Gradle модулей dedicated для simple-launcher; (b) нет `if (appFamilyId == "simple-launcher")` branches в business logic; (c) нет новых `ConfigKind` enum entries; (d) `CheckSpec` / `ApplySpec` sealed classes не импортируют Android types; (e) `AppCompatDelegate` не called from commonMain.
+- **SC-010**: Fitness function tests проходят: (a) нет новых Gradle модулей dedicated для simple-launcher; (b) нет `if (presetId == "simple-launcher")` branches в business logic; (c) нет новых `ConfigKind` enum entries; (d) `CheckSpec` / `ApplySpec` sealed classes не импортируют Android types; (e) `AppCompatDelegate` не called from commonMain.
 - **SC-011**: APK size delta ≤ +150 KB (JSON schema v2 + handlers + Koin wiring + strings; no new bundled documents).
 - **SC-012**: Engine integration test: simulate ROLE_HOME pre-applied + tileSet pre-set → `computePending` returns only POST_NOTIFICATIONS + PairAdmin → engine.run shows only these two steps.
 

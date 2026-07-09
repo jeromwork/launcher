@@ -227,10 +227,7 @@ class WizardEngineImpl(
             userPreferences = nextPreferences(answers),
         )
         userPreferencesStore.save(outcome.userPreferences)
-        // TASK-65 FR-002: appFamilyId removed in manifest v2; fall back to
-        // manifest.id (stable across versions) so legacy markWizardCompleted
-        // contract still holds during migration period.
-        userPreferencesStore.markWizardCompleted(manifest.appFamilyId ?: manifest.id)
+        userPreferencesStore.markWizardCompleted(manifest.id)
         checkpointStore.clear(manifest.id)
         diagnostics.emit(DiagnosticEvent.WizardCompleted(manifest.id))
         _state.value = WizardState.Completed(outcome)
@@ -312,7 +309,6 @@ class WizardEngineImpl(
 /** Convenience constructor that wraps body in a default header. */
 fun standaloneManifest(
     id: String = "test-manifest",
-    appFamilyId: String = "test",
     steps: List<StepEntry>,
 ): WizardManifest = WizardManifest(
     header = ConfigDocumentHeader(
@@ -323,7 +319,6 @@ fun standaloneManifest(
         deviceClass = listOf("android-phone"),
     ),
     body = WizardManifestBody(
-        appFamilyId = appFamilyId,
         autoOrder = false,
         steps = steps,
     ),

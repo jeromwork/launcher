@@ -77,7 +77,7 @@
 
 ## Phase 2 — Ports + default strategies (commonMain)
 
-- [x] **T620 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/pools/Pool.kt` — `@Serializable data class Pool(id, schemaVersion, entries: List<PoolEntry>)` + `data class PoolEntry(id, title, description, check, apply, criticality, defaultValue?, deprecated)`. (FR-005, contracts/pool-naming.md)
+- [x] **T620 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/pools/Pool.kt` — `@Serializable data class Pool(id, schemaVersion, entries: List<PoolEntry>)` + `data class PoolEntry(id, title, description, check, apply, criticality, defaultValue?, deprecated)`. (FR-005, ../../../docs/architecture/pool-naming.md)
        Acceptance: file compiles.
 
 - [x] **T621 [P]** Create `core/src/commonMain/kotlin/com/launcher/api/pools/PoolSource.kt` — `interface PoolSource { load(poolId); version(poolId); listEntries(poolId) }`. (FR-005)
@@ -96,7 +96,7 @@
 
 ## Phase 3 — PoolSource adapters (androidMain)
 
-- [x] **T630** Create `core/src/androidMain/kotlin/com/launcher/adapters/pools/HardcodedPoolSource.kt` — implements `PoolSource` via Kotlin `const val POOL_*` constants for `system-settings` and `ui-customization` pools. Initial entries: `android.role.home`, `android.permission.POST_NOTIFICATIONS`, `ui.font.large` (uses CheckSpec.UIFont from T615). (FR-006, contracts/pool-naming.md)
+- [x] **T630** Create `core/src/androidMain/kotlin/com/launcher/adapters/pools/HardcodedPoolSource.kt` — implements `PoolSource` via Kotlin `const val POOL_*` constants for `system-settings` and `ui-customization` pools. Initial entries: `android.role.home`, `android.permission.POST_NOTIFICATIONS`, `ui.font.large` (uses CheckSpec.UIFont from T615). (FR-006, ../../../docs/architecture/pool-naming.md)
        Acceptance: instance answers `load("system-settings")` and `load("ui-customization")` без throw; `listEntries` returns ≥3 total entries.
        Depends: T620, T621, T615.
 
@@ -124,21 +124,21 @@
        Acceptance: instance answers `load(Preset, "simple-launcher")` returns parsed `Preset` (test T660 verifies).
        Depends: T641.
 
-- [x] **T643** Create `core/src/commonMain/kotlin/com/launcher/api/wizard/data/ConfigParser.kt` extension — `migrateLegacyWizardManifest(json: JsonObject): JsonObject` scoped function (removes `appFamilyId` from body, bumps `schemaVersion: 1 → 2`). Per R6. (FR-002)
+- [x] **T643** Create `core/src/commonMain/kotlin/com/launcher/api/wizard/data/ConfigParser.kt` extension — `migrateLegacyWizardManifest(json: JsonObject): JsonObject` scoped function (removes `presetId` from body, bumps `schemaVersion: 1 → 2`). Per R6. (FR-002)
        Acceptance: unit test T665 covers v1 → v2 transform.
 
 - [x] **T644** Update existing `core/src/commonMain/kotlin/com/launcher/api/wizard/data/WizardManifest.kt` parser to: (a) read `schemaVersion` first; (b) if `version == 1` → invoke `migrateLegacyWizardManifest`; (c) if `version > 2` → return `IncompatibleVersion`; (d) deserialize after migration. (FR-002, R6)
        Acceptance: existing TASK-7 tests still green (manifest now v2); legacy v1 fixture parses to v2 structure via migrator.
        Depends: T643.
 
-- [x] **T645** Edit `core/src/androidMain/assets/wizard/wizard-manifests/simple-launcher.json` — remove `body.appFamilyId` field, bump `"schemaVersion": 1 → 2`. (FR-002)
-       Acceptance: `grep appFamilyId c:/work/launcher/core/src/androidMain/assets/wizard/wizard-manifests/simple-launcher.json` returns 0.
+- [x] **T645** Edit `core/src/androidMain/assets/wizard/wizard-manifests/simple-launcher.json` — remove `body.presetId` field, bump `"schemaVersion": 1 → 2`. (FR-002)
+       Acceptance: `grep presetId c:/work/launcher/core/src/androidMain/assets/wizard/wizard-manifests/simple-launcher.json` returns 0.
        Depends: T644.
 
-- [x] **T646** Create fixture `core/src/androidTest/assets/wizard-manifests/legacy-with-app-family-id.json` — pre-TASK-65 simple-launcher.json (with `appFamilyId`, `schemaVersion: 1`). (R6, plan §6.1, CHK011 wire-format)
+- [x] **T646** Create fixture `core/src/androidTest/assets/wizard-manifests/legacy-with-app-family-id.json` — pre-TASK-65 simple-launcher.json (with `presetId`, `schemaVersion: 1`). (R6, plan §6.1, CHK011 wire-format)
        Acceptance: file exists; parsable as legacy JSON.
 
-- [x] **T647** Create `core/src/androidMain/kotlin/com/launcher/adapters/profile/PreferencesProfileStore.kt` — implements `ProfileStore` port using `androidx.datastore.preferences` single key `profile.store.json` containing `Json.encodeToString(ProfileStoreState)`. Composite Map keys per R3. Includes `appFamilyId` legacy migration (FR-015). (FR-018, R3, R6 idempotent)
+- [x] **T647** Create `core/src/androidMain/kotlin/com/launcher/adapters/profile/PreferencesProfileStore.kt` — implements `ProfileStore` port using `androidx.datastore.preferences` single key `profile.store.json` containing `Json.encodeToString(ProfileStoreState)`. Composite Map keys per R3. Includes `presetId` legacy migration (FR-015). (FR-018, R3, R6 idempotent)
        Acceptance: test T661 covers roundtrip + legacy migration.
        Depends: T61B, T61C.
 
@@ -225,7 +225,7 @@
        Acceptance: `./gradlew :lint-rules:tasks` lists test task.
        Depends: T660.
 
-- [x] **T662** Create `lint-rules/src/main/kotlin/com/launcher/lint/PresetIdBranchingDetector.kt` — Detekt `Rule` extension scanning for `if (presetId == "...")`, `when (presetId)`, `when (appFamilyId)`, `if (appFamilyId == "...")`. Whitelist packages: `com.launcher.core.preset.*`, `com.launcher.core.preset.test.*`. (FR-020)
+- [x] **T662** Create `lint-rules/src/main/kotlin/com/launcher/lint/PresetIdBranchingDetector.kt` — Detekt `Rule` extension scanning for `if (presetId == "...")`, `when (presetId)`, `when (presetId)`, `if (presetId == "...")`. Whitelist packages: `com.launcher.core.preset.*`, `com.launcher.core.preset.test.*`. (FR-020)
        Acceptance: unit test T66E (positive/negative cases) green.
        Depends: T661.
 
@@ -259,7 +259,7 @@
        Acceptance: test green; future-proof against malformed preset additions.
        Depends: T650, T651, T652, T65E.
 
-- [x] **T66A [P]** Create `core/src/test/kotlin/com/launcher/api/wizard/data/WizardManifestBackwardCompatTest.kt` — read fixture `legacy-with-app-family-id.json` (T646) → assert: migrator removed `appFamilyId`, bumped to `schemaVersion=2`, rest of fields intact. (FR-002, R6, CHK011 wire-format)
+- [x] **T66A [P]** Create `core/src/test/kotlin/com/launcher/api/wizard/data/WizardManifestBackwardCompatTest.kt` — read fixture `legacy-with-app-family-id.json` (T646) → assert: migrator removed `presetId`, bumped to `schemaVersion=2`, rest of fields intact. (FR-002, R6, CHK011 wire-format)
        Acceptance: test green.
        Depends: T643, T646.
 
@@ -277,7 +277,7 @@
 
 ### 6c — Detekt rule tests
 
-- [x] **T66E [P]** Create `lint-rules/src/test/kotlin/com/launcher/lint/PresetIdBranchingDetectorTest.kt` — Detekt test framework. Positive cases (issue expected): `if (presetId == "x")` в `com/launcher/app/home/`, `when (appFamilyId)` в `com/launcher/core/wizard/`. Negative cases (no issue): same patterns в `com/launcher/core/preset/` (whitelisted). (FR-020)
+- [x] **T66E [P]** Create `lint-rules/src/test/kotlin/com/launcher/lint/PresetIdBranchingDetectorTest.kt` — Detekt test framework. Positive cases (issue expected): `if (presetId == "x")` в `com/launcher/app/home/`, `when (presetId)` в `com/launcher/core/wizard/`. Negative cases (no issue): same patterns в `com/launcher/core/preset/` (whitelisted). (FR-020)
        Acceptance: 4 cases all pass.
        Depends: T662.
 
@@ -364,7 +364,7 @@
 - **Phase 1 (13 задач)** — Чистые типы данных в commonMain: PresetRef, Preset, Config, AbstractProfile, ProfileData и т.д. Просто структуры без поведения, компилируются без Android.
 - **Phase 2 (4 задачи)** — Порты: интерфейсы PoolSource, ProfileSwitchStrategy + одна default реализация (CopyOnActivateStrategy).
 - **Phase 3 (3 задачи)** — Адаптеры для пулов: HardcodedPoolSource (живой, primary) + JsonAssetPoolSource (scaffold с TODO).
-- **Phase 4 (9 задач)** — Persistence: PreferencesProfileStore (хранение в DataStore), migration writer для удаления appFamilyId, обновление существующего ConfigSource для поддержки Preset, fixture для backward-compat теста.
+- **Phase 4 (9 задач)** — Persistence: PreferencesProfileStore (хранение в DataStore), migration writer для удаления presetId, обновление существующего ConfigSource для поддержки Preset, fixture для backward-compat теста.
 - **Phase 5 (14 задач)** — UI и services: 3 bundled preset'а (simple-launcher, launcher, workspace) + 1 test-preset, PresetPickerScreen Compose, HomeBanner для critical missing на boot, PresetBootRouter, PresetSwitchService, PresetReminderService, UIFontChecker, обновление существующих FirstLaunchActivity и SettingsActivity, 16 i18n keys + автоперевод на 9 локалей.
 - **Phase 6 (21 задача)** — Тесты и Detekt: настройка Detekt в новом `lint-rules/` модуле, 2 custom Detekt rule + их тесты, contract tests (PresetWireFormat, ProfileStore, BundledPresetsParse, WizardManifestBackwardCompat, SettingsCallbackThrows, PoolSourceRoundtrip), regression test через golden snapshot, 6 instrumentation E2E тестов (FirstLaunchPicker, PresetSwitch, Migration, SettingsReminders, BootCriticalMissingBanner, BootBenchmark), 3 deferred задачи для проверки на Xiaomi/Samsung/Huawei.
 

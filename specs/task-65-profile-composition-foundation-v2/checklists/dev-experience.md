@@ -20,7 +20,7 @@ Applied: 2026-06-30 (2nd pass).
 
 - [x] CHK009 Test data in fixture — **yes**.
 - [x] CHK010 Fixtures stable — **yes**.
-- [x] CHK011 Cross-version fixtures — **partial**. **NEW gap**: pre-TASK-65 wizard.manifest fixture (with appFamilyId) для backward-compat test. **Surface to plan**.
+- [x] CHK011 Cross-version fixtures — **partial**. **NEW gap**: pre-TASK-65 wizard.manifest fixture (with presetId) для backward-compat test. **Surface to plan**.
 
 ## Cannot-test-locally gaps
 
@@ -46,4 +46,4 @@ Applied: 2026-06-30 (2nd pass).
 ---
 
 **Total**: 16/22 ✓, 6 «defer to plan»
-**Red-only summary**: dev-experience: 16/22 ✓, FAIL: CHK003 (boot benchmark needed для FR-029), CHK006 (FakeProfileStore с PresetRef key), CHK008 (DI flavor swap detail), CHK011 (pre-TASK-65 fixture для appFamilyId), CHK015 (build time impact), CHK018 (callback failure logs), CHK019 (PresetReminderService failure logs), CHK022 (Detekt onboarding setup). Все defer to /speckit.plan.
+**Red-only summary**: dev-experience: 16/22 ✓, FAIL: CHK003 (boot benchmark needed для FR-029), CHK006 (FakeProfileStore с PresetRef key), CHK008 (DI flavor swap detail), CHK011 (pre-TASK-65 fixture для presetId), CHK015 (build time impact), CHK018 (callback failure logs), CHK019 (PresetReminderService failure logs), CHK022 (Detekt onboarding setup). Все defer to /speckit.plan.

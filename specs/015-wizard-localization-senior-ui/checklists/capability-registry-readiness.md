@@ -29,11 +29,11 @@
   - **Acceptable**: dot-notation → underscore conversion trivial. F-2 normalizer handles.
 
 - [⚠] **CHK-CR-004** Typed params.
-  - `wizard.start(appFamilyId: String)` — raw String (could be typed wrapper).
+  - `wizard.start(presetId: String)` — raw String (could be typed wrapper).
   - `wizard.skipToStep(stepId)` — typed.
   - `localization.resolve(key: String, args: Map<String, Any>)` — untyped Map.
   - `tileSet.list(deviceClass)` — typed.
-  - **Recommendation**: `args: Map<String, Any>` — acceptable для StringResolver semantics (string format arguments могут быть number / string / date — heterogeneous by definition). Other capabilities — рекомендуется typed wrappers (`AppFamilyId(String)` value class).
+  - **Recommendation**: `args: Map<String, Any>` — acceptable для StringResolver semantics (string format arguments могут быть number / string / date — heterogeneous by definition). Other capabilities — рекомендуется typed wrappers (`PresetId(String)` value class).
   - **Acceptable**: foundation defer.
 
 ## Provider neutrality
@@ -82,7 +82,7 @@
 **Fix**: добавить запись в Cross-spec impact:
 ```
 - **docs/dev/capability-registry-pending.md** — добавить (либо создать файл если не существует) entries для F-3 capabilities:
-  - `wizard.start(appFamilyId)` — read/write; idempotent; reversible; device-local auth.
+  - `wizard.start(presetId)` — read/write; idempotent; reversible; device-local auth.
   - `wizard.skipToStep(stepId)` — read/write; idempotent; reversible; device-local auth.
   - `localization.resolve(key, args)` — read-only; idempotent; pure read; device-local auth.
   - `tileSet.list(deviceClass)` — read-only; idempotent; pure read; device-local auth.

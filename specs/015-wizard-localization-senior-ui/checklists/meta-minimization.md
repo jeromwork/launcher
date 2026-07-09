@@ -50,7 +50,7 @@
 ## New configuration
 
 - [✓] **CHK008** Every new config field has current FR consuming it.
-  - **`wizard.manifest`** body: `appFamilyId` → FR-005, `steps` → FR-002. ✓
+  - **`wizard.manifest`** body: `presetId` → FR-005, `steps` → FR-002. ✓
   - **`screen.layout`** body: `gridRows/gridCols/bottomToolbar/topTabs` → consumer is `BundledConfigSource.load` (FR-019) + future `HomeRenderer` в `:app/` (out of F-3 scope, но FR-013 декларирует format для S-1 consumer). ✓ acceptable as foundation contract.
   - **`tile.set`** body: `tiles/position/actionType/labelKey/iconKey` → consumed by FR-002 WizardEngine produces `initialConfig`. ✓
   - **`system-settings.pool`** body: `settings/mechanism/deepLink/detectionStrategy/etc.` → consumed by FR-055 `AndroidSystemSettingAdapter`. ✓

@@ -63,7 +63,6 @@ class WizardEngineTest {
             deviceClass = listOf("android-phone"),
         ),
         body = WizardManifestBody(
-            appFamilyId = "test-family",
             autoOrder = false,
             steps = steps,
         ),
@@ -108,7 +107,7 @@ class WizardEngineTest {
         assertEquals(3, uiStep.invocations.size)
         assertEquals(1, sysStep.invocations.size)
         assertEquals(1, hintStep.invocations.size)
-        assertTrue(prefs.isWizardCompleted("test-family"))
+        assertTrue(prefs.isWizardCompleted("wizard-manifest.test"))
         val started = emitter.snapshot().filterIsInstance<DiagnosticEvent.WizardStarted>()
         val completed = emitter.snapshot().filterIsInstance<DiagnosticEvent.WizardCompleted>()
         assertEquals(1, started.size)
@@ -302,7 +301,7 @@ class WizardEngineTest {
         )
         val autoManifest = WizardManifest(
             header = ConfigDocumentHeader(1, "auto", "n", "d", listOf("android-phone")),
-            body = WizardManifestBody(appFamilyId = "auto", autoOrder = true, steps = null),
+            body = WizardManifestBody(autoOrder = true, steps = null),
         )
         engine.run(autoManifest)
         // Two Required first, then two Optional.
