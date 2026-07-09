@@ -220,7 +220,7 @@ WizardCheckpointStore.save(checkpoint with schemaVersion=1)
 WizardOutcome.Completed(initialConfig, userPreferences)
     ↓
 UserPreferencesStore.save(prefs)  [theme, fontScale, language, attestedSettings]
-wizardCompleted(appFamilyId) = true
+wizardCompleted(presetId) = true
     ↓
 HomeActivity launches
 ```

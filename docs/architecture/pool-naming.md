@@ -1,7 +1,17 @@
-# Contract: Pool naming convention
+# Architecture: Pool naming convention
 
-**Owner**: TASK-65 (FR-028).
+**Origin**: TASK-65 (FR-028). Moved from `specs/task-65-.../contracts/` to `docs/architecture/` 2026-07-09 (архитектурный инвариант, применяется ко всем preset'ам, не только TASK-65).
 **Purpose**: Stable identifiers для pool entries (настроек-кубиков), которые preset'ы пикают и компонуют. Identifiers видны в bundled presets, в server-distributed presets (future), в community/marketplace presets (future TASK-35). Стабильность критична.
+
+---
+
+## MVP override
+
+**Правила иммутабельности ниже — жёсткие ПОСЛЕ первого public release.** До этого (текущий pre-MVP phase per constitution Article XX «Pre-MVP transitional overrides») можно свободно переименовывать / удалять / менять semantics — installed base = 0, backward-compat не нужна.
+
+**Дата активации жёстких правил**: TBD (первое Play Store submission / первый non-developer install). После этой даты — правила иммутабельности вступают в силу, любое изменение существующего identifier'а становится breaking change с обязательным migration writer.
+
+Пока активация не наступила — правила ниже воспринимай как **best-practice defaults**, не как hard constraints. Используй consistent naming чтобы не пришлось потом массово переписывать.
 
 ---
 

@@ -43,7 +43,7 @@ class PersistentFormatRoundtripTest {
                     value = true,
                 ),
             ),
-            wizardCompletedAppFamilies = setOf("simple-launcher"),
+            wizardCompletedPresets = setOf("simple-launcher"),
         )
         val encoded = json.encodeToString(UserPreferences.serializer(), original)
         val decoded = json.decodeFromString(UserPreferences.serializer(), encoded)

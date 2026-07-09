@@ -1,6 +1,6 @@
 # Checklist: wire-format — TASK-65 (re-run after revised model)
 
-Applied: 2026-06-30 (2nd pass). Wire formats: **`preset.json` v1** (NEW), **`wizard.manifest` bump** (appFamilyId removal), **per-pool schemaVersion**, **ProfileStore DataStore** (persists across app versions + syncs encrypted to server).
+Applied: 2026-06-30 (2nd pass). Wire formats: **`preset.json` v1** (NEW), **`wizard.manifest` bump** (presetId removal), **per-pool schemaVersion**, **ProfileStore DataStore** (persists across app versions + syncs encrypted to server).
 
 ## Schema version
 
@@ -12,7 +12,7 @@ Applied: 2026-06-30 (2nd pass). Wire formats: **`preset.json` v1** (NEW), **`wiz
 
 - [x] CHK004 Read previous versions — **yes**.
 - [x] CHK005 Add field with default — **yes**.
-- [x] CHK006 Rename/remove → migration before — **yes**, FR-002 explicit для appFamilyId.
+- [x] CHK006 Rename/remove → migration before — **yes**, FR-002 explicit для presetId.
 - [x] CHK007 Scoped migration code — migrateLegacyWizardManifest lives in dedicated WizardManifestMigration.kt (not scattered across parser); PreferencesProfileStore.maybeMigrateLegacy is a single private helper.
 
 ## Forward compatibility
@@ -23,14 +23,14 @@ Applied: 2026-06-30 (2nd pass). Wire formats: **`preset.json` v1** (NEW), **`wiz
 ## Tests
 
 - [x] CHK010 Roundtrip test — **partial**. FR-027 PoolSource roundtrip. **Preset wire format roundtrip — NEW gap**: с composite PresetRef нужен specific test (`PresetRef.fromJson(preset.serialize()) == preset.ref`). **Surface to plan**.
-- [x] CHK011 Backward-compat read test — WizardManifestBackwardCompatTest reads pre-TASK-65 fixture (androidUnitTest/assets/wizard-manifests/legacy-with-app-family-id.json) through the migrator + parser and asserts schemaVersion=2 + null appFamilyId. Idempotent-on-v2 case also covered.
+- [x] CHK011 Backward-compat read test — WizardManifestBackwardCompatTest reads pre-TASK-65 fixture (androidUnitTest/assets/wizard-manifests/legacy-with-app-family-id.json) through the migrator + parser and asserts schemaVersion=2 + null presetId. Idempotent-on-v2 case also covered.
 - [x] CHK012 Fixtures as files — **yes**.
 
 ## Persistence specifics
 
 - [x] CHK013 DataStore keys namespaced — resolved by decision R3: composite string `"uid::version"` via PresetRef.toCompositeKey()/parseCompositeKey() with reserved-separator validation. Single DataStore key `profile.store.json` holds the whole state blob. Covered by ProfileStoreSerializationTest + PreferencesProfileStoreTest.
 - [x] CHK014 SQLDelight N/A.
-- [x] CHK015 Removed types cleanup — **partial**. appFamilyId removal — migration writer. ProfileSnapshot existing — decision в plan.
+- [x] CHK015 Removed types cleanup — **partial**. presetId removal — migration writer. ProfileSnapshot existing — decision в plan.
 
 ## Deep-link / QR
 

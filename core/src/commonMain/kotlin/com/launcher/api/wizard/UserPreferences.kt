@@ -21,7 +21,7 @@ data class UserPreferences(
     val fontScale: Float? = null,
     val languageOverride: String? = null,
     val attestedSettings: Map<String, AttestationRecord> = emptyMap(),
-    val wizardCompletedAppFamilies: Set<String> = emptySet(),
+    val wizardCompletedPresets: Set<String> = emptySet(),
 ) {
     /**
      * Has the user expressed a value for the given UIChoice step refId?

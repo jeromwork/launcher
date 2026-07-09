@@ -48,13 +48,13 @@ class InMemoryUserPreferencesStore(
     override suspend fun save(prefs: UserPreferences) { flow.value = prefs }
     override fun observe(): Flow<UserPreferences> = flow.asStateFlow()
     override suspend fun current(): UserPreferences = flow.value
-    override suspend fun markWizardCompleted(appFamilyId: String) {
+    override suspend fun markWizardCompleted(presetId: String) {
         flow.value = flow.value.copy(
-            wizardCompletedAppFamilies = flow.value.wizardCompletedAppFamilies + appFamilyId,
+            wizardCompletedPresets = flow.value.wizardCompletedPresets + presetId,
         )
     }
-    override suspend fun isWizardCompleted(appFamilyId: String): Boolean =
-        appFamilyId in flow.value.wizardCompletedAppFamilies
+    override suspend fun isWizardCompleted(presetId: String): Boolean =
+        presetId in flow.value.wizardCompletedPresets
 }
 
 class FakeConfigSource(

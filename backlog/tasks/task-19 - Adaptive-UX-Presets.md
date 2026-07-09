@@ -4,7 +4,7 @@ title: Adaptive UX Presets
 status: Draft
 assignee: []
 created_date: '2026-06-23 05:38'
-updated_date: '2026-06-23 06:21'
+updated_date: '2026-07-09 10:59'
 labels:
   - phase-3
   - p-spec
@@ -16,6 +16,7 @@ milestone: m-2
 dependencies:
   - TASK-16
   - TASK-17
+  - TASK-120
 priority: medium
 ordinal: 19000
 ---

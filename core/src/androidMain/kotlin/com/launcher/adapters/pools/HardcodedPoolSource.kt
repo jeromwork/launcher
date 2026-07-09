@@ -12,7 +12,7 @@ import com.launcher.api.wizard.data.CheckSpec
  * Kotlin constants. Future [JsonAssetPoolSource] (scaffold) will load them
  * from assets without code change.
  *
- * Pool ids per contracts/pool-naming.md:
+ * Pool ids per ../../../docs/architecture/pool-naming.md:
  *   - "system-settings": OS-level requirements (HOME role, notifications, ...).
  *   - "ui-customization": app-internal preferences (font scale, theme, ...).
  *

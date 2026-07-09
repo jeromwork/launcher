@@ -11,7 +11,7 @@
 
 **Где мы сейчас** (Phase 2). Phase 1 завершена: TASK-7 (Simple Launcher Setup Wizard) — Done. Сейчас `simple-launcher` — единственный preset и **захардкожен** в нескольких местах:
 
-- `core/src/androidMain/assets/wizard/wizard-manifests/simple-launcher.json` — поле `body.appFamilyId: "simple-launcher"` (preset-leakage в формат manifest'а).
+- `core/src/androidMain/assets/wizard/wizard-manifests/simple-launcher.json` — поле `body.presetId: "simple-launcher"` (preset-leakage в формат manifest'а).
 - В коде, который читает manifest, есть точечные допущения «preset — этот».
 - Нет first-launch picker'а — `FirstLaunchActivity` сразу запускает wizard под simple-launcher.
 - Settings → «Сменить preset» не существует.
@@ -31,7 +31,7 @@ Article VII §9-§16 уже описывает **полную модель** com
 5. **First-launch picker** — Compose screen в `core/profiles/`.
 6. **Preset switch flow** в Settings (с `ProfileSwitchStrategy` port; единственный adapter сейчас — `ResetSwitchStrategy`).
 7. **In-app Settings reminders** (banners по missing requirements; per CLAUDE.md rule 10 — `in-app indicator`, не push).
-8. **Pool naming convention spec** в `contracts/pool-naming.md`.
+8. **Pool naming convention spec** в `../../../docs/architecture/pool-naming.md`.
 9. **Lint rules** (Detekt-based, KMP-friendly):
    - `PresetIdBranchingDetector` (no `presetId == "..."` в business logic).
    - `ExtractionReadinessDetector` (no launcher-specific imports в core/presets/wizard/pools).
@@ -66,7 +66,7 @@ Article VII §9-§16 уже описывает **полную модель** com
 | 4 | **Profile switch strategy**: что с user data при переключении preset'а? | **Copy on activate** (Подход 3 Android-native). Profile DataStore хранит `Map<PresetRef, ProfileData>`. При первом переключении на preset — copy от `preset.abstractProfile + preset.configs`. При возврате к ранее активированному preset'у — restore из Map (bindings, layout, settings сохранены). Port `ProfileSwitchStrategy` готов для будущих strategies (kind-match, sandbox). |
 | 5 | **Profile storage shape**: один active profile или Map<presetId → profile>? | **Map<PresetRef, ProfileData> + activePresetId pointer**. Storage хранит ProfileData per-preset (полная история). `activePresetId` указывает на текущий active. При switch — snapshot old (в Map по `oldPresetId`) + restore new (если был) или create from preset (если впервые). |
 | 6 | **CheckSpec.AuthState / ApplySpec.RequestSignIn variants**: добавить в scope? | **Out of scope**. TASK-65 добавляет только demo `CheckSpec.UIFont` для proof of generic-ness. |
-| 7 | **`appFamilyId` field**: удалить или оставить? | **Удалить из `wizard.manifest` body**. Field `id` в `preset.json` (новый wire format) заменяет старый identifier. Constitution amendment 1.11 применён. |
+| 7 | **`presetId` field**: удалить или оставить? | **Удалить из `wizard.manifest` body**. Field `id` в `preset.json` (новый wire format) заменяет старый identifier. Constitution amendment 1.11 применён. |
 | 8 | **Что такое Preset структурно**: «маленькая обложка со ссылками» или «коробка с содержимым»? | **Коробка с содержимым**. Preset = `{id, label, description, configs[], abstractProfile?}`. `configs[]` = пики из pools (каждый config содержит title/description/callback inline, не выносится отдельно). `abstractProfile` = optional начальное наполнение (layout + placeholder bindings, без личных данных) — как Android default home screen с предустановленными иконками при первом запуске нового телефона. Если `abstractProfile == null` → user получает пустой экран с «+» для добавления. |
 | 9 | **Что такое Profile структурно**: cache применённых настроек или полная сущность? | **Полная сущность для активного preset'а**. ProfileData = `{layout, bindings, settings}`. `layout` = реальная структура (может отличаться от `preset.abstractProfile.layout` после настройки пользователем). `bindings` = реальные packages/контакты в плитках. `settings` = массив settings entries (изначально copy от `preset.configs`); каждая entry содержит config metadata (title/desc/callback) + current value. **Wizard и Settings UI оба строятся из `profile.settings`** (два view на одну сущность). `settings` — **не** Android-cache: это **наши** настройки приложения, которые ссылаются на Android через callback'и. |
 | 10 | **Boot path**: проверять Android-настройки или нет (axiom владельца «ничего не проверяется» revised)? | **Revised — проверяем**. При boot вызываем callback каждой `profile.settings` entry для проверки реального Android-состояния. Стоимость — миллисекунды (N callback'ов). Что показывать при missing: **critical missing → HomeActivity + banner сверху** «приложение работает не как надо — настроить?», тап → mini-wizard со **всеми** critical missing (не только одна). **Non-critical missing → ничего на boot**, увидится в Settings reminders (SEQ-4). Criticality = `CheckSpec.criticality: Required / Optional`. |
@@ -160,7 +160,7 @@ Article VII §9-§16 уже описывает **полную модель** com
 Разработчик пытается закоммитить:
 ```kotlin
 if (presetId == "simple-launcher") { /* ... */ }
-when (appFamilyId) { "simple-launcher" -> ... }   // legacy term, тоже flagged
+when (presetId) { "simple-launcher" -> ... }   // legacy term, тоже flagged
 ```
 в `core/` или `app/` (вне `core/presets/` whitelisted). Detekt-rule падает на pre-commit / CI. Сообщение: «Per Article VII §13 — presets are data, not forks. Use composition (configs/picks), not code branches.»
 
@@ -172,7 +172,7 @@ when (appFamilyId) { "simple-launcher" -> ... }   // legacy term, тоже flagg
 
 1. **Given** Kotlin file в `core/presets/` содержит `if (presetId == "simple-launcher")`, **When** Detekt runs, **Then** NO issue (whitelist).
 2. **Given** Kotlin file в `app/home/` содержит `if (presetId == "simple-launcher")`, **When** Detekt runs, **Then** ISSUE.
-3. **Given** Kotlin file в `core/wizard/` содержит `when (appFamilyId)`, **When** Detekt runs, **Then** ISSUE (legacy term тоже).
+3. **Given** Kotlin file в `core/wizard/` содержит `when (presetId)`, **When** Detekt runs, **Then** ISSUE (legacy term тоже).
 4. **Given** pre-commit hook installed, **When** developer commits violating file, **Then** commit **rejected** с Detekt output.
 
 ---
@@ -652,8 +652,8 @@ sequenceDiagram
   - `abstractProfile: AbstractProfile?` — optional начальное наполнение `{layout, bindings[]}`. Bindings содержат placeholder packages (например `YouTube`, `Chrome`) без личных данных. Если `null` → user получает пустой экран с «+» (per Clarification #8).
   - `requiredModules: List<ModuleId>` + `optionalModules: List<ModuleId>` (per Article VII §8).
   - `pickEnabled: Boolean = true` — флаг opt-out picker'а.
-- **FR-002**: System MUST remove `appFamilyId` field из `wizard.manifest` body. Manifest идентифицируется своим `id` (existing pattern). Preset ссылается на manifest **внутри своих configs**. Constitution amendment подготавливается отдельно (Article VII §9 — deprecate `appFamilyId`, define `presetId`).
-- **FR-003**: Pool naming convention в `contracts/pool-naming.md` MUST документировать namespaced immutable IDs (`<pool>.<domain>.<subject>`), per-pool `schemaVersion`, immutability (no rename / delete; `deprecated: true`). Документация на простом русском.
+- **FR-002**: System MUST remove `presetId` field из `wizard.manifest` body. Manifest идентифицируется своим `id` (existing pattern). Preset ссылается на manifest **внутри своих configs**. Constitution amendment подготавливается отдельно (Article VII §9 — deprecate `presetId`, define `presetId`).
+- **FR-003**: Pool naming convention в `../../../docs/architecture/pool-naming.md` MUST документировать namespaced immutable IDs (`<pool>.<domain>.<subject>`), per-pool `schemaVersion`, immutability (no rename / delete; `deprecated: true`). Документация на простом русском.
 
 **Composition runtime**:
 
@@ -715,8 +715,8 @@ sequenceDiagram
 
 - **FR-020**: Custom Detekt rule `PresetIdBranchingDetector` MUST flag:
   - `if (presetId == "...")` / `if ("..." == presetId)`.
-  - `when (presetId) { ... }` / `when (appFamilyId) { ... }` (legacy term).
-  - `if (appFamilyId == "...")`.
+  - `when (presetId) { ... }` / `when (presetId) { ... }` (legacy term).
+  - `if (presetId == "...")`.
   - Whitelisted: `com.launcher.core.presets.*`, `com.launcher.core.presets.test.*`.
   - Severity: ERROR. Pre-commit hook fails.
 - **FR-021**: Custom Detekt rule `ExtractionReadinessDetector` MUST flag imports launcher-specific типов (`com.launcher.app.tiles.*`, `com.launcher.app.home.*`, `com.launcher.app.contacts.*`) внутри packages `com.launcher.core.presets.*`, `com.launcher.core.wizard.*`, `com.launcher.core.pools.*`.
@@ -742,7 +742,7 @@ sequenceDiagram
 
 **Documentation**:
 
-- **FR-028**: `contracts/pool-naming.md` MUST содержать на простом русском:
+- **FR-028**: `../../../docs/architecture/pool-naming.md` MUST содержать на простом русском:
   - Format namespaced ID.
   - Правила immutability, versioning per-pool.
   - Примеры: `tile.pairing.list`, `wizard.step.google-sign-in`, `ui.font.large`.
@@ -789,7 +789,7 @@ sequenceDiagram
 - **SC-003 [backlog]**: Existing simple-launcher user post-upgrade видит свой preset автоматически.
 - **SC-004**: Detekt `PresetIdBranchingDetector` падает на нарушения, проходит на whitelisted.
 - **SC-005**: Detekt `ExtractionReadinessDetector` падает на launcher-specific imports в `core/presets/`.
-- **SC-006 [backlog]**: `contracts/pool-naming.md` читается non-developer владельцем за <10 минут.
+- **SC-006 [backlog]**: `../../../docs/architecture/pool-naming.md` читается non-developer владельцем за <10 минут.
 - **SC-007**: Boot trace: `Sys.launch → HomeActivity.onResume` ≤ 1.5s (P95) на `pixel_5_api_34`. Regression vs TASK-7 baseline ≤ +5%.
 - **SC-008 [backlog]**: Settings → отозван ROLE_HOME → banner → tap → mini-wizard → fix → banner исчезает.
 - **SC-009**: Fitness test `EngineGenericityFitnessTest` PASS.
@@ -859,7 +859,7 @@ sequenceDiagram
 
 ### Что навсегда полезно
 
-- Удаление `appFamilyId` (bug fix архитектурный).
+- Удаление `presetId` (bug fix архитектурный).
 - `ExtractionReadinessDetector` (защищает cross-app vision).
 - Pool naming convention документ.
 - `Profile` storage shape (Map<PresetRef, ProfileData>, multi-profile-capable).
@@ -915,7 +915,7 @@ sequenceDiagram
 - **Rule 2** (ACL): `PresetBootRouter` / `PresetSwitchService` adapter на `androidMain`. DataStore wrap'нут.
 - **Rule 3** (one-way doors): см. Exit Ramps. `preset.json` schemaVersion=1, pool naming, naming inversion — one-way. Mitigated.
 - **Rule 4** (MVA): не создаём дублирующий `RequirementsChecker` (используем `WizardEngine.computePending`). `PoolSource` 2 adapter'а оправданы (известный future change — hardcode vs JSON). `JsonAssetPoolSource` scaffold с TODO допустим потому что **roundtrip test** гарантирует не drift.
-- **Rule 5** (wire-format): `preset.json` `schemaVersion=1` с первого commit. `wizard.manifest` schemaVersion bump из-за удаления `appFamilyId`. Pool entries — per-pool `schemaVersion`. Migration writers.
+- **Rule 5** (wire-format): `preset.json` `schemaVersion=1` с первого commit. `wizard.manifest` schemaVersion bump из-за удаления `presetId`. Pool entries — per-pool `schemaVersion`. Migration writers.
 - **Rule 6** (mock-first): `FakeConfigSource`, `FakePoolSource`, etc.
 - **Rule 7** (fitness functions): Detekt rules + roundtrip test + bundled-preset parse test + regression snapshot.
 - **Rule 8** (server-roadmap): n/a — TASK-65 не вводит server. TASK-70 inline TODO «preset distribution / profile sync — own server target».

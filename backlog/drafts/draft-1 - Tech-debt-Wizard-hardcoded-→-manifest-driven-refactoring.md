@@ -11,7 +11,8 @@ labels:
   - f-3-followup
   - phase-3
 milestone: m-2
-dependencies: []
+dependencies:
+  - TASK-120
 priority: medium
 ordinal: 120000
 ---
@@ -41,7 +42,7 @@ ordinal: 120000
 
 **Целевая архитектура** (из glossary):
 - **`WizardEngine`** в `core/wizard/` (KMP common) — читает `wizard.manifest` JSON, рендерит steps последовательно.
-- **`wizard.manifest`** schema — `appFamilyId`, `steps[]` с `stepType` (`UIChoice` / `SystemSetting` / `TutorialHint` / `Auth` / `Custom`) и параметрами.
+- **`wizard.manifest`** schema — `presetId`, `steps[]` с `stepType` (`UIChoice` / `SystemSetting` / `TutorialHint` / `Auth` / `Custom`) и параметрами.
 - **`system-settings.pool`** — каталог Android platform-level settings (ROLE_HOME, POST_NOTIFICATIONS, etc.) которые manifest может ссылаться по `refId`.
 - **`ui-customization.pool`** — каталог UI-опций (theme, grid, tileSet) для manifest.
 

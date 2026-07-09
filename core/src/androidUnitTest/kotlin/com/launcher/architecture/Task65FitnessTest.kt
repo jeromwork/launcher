@@ -22,8 +22,6 @@ class Task65FitnessTest {
     private val presetIdBranchPatterns = listOf(
         Regex("""if\s*\(\s*presetId\s*==\s*"[^"]+""""),
         Regex("""when\s*\(\s*presetId\s*\)"""),
-        Regex("""if\s*\(\s*appFamilyId\s*==\s*"[^"]+""""),
-        Regex("""when\s*\(\s*appFamilyId\s*\)"""),
     )
 
     private val extractionForbiddenImports = listOf(
@@ -54,7 +52,7 @@ class Task65FitnessTest {
             }
         }
         assertTrue(
-            "FR-020 violations (presetId / appFamilyId branching outside whitelist):\n" +
+            "FR-020 violations (presetId branching outside whitelist):\n" +
                 violations.joinToString("\n"),
             violations.isEmpty(),
         )

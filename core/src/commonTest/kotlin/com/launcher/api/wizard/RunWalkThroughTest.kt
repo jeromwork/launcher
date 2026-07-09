@@ -50,7 +50,6 @@ class RunWalkThroughTest {
             deviceClass = listOf("android-phone"),
         ),
         body = WizardManifestBody(
-            appFamilyId = "task7-walkthrough-fixture",
             autoOrder = false,
             steps = steps,
         ),

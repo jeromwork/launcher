@@ -70,10 +70,10 @@ class Task7ArchitectureTest {
     }
 
     @Test
-    fun t7_002_noProfileBranchingInBusinessLogic() {
-        // T7-002 — never gate behaviour on `appFamilyId == "simple-launcher"`.
-        // The profile is selected by which manifest the device loaded; the
-        // engine, the adapters, and the UI must stay profile-agnostic.
+    fun t7_002_noPresetBranchingInBusinessLogic() {
+        // T7-002 — never gate behaviour on `presetId == "simple-launcher"`.
+        // The preset is selected by which manifest the device loaded; the
+        // engine, the adapters, and the UI must stay preset-agnostic.
         // Scope: kotlin files under core/src/{commonMain,androidMain} and
         // app/src/main. Tests / fixtures / mocks are skipped.
         val offenders = mutableListOf<String>()
@@ -82,7 +82,7 @@ class Task7ArchitectureTest {
             File(projectRoot, "core/src/androidMain/kotlin"),
             File(projectRoot, "app/src/main"),
         ).filter { it.isDirectory }
-        val regex = Regex("""(appFamilyId\s*==\s*"simple-launcher"|when\s*\(\s*appFamilyId\s*\))""")
+        val regex = Regex("""(presetId\s*==\s*"simple-launcher"|when\s*\(\s*presetId\s*\))""")
         scanRoots.forEach { root ->
             root.walkTopDown()
                 .filter { it.isFile && (it.name.endsWith(".kt") || it.name.endsWith(".kts")) }

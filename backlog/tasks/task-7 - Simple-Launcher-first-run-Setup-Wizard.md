@@ -72,7 +72,7 @@ Language auto-detect (нет wizard step). Theme default warm light (нет wiza
 
 **Первый видимый MVP-демо**: `install → wizard → working home screen`. Без этого продукта нет, только инфраструктура (engine, ports, pools).
 
-Это также **первый concrete profile**, валидирующий универсальную модель из constitution Article VII §9–15: профиль ship'ается как композиция bundled JSON-конфигов без нового Gradle-модуля кода и без `if (appFamilyId == "x")` ветвей; pool schema v2 с declarative dispatch types (`CheckSpec` / `ApplySpec`) sealed в commonMain → multi-platform ready (Article VII §15 seam preserved для будущих iOS / Android TV адаптеров).
+Это также **первый concrete profile**, валидирующий универсальную модель из constitution Article VII §9–15: профиль ship'ается как композиция bundled JSON-конфигов без нового Gradle-модуля кода и без `if (presetId == "x")` ветвей; pool schema v2 с declarative dispatch types (`CheckSpec` / `ApplySpec`) sealed в commonMain → multi-platform ready (Article VII §15 seam preserved для будущих iOS / Android TV адаптеров).
 
 ## Что входит технически (для AI-агента)
 
@@ -211,7 +211,7 @@ LOCAL TEST PATH:
 - Integration: FakeConfigSource + FakeSystemSettingPort для simple-launcher manifest replay.
 
 CONSTITUTION GATES (relevant per constitution amendment 1.7):
-- Article VII §9–13: `simple-launcher` ship'ается как композиция bundled JSON, не как новый Gradle-модуль кода и не как `if (appFamilyId == "simple-launcher")` ветка.
+- Article VII §9–13: `simple-launcher` ship'ается как композиция bundled JSON, не как новый Gradle-модуль кода и не как `if (presetId == "simple-launcher")` ветка.
 - Article VII §10: новые bundled JSON'ы используют существующие ConfigKind, не вводят новый kind.
 - Article VII §12: mandatory/optional/skip semantics — pool-level defaults + per-profile override через `wizard.manifest`.
 - CLAUDE.md rule 1 (domain isolation): никаких новых ports / Android types в new code.

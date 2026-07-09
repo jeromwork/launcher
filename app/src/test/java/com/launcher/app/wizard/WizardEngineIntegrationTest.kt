@@ -72,7 +72,7 @@ import org.robolectric.RobolectricTestRunner
 class WizardEngineIntegrationTest {
 
     @Test
-    fun wholeWizard_completes_and_marksAppFamilyDone() = runBlocking {
+    fun wholeWizard_completes_and_marksPresetDone() = runBlocking {
         val app = ApplicationProvider.getApplicationContext<Application>()
 
         val configSource: ConfigSource = BundledConfigSource(app)
@@ -114,7 +114,6 @@ class WizardEngineIntegrationTest {
         )
 
         val manifest = loadManifest(configSource)
-        assertEquals("simple-launcher", manifest.body.appFamilyId)
         assertEquals(true, manifest.body.autoOrder)
 
         // UI tapper — auto-resolves every UIChoice step with "ack".
@@ -132,7 +131,7 @@ class WizardEngineIntegrationTest {
             val outcome = engine.run(manifest)
             assertTrue("expected Completed but got $outcome", outcome is WizardOutcome.Completed)
             val completed = outcome as WizardOutcome.Completed
-            assertTrue(prefs.isWizardCompleted("simple-launcher"))
+            assertTrue(prefs.isWizardCompleted("wizard-manifest.simple-launcher"))
             assertEquals(12, completed.initialConfig.answers.size)
             assertTrue(
                 "expected WizardCompleted event",
@@ -168,13 +167,13 @@ class WizardEngineIntegrationTest {
         override suspend fun save(prefs: UserPreferences) { flow.value = prefs }
         override fun observe(): Flow<UserPreferences> = flow.asStateFlow()
         override suspend fun current(): UserPreferences = flow.value
-        override suspend fun markWizardCompleted(appFamilyId: String) {
+        override suspend fun markWizardCompleted(presetId: String) {
             flow.value = flow.value.copy(
-                wizardCompletedAppFamilies = flow.value.wizardCompletedAppFamilies + appFamilyId,
+                wizardCompletedPresets = flow.value.wizardCompletedPresets + presetId,
             )
         }
-        override suspend fun isWizardCompleted(appFamilyId: String) =
-            appFamilyId in flow.value.wizardCompletedAppFamilies
+        override suspend fun isWizardCompleted(presetId: String) =
+            presetId in flow.value.wizardCompletedPresets
     }
 
     private class InMemoryDismissedHints : DismissedHintsStore {

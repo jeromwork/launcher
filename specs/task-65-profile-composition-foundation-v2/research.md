@@ -126,7 +126,7 @@ override fun onCreate(...) {
 
 ---
 
-## R6 — Migration writer pattern для `appFamilyId` removal
+## R6 — Migration writer pattern для `presetId` removal
 
 **Decision**: **Scoped function `migrateLegacyWizardManifest(json: JsonObject): JsonObject`** в `core/commonMain/api/wizard/data/ConfigParser.kt` (existing file extended).
 
@@ -136,7 +136,7 @@ fun parseWizardManifest(raw: String): Result<WizardManifest> {
     val json = Json.parseToJsonElement(raw).jsonObject
     val version = json["schemaVersion"]?.jsonPrimitive?.intOrNull ?: 1
     val migrated = when (version) {
-        1 -> migrateLegacyWizardManifest(json)  // removes appFamilyId, bumps version
+        1 -> migrateLegacyWizardManifest(json)  // removes presetId, bumps version
         2 -> json  // current
         else -> return Result.failure(IncompatibleVersionException(version, CURRENT))
     }
@@ -146,7 +146,7 @@ fun parseWizardManifest(raw: String): Result<WizardManifest> {
 private fun migrateLegacyWizardManifest(v1: JsonObject): JsonObject = buildJsonObject {
     v1.forEach { (k, v) -> if (k != "body" || v !is JsonObject) put(k, v) else {
         put("body", buildJsonObject {
-            v.jsonObject.forEach { (bk, bv) -> if (bk != "appFamilyId") put(bk, bv) }
+            v.jsonObject.forEach { (bk, bv) -> if (bk != "presetId") put(bk, bv) }
         })
     } }
     put("schemaVersion", JsonPrimitive(2))
@@ -221,7 +221,7 @@ private fun migrateLegacyWizardManifest(v1: JsonObject): JsonObject = buildJsonO
 1. **ProfileStore хранится как один JSON-файл в DataStore** с композитным ключом `"uid::version"`. Альтернативой был Protobuf (тяжело) и отдельный файл на каждый preset (сложно координировать). Откат стоит ~1 день.
 2. **Boot-проверка настроек синхронная** (быстрая, ms). Если benchmark покажет что медленно — переключаемся на async (показать главный экран сразу, banner подгружается фоном). Откат ~полдня.
 3. **Detekt — отдельный gradle модуль**, не вписан в существующие. Это позволяет в будущем переиспользовать его в messenger / photo приложениях без вытаскивания. Откат ~1 день.
-4. **Migration существующих файлов** (удаление `appFamilyId`) — отдельная функция, не разбросанные `if version == 1`. Тестируется отдельно с pre-TASK-65 фикстурой.
+4. **Migration существующих файлов** (удаление `presetId`) — отдельная функция, не разбросанные `if version == 1`. Тестируется отдельно с pre-TASK-65 фикстурой.
 5. **Логи** — каждый компонент имеет свой Logcat тег (`PresetBoot`, `PresetSwitch` и т.д.), структурированные поля для grep'а.
 
 **Существующий тип ProfileSnapshot** в коде (был до TASK-65) — решим что с ним при имплементации (если никто не использует — удалим; если используется — переименуем).

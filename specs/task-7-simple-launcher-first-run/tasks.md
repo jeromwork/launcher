@@ -184,7 +184,7 @@ Per `speckit-tasks` Step 3:
 
 - [x] **T059** [multi] Aggregate Konsist fitness functions in `core/src/androidUnitTest/kotlin/com/launcher/architecture/Task7ArchitectureTest.kt`:
   - **T7-001**: no Gradle module containing "simple-launcher" name (Article VII §13).
-  - **T7-002**: no `if (appFamilyId == "simple-launcher")` OR `when (appFamilyId)` branches in business-logic files (Article VII §13).
+  - **T7-002**: no `if (presetId == "simple-launcher")` OR `when (presetId)` branches in business-logic files (Article VII §13).
   - **T7-003**: `ConfigKind` enum has exactly the 5 existing values (Article VII §10).
   - **T7-004**: already in T009 — `CheckSpec.kt` / `ApplySpec.kt` no Android imports.
   - **T7-005**: already in T039 — `AppCompatDelegate.setApplicationLocales` not called from commonMain.

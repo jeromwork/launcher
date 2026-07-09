@@ -22,6 +22,10 @@ domains:
     file: external-services.md
     scope: Firebase Auth, FCM, future third-party integrations.
     status: skeleton — full content pending.
+  - id: pool-naming
+    file: pool-naming.md
+    scope: Naming convention for pool entries (settings-cubes) that presets pick and compose. Wire-format-adjacent invariant.
+    status: v1 — moved from specs/task-65-.../contracts/ 2026-07-09. MVP override active — immutability rules become hard after first public release.
 last-synced-decision: TASK-105
 pending-decisions: [TASK-106]
 ---
