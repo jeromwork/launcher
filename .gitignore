@@ -28,6 +28,14 @@ Thumbs.db
 *.tmp
 *.swp
 
+# Ad-hoc smoke / verification artifacts (screenshots, UI dumps) — do not commit
+smoke_*.png
+verify_*.png
+check_*.png
+current_*.png
+ui_raw.txt
+ui.xml
+
 # Kotlin compiler daemon cache (regenerated on every build).
 .kotlin/
 
