@@ -4,8 +4,9 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.launcher.app.BuildConfig
 import com.launcher.app.data.envelope.FirestoreEnvelopeStorage
 import com.launcher.app.data.envelope.FirestorePublicKeyDirectory
+import com.launcher.app.data.identity.AuthTokenExchangeClient
 import com.launcher.app.data.identity.IdentityCacheInvalidator
-import com.launcher.app.data.identity.InitClaimClient
+import com.launcher.app.data.identity.OurJwtProvider
 import com.launcher.app.data.recovery.WorkerRecoveryKeyBackup
 import cryptokit.crypto.api.AeadCipher
 import cryptokit.crypto.api.AsymmetricCrypto
@@ -55,23 +56,26 @@ import org.koin.dsl.module
  * into domain or UI layers.
  */
 val f018KeysBackendModule = module {
-    single<RecoveryKeyBackup> {
-        val invalidator = get<IdentityCacheInvalidator>()
-        WorkerRecoveryKeyBackup(
-            workerBaseUrl = BuildConfig.RECOVERY_BACKUP_WORKER_URL,
+    // TASK-119 (2026-07-09): AuthTokenExchangeClient calls the auth-worker's
+    // POST /auth/exchange with the Firebase ID token in Authorization and gets
+    // back our own HS256 JWT (whose `sub` = stableId). OurJwtProvider caches
+    // that JWT and refreshes near expiry. Backup calls carry OUR JWT — no
+    // Firebase custom claim propagation, no client-side retries.
+    single {
+        AuthTokenExchangeClient(
+            workerBaseUrl = BuildConfig.IDENTITY_INIT_CLAIM_WORKER_URL,
             idTokenProvider = get<IdTokenProvider>(),
-            invalidateTokenCache = { invalidator.invalidate() },
         )
     }
 
-    // task-6 Track B/C wiring 2026-06-30: identity-init Worker client, invoked
-    // once on first Sign-In by [com.launcher.app.LauncherApplication] via
-    // Koin.getOrNull (mockBackend flavor omits this binding and the call is
-    // a no-op there).
     single {
-        InitClaimClient(
-            workerBaseUrl = BuildConfig.IDENTITY_INIT_CLAIM_WORKER_URL,
-            idTokenProvider = get<IdTokenProvider>(),
+        OurJwtProvider(exchangeClient = get())
+    }
+
+    single<RecoveryKeyBackup> {
+        WorkerRecoveryKeyBackup(
+            workerBaseUrl = BuildConfig.RECOVERY_BACKUP_WORKER_URL,
+            idTokenProvider = get<OurJwtProvider>(),
         )
     }
 

@@ -9,7 +9,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -61,6 +64,7 @@ fun AuthChoiceStep(
     onSkip: () -> Unit,
     onSignedIn: () -> Unit,
     modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
     topContent: @Composable () -> Unit = {},
 ) {
     // Если AuthProvider уже эмитит non-null currentUser (например, после
@@ -79,6 +83,31 @@ fun AuthChoiceStep(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        // In SIGN_IN mode Back returns to CHOICE mode locally; in CHOICE
+        // mode Back invokes the wizard-level onBack (returns to preset picker).
+        // Hidden entirely if neither is applicable.
+        val backAction: (() -> Unit)? = when {
+            mode == Mode.SIGN_IN -> { { mode = Mode.CHOICE } }
+            onBack != null -> onBack
+            else -> null
+        }
+        if (backAction != null) {
+            OutlinedButton(
+                onClick = backAction,
+                modifier = Modifier.defaultMinSize(minHeight = 56.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = null,
+                )
+                Text(
+                    text = "Назад",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+        }
+
         topContent()
         Spacer(modifier = Modifier.height(8.dp))
         Text(

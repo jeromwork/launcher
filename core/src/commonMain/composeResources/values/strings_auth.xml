@@ -43,7 +43,7 @@
     <string name="auth_choice_title">Настройка приложения</string>
     <string name="auth_choice_setup_fresh_title">Настроить с нуля</string>
     <string name="auth_choice_setup_fresh_description">Начать с пустого профиля</string>
-    <string name="auth_choice_sign_in_title">Войти в Google для восстановления настроек</string>
+    <string name="auth_choice_sign_in_title">Войти в аккаунт</string>
     <string name="auth_choice_sign_in_description">Если вы уже пользовались приложением на другом устройстве</string>
     <string name="auth_choice_continue">Продолжить</string>
     <string name="auth_choice_skip">Пропустить вход</string>
