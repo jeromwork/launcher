@@ -377,10 +377,51 @@ class FirstLaunchActivity : ComponentActivity() {
             LauncherTheme(preset = pickedPreset?.slug) {
                 RecoveryFallbackScreen(
                     reason = reason,
-                    onSetupAsNewDevice = ::renderRecoverySetupStep,
+                    onSetupAsNewDevice = { wipeAndRestartSetup() },
                     onRetry = { renderRecoveryEntryStep(failedAttempts = 0) },
                 )
             }
+        }
+    }
+
+    /**
+     * TASK-6 T682 (2026-07-09) — destructive "start over" path of the Fallback
+     * screen. User has passed the [RecoveryFallbackScreen] double-confirm
+     * dialog and understands the data-loss consequences. This path:
+     *
+     *  1. Delete the server-side recovery blob (WorkerRecoveryKeyBackup.deleteBlob).
+     *     Idempotent — 404 from the Worker is treated as success (already gone).
+     *  2. Reset the per-identity attempt counter so the fresh Setup doesn't
+     *     inherit a "3 failed attempts" lockout.
+     *  3. Advance to [renderRecoverySetupStep] under the same signed-in identity.
+     *
+     * Failure on deleteBlob (network down, auth expired) is logged and the
+     * wizard still advances — the next successful Setup will overwrite the
+     * orphan blob under the same authed.stableId in the backup Worker's KV,
+     * so the transient orphan is bounded (worst case: user retries later and
+     * re-uploads).
+     */
+    private fun wipeAndRestartSetup() {
+        lifecycleScope.launch {
+            val identity = identityProof.identityFlow.firstOrNull()
+            if (identity == null) {
+                android.util.Log.w("F5Wipe", "no identity at Fallback wipe — advancing to Setup anyway")
+                renderRecoverySetupStep()
+                return@launch
+            }
+            when (val r = recoveryKeyBackup.deleteBlob(identity.stableId)) {
+                is Outcome.Success -> android.util.Log.i(
+                    "F5Wipe",
+                    "recovery blob deleted from Worker for stableId=${identity.stableId}",
+                )
+                is Outcome.Failure -> android.util.Log.w(
+                    "F5Wipe",
+                    "recovery blob delete failed (${r.error}) — proceeding to Setup, orphan will be overwritten on next upload",
+                )
+            }
+            attemptCounter.clear(identity.stableId)
+            android.util.Log.i("F5Wipe", "attempt counter cleared for stableId=${identity.stableId}")
+            renderRecoverySetupStep()
         }
     }
 
