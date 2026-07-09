@@ -18,6 +18,15 @@ export interface Env {
   /**
    * JWKS cache namespace — shared with push worker when bound. Optional in test
    * harness (tests use {@link InMemoryJwksKv} adapter from auth-jwt).
+   * KEPT for backward compat with existing tests; no longer used by production
+   * `authenticate()` (which validates our own HS256 JWT, not Firebase JWKS).
    */
   readonly JWKS_CACHE?: KVNamespace;
+
+  /**
+   * TASK-119 (2026-07-09): HS256 secret used to validate our own JWT issued
+   * by auth-worker's /auth/exchange. Same value set on both workers via
+   * `wrangler secret put AUTH_JWT_SECRET`.
+   */
+  readonly AUTH_JWT_SECRET: string;
 }

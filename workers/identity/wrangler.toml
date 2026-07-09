@@ -33,6 +33,14 @@ FIREBASE_PROJECT_ID = "launcher-old-dev"
 binding = "JWKS_CACHE"
 id = "8e23d27757bc49a190471c0091cecc1b"
 
+# TASK-119 architecture change 2026-07-09: identity mapping firebase_uid → stableId
+# lives in Cloudflare KV, replacing the Firestore-backed identity-links doc.
+# Auth-worker owns writes; backup-worker doesn't touch this KV — it validates
+# our own JWT (issued by auth-worker) and reads `sub = stableId` from claims.
+[[kv_namespaces]]
+binding = "IDENTITY_MAP"
+id = "ebb6d846ff4c4fc0a3859a011d1e4607"
+
 # Routes — *.workers.dev for MVP.
 # [[routes]]
 # pattern = "identity.<our-domain>/init-claim"
