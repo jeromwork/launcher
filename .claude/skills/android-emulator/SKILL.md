@@ -286,8 +286,45 @@ Default screenshot location: `build/<step-name>.png` (project's `build/`
 is already gitignored). Use distinct names per step so you don't
 overwrite evidence of previous progress.
 
+> **HARD RULE — screenshot size ≤ 2000 px on the longest side.** Claude
+> refuses images where either dimension exceeds 2000 px and **the whole
+> conversation stream dies** — you cannot recover the session, only
+> restart it. This has already burned one working session (2026-07-08,
+> Xiaomi 11T screencap 1080×2400 → 2400 > 2000 → stream aborted). The
+> raw `screencap -p` from a modern phone / AVD (1080×2400, 1440×3200,
+> Xiaomi 11T @ 1080×2400) always violates this — **you must downscale
+> before `Read`**. No exceptions.
+>
+> Target: **longest side ≤ 1800 px** (safety margin under the 2000 hard
+> cap). Aspect ratio preserved, PNG output.
+
+Capture + downscale in one shot (default recipe — always use this
+instead of raw `screencap -p > file.png`):
+
+```bash
+SDK_ADB="C:/Users/user/AppData/Local/Android/Sdk/platform-tools/adb.exe"
+OUT="c:/work/launcher/build/<step>.png"
+RAW="c:/work/launcher/build/<step>.raw.png"
+
+"$SDK_ADB" -s emulator-5554 exec-out screencap -p > "$RAW"
+ffmpeg -y -i "$RAW" -vf "scale='if(gt(iw,ih),min(1800,iw),-2)':'if(gt(ih,iw),min(1800,ih),-2)'" "$OUT"
+rm "$RAW"
 ```
-"$SDK_ADB" -s emulator-5554 exec-out screencap -p > c:/work/launcher/build/<step>.png
+
+Alternative (Python + Pillow) if ffmpeg is unavailable:
+
+```bash
+python -c "from PIL import Image; im=Image.open('$RAW'); im.thumbnail((1800,1800)); im.save('$OUT')"
+```
+
+Physical devices via `adb -s <serial>`: same rule — raw Xiaomi 11T
+screencap is 1080×2400 → downscale required (2400 > 2000).
+
+**Verify before `Read`** if in doubt:
+
+```bash
+ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$OUT"
+# expect e.g. 810,1800 — both ≤ 2000
 ```
 
 Then `Read` the file in the agent — Claude renders the PNG inline.
@@ -296,7 +333,9 @@ Each screenshot returns a coordinate-mapping note like
 `displayed at 900x2000, multiply by 1.20 to map to original`. **Tap
 coordinates passed to `adb shell input tap X Y` must be on the original
 1080×2400 system, not the displayed image's.** Multiply the coordinates
-read off the displayed image by the printed factor before tapping.
+read off the displayed image by the printed factor before tapping. The
+downscale-before-Read step does NOT change the tap coordinate system —
+adb still receives coordinates on the device's real display grid.
 
 ---
 

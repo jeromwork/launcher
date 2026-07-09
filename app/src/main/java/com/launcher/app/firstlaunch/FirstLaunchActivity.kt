@@ -24,7 +24,10 @@ import com.launcher.app.BuildConfig
 import com.launcher.app.HomeActivity
 import com.launcher.app.R
 import com.launcher.app.setup.GmsHardBlockActivity
+import com.launcher.app.ui.recovery.RecoveryFallbackScreen
+import com.launcher.app.ui.recovery.RecoveryPassphraseEntryScreen
 import com.launcher.app.ui.recovery.RecoveryPassphraseSetupScreen
+import com.launcher.app.ui.recovery.RecoveryProbeErrorScreen
 import com.launcher.ui.screens.FirstLaunchScreen
 import com.launcher.ui.screens.PresetUiModel
 import com.launcher.ui.setup.AuthChoiceStep
@@ -35,6 +38,7 @@ import com.launcher.ui.theme.LauncherTheme
 import cryptokit.crypto.api.AeadCipher
 import cryptokit.crypto.api.RandomSource
 import family.keys.api.IdentityProof
+import family.keys.api.BackupError
 import family.keys.api.Outcome
 import family.keys.api.PassphraseAttemptCounter
 import family.keys.api.PassphrasePrompter
@@ -206,7 +210,8 @@ class FirstLaunchActivity : ComponentActivity() {
                 AuthChoiceStep(
                     authProvider = authProvider,
                     onSkip = ::renderRoleHomeStep,
-                    onSignedIn = ::renderRecoverySetupStep,
+                    onSignedIn = ::renderRecoveryBranchStep,
+                    onBack = ::renderPicker,
                     topContent = {
                         WizardProgressIndicator(
                             currentStep = 2,
@@ -220,11 +225,170 @@ class FirstLaunchActivity : ComponentActivity() {
     }
 
     /**
-     * task-6 wiring 2026-06-30: F-5 recovery-passphrase Setup step.
+     * task-119 wiring 2026-07-08: branch between Setup and Entry based on
+     * whether a recovery blob already exists for this identity.
      *
      * Runs ONLY on the signed-in branch (`AuthChoiceStep.onSignedIn`). The
-     * skip-Sign-In path bypasses this step — there's no identity to back up,
-     * so [renderRoleHomeStep] is the next step in the skipped flow.
+     * skip-Sign-In path bypasses recovery entirely — there's no identity to
+     * back up or restore, so [renderRoleHomeStep] is the next step there.
+     *
+     * Logic:
+     *  1. Read current identity (Firebase sub → stableId).
+     *  2. Probe `recoveryKeyBackup.fetchBlob(stableId)`.
+     *  3. Success (blob present) → render Entry screen (existing user recovering).
+     *  4. NotFound (404) → render Setup screen (first-time user creating backup).
+     *  5. Any other error (AuthExpired / NetworkUnavailable / Malformed / …) →
+     *     render **probe-error screen** (safety brake). Overwriting a blob is
+     *     one-way; without an explicit 404 we cannot prove the user is new,
+     *     so we must not silently fall through to Setup.
+     *
+     * Without this branch (pre-task-119 behavior), the wizard always showed
+     * Setup — a returning user on a new device would overwrite their existing
+     * cloud blob and lose access to all previously encrypted data.
+     */
+    private fun renderRecoveryBranchStep() {
+        lifecycleScope.launch {
+            val identity = identityProof.identityFlow.firstOrNull()
+            if (identity == null) {
+                android.util.Log.w(
+                    "F5Branch",
+                    "no identity after Sign-In — showing probe-error safety brake",
+                )
+                renderRecoveryProbeErrorStep()
+                return@launch
+            }
+            // TASK-119 (2026-07-09): single fetchBlob call. Our JWT (issued by
+            // auth-worker /auth/exchange) carries stableId in `sub` synchronously
+            // — no propagation race, no client-side retry needed to survive
+            // Firebase custom-claim timing. Retry within WorkerRecoveryKeyBackup
+            // covers only transient transport (5xx / 429 / IOException).
+            when (val probe = recoveryKeyBackup.fetchBlob(identity.stableId)) {
+                is Outcome.Success -> {
+                    android.util.Log.i(
+                        "F5Branch",
+                        "existing recovery blob found — Entry",
+                    )
+                    renderRecoveryEntryStep(failedAttempts = 0)
+                }
+                is Outcome.Failure -> when (probe.error) {
+                    BackupError.NotFound -> {
+                        android.util.Log.i("F5Branch", "no recovery blob — Setup")
+                        renderRecoverySetupStep()
+                    }
+                    else -> {
+                        android.util.Log.w(
+                            "F5Branch",
+                            "fetchBlob failed with ${probe.error} — probe-error safety brake",
+                        )
+                        renderRecoveryProbeErrorStep()
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * task-119 safety brake — see [RecoveryProbeErrorScreen] kdoc for rationale.
+     * Silent fall-through to Setup on non-404 probe errors risks overwriting a
+     * returning user's blob; require an explicit choice instead.
+     */
+    private fun renderRecoveryProbeErrorStep() {
+        setContent {
+            LauncherTheme(preset = pickedPreset?.slug) {
+                RecoveryProbeErrorScreen(
+                    onRetry = ::renderRecoveryBranchStep,
+                    onSetupAnyway = ::renderRecoverySetupStep,
+                    onSkip = ::renderRoleHomeStep,
+                )
+            }
+        }
+    }
+
+    /**
+     * task-119 wiring 2026-07-08: F-5 recovery-passphrase Entry step.
+     *
+     * Reached when [renderRecoveryBranchStep] detected an existing blob for
+     * this identity. User enters the passphrase they set on the original
+     * device; [RecoveryFlow.performRecovery] fetches + unwraps → seeds
+     * [RootKeyManagerImpl] → wizard advances to ROLE_HOME.
+     *
+     * On wrong passphrase [PassphraseAttemptCounter] increments; UI re-renders
+     * with updated `failedAttempts`. On 5th wrong attempt →
+     * [renderRecoveryFallbackStep] (per SC-002; matches spec FR-015 counter
+     * semantics — note the on-screen "осталось попыток" copy in
+     * [RecoveryPassphraseEntryScreen] uses a 3-attempt display convention
+     * that predates the SC-002 5-attempt smoke; alignment is a follow-up
+     * task, not a task-119 blocker).
+     */
+    private fun renderRecoveryEntryStep(failedAttempts: Int) {
+        setContent {
+            LauncherTheme(preset = pickedPreset?.slug) {
+                RecoveryPassphraseEntryScreen(
+                    failedAttempts = failedAttempts,
+                    onSubmit = { passphrase ->
+                        lifecycleScope.launch {
+                            runRecoveryEntry(passphrase, failedAttempts)
+                        }
+                    },
+                    onCancel = ::renderRoleHomeStep,
+                    onFallback = { renderRecoveryFallbackStep(FALLBACK_REASON_TOO_MANY) },
+                )
+            }
+        }
+    }
+
+    private suspend fun runRecoveryEntry(passphrase: CharArray, currentFailed: Int) {
+        val identity = identityProof.identityFlow.firstOrNull()
+        if (identity == null) {
+            android.util.Log.w("F5Entry", "no identity at entry — advancing wizard")
+            passphrase.fill(' ')
+            renderRoleHomeStep()
+            return
+        }
+        val flow = RecoveryFlow(
+            rootKeyManager = rootKeyManager,
+            backup = recoveryKeyBackup,
+            kdf = argon2idKdf,
+            aead = aead,
+            random = random,
+            prompter = OneShotRecoveryPrompter(passphrase),
+            attemptCounter = attemptCounter,
+        )
+        when (val r = flow.performRecovery(identity)) {
+            is Outcome.Success -> {
+                android.util.Log.i("F5Entry", "recovery succeeded for stableId=${identity.stableId}")
+                renderRoleHomeStep()
+            }
+            is Outcome.Failure -> when (r.error) {
+                RecoveryError.WrongPassphrase -> renderRecoveryEntryStep(currentFailed + 1)
+                RecoveryError.TooManyAttempts -> renderRecoveryFallbackStep(FALLBACK_REASON_TOO_MANY)
+                RecoveryError.NoVaultPresent -> {
+                    android.util.Log.w("F5Entry", "vault vanished between probe and unwrap — Setup")
+                    renderRecoverySetupStep()
+                }
+                RecoveryError.MalformedVault -> renderRecoveryFallbackStep(FALLBACK_REASON_MALFORMED)
+                RecoveryError.Cancelled -> renderRoleHomeStep()
+            }
+        }
+    }
+
+    private fun renderRecoveryFallbackStep(reason: com.launcher.app.ui.recovery.RecoveryViewModel.FallbackReason) {
+        setContent {
+            LauncherTheme(preset = pickedPreset?.slug) {
+                RecoveryFallbackScreen(
+                    reason = reason,
+                    onSetupAsNewDevice = ::renderRecoverySetupStep,
+                    onRetry = { renderRecoveryEntryStep(failedAttempts = 0) },
+                )
+            }
+        }
+    }
+
+    /**
+     * task-6 wiring 2026-06-30: F-5 recovery-passphrase Setup step.
+     *
+     * Runs on the signed-in branch when no existing recovery blob was found
+     * (see [renderRecoveryBranchStep]).
      *
      * On submit:
      *  1. Get or generate the root key via [RootKeyManagerImpl.getOrCreate].
@@ -308,6 +472,21 @@ class FirstLaunchActivity : ComponentActivity() {
             return Outcome.Failure(RecoveryError.Cancelled)
         }
     }
+
+    /** One-shot prompter for wizard Entry flow — mirror of setup prompter. */
+    private class OneShotRecoveryPrompter(
+        private val passphrase: CharArray,
+    ) : PassphrasePrompter {
+        override suspend fun requestSetupPassphrase(): Outcome<CharArray, RecoveryError> {
+            return Outcome.Failure(RecoveryError.Cancelled)
+        }
+
+        override suspend fun requestRecoveryPassphrase(): Outcome<CharArray, RecoveryError> {
+            if (passphrase.isEmpty()) return Outcome.Failure(RecoveryError.Cancelled)
+            return Outcome.Success(passphrase)
+        }
+    }
+
 
     /**
      * After auth choice (signed-in or skipped): show ROLE_HOME step (T042).
@@ -427,5 +606,10 @@ class FirstLaunchActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_PRESET = "preset"
+
+        private val FALLBACK_REASON_TOO_MANY =
+            com.launcher.app.ui.recovery.RecoveryViewModel.FallbackReason.TOO_MANY_ATTEMPTS
+        private val FALLBACK_REASON_MALFORMED =
+            com.launcher.app.ui.recovery.RecoveryViewModel.FallbackReason.MALFORMED_VAULT
     }
 }

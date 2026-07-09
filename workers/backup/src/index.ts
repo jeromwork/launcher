@@ -1,41 +1,45 @@
-// T654 — Worker entrypoint. Per contracts/worker-api-v1.md.
+// TASK-119 (2026-07-09) — Worker entrypoint. Per contracts/worker-api-v1.md.
 //
 // Pipeline:
 //   1. routing — method + path → POST/GET/DELETE handler or 404.
-//   2. auth — verifyFirebaseIdToken via @familycare/auth-jwt.
-//   3. subject-ownership — claims.stableId (Phase 4 Track B) must equal
-//      target stableId.
-//   4. (POST) idempotency check → cached response or 409 conflict.
-//   5. rate-limit per (stableId, verb).
-//   6. (POST) parse + schema-check body.
-//   7. R2 read/write/delete on path `backup/{stableId}/v1.json`.
+//   2. auth — validate our own HS256 JWT (issued by auth-worker), read
+//      `claims.sub` as stableId. NO Firebase JWKS, NO custom-claim
+//      propagation dependency.
+//   3. (POST) idempotency check → cached response or 409 conflict.
+//   4. rate-limit per (stableId, verb).
+//   5. (POST) parse + schema-check body.
+//   6. KV read/write/delete on path `backup/{stableId}/v1.json`.
 //
-// NOTE (TODO Track B): Claims interface in @familycare/auth-jwt currently
-// surfaces `uid`. The `stableId` custom claim is added by workers/identity/
-// (Track B). Until that lands, backup worker accepts `uid` as a proxy for
-// `stableId` in test fixtures — production deploy MUST wait for Track B.
+// Pre-2026-07-09 the worker validated Firebase ID tokens directly and read
+// `claims.stableId` (custom claim). That path had two failure modes:
+//   (a) claim propagation race — freshly-minted Firebase tokens lack the
+//       custom claim for seconds-to-minutes after setCustomAttributes;
+//       fetch/delete then couldn't find blobs stored under authenticated
+//       stableId that changed value across the propagation boundary.
+//   (b) pathStableId matching required strict equality — didn't
+//       tolerate the soft-fallback path (claims.uid as stableId).
+// Both eliminated by moving identity issuance out to auth-worker (which
+// returns our own JWT synchronously in a single HTTP call).
 
-import { verifyFirebaseIdToken, type Claims, type JwksCacheKv } from "@familycare/auth-jwt";
+import type { Claims } from "@familycare/auth-jwt";
 import type { Env } from "./env.js";
 import { InMemoryIdempotencyCache, sha256Hex } from "./idempotency.js";
-import { InMemoryRateLimiter, type Verb } from "./ratelimit.js";
+import { InMemoryRateLimiter } from "./ratelimit.js";
 
 const idempotency = new InMemoryIdempotencyCache();
 const rateLimit = new InMemoryRateLimiter();
 
 /**
- * Indirection so tests can inject a stub verifier without a live JWKS fetch.
+ * Indirection so tests can inject a stub verifier without cryptographic setup.
+ * TASK-119: signature now HS256(AUTH_JWT_SECRET), NOT Firebase JWKS.
  */
 export type AuthVerifier = (
   token: string,
-  projectId: string,
-  kv: JwksCacheKv,
+  secret: string,
 ) => Promise<{ ok: true; claims: Claims } | { ok: false; error: string }>;
 
-const defaultVerifier: AuthVerifier = async (token, projectId, kv) => {
-  const r = await verifyFirebaseIdToken(token, projectId, kv);
-  if (r.ok) return { ok: true, claims: r.claims };
-  return { ok: false, error: r.error };
+const defaultVerifier: AuthVerifier = async (token, secret) => {
+  return verifyOurJwtHS256(token, secret);
 };
 
 export interface HandlerDeps {
@@ -94,7 +98,7 @@ async function routeRequest(
 
 interface Authed {
   readonly claims: Claims;
-  /** Effective stableId — claims.stableId once Track B lands; uid for now. */
+  /** stableId — read directly from claims.sub of our HS256-signed JWT. */
   readonly stableId: string;
 }
 
@@ -111,38 +115,18 @@ async function authenticate(
   if (token.length === 0) {
     return jsonResponse(401, { error: "INVALID_TOKEN", reason: "empty" });
   }
-
-  const kvLike: JwksCacheKv = jwksKvFromEnv(env);
-  const result = await verify(token, env.FIREBASE_PROJECT_ID, kvLike);
+  const result = await verify(token, env.AUTH_JWT_SECRET);
   if (!result.ok) {
     return jsonResponse(401, { error: "INVALID_TOKEN", reason: result.error });
   }
-  // Effective stableId resolution:
-  //   1. PREFERRED: claims.stableId (set by identity worker's
-  //      setCustomAttributes — Track B/C wiring).
-  //   2. FALLBACK: claims.uid (Firebase sub). Used in two cases:
-  //      (a) the very first backup call after Sign-In, BEFORE Firebase Auth
-  //          back-end propagates the new custom claim into freshly-minted
-  //          tokens (can take seconds to minutes in practice — Identity
-  //          Platform docs are not specific).
-  //      (b) the client never called /init-claim (legacy / mockBackend probes).
-  //   In both fallback cases the body.stableId MUST match claims.uid below;
-  //   the client is expected to supply the Firebase uid as body.stableId in
-  //   the fallback path, NOT its locally-minted UUID. That keeps the
-  //   blob-addressing key consistent across retries within one identity.
-  //
-  // task-6 T681-FOLLOWUP 2026-06-30: original Track-B-strict implementation
-  // returned 401 stableId-claim-missing on case (a), but Firebase claim
-  // propagation latency means most legitimate first-call uploads would fall
-  // into that path. Accepted soft-fallback as a pragmatic MVP trade-off; the
-  // strict variant returns when the propagation window is empirically bounded
-  // (or when we move off Firebase Auth entirely).
-  const claimsAny = result.claims as unknown as { stableId?: string };
-  const stableId =
-    typeof claimsAny.stableId === "string" && claimsAny.stableId.length > 0
-      ? claimsAny.stableId
-      : result.claims.uid;
-  return { claims: result.claims, stableId };
+  // Our JWT's `sub` claim IS the stableId — auth-worker put it there after
+  // exchanging the Firebase token. No custom-claim propagation window, no
+  // uid vs stableId ambiguity. If sub is missing, the token is malformed.
+  const sub = (result.claims as unknown as { sub?: string }).sub;
+  if (typeof sub !== "string" || sub.length === 0) {
+    return jsonResponse(401, { error: "INVALID_TOKEN", reason: "missing-sub" });
+  }
+  return { claims: result.claims, stableId: sub };
 }
 
 async function handleUpload(
@@ -240,14 +224,16 @@ async function handleFetch(
 ): Promise<Response> {
   const authed = await authenticate(request, env, verify);
   if (authed instanceof Response) return authed;
-  if (authed.stableId !== pathStableId) {
-    return jsonResponse(403, { error: "STABLE_ID_MISMATCH" });
-  }
+  // TASK-119: pathStableId is a URL-shape convenience; the AUTHORITATIVE
+  // routing key is authed.stableId (from our JWT sub). Path may drift from
+  // sub (e.g. legacy client shipped Firebase uid) but we always read/write
+  // the blob owned by the authenticated identity.
+  void pathStableId;
   const rlDecision = rl.check(authed.stableId, "GET");
   if (!rlDecision.allowed) {
     return rateLimitResponse(rlDecision.retryAfterSeconds!);
   }
-  const text = await env.RECOVERY_BLOBS.get(blobObjectKey(pathStableId));
+  const text = await env.RECOVERY_BLOBS.get(blobObjectKey(authed.stableId));
   if (text === null) {
     return jsonResponse(404, { error: "NOT_FOUND" });
   }
@@ -266,14 +252,16 @@ async function handleDelete(
 ): Promise<Response> {
   const authed = await authenticate(request, env, verify);
   if (authed instanceof Response) return authed;
-  if (authed.stableId !== pathStableId) {
-    return jsonResponse(403, { error: "STABLE_ID_MISMATCH" });
-  }
+  // TASK-119: pathStableId is a URL-shape convenience; the AUTHORITATIVE
+  // routing key is authed.stableId (from our JWT sub). Path may drift from
+  // sub (e.g. legacy client shipped Firebase uid) but we always read/write
+  // the blob owned by the authenticated identity.
+  void pathStableId;
   const rlDecision = rl.check(authed.stableId, "DELETE");
   if (!rlDecision.allowed) {
     return rateLimitResponse(rlDecision.retryAfterSeconds!);
   }
-  await env.RECOVERY_BLOBS.delete(blobObjectKey(pathStableId));
+  await env.RECOVERY_BLOBS.delete(blobObjectKey(authed.stableId));
   return new Response(null, { status: 204 });
 }
 
@@ -298,21 +286,61 @@ function rateLimitResponse(retryAfterSeconds: number): Response {
   });
 }
 
-function jwksKvFromEnv(env: Env): JwksCacheKv {
-  if (env.JWKS_CACHE) {
-    return {
-      get: (k) => env.JWKS_CACHE!.get(k),
-      put: (k, v, opts) => env.JWKS_CACHE!.put(k, v, opts),
-    };
+/**
+ * TASK-119 — verify our own HS256-signed JWT (issued by auth-worker).
+ * Minimal implementation via WebCrypto — no external library. Returns claims
+ * on success; error string on any failure (signature, expiry, malformed).
+ */
+export async function verifyOurJwtHS256(
+  token: string,
+  secret: string,
+): Promise<{ ok: true; claims: Claims } | { ok: false; error: string }> {
+  const parts = token.split(".");
+  if (parts.length !== 3) return { ok: false, error: "malformed-header" };
+  const [headerB64, payloadB64, sigB64] = parts as [string, string, string];
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["verify"],
+  );
+  let sigBytes: Uint8Array;
+  try {
+    sigBytes = b64urlDecode(sigB64);
+  } catch {
+    return { ok: false, error: "malformed-signature" };
   }
-  // Test fallback — in-memory single-shot. Production deploy MUST bind JWKS_CACHE.
-  const map = new Map<string, string>();
-  return {
-    async get(k: string) {
-      return map.get(k) ?? null;
-    },
-    async put(k: string, v: string) {
-      map.set(k, v);
-    },
-  };
+  const signingInput = enc.encode(`${headerB64}.${payloadB64}`);
+  const valid = await crypto.subtle.verify(
+    "HMAC",
+    key,
+    sigBytes as unknown as ArrayBuffer,
+    signingInput,
+  );
+  if (!valid) return { ok: false, error: "invalid-signature" };
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(new TextDecoder().decode(b64urlDecode(payloadB64)));
+  } catch {
+    return { ok: false, error: "malformed-payload" };
+  }
+  const exp = payload["exp"];
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (typeof exp !== "number" || exp <= nowSec) {
+    return { ok: false, error: "expired" };
+  }
+  // Cast payload to Claims — `sub` is what backup uses, other fields are
+  // ignored. Callers verify presence of `sub` in authenticate().
+  return { ok: true, claims: payload as unknown as Claims };
+}
+
+function b64urlDecode(s: string): Uint8Array {
+  const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
+  const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + pad;
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
 }

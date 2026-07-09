@@ -1,10 +1,10 @@
 ---
 id: TASK-6
 title: Root Key Hierarchy + Owner Recovery
-status: Verification
+status: Paused
 assignee: []
 created_date: '2026-06-23 05:01'
-updated_date: '2026-06-30 08:55'
+updated_date: '2026-07-08 12:07'
 labels:
   - phase-1
   - F-feature
@@ -142,6 +142,12 @@ EFFORT: Large (~2-3 weeks).
 - [ ] #8 [auto:deferred-physical-device] tasks.md 5/6 physical-device tasks — закрыты T643, T681, T684, T685; **открыт T682** (Fallback flow smoke on Xiaomi 11T).
 - [ ] #9 [auto:deferred-external] tasks.md 0/1 — **открыт T686** (owner peer-review docs/recovery-flow.md).
 <!-- AC:END -->
+
+<!-- SECTION:PAUSE_REASON:BEGIN -->
+**Paused 2026-07-08** — during T682 physical smoke owner discovered three UI copy / navigation defects (ambiguous "Войти в Google для восстановления настроек" title, ambiguous "Придумайте пароль для восстановления" title, missing back button on AuthChoice). SC-002 and SC-006 attest cannot PASS until UI is unambiguous for elderly user. Blocking task: **TASK-119** (UX fix: recovery wizard copy + back button on AuthChoice, timebox 4 hours). Once TASK-119 merges → rebuild APK → resume T682 smoke + T686 review here → Done.
+
+Partial state: passphrase Setup screen shown in ambiguous form, blob was written to Cloudflare Workers KV during smoke (that half still works). No git changes on TASK-6 branch — pause is clean.
+<!-- SECTION:PAUSE_REASON:END -->
 
 <!-- SECTION:VERIFICATION_PENDING:BEGIN -->
 **Verification pending 2026-06-30** — PR opens in Verification state per CLAUDE.md status workflow.

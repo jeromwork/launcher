@@ -1,24 +1,30 @@
-// T663 — Identity-init Worker entrypoint. Per spec task-6 Q-M variant b.
+// TASK-119 auth-worker (2026-07-09) — repurposed from identity-worker.
 //
-// Pipeline:
-//   1. POST /init-claim — only route; everything else → 404.
-//   2. Parse + validate body → { uid: string } or 400.
-//   3. Verify Firebase ID-token via @familycare/auth-jwt → 401 on failure.
-//   4. Check claims.uid === body.uid → 403 mismatch.
-//   5. Lookup existing stableId for uid (FirebaseAdmin.readStableIdForUid).
-//   6. If missing — generate UUID v4, call bindStableId.
-//   7. Return { stableId } 200.
+// Single endpoint: POST /auth/exchange
 //
-// **Idempotency**: by construction. The Firestore document is the single
-// source of truth; UUID generation only happens on `null` lookup. A
-// concurrent second call would race, but `bindStableId` MUST be
-// idempotent (no-op on identical args, throws on mismatch) so the loser
-// of the race gets the existing stableId on retry.
+// Request:  Authorization: Bearer <Firebase ID token>
+// Response: { token: <our JWT, HS256, sub=stableId>, stableId: string,
+//             expiresAt: <epoch ms> }
+//
+// Pipeline (single transaction, no propagation waits):
+//   1. Verify Firebase ID token via shared Firebase JWKS.
+//   2. Read stableId from KV IDENTITY_MAP[firebase_uid].
+//   3. If missing → generate UUID v4, put into KV.
+//   4. Sign our own JWT with HS256(AUTH_JWT_SECRET), sub=stableId,
+//      iss=launcher-auth-v1, iat=now, exp=now+1h.
+//   5. Return {token, stableId, expiresAt}. Done — no async propagation,
+//      client can use token immediately for backup-worker calls.
+//
+// backup-worker (and future workers) validate our JWT with the same shared
+// secret. This decouples all downstream services from Firebase Auth custom
+// claim propagation timing — a race that made the pre-2026-07-09 recovery
+// probe flow unreliable (see TASK-119 for symptoms).
+//
+// Legacy /init-claim endpoint (Firebase setCustomAttributes-based) removed.
+// FirebaseAdmin / RestFirebaseAdmin no longer referenced.
 
 import { verifyFirebaseIdToken, type JwksCacheKv, type Claims } from "@familycare/auth-jwt";
 import type { Env } from "./env.js";
-import { type FirebaseAdmin } from "./firebase-admin.js";
-import { RestFirebaseAdmin } from "./rest-firebase-admin.js";
 
 export type AuthVerifier = (
   token: string,
@@ -34,13 +40,8 @@ const defaultVerifier: AuthVerifier = async (token, projectId, kv) => {
 
 export interface HandlerDeps {
   readonly verify?: AuthVerifier;
-  /**
-   * Optional override for tests (InMemoryFirebaseAdmin). When absent,
-   * production code constructs a {@link RestFirebaseAdmin} from
-   * `env.FIREBASE_SA_JSON`.
-   */
-  readonly firebaseAdmin?: FirebaseAdmin;
   readonly newUuid?: () => string;
+  readonly now?: () => number;
 }
 
 export default {
@@ -49,6 +50,10 @@ export default {
   },
 };
 
+/** JWT expiry — 1 hour. Client refreshes by calling /auth/exchange again. */
+const JWT_TTL_MS = 60 * 60 * 1000;
+const JWT_ISSUER = "launcher-auth-v1";
+
 export async function handle(
   request: Request,
   env: Env,
@@ -56,9 +61,9 @@ export async function handle(
 ): Promise<Response> {
   const verify = deps.verify ?? defaultVerifier;
   const newUuid = deps.newUuid ?? generateUuidV4;
-  const admin = deps.firebaseAdmin ?? new RestFirebaseAdmin({ saJson: env.FIREBASE_SA_JSON });
+  const now = deps.now ?? Date.now;
   try {
-    return await routeRequest(request, env, verify, admin, newUuid);
+    return await routeRequest(request, env, verify, newUuid, now);
   } catch (e) {
     const err = e as Error;
     console.error("Unhandled error", err.name, err.message, err.stack);
@@ -70,11 +75,11 @@ async function routeRequest(
   request: Request,
   env: Env,
   verify: AuthVerifier,
-  admin: FirebaseAdmin,
   newUuid: () => string,
+  now: () => number,
 ): Promise<Response> {
   const url = new URL(request.url);
-  if (request.method !== "POST" || url.pathname !== "/init-claim") {
+  if (request.method !== "POST" || url.pathname !== "/auth/exchange") {
     return jsonResponse(404, { error: "NOT_FOUND" });
   }
 
@@ -82,52 +87,43 @@ async function routeRequest(
   if (!header || !header.startsWith("Bearer ")) {
     return jsonResponse(401, { error: "INVALID_TOKEN", reason: "missing" });
   }
-  const token = header.substring("Bearer ".length).trim();
-  if (token.length === 0) {
+  const firebaseToken = header.substring("Bearer ".length).trim();
+  if (firebaseToken.length === 0) {
     return jsonResponse(401, { error: "INVALID_TOKEN", reason: "empty" });
   }
   const kvLike = jwksKvFromEnv(env);
-  const verifyResult = await verify(token, env.FIREBASE_PROJECT_ID, kvLike);
+  const verifyResult = await verify(firebaseToken, env.FIREBASE_PROJECT_ID, kvLike);
   if (!verifyResult.ok) {
     return jsonResponse(401, { error: "INVALID_TOKEN", reason: verifyResult.error });
   }
 
-  // Wire-format change 2026-06-30: identity worker derives the Firebase uid
-  // from the verified JWT, NOT from the request body. Body may optionally
-  // carry `stableId` (client-supplied UUID v4 — e.g. F-4 GoogleSignInIdentity-
-  // Proof generates one locally). If present, worker binds it; otherwise
-  // mints a fresh one. This removes the source of UID_MISMATCH 403s when
-  // F-4 already owns the UUID lifecycle.
-  let body: unknown = {};
-  try {
-    const raw = await request.text();
-    if (raw.length > 0) body = JSON.parse(raw);
-  } catch {
-    return jsonResponse(400, { error: "MALFORMED_BODY" });
-  }
-  if (typeof body !== "object" || body === null) {
-    return jsonResponse(400, { error: "MALFORMED_BODY" });
-  }
   const firebaseUid = verifyResult.claims.uid;
-  const clientStableId = (body as Record<string, unknown>)["stableId"];
-  const suppliedStableId =
-    typeof clientStableId === "string" && clientStableId.length > 0
-      ? clientStableId
-      : null;
+  if (!firebaseUid || firebaseUid.length === 0) {
+    return jsonResponse(401, { error: "INVALID_TOKEN", reason: "missing-uid" });
+  }
 
-  const existing = await admin.readStableIdForUid(firebaseUid);
-  const stableId =
-    existing ?? suppliedStableId ?? newUuid();
-  // Always call bindStableId — even on existing binding — so the
-  // setCustomAttributes call is re-issued. Firebase Auth tokens issued before
-  // the very first successful setCustomAttributes lack the claim; without a
-  // re-issue any subsequent token-refresh on the client would also lack it.
-  // bindStableId is idempotent on matching arguments (Firestore PATCH with
-  // currentDocument.exists=false → 409 → readStableIdForUid → no-op on
-  // match), so the only extra cost is one setCustomAttributes round-trip per
-  // init-claim call. Acceptable for an operation that runs once per Sign-In.
-  await admin.bindStableId(firebaseUid, stableId);
-  return jsonResponse(200, { stableId });
+  // Lookup-or-create stableId. KV eventually-consistent globally but a single
+  // uid is written from one place, so read-your-writes holds within a Worker
+  // isolate.
+  const existing = await env.IDENTITY_MAP.get(firebaseUid);
+  const stableId = existing ?? newUuid();
+  if (existing === null) {
+    await env.IDENTITY_MAP.put(firebaseUid, stableId);
+  }
+
+  const nowMs = now();
+  const expiresAt = nowMs + JWT_TTL_MS;
+  const ourJwt = await signJwtHS256(
+    {
+      sub: stableId,
+      iss: JWT_ISSUER,
+      iat: Math.floor(nowMs / 1000),
+      exp: Math.floor(expiresAt / 1000),
+    },
+    env.AUTH_JWT_SECRET,
+  );
+
+  return jsonResponse(200, { token: ourJwt, stableId, expiresAt });
 }
 
 function jsonResponse(status: number, body: Record<string, unknown>): Response {
@@ -164,4 +160,35 @@ function generateUuidV4(): string {
   const hex: string[] = [];
   for (const b of bytes) hex.push(b.toString(16).padStart(2, "0"));
   return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10, 16).join("")}`;
+}
+
+/**
+ * Minimal HS256 JWT signer using WebCrypto — no external library, keeps the
+ * worker small. Payload MUST be JSON-serializable.
+ */
+export async function signJwtHS256(
+  payload: Record<string, unknown>,
+  secret: string,
+): Promise<string> {
+  const header = { alg: "HS256", typ: "JWT" };
+  const enc = new TextEncoder();
+  const headerB64 = b64url(enc.encode(JSON.stringify(header)));
+  const payloadB64 = b64url(enc.encode(JSON.stringify(payload)));
+  const signingInput = `${headerB64}.${payloadB64}`;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(signingInput));
+  const sigB64 = b64url(new Uint8Array(sig));
+  return `${signingInput}.${sigB64}`;
+}
+
+function b64url(bytes: Uint8Array): string {
+  let s = "";
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }

@@ -70,8 +70,8 @@ fun RecoveryPassphraseSetupScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Придумайте пароль для восстановления",
-            modifier = Modifier.semantics { contentDescription = "Заголовок: Придумайте пароль для восстановления" }
+            text = "Придумайте пароль для резервной копии",
+            modifier = Modifier.semantics { contentDescription = "Заголовок: Придумайте пароль для резервной копии" }
         )
         Text(
             text = "Этот пароль понадобится, если вы поменяете телефон. " +

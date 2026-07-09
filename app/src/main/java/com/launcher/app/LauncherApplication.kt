@@ -26,9 +26,7 @@ import com.launcher.api.wizard.UserPreferencesStore
 import com.launcher.core.LauncherCore
 import com.launcher.di.backendModule
 import com.launcher.di.setupModule
-import com.launcher.app.data.identity.IdentityCacheInvalidator
-import com.launcher.app.data.identity.InitClaimClient
-import com.launcher.app.data.identity.InitClaimResult
+import com.launcher.app.data.identity.OurJwtProvider
 import com.launcher.ui.di.androidPlatformModule
 import com.launcher.ui.di.coreCommonModule
 import family.keys.api.AuthIdentity
@@ -177,7 +175,7 @@ class LauncherApplication : Application(), Configuration.Provider {
                     // on existing binding without re-allocating UUID. Absent in
                     // mockBackend (Koin binding lives in F018KeysBackendModule
                     // realBackend variant only).
-                    ensureIdentityClaim(identity)
+                    warmupOurJwt(identity)
                     bootstrapEnvelope(identity)
                 } else {
                     teardownEnvelope()
@@ -186,45 +184,26 @@ class LauncherApplication : Application(), Configuration.Provider {
             .launchIn(applicationScope)
     }
 
-    private suspend fun ensureIdentityClaim(identity: AuthIdentity) {
+    /**
+     * TASK-119 (2026-07-09): warm up [OurJwtProvider] cache on first identity
+     * emission. Not strictly required for correctness — WorkerRecoveryKeyBackup
+     * would trigger the same exchange call on its first fetchBlob — but paying
+     * the ~200 ms round-trip up front removes a visible delay on the first
+     * recovery probe. mockBackend flavor omits OurJwtProvider from DI; the
+     * call is a no-op there.
+     */
+    private suspend fun warmupOurJwt(identity: AuthIdentity) {
         val koin = org.koin.java.KoinJavaComponent.getKoin()
-        val client = koin.getOrNull<InitClaimClient>()
-        if (client == null) {
-            Log.d(TAG_ENVELOPE, "init-claim skipped (no InitClaimClient in DI — mockBackend?)")
+        val provider = koin.getOrNull<OurJwtProvider>()
+        if (provider == null) {
+            Log.d(TAG_ENVELOPE, "our-JWT warmup skipped (no OurJwtProvider in DI — mockBackend?)")
             return
         }
-        // task-6 wiring 2026-06-30 (T681-FOLLOWUP): setCustomAttributes on
-        // the Firebase Auth user takes effect only for the NEXT minted
-        // ID-token. We unconditionally invalidate the token cache AROUND the
-        // init-claim attempt — both before (in case the cached token is the
-        // very stale token that caused the previous AuthExpired) and after
-        // a Success (so the next currentIdToken() sees the fresh
-        // claims.stableId). The supplier's invalidate() is cheap (a Mutex
-        // withLock + two field writes).
-        val invalidator = koin.getOrNull<IdentityCacheInvalidator>()
-        invalidator?.invalidate()
-
-        when (val r = client.initClaim(identity.stableId)) {
-            is InitClaimResult.Success -> {
-                Log.i(
-                    TAG_ENVELOPE,
-                    "init-claim ok for uid=${identity.stableId} stableId=${r.stableId}"
-                )
-                invalidator?.invalidate()
-                Log.d(TAG_ENVELOPE, "identity token cache invalidated (next token will carry claims.stableId)")
-            }
-            InitClaimResult.AuthExpired -> Log.w(
-                TAG_ENVELOPE,
-                "init-claim AuthExpired for uid=${identity.stableId} (cache pre-invalidated; check wrangler tail for verify.error)"
-            )
-            InitClaimResult.NetworkUnavailable -> Log.w(
-                TAG_ENVELOPE,
-                "init-claim NetworkUnavailable for uid=${identity.stableId} (will retry next launch)"
-            )
-            InitClaimResult.MalformedResponse -> Log.e(
-                TAG_ENVELOPE,
-                "init-claim MalformedResponse for uid=${identity.stableId} — worker contract drift"
-            )
+        val token = provider.currentIdToken()
+        if (token != null) {
+            Log.i(TAG_ENVELOPE, "our-JWT warmup ok for identity=${identity.stableId}")
+        } else {
+            Log.w(TAG_ENVELOPE, "our-JWT warmup failed for identity=${identity.stableId} — will retry on first backup call")
         }
     }
 
