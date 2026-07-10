@@ -133,7 +133,7 @@ Rename задачи title (`"Decision: Component/Preset/Profile foundational mod
 - **Domain module** (`core/preset/` — commonMain, pure Kotlin, zero Android imports):
   - `Component` (sealed hierarchy), `ComponentDeclaration` (data class + JSON Schema per subtype), `Pool` (typed catalog).
   - `Preset` (schemaVersion=2, three fields), `PresetStepRef` (`poolRef` + `paramsOverride?` + wizard/settings metadata per field).
-  - `Profile` (schemaVersion=2, `activeComponents` list + statuses), `ProfileStep`, `StepStatus`.
+  - `Profile` (schemaVersion=2, `activeComponents` list + statuses), `ProfileComponent`, `ComponentStatus`.
   - `Outcome` (sealed), `WizardBehavior` (enum).
   - Ports: `PoolSource`, `PresetSource`, `ProfileStore`, `Provider<T : Component>`, `ProviderRegistry`, `InteractionSink`, `ConditionEvaluator` (interface only, reserved).
   - `ReconcileEngine.run(RunMode)`, `ProfileFactory`, `PresetDiff` (for future admin push).

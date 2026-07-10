@@ -10,6 +10,19 @@
 >
 > Constitution Article VII §9–13 — определение composition, эволюция wire-format kinds, mandatory/optional/skip semantics.
 
+> **⚠️ Обновление 2026-07-10** (TASK-120 Component/Preset/Profile foundational rescope, [specs/task-120-preset-composition-foundation/spec.md](../../specs/task-120-preset-composition-foundation/spec.md)):
+>
+> **Step / StepType / StepHandler / `wizard.manifest.steps[]` / `stepType` — LEGACY.** Все `Step`-упоминания в этом glossary ниже описывают текущий TASK-7-era wizard код и артефакты в `core/src/commonMain/kotlin/com/launcher/api/wizard/`. TASK-120 заменяет их новой моделью:
+>
+> - **`Component`** (sealed hierarchy) заменяет `StepType`.
+> - **`ComponentDeclaration`** заменяет `WizardStep` (Pool entry с параметрами).
+> - **`Pool`** (реестр declarations) заменяет `system-settings.pool` / `ui-customization.pool` / etc — единый реестр вместо разбиения по kind.
+> - **`Provider` + `ProviderRegistry`** (per-platform/vendor check/apply) заменяет `SystemSettingPort` / `UIChoiceStep` handler'ы.
+> - **`Preset`** wire format schemaVersion=2 получает **три поля**: `wizardFlow` / `settingsMap` / `activeComponents` (заменяет single `steps[]` list).
+> - **`Profile`** wire format schemaVersion=2 хранит `activeComponents: List<ProfileComponent>` (не `ProfileStep`).
+>
+> Terminology purge на активные документы (spec.md, backlog task-120/121) выполнен 2026-07-10. Этот glossary — **NOT** переписан inline, только помечен header'ом. Полный rewrite глоссария — при closing of TASK-120 (следует за реализацией и terminology sync commit'ом, аналогично TASK-65 sync 2026-07-09).
+
 ---
 
 ## 1. Зачем словарь существует

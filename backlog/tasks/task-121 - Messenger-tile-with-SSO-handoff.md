@@ -47,7 +47,7 @@ ordinal: 121000
 - **Refresh policy**: token TTL ~24h, background WorkManager job обновляет token за 6h до истечения. При истёкшем token — synchronous refresh на click с loading indicator.
 - **Fallback**: Если `AuthHandoffService.generateReferrer` возвращает Failed — плитка ведёт себя как generic AppTile (открывает пакет напрямую, без handoff, пользователь получает обычный auth prompt).
 - **Signing key management**: Ed25519 keypair сгенерирован при первом install, хранится в Android Keystore (hardware-backed где возможно). Public key передан нашему мессенджеру out-of-band (при paring или через bundled resources).
-- **Wire format**: `pool.json` +1 declaration `{"id":"messenger-tile-our","step":{"type":"MessengerTile","packageName":"com.ourapp.messenger","handoffService":"our-messenger-handoff","label":"Сообщения"}}`.
+- **Wire format**: `pool.json` +1 declaration `{"id":"messenger-tile-our","component":{"type":"MessengerTile","packageName":"com.ourapp.messenger","handoffService":"our-messenger-handoff","labelKey":"pool.tile.messenger.label"}}`.
 
 ## Состояние
 
