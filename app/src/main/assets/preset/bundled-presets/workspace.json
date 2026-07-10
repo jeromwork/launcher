@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 2,
+  "presetId": "workspace",
+  "version": 1,
+  "layoutKey": "layout.grid.2x3",
+  "wizardFlow": [
+    {
+      "poolRef": "toolbar-minimal",
+      "order": 1,
+      "wizardTitleKey": "wizard.toolbar.title",
+      "behavior": "AutoApply"
+    },
+    {
+      "poolRef": "sos-main",
+      "order": 2,
+      "wizardTitleKey": "wizard.sos.title",
+      "behavior": "AutoApply"
+    }
+  ],
+  "settingsMap": [
+    { "poolRef": "toolbar-minimal", "categoryKey": "settings.category.layout", "sensitivity": "Admin" },
+    { "poolRef": "sos-main", "categoryKey": "settings.category.safety", "sensitivity": "High" }
+  ],
+  "activeComponents": [
+    { "poolRef": "toolbar-minimal" },
+    { "poolRef": "sos-main" }
+  ]
+}

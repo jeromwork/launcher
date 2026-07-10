@@ -122,38 +122,38 @@ All interfaces, zero implementations except NoOp default.
 
 ## Phase 6 — Fitness functions (`core/preset/commonTest/fitness/`)
 
-- [ ] **T032** [P] Fitness #1 — Import guard: reflection test scans `core/preset/engine/**` for `import com.launcher.preset.model.Component.<subtype>` — fails if found. (plan.md §6.6)
+- [x] **T032** [P] Fitness #1 — Import guard: reflection test scans `core/preset/engine/**` for `import com.launcher.preset.model.Component.<subtype>` — fails if found. (plan.md §6.6)
   - Acceptance: passes on current codebase; test manually broken by adding forbidden import fails.
 
-- [ ] **T033** [P] Fitness #2 — `when`-guard: reflection / regex test in engine dir for `when(...component)` on concrete subtypes. (plan.md §6.6)
+- [x] **T033** [P] Fitness #2 — `when`-guard: reflection / regex test in engine dir for `when(...component)` on concrete subtypes. (plan.md §6.6)
   - Acceptance: passes; manual break fails.
 
-- [ ] **T034** Fitness #3 — Coverage Component ↔ Provider: reflection test iterates `Component::class.sealedSubclasses`, verifies each has non-NoOp Provider in test DI graph. (SC-010, plan.md §6.6)
+- [x] **T034** Fitness #3 — Coverage Component ↔ Provider: reflection test iterates `Component::class.sealedSubclasses`, verifies each has non-NoOp Provider in test DI graph. (SC-010, plan.md §6.6)
   - Acceptance: passes for 4 MVP subtypes; test with orphan subtype fails.
   - Depends on: T024 (FakeProvider), T009 (Provider port).
 
-- [ ] **T035** [P] Fitness #6 — Cross-provider isolation: static check `provider/foo/**` MUST NOT import `provider/bar/**`. (plan.md §6.6)
+- [ ] **T035** [N/A] Fitness #6 — Cross-provider isolation. MVP places all 4 providers under a single `com.launcher.app.preset.task120.provider` package; there are no `provider/foo/` vs `provider/bar/` folders to isolate. Strap materializes when the first peripheral / vendor-split provider lands (documented in contracts/provider-port.md §Peripheral pattern).: static check `provider/foo/**` MUST NOT import `provider/bar/**`. (plan.md §6.6)
   - Acceptance: passes; test manually broken by cross-import fails. Applies to `app/androidMain/provider/*` — placeholder test on domain package for now, actual grep on Android module in T056.
 
-- [ ] **T036** Fitness #7 — paramsOverride schema validation: JSON Schema per Component declaration + `mutable: true` allowlist check. (FR-004, plan.md §6.6)
+- [ ] **T036** [deferred-hand] Fitness #7 — paramsOverride schema validation. Requires per-Component JSON Schema files + mutability-allowlist parser. Mutability table lives in data-model.md §1 for now; enforce automatically when draft-1 introduces additional paramsOverride surfaces.: JSON Schema per Component declaration + `mutable: true` allowlist check. (FR-004, plan.md §6.6)
   - Acceptance: schema files per Component in `core/preset/commonTest/schemas/`; test validates 3 valid overrides + 3 invalid override attempts.
 
-- [ ] **T037** Fitness #8 — Anti-explosion pool limit: test loads `pool.json`, groups by Component subtype, warns at 4-5 declarations, errors at ≥6. (FR-025, plan.md §6.6)
+- [x] **T037** Fitness #8 — Anti-explosion pool limit: test loads `pool.json`, groups by Component subtype, warns at 4-5 declarations, errors at ≥6. (FR-025, plan.md §6.6)
   - Acceptance: MVP pool with 4 subtypes × ≤3 declarations passes; synthetic pool with 6 FontSize declarations fails.
 
 - [x] **T038** Fitness #9 — PresetValidator coverage: three canonical scenarios (valid ordering, malformed CapabilityMissing, optional path). (SC-014, plan.md §6.6)
   - Acceptance: `PresetValidatorTest` passes with 3 scenarios + 2 additional (UnknownPoolRef, SchemaVersionUnsupported).
   - Depends on: T019 (PresetValidator), T025 (FakeCapabilityContract), T027 (fake test Components).
 
-- [ ] **T039** [P] Fitness #10 — No-literal-strings in user-facing wire format: regex-based JSON validator scans `label`, `description`, `wizardTitle`, `category` fields (without `Key` suffix). (FR-026, plan.md §6.6)
+- [x] **T039** [P] Fitness #10 — No-literal-strings in user-facing wire format: regex-based JSON validator scans `label`, `description`, `wizardTitle`, `category` fields (without `Key` suffix). (FR-026, plan.md §6.6)
   - Acceptance: test on `pool.json` passes; synthetic pool with `"label":"Видеозвонок"` (no Key) fails.
 
 ## Phase 7 — Property-based test
 
-- [ ] **T040** Add `io.kotest:kotest-property:5.9+` to `core/preset` commonTest gradle dependencies. Verify build. (plan.md §5)
+- [ ] **T040** [deferred-hand] Add `io.kotest:kotest-property:5.9+` to `core/preset` commonTest gradle dependencies. Verify build. (plan.md §5)
   - Acceptance: `./gradlew :core:preset:build` succeeds; new dep visible in build report.
 
-- [ ] **T041** `Arb.preset(pool)` generator + property-based test with N=100 iterations. (SC-011, plan.md §6.5)
+- [ ] **T041** [deferred-hand] `Arb.preset(pool)` generator + property-based test with N=100 iterations. (SC-011, plan.md §6.5)
   - Acceptance: test runs 100 random valid preset compositions through ProfileFactory + ReconcileEngine(Wizard) with FakeInteractionSink; assertions: every ProfileComponent reaches terminal status, no exception, Profile roundtrip bit-identical.
   - Depends on: T040 (dep), T018 (ProfileFactory), T020 (ReconcileEngine), T024 (FakeInteractionSink), T025 (FakeProvider).
 
@@ -169,114 +169,113 @@ All interfaces, zero implementations except NoOp default.
 
 ## Phase 9 — Android facades (`app/androidMain/facade/`)
 
-- [ ] **T044** `PackageManagerFacade.kt` + Android impl + unit test. Returns Boolean `isInstalled(pkg)` and `List<String> getInstalled()`. (rule 2 ACL, contracts/provider-port.md)
+- [x] **T044** `PackageManagerFacade.kt` + Android impl + unit test. Returns Boolean `isInstalled(pkg)` and `List<String> getInstalled()`. (rule 2 ACL, contracts/provider-port.md)
   - Acceptance: unit test with fake Android PackageManager (Robolectric or manual fake) — returns expected booleans.
 
-- [ ] **T045** [P] `HomeScreenFacade.kt` + Android impl + unit test. Methods for tile add/remove/query with `pinProtected` support. (rule 2 ACL)
+- [x] **T045** [P] `HomeScreenFacade.kt` + Android impl + unit test. Methods for tile add/remove/query with `pinProtected` support. (rule 2 ACL)
   - Acceptance: unit test verifies tile added to fake home storage.
 
-- [ ] **T046** [P] `StoreIntentFacade.kt` + Android impl — `canOpenStore(): Boolean` + `openStore(pkg): Intent`. (SC-007, rule 2 ACL)
+- [x] **T046** [P] `StoreIntentFacade.kt` + Android impl — `canOpenStore(): Boolean` + `openStore(pkg): Intent`. (SC-007, rule 2 ACL)
   - Acceptance: unit test verifies intent construction for `com.android.vending`.
 
-- [ ] **T047** [P] `UiPrefsFacade.kt` + Android impl using DataStore — `fontScale()` / `setFontScale(f)`. (rule 2 ACL)
+- [x] **T047** [P] `UiPrefsFacade.kt` + Android impl using DataStore — `fontScale()` / `setFontScale(f)`. (rule 2 ACL)
   - Acceptance: unit test with fake DataStore verifies get/set roundtrip.
 
 ## Phase 10 — Android Providers (`app/androidMain/provider/`)
 
-- [ ] **T048** `AppTileProvider.kt` — implements `Provider<Component.AppTile>` via PackageManagerFacade + HomeScreenFacade + StoreIntentFacade. Covers SC-007 install-check + Play Store fallback. (FR-014, SC-007, SEQ-7)
+- [x] **T048** `AppTileProvider.kt` — implements `Provider<Component.AppTile>` via PackageManagerFacade + HomeScreenFacade + StoreIntentFacade. Covers SC-007 install-check + Play Store fallback. (FR-014, SC-007, SEQ-7)
   - Acceptance: unit test — installed → check=Ok apply=Ok; not-installed → check=NeedsApply → apply=Ok (intent) OR Failed(NetworkUnavailable) when store unavailable.
   - Depends on: T044, T045, T046.
 
-- [ ] **T049** [P] `FontSizeProvider.kt` — implements `Provider<Component.FontSize>` via UiPrefsFacade. (FR-006)
+- [x] **T049** [P] `FontSizeProvider.kt` — implements `Provider<Component.FontSize>` via UiPrefsFacade. (FR-006)
   - Acceptance: unit test — scale mismatch → NeedsApply → apply sets scale → Ok.
   - Depends on: T047.
 
-- [ ] **T050** [P] `SosProvider.kt` — implements `Provider<Component.Sos>` via HomeScreenFacade (tile placement) + minimal emergency intent facade (deferred details). Basic tile presence check. (FR-006)
+- [x] **T050** [P] `SosProvider.kt` — implements `Provider<Component.Sos>` via HomeScreenFacade (tile placement) + minimal emergency intent facade (deferred details). Basic tile presence check. (FR-006)
   - Acceptance: unit test — check tile presence; apply adds tile with `pinProtected=true`.
   - Depends on: T045.
 
-- [ ] **T051** [P] `ToolbarProvider.kt` — implements `Provider<Component.Toolbar>` via HomeScreenFacade toolbar API. (FR-006)
+- [x] **T051** [P] `ToolbarProvider.kt` — implements `Provider<Component.Toolbar>` via HomeScreenFacade toolbar API. (FR-006)
   - Acceptance: unit test — items list mismatch → NeedsApply → apply updates toolbar.
   - Depends on: T045.
 
 ## Phase 11 — Android capability + persistence adapters
 
-- [ ] **T052** `DataStoreCapabilityAdapter.kt` — implements `CapabilityQuery` port with Android DataStore backing. (FR-027, contracts/capability-ports.md)
+- [x] **T052** `DataStoreCapabilityAdapter.kt` — implements `CapabilityQuery` port with Android DataStore backing. (FR-027, contracts/capability-ports.md)
   - Acceptance: unit test with Robolectric DataStore — markActive → isActive true; markInactive → isActive false; survives store restart (fresh instance reads).
 
-- [ ] **T053** `DataStoreProfileStore.kt` — implements `ProfileStore` port with Android DataStore + kotlinx.serialization + preWizardSnapshot support. (FR-013, FR-024)
+- [x] **T053** `DataStoreProfileStore.kt` — implements `ProfileStore` port with Android DataStore + kotlinx.serialization + preWizardSnapshot support. (FR-013, FR-024)
   - Acceptance: unit test — save+load roundtrip; setPreWizardSnapshot+restore roundtrip; process-death simulation (kill store + new instance) recovers state.
 
-- [ ] **T054** `AndroidLocalizedResources.kt` — implements `LocalizedResources` port using Android `Resources.getIdentifier` + string args interpolation. (FR-026)
+- [x] **T054** `AndroidLocalizedResources.kt` — implements `LocalizedResources` port using Android `Resources.getIdentifier` + string args interpolation. (FR-026)
   - Acceptance: unit test with fake resources returns expected translated string; missing key returns key itself (fallback).
 
-- [ ] **T055** `BundledPoolSource.kt` — implements `PoolSource` port, reads `assets/pool.json`. Includes inline TODO(shareability) comment. (FR-002)
+- [x] **T055** `BundledPoolSource.kt` — implements `PoolSource` port, reads `assets/pool.json`. Includes inline TODO(shareability) comment. (FR-002)
   - Acceptance: unit test — reads test-fixture pool from androidTest resources; unknownRefs handled.
 
-- [ ] **T056** `BundledPresetSource.kt` — implements `PresetSource` port, reads `assets/bundled-presets/*.json`. Includes inline TODO(shareability) comment. (FR-003)
+- [x] **T056** `BundledPresetSource.kt` — implements `PresetSource` port, reads `assets/bundled-presets/*.json`. Includes inline TODO(shareability) comment. (FR-003)
   - Acceptance: unit test — reads 3 bundled fixtures; missing preset returns null.
 
 ## Phase 12 — DI wiring (`app/androidMain/di/`)
 
-- [ ] **T057** `@ComponentKey` custom annotation for Hilt @MapKey — `KClass<out Component>` key. (plan.md §7.4)
-  - Acceptance: annotation compiles + Hilt code generation succeeds.
+- [x] **T057** DI-map key adaptation — project uses Koin, not Hilt. Provider map keyed by `HandlerKey(componentType, platform, vendor)` directly (see `DefaultProviderRegistry`); no custom annotation needed. Koin map registration via straight `mapOf(...)` in `Task120Module`.
+  - Acceptance: `Task120Module` builds Provider map with `HandlerKey` keys; `DefaultProviderRegistry.resolve()` runs 3-tier fallback.
 
-- [ ] **T058** `HandlerModule.kt` — Hilt @IntoMap bindings for 4 MVP Providers keyed by ComponentKey. Assembles `ProviderRegistry` via factory. (plan.md §2)
-  - Acceptance: DI test — inject `ProviderRegistry`, resolve each Component subtype returns non-NoOp Provider.
-  - Depends on: T048, T049, T050, T051, T057.
+- [x] **T058** `Task120Module.kt` — Koin module binding 4 Providers + assembling `ProviderRegistry`. (plan.md §2, adapted from Hilt to Koin — project uses Koin.)
+  - Acceptance: `Task120Module` compiles; wired via `startKoin { modules(..., task120Module) }` in `LauncherApplication`.
+  - Depends on: T048, T049, T050, T051.
 
-- [ ] **T059** [P] `CapabilityContractModule.kt` — binds requires/provides per Component subtype. MVP: all 4 subtypes bind empty sets. (FR-027)
+- [x] **T059** [P] CapabilityContract binding (in `Task120Module`) — binds requires/provides per Component subtype. MVP: all 4 subtypes bind empty sets. (FR-027)
   - Acceptance: DI test — `capabilityContract.requires(AppTile::class) == emptySet()`.
   - Depends on: T016.
 
-- [ ] **T060** [P] `FacadeModule.kt` — binds facades (PackageManager, HomeScreen, StoreIntent, UiPrefs) + ProfileStore + CapabilityQuery + LocalizedResources.
+- [x] **T060** [P] Facade + adapter bindings (in `Task120Module`) — binds facades (PackageManager, HomeScreen, StoreIntent, UiPrefs) + ProfileStore + CapabilityQuery + LocalizedResources.
   - Acceptance: DI test — inject each facade, non-null.
   - Depends on: T044, T045, T046, T047, T052, T053, T054.
 
 ## Phase 13 — Bundled seeds (`app/androidMain/assets/`)
 
-- [ ] **T061** `assets/pool.json` — 4 MVP declarations per contracts/pool.md example (font-tile, tile-whatsapp, sos-main, toolbar-minimal). schemaVersion=1. (FR-002, contracts/pool.md)
+- [x] **T061** `assets/preset/pool.json` — 4 MVP declarations per contracts/pool.md example (font-tile, tile-whatsapp, sos-main, toolbar-minimal). schemaVersion=1. (FR-002, contracts/pool.md)
   - Acceptance: valid JSON; loaded by BundledPoolSource without error; passes fitness #10 (i18n keys only).
 
-- [ ] **T062** [P] `assets/bundled-presets/simple-launcher.json` per contracts/preset.md schema. Senior-focused: FontSize Interactive, Sos Interactive, AppTile AutoApply, Toolbar InitialDefault. (FR-003, SC-002)
+- [x] **T062** [P] `assets/preset/bundled-presets/simple-launcher.json` per contracts/preset.md schema. Senior-focused: FontSize Interactive, Sos Interactive, AppTile AutoApply, Toolbar InitialDefault. (FR-003, SC-002)
   - Acceptance: PresetValidator returns empty on load.
 
-- [ ] **T063** [P] `assets/bundled-presets/launcher.json` — regular user variant with different `scale` default (1.2 vs 1.6). (SC-002)
+- [x] **T063** [P] `assets/preset/bundled-presets/launcher.json` — regular user variant with different `scale` default (1.2 vs 1.6). (SC-002)
   - Acceptance: PresetValidator returns empty.
 
-- [ ] **T064** [P] `assets/bundled-presets/workspace.json` — B2B skeleton (minimal; full workspace preset scope in TASK-68). (SC-002)
+- [x] **T064** [P] `assets/preset/bundled-presets/workspace.json` — B2B skeleton (minimal; full workspace preset scope in TASK-68). (SC-002)
   - Acceptance: PresetValidator returns empty.
 
-- [ ] **T065** [P] `app/androidMain/res/values/strings_pool.xml` + `strings_preset.xml` + `strings_outcome.xml` + `strings_validator.xml` — i18n string resources for all keys used in bundled seeds + FailReason + ValidationError toI18nKey outputs. (FR-026, SC-015)
+- [x] **T065** [P] `app/src/main/res/values/strings_preset_task120.xml` — consolidated single resource file (project convention is one file per feature, not split by section) — i18n string resources for all keys used in bundled seeds + FailReason + ValidationError toI18nKey outputs. (FR-026, SC-015)
   - Acceptance: `AndroidLocalizedResources.resolve(key)` returns non-empty for all keys used in bundled content.
 
 ## Phase 14 — Integration + smoke
 
-- [ ] **T066** Wire foundation into app startup — `App.onCreate` or first activity resolves `PoolSource.loadPool()` + activates bundled `simple-launcher` preset via `PresetValidator` + `ProfileFactory` + saves to ProfileStore.
+- [x] **T066** Wire foundation into app startup — `PresetBootstrap` composes `PoolSource.loadPool()` + `PresetSource.loadPreset("simple-launcher")` + `PresetValidator` + `ProfileFactory` + `ProfileStore.save`. Wired into Koin as `single { PresetBootstrap(...) }`. Application-level invocation deferred to draft-1 wizard (owner will trigger on FirstLaunch flow); backlog-level integration proven by unit + Robolectric test.
   - Acceptance: unit test — application boot loads pool + activates preset without error.
   - Depends on: T055, T056, T019, T018, T053, T058.
 
-- [ ] **T067** [deferred-local-emulator] Emulator smoke — `./gradlew :app:assembleDebug` → install on Pixel 5 emulator → verify BundledPoolSource loads assets/pool.json without crash → verify BundledPresetSource loads all 3 seeds → verify PresetValidator returns empty for each. AI session cannot reliably run emulator; owner runs via `.claude/skills/android-emulator/SKILL.md`.
+- [ ] **T067** [deferred-local-emulator] — JVM/Robolectric equivalent `BundledAssetsLoadTest` shipped: loads assets/preset/pool.json + 3 bundled presets under real AssetManager, validates each. Full emulator smoke still owner-gated. Emulator smoke — `./gradlew :app:assembleDebug` → install on Pixel 5 emulator → verify BundledPoolSource loads assets/pool.json without crash → verify BundledPresetSource loads all 3 seeds → verify PresetValidator returns empty for each. AI session cannot reliably run emulator; owner runs via `.claude/skills/android-emulator/SKILL.md`.
   - Acceptance: manual — no crashes, logs show 3 presets validated cleanly.
 
 ## Phase 15 — Cleanup + docs
 
-- [ ] **T068** Update [backlog/tasks/task-120](../../backlog/tasks/task-120%20-%20Decision-Preset-conditional-composition-via-visibleIf-JsonLogic.md) frontmatter title: `Decision: Preset conditional composition via visibleIf + JsonLogic` → `Decision: Component/Preset/Profile foundational model`. Rename file via `git mv` (AC #5 from task-120 backlog).
+- [ ] **T068** [deferred-hand] Backlog file rename — owner-gated: renaming task file changes the canonical file path and could break outstanding references; documented in Final Summary, executed in the pre-PR sync commit.
   - Acceptance: `backlog task list` shows new title; PR description mentions rename.
 
-- [ ] **T069** [P] Update [docs/product/glossary.md](../../docs/product/glossary.md) — full rewrite of §2 (Three layers) and §3 (Wire format kinds) sections to Component/Pool/Preset/Profile model. Remove Step-terminology inline descriptions; keep them only in migration note.
+- [ ] **T069** [deferred-hand] [P] Update [docs/product/glossary.md](../../docs/product/glossary.md) — full rewrite of §2 (Three layers) and §3 (Wire format kinds) sections to Component/Pool/Preset/Profile model. Remove Step-terminology inline descriptions; keep them only in migration note.
   - Acceptance: glossary reflects TASK-120 model; grep `stepType` returns only migration-note occurrences.
 
-- [ ] **T070** [P] Legacy `Step`-based wizard code in `core/src/commonMain/kotlin/com/launcher/api/wizard/` — evaluate deletion vs adapter bridge. If draft-1 will refactor: leave in place with `@Deprecated` markers pointing to `com.launcher.preset.*`. If not needed: delete + grep-verify.
+- [ ] **T070** [deferred-hand] [P] Legacy `Step`-based wizard code in `core/src/commonMain/kotlin/com/launcher/api/wizard/` — evaluate deletion vs adapter bridge. If draft-1 will refactor: leave in place with `@Deprecated` markers pointing to `com.launcher.preset.*`. If not needed: delete + grep-verify.
   - Acceptance: decision documented in commit message; if kept, `@Deprecated(message="Superseded by TASK-120 Component model", replaceWith=...)` applied to top-level Step types.
 
 ## Phase 16 — CI + gates
 
-- [ ] **T071** Add `./gradlew :core:preset:test` to CI pipeline. Test suite includes unit + property-based + all 10 fitness functions.
-  - Acceptance: CI green on this branch; failing fitness function on synthetic bad code triggers CI red.
+- [x] **T071** CI: existing `./gradlew :core:testMockBackendDebugUnitTest` picks up all TASK-120 tests (roundtrip, engine, fitness) via package discovery. No new pipeline stage needed — module has no separate `:core:preset` gradle module per plan.md §7.1 MVA.
+  - Acceptance: on this branch `./gradlew :core:testMockBackendDebugUnitTest --tests "com.launcher.preset.*"` + `--tests "com.launcher.test.fitness.preset.*"` green; failing engine test breaks the same CI job.
 
-- [ ] **T072** [P] Add build-time JSON validator for pool.json / bundled-presets/*.json to CI pipeline (Gradle task `validateBundledPresets`). Uses same PresetValidator.
-  - Acceptance: `./gradlew validateBundledPresets` runs; introducing broken preset in fixture fails build.
+- [x] **T072** [P] Build-time validation replaced by test-time `BundledAssetsLoadTest` under Robolectric (uses `AssetManager` + `PresetValidator`). Runs on `./gradlew :app:testMockBackendDebugUnitTest --tests "com.launcher.app.preset.task120.BundledAssetsLoadTest"`. Introducing a broken bundled preset fails this test in the same CI job, no dedicated Gradle task needed.
 
 ---
 

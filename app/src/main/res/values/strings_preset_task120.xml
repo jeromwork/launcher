@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TASK-120 i18n keys — resolved via LocalizedResources port + AndroidLocalizedResources adapter.
+         Key naming: <domain>.<component_area>.<field> (dotted, lowercase). See fitness #10. -->
+
+    <!-- pool.* — pool declaration description keys -->
+    <string name="pool_font_description">Font size</string>
+    <string name="pool_tile_whatsapp_label">WhatsApp</string>
+    <string name="pool_tile_whatsapp_icon">whatsapp</string>
+    <string name="pool_tile_whatsapp_description">WhatsApp shortcut tile</string>
+    <string name="pool_sos_description">Emergency SOS button</string>
+    <string name="pool_toolbar_description">Bottom toolbar with quick actions</string>
+
+    <!-- wizard.* — wizard step titles / intros -->
+    <string name="wizard_font_title">Choose font size</string>
+    <string name="wizard_font_intro">Pick a comfortable text size</string>
+    <string name="wizard_sos_title">Emergency SOS</string>
+    <string name="wizard_apptile_title">Add app shortcut</string>
+    <string name="wizard_toolbar_title">Bottom toolbar</string>
+
+    <!-- settings.category.* — Settings screen categories -->
+    <string name="settings_category_vision">Vision</string>
+    <string name="settings_category_safety">Safety</string>
+    <string name="settings_category_apps">Applications</string>
+    <string name="settings_category_layout">Layout</string>
+
+    <!-- layout.* — layout keys -->
+    <string name="layout_grid_2x3">2×3 grid</string>
+    <string name="layout_toolbar_minimal">Minimal toolbar</string>
+
+    <!-- outcome.failed.* — FailReason.toI18nKey outputs -->
+    <string name="outcome_failed_permission_denied">Permission denied</string>
+    <string name="outcome_failed_policy_blocked">Blocked by policy</string>
+    <string name="outcome_failed_network_unavailable">Network unavailable</string>
+    <string name="outcome_failed_cancelled">Cancelled</string>
+    <string name="outcome_failed_pairing_not_established">Pairing not established</string>
+
+    <!-- validator.error.* — ValidationError.toI18nKey outputs -->
+    <string name="validator_error_capability_missing">Prerequisite step missing</string>
+    <string name="validator_error_unknown_pool_ref">Unknown component reference</string>
+    <string name="validator_error_schema_version_unsupported">Preset requires a newer app version</string>
+    <string name="validator_error_circular_ordering">Circular step dependency</string>
+</resources>

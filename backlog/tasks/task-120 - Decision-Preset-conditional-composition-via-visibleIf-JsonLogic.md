@@ -1,7 +1,7 @@
 ---
 id: TASK-120
 title: 'Decision: Preset conditional composition via visibleIf + JsonLogic'
-status: Paused
+status: In Progress
 assignee: []
 created_date: '2026-07-09 10:55'
 updated_date: '2026-07-10 16:20'

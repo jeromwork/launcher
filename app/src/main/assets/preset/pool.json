@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "declarations": [
+    {
+      "id": "font-tile",
+      "component": {
+        "type": "FontSize",
+        "scale": 1.6
+      },
+      "wizardBehavior": "Interactive",
+      "critical": false,
+      "descriptionKey": "pool.font.description"
+    },
+    {
+      "id": "tile-whatsapp",
+      "component": {
+        "type": "AppTile",
+        "packageName": "com.whatsapp",
+        "labelKey": "pool.tile.whatsapp.label",
+        "iconKey": "pool.tile.whatsapp.icon",
+        "pinProtected": false
+      },
+      "wizardBehavior": "AutoApply",
+      "critical": false,
+      "descriptionKey": "pool.tile.whatsapp.description"
+    },
+    {
+      "id": "sos-main",
+      "component": {
+        "type": "Sos",
+        "shareLocation": true,
+        "autoAnswer": true
+      },
+      "wizardBehavior": "Interactive",
+      "critical": true,
+      "descriptionKey": "pool.sos.description"
+    },
+    {
+      "id": "toolbar-minimal",
+      "component": {
+        "type": "Toolbar",
+        "items": ["call", "sos", "clock"],
+        "layoutKey": "layout.toolbar.minimal"
+      },
+      "wizardBehavior": "InitialDefault",
+      "critical": false,
+      "descriptionKey": "pool.toolbar.description"
+    }
+  ]
+}
