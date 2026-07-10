@@ -1,10 +1,10 @@
 ---
 id: TASK-120
 title: 'Decision: Preset conditional composition via visibleIf + JsonLogic'
-status: In Progress
+status: Paused
 assignee: []
 created_date: '2026-07-09 10:55'
-updated_date: '2026-07-10 15:00'
+updated_date: '2026-07-10 16:20'
 labels:
   - phase-2
   - foundation
@@ -529,3 +529,17 @@ enum WizardBehavior { Interactive, AutoApply, InitialDefault }
 - **Done** — все AC зелёные.
 
 Implementation отслеживается через **tasks.md T001-T072** в spec-папке, не через отдельные downstream tasks (downstream tasks получают контракт из этой фичи, но собственную реализацию имплементируют сами).
+
+---
+
+## Paused note (2026-07-10 16:20)
+
+Причина: token budget сессии — большая имплементация не поместится в оставшийся бюджет.
+
+Где остановились: Phase 1 (T001-T008) не начата. Единственные side effects на диске:
+- Созданы пустые директории `core/src/commonMain/kotlin/com/launcher/preset/{model,port,engine,adapter}/` — их можно оставить, при resume будут использованы.
+- Никаких .kt файлов не написано, ничего не закоммичено.
+
+Артефакты spec-kit цикла (`spec.md`, `plan.md`, `data-model.md`, `contracts/`, `tasks.md`, `analyze-report.md`, `checklists/`) — locked, вся необходимая информация для resume в них есть.
+
+Resume в новой сессии: точка входа — Phase 1 T001-T008 (domain types в `core/src/commonMain/kotlin/com/launcher/preset/model/`). Первым шагом session poison — вернуть status `In Progress`.
