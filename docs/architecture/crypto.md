@@ -12,9 +12,12 @@ components:
     audit: SRLabs 2024 (8 findings; 7 fixed in 0.7.3/0.8.1, 1 Low remaining, tracked upstream)
     decision-task: TASK-104
     decision-status: confirmed (2026-07-07)
+    implementation-task: TASK-124   # created 2026-07-10; TASK-58 closure originally назначила TASK-2, но TASK-2 закрыт narrow scope (libsodium only)
+    implementation-status: draft (2026-07-10)
     ports: [CryptoPort, GroupPort, KeyPackagePort]
-    adapter-location: app/adapters/openmls/
-    native-lib-location: app/src/main/jniLibs/*/libopenmls_ffi.so
+    ports-task: TASK-123
+    adapter-location: core/crypto/src/androidMain/kotlin/cryptokit/adapters/openmls/
+    native-lib-location: app/src/main/jniLibs/*/libcrypto_ffi.so
     exit-ramp: swap with mls-rs (Apache-2.0/MIT, AWS Labs, same RFC 9420 wire format, ~1-2 weeks adapter rewrite)
     production-references:
       - Wire (via wireapp/core-crypto on Android, iOS, WASM)
@@ -28,6 +31,8 @@ components:
     choice: UniFFI generated
     decision-task: TASK-104
     decision-status: confirmed (2026-07-07)
+    implementation-task: TASK-122   # created 2026-07-10 — Rust FFI foundation (toolchain-only, no crypto)
+    implementation-status: draft (2026-07-10)
     build-tool: cargo-ndk + uniffi-bindgen-kotlin
     production-references:
       - Element X Android (matrix-rust-sdk via UniFFI, weekly releases through 2026)
@@ -42,7 +47,9 @@ components:
     choice: SQLCipher backed openmls storage provider
     decision-task: TASK-104
     decision-status: confirmed (2026-07-07)
-    adapter-location: app/adapters/openmls/storage/
+    implementation-task: TASK-125   # created 2026-07-10 — separated from TASK-124 to isolate persistence complexity
+    implementation-status: draft (2026-07-10)
+    adapter-location: core/crypto/src/androidMain/kotlin/cryptokit/adapters/openmls/storage/
     exit-ramp: Room DB + separate Android Keystore for encryption key
   - id: keypackage-pool
     choice: server-side pool with cap
@@ -78,7 +85,7 @@ components:
     decision-task: TASK-100
     decision-status: draft
     exit-ramp: HIST-BACKUP-001 (Phase-3+, ~4-6 weeks)
-last-synced: 2026-07-08
+last-synced: 2026-07-10
 ---
 
 # Домен: Крипто
@@ -134,6 +141,12 @@ last-synced: 2026-07-08
 - **TASK-57** Zero-Knowledge Server Architecture audit — **пересматривает server.md**, blocks TASK-59/60.
 - **TASK-59** Recovery vault anti-brute-force research (SVR vs OPAQUE vs HMAC) — blocks TASK-6, TASK-21.
 - **TASK-60** Push payload encryption + FCM 4KB — blocks все push-based features.
+
+**Что открыто Draft — MLS foundation implementation** (созданы 2026-07-10 для заполнения gap'а: TASK-58 closure note назначила «MLS integration → TASK-2», но TASK-2 закрыт только с libsodium; реальной openmls-integration нет в коде):
+- **TASK-122** F-CRYPTO Rust FFI Foundation — cargo-ndk + UniFFI toolchain. Deps: none. Blocks TASK-124.
+- **TASK-123** F-CRYPTO Domain ports + fakes — `CryptoPort` / `GroupPort` / `KeyPackagePort` (mock-first, rule 6). Deps: TASK-112. Blocks TASK-124.
+- **TASK-124** F-CRYPTO openmls integration — Rust wrapper + Kotlin adapter + in-memory storage + wire format tests. Deps: TASK-122 + TASK-123. Blocks TASK-125, unblocks TASK-67/42 domain-side.
+- **TASK-125** F-CRYPTO SQLCipher storage provider — persistence layer для openmls. Deps: TASK-124.
 
 **Что открыто Discussion — ждут Session 2 mentor**:
 - TASK-112 KeyVault port boundary.
@@ -929,6 +942,17 @@ Snapshot decision-tasks 16, 57–60, 100..117. Обновляется при з�
 - [TASK-105](../../backlog/tasks/task-105%20-%20Decision-Server-side-abuse-defense-baseline.md) Server zero-trust baseline — **Draft**, готова к `/speckit.specify`. Обязательна для всех серверных endpoints ниже.
 - [TASK-112](../../backlog/tasks/task-112%20-%20Decision-Cross-platform-IdentityVault.md) KeyVault port — **Draft**, готова к `/speckit.specify`. Foundation для всех key operations.
 
+**Волна 1a — MLS foundation implementation** (созданы 2026-07-10 для заполнения TASK-58 closure gap'а):
+
+- [TASK-122](../../backlog/tasks/task-122%20-%20F-CRYPTO-Rust-FFI-Foundation.md) F-CRYPTO Rust FFI Foundation — **Draft**. cargo-ndk + UniFFI toolchain + «hello from Rust» smoke. Zero crypto — pure infrastructure. Deps: none. Параллельна TASK-123.
+- [TASK-123](../../backlog/tasks/task-123%20-%20F-CRYPTO-Domain-ports-and-fakes.md) F-CRYPTO Domain ports + fakes — **Draft**. `CryptoPort` / `GroupPort` / `KeyPackagePort` + in-memory fakes + contract tests. Pure Kotlin, zero Rust. Deps: **TASK-112** (KeyVault Decision влияет на shape).
+- [TASK-124](../../backlog/tasks/task-124%20-%20F-CRYPTO-openmls-integration-in-memory.md) F-CRYPTO openmls integration — **Draft**. Rust wrapper над openmls 0.8.1 + UniFFI Kotlin adapter + in-memory StorageProvider + wire format roundtrip + property-based tests. Deps: **TASK-122 + TASK-123**. Unblocks TASK-67/42 domain-side.
+- [TASK-125](../../backlog/tasks/task-125%20-%20F-CRYPTO-SQLCipher-storage-provider.md) F-CRYPTO SQLCipher storage provider — **Draft**. SQLCipher-backed `StorageProvider` implementing openmls trait + Android Keystore-wrapped key + persistence integration tests. Deps: **TASK-124**. Отдельно чтобы TASK-124 «MLS работает» merge'ится independent от «MLS переживает reboot».
+
+**Effort estimate по цепочке** (из TASK-58 research + our decomposition):
+- TASK-122: ~1 week (32-40h). TASK-123: ~3-5d (12-20h). TASK-124: ~1-2w (30-50h). TASK-125: ~3-5d (12-20h).
+- Total: ~4-6 weeks calendar (TASK-122+123 параллельны, TASK-124 sequential, TASK-125 sequential).
+
 **Волна 1 — крипто-decisions + research построенные на foundation**:
 
 - [TASK-59](../../backlog/tasks/task-59%20-%20Research-Recovery-vault-anti-brute-force-counter-—-SVR-vs-OPAQUE-vs-simple-HMAC.md) Recovery vault anti-brute-force — **Draft**. Research: SVR vs OPAQUE vs simple HMAC. Depends TASK-57. **Blocks TASK-6 (Root Key Hierarchy) и TASK-21 (Recovery)** — wire format vault фиксируется здесь.
@@ -959,13 +983,23 @@ Snapshot decision-tasks 16, 57–60, 100..117. Обновляется при з�
 
 Feature tasks которые consumers Decision blocks. Ссылки на dependencies указаны в § Downstream tasks awaiting Decision integration ниже.
 
-Приоритетные implementation candidates (по состоянию 2026-07-08, порядок отражает dependencies):
-1. **TASK-57** Zero-Knowledge Server Architecture audit → `/speckit.specify`. **Blocks TASK-59, TASK-60**. Пересматривает server.md snapshot. Foundation для всей server-side архитектуры.
-2. **TASK-59** Recovery vault anti-brute-force research → `/speckit.specify`. **Blocks TASK-6 (Root Key Hierarchy) и TASK-21 (Recovery)**.
-3. **TASK-60** Push payload encryption + FCM 4KB research → `/speckit.specify`. **Blocks все push-based features**.
-4. **TASK-16** implementation — wire format discipline + fitness rule. ~1 неделя. Разблокирует правильные formats для всей крипто-work. Может параллельно с TASK-57/59/60.
-5. **TASK-112** implementation — KeyVault port. ~1 неделя mechanical. Foundation для всех key operations. Параллельно с TASK-16.
-6. **TASK-2** F-CRYPTO Core — **Done** (openmls через UniFFI integrated).
+Приоритетные implementation candidates (по состоянию 2026-07-10, порядок отражает dependencies):
+
+**Client-side MLS foundation chain (Волна 1a, независимо от server work)**:
+1. **TASK-112** Decision — KeyVault port. Blocks TASK-123. Mentor-сессия → Decision block.
+2. **TASK-122** Rust FFI Foundation — параллельно с TASK-112/123. Deps: none.
+3. **TASK-123** Domain ports + fakes — параллельно с TASK-122. Deps: TASK-112.
+4. **TASK-124** openmls integration — sequential. Deps: TASK-122 + TASK-123.
+5. **TASK-125** SQLCipher persistence — sequential. Deps: TASK-124.
+6. **TASK-16** Preset Schema v2 — параллельно с MLS chain. Wire format discipline.
+
+**Server-side chain (когда владелец готов к server-контексту)**:
+7. **TASK-57** Zero-Knowledge Server Architecture audit → `/speckit.specify`. **Blocks TASK-59, TASK-60**.
+8. **TASK-59** Recovery vault anti-brute-force research. **Blocks TASK-6, TASK-21**.
+9. **TASK-60** Push payload encryption + FCM 4KB.
+
+**Historical / superseded**:
+- **TASK-2** F-CRYPTO Core — **Done, scoped narrowly** (libsodium primitives only). TASK-58 closure note ошибочно назначила «MLS integration → TASK-2» до fact-check'а; реальная openmls-integration переехала в TASK-122...125 (созданы 2026-07-10).
 
 **Что дальше** (после implementation Волны 0 foundation):
 - Feature tasks (TASK-6 root key hierarchy → TASK-67 pairing → TASK-42 messenger encryption → TASK-11 photo album) активируются в порядке product priority.
@@ -1224,6 +1258,7 @@ F-CRYPTO 1.0.0 включает `iosX64`, `iosArm64`, `iosSimulatorArm64` target
 
 | Дата | Изменение |
 |---|---|
+| 2026-07-10 | v10 — MLS foundation gap fix: обнаружено что TASK-58 closure note назначила «MLS integration → TASK-2», но TASK-2 закрыт со scope'ом только на libsodium; реальной openmls-integration нет в коде (нет Cargo.toml, нет libcrypto_ffi.so, нет CryptoPort/GroupPort/KeyPackagePort). Созданы 4 implementation-таски: **TASK-122** (Rust FFI foundation, cargo-ndk + UniFFI), **TASK-123** (domain ports + fakes, mock-first per rule 6), **TASK-124** (openmls integration + in-memory storage + wire format tests), **TASK-125** (SQLCipher persistence). Добавлена «Волна 1a» в Implementation sequence. Frontmatter components (mls-library / kotlin-binding / encrypted-keystore) получили `implementation-task:` + `implementation-status:` поля отдельно от `decision-task:`. Priority queue переупорядочен: client-side MLS chain (TASK-112 → 122/123 → 124 → 125) идёт **до** server chain (TASK-57/59/60), потому что владелец идёт frontend-first. TASK-2 переклассифицирован как «Done, scoped narrowly» с явным сноской что openmls-work переехала в TASK-122...125. |
 | 2026-07-08 | v9 — foundation sync: добавлены TASK-57 (Zero-Knowledge Server Architecture audit), TASK-59 (Recovery vault anti-brute-force research), TASK-60 (Push payload encryption research) в Decision index + Волна 0/1 Implementation sequence + AI TL;DR «Что открыто Draft». TASK-6 gains TASK-59 dependency. Priority queue переупорядочен: TASK-57 первый (blocks TASK-59/60). Server.md получил PRE-TASK-57 SNAPSHOT banner. |
 | 2026-07-08 | v8 — consistency sweep: TASK-58 обновлён с "Proposed pending" на "Done superseded". Дублирующая секция «Открытые вопросы» смерджена. A5 row про multi-app cohabitation обновлён с "P-10 в Phase 3" на актуальные TASK-115/116/117. Broken Related domains links (identity.md, client-android.md) отмечены как skeleton pending. AI TL;DR «Что открыто» пересобран по new task cluster. § A2 Multi-app cohabitation секция сжата с 12 строк устаревших вариантов B/C/hybrid до 6 строк links to TASK-115. TASK-25 закрыт как Done superseded by TASK-115. Downstream integration table updated для TASK-27/TASK-28 (add TASK-115 dep). |
 | 2026-07-08 | v7 — добавлена **Implementation sequence** секция в Decision index — living human-readable snapshot графа зависимостей (4 волны). Machine source of truth = `backlog sequence list --plain`. Расхождение = баг. |
