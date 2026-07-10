@@ -1,10 +1,10 @@
 ---
 id: TASK-112
 title: 'Decision: KeyVault port boundary — operation-on-vault + narrow export'
-status: Draft
+status: In Progress
 assignee: []
 created_date: '2026-07-07'
-updated_date: '2026-07-07'
+updated_date: '2026-07-10 17:30'
 labels:
   - decision
   - crypto
