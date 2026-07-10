@@ -482,6 +482,285 @@ sequenceDiagram
 
 ---
 
+### SEQ-4: PresetValidator ловит битый preset до старта Wizard
+
+Pre: пользователь получил preset (из bundled seed / share intent / файл / admin push). Post: либо Wizard стартует (preset валиден), либо владелец видит ValidationError сообщение и Wizard не запускается.
+Used-in: spec/task-120-preset-composition-foundation (US 5.5).
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  participant EX as External
+  U->>S: Активировать preset (import / seed / push)
+  S->>S: PresetValidator: walk wizardFlow ordering
+  alt Valid ordering
+    S->>U: Wizard стартует
+    U->>S: Проходит шаги (SignIn → HealthForward)
+    S->>EX: Обращается к облаку когда нужно
+    EX-->>S: Ok
+    S->>U: Wizard завершён
+  else Malformed ordering (Required без provides)
+    S-->>U: ValidationError сообщение (localized)
+    Note over S,U: Wizard НЕ стартует. Owner / admin видит какой Component требует какой CapabilityFlag.
+  end
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant UI as WizardActivity
+  participant VM as WizardViewModel
+  participant PV as PresetValidator
+  participant CC as CapabilityContract
+  participant PS as PresetSource
+  participant PL as PoolSource
+  participant EN as ReconcileEngine
+  UI->>VM: onStartPreset(presetRef)
+  VM->>PS: loadPreset(presetRef)
+  PS-->>VM: Preset
+  VM->>PL: loadPool()
+  PL-->>VM: Pool
+  VM->>PV: validate(preset, pool)
+  PV->>CC: requires(FontSize::class)
+  CC-->>PV: emptySet
+  PV->>CC: requires(HealthForward::class)
+  CC-->>PV: {CloudSession}
+  PV->>CC: provides(SignInGoogle::class)
+  CC-->>PV: {CloudSession}
+  alt Valid — provides accumulated before requires
+    PV-->>VM: ok
+    VM->>EN: run(RunMode.Wizard, sink)
+  else Malformed — requires unmet at step N
+    PV-->>VM: ValidationError.CapabilityMissing(componentId, missing)
+    VM-->>UI: showError(localizedKey)
+    Note over EN: НЕ ВЫЗЫВАЕТСЯ
+  end
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- Проблема которую это решает: если preset собран неправильно (например HealthForward стоит **до** Sign-In, а HealthForward требует cloud-сессию), Wizard начнёт работать но на шаге HealthForward будет ошибка «не могу применить» без объяснения почему. Пользователь запутается.
+- Валидатор — маленький компонент, проходит по списку шагов **до** старта. Смотрит: «этот шаг требует cloud? кто-то до него cloud даёт? нет? — ошибка».
+- Владелец / админ видит понятное сообщение: «Компонент HealthForward требует CloudSession, но никакой шаг до него не даёт cloud. Добавьте Sign-In до HealthForward».
+- Wizard **не запускается** — это защита от того что бабушка застрянет в поломанном flow.
+- Правильный preset вроде `[FontSize, SignInGoogle, HealthForward, Sos]` проходит без проблем.
+- Ссылка: US 5.5, FR-027, ValidationError sealed hierarchy в Key Entities.
+<!-- MENTOR-DETAIL:END -->
+
+---
+
+### SEQ-5: Owner отменяет Wizard, Profile восстанавливается из snapshot
+
+Pre: Wizard идёт, применил 2 из 4 шагов (частичное применение). Post: Profile восстановлен до pre-wizard state; runtime Android state (default launcher, permissions) не откачивается автоматически.
+Used-in: spec/task-120-preset-composition-foundation (US1 acceptance #4, FR-029).
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  participant EX as External
+  U->>S: Открывает Wizard
+  S->>S: Сохраняет preWizardSnapshot = current Profile
+  S->>U: Показывает Wizard шаг 1 (FontSize)
+  U->>S: scale=1.8
+  S->>EX: Применяет шрифт
+  EX-->>S: Ok
+  S->>U: Показывает Wizard шаг 2 (SignInGoogle)
+  U->>S: Нажимает «Отменить Wizard»
+  S->>U: Confirm dialog «Отменить настройки?»
+  U->>S: Yes
+  S->>S: Profile = preWizardSnapshot; delete snapshot
+  S->>U: Toast «Настройки отменены. Некоторые (лаунчер, разрешения) вернутся вручную через Settings»
+  Note over S,EX: Runtime state (шрифт 1.8 системный) остаётся до следующего BootCheck
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant UI as WizardActivity
+  participant VM as WizardViewModel
+  participant EN as ReconcileEngine
+  participant PS as ProfileStore
+  participant AD as Provider(FontSize/SignIn/...)
+  UI->>VM: onStart
+  VM->>PS: load()
+  PS-->>VM: currentProfile
+  VM->>PS: setPreWizardSnapshot(currentProfile, timestamp=now)
+  VM->>EN: run(RunMode.Wizard, sink)
+  EN->>AD: check(FontSize component, profile)
+  AD-->>EN: NeedsApply
+  EN->>AD: apply(FontSize component, profile)
+  AD-->>EN: Ok
+  EN->>PS: save(profile.mark("font-tile", Applied))
+  UI->>VM: onCancelWizard()
+  VM->>UI: showConfirmDialog()
+  UI-->>VM: confirmed
+  VM->>PS: restoreFromPreWizardSnapshot()
+  PS->>PS: profile = snapshot; snapshot = null
+  PS-->>VM: restoredProfile
+  VM-->>UI: showToast("wizard.cancelled.runtime_manual")
+  Note over EN,AD: Provider.apply НЕ вызывается на undo — runtime state drift accepted per FR-029
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- Wizard делает **снимок** Profile'а в самом начале — «как было». Пользователь идёт по шагам, применяет что-то.
+- Нажимает «Отменить». Confirm-диалог: «уверены?».
+- Yes → Profile становится **точь-в-точь как до Wizard'а**. Никаких Java-магии откатов.
+- **НО**: реальный Android (шрифт который уже применился, лаунчер который стал default'ом) — не откатывается автоматически. Это **честное ограничение MVP**. UX сообщает пользователю: «нужные штуки вернутся через Settings вручную».
+- Следующий раз когда устройство перезагрузится или пользователь откроет Settings — `BootCheck` увидит рассогласование между Profile (старое) и Android state (новое), и попросит `Provider.apply` восстановить согласованность (реapply старого значения шрифта).
+- Snapshot истекает через 7 суток (soft-limit) — если не отменял неделю, снимок удаляется автоматически.
+- Ссылка: FR-029, FR-024 (reference), SC-013, edge case «Owner отменяет Wizard».
+<!-- MENTOR-DETAIL:END -->
+
+---
+
+### SEQ-6: Capability model — SignIn эмитит CloudSession, HealthForward её запрашивает
+
+Pre: preset `[FontSize, SignInGoogle, HealthForward, Sos]` валиден (SEQ-4 проверил ordering). Post: cloud активен, HealthForward работает.
+Used-in: spec/task-120-preset-composition-foundation (FR-027, US 5.5).
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  participant EX as External
+  Note over S: После FontSize (независимый) — идёт SignInGoogle
+  S->>U: Показывает Sign-In экран
+  U->>EX: Логинится в Google
+  EX-->>S: Token
+  S->>S: Помечает CloudSession активной
+  Note over S: Далее HealthForward
+  S->>S: HealthForward.check() — спрашивает «cloud активен?»
+  S->>S: Да → продолжает check + apply
+  S->>EX: Настраивает Health Connect forwarding
+  EX-->>S: Ok
+  S->>U: Показывает следующий шаг (Sos)
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant EN as ReconcileEngine
+  participant SP as SignInGoogleProvider
+  participant HP as HealthForwardProvider
+  participant CQ as CapabilityQuery
+  participant PS as ProfileStore
+  participant GA as GoogleAuthFacade
+  participant HC as HealthConnectFacade
+  EN->>SP: apply(SignInGoogle component, profile)
+  SP->>GA: signIn()
+  GA-->>SP: token
+  SP->>CQ: markActive(CloudSession, token)
+  CQ->>PS: persist(cloudEvidence)
+  PS-->>CQ: ok
+  CQ-->>SP: ok
+  SP-->>EN: Ok
+  EN->>HP: check(HealthForward component, profile)
+  HP->>CQ: isActive(CloudSession)
+  CQ->>PS: query(cloudEvidence)
+  PS-->>CQ: present
+  CQ-->>HP: true
+  HP->>HC: verifyConfig(...)
+  HC-->>HP: NeedsApply
+  HP-->>EN: NeedsApply
+  EN->>HP: apply(HealthForward component, profile)
+  HP->>HC: setupForwarding(...)
+  HC-->>HP: Ok
+  HP-->>EN: Ok
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- Ключевая мысль: **cloud — это не флажок в JSON preset'а, это runtime-состояние в Profile**. Некоторые Component'ы его дают (SignIn), другие требуют (HealthForward).
+- SignInGoogle применяется: юзер логинится, provider **говорит системе «cloud теперь активен»** — через отдельный port `CapabilityQuery.markActive(CloudSession, token)`. Никакого прямого писания в Profile через боковую дверь — только через port.
+- HealthForward когда доходит до `check()`, спрашивает **тот же port**: «cloud активен?». Если да — применяет. Если нет — вернул бы `Unsupported`, engine скипнул бы шаг.
+- Плюс: HealthForward НЕ знает откуда cloud берётся. Может быть Google, может быть Yandex, может быть свой сервер — HealthForward'у всё равно. Он смотрит только на флажок.
+- Fitness-контроль: HealthForwardProvider **не** делает `if (profile.state.cloud)` напрямую. Всегда через port. Через год мы можем поменять где хранится cloud-token (Keystore / DataStore / что угодно) — HealthForward не тронется.
+- Ссылка: FR-027, Key Entities (CapabilityFlag, CapabilityQuery, CapabilityContract), FR-028 (LOCAL mode эмерджентен).
+<!-- MENTOR-DETAIL:END -->
+
+---
+
+### SEQ-7: AppTile — плитка приложения с проверкой установки (WhatsApp fallback)
+
+Pre: preset содержит AppTile для `com.whatsapp` (не установлен на устройстве). Post: пользователь видит плитку с индикатором «not installed» + Play Store intent.
+Used-in: spec/task-120-preset-composition-foundation (SC-007, US1 acceptance #1, Q3 clarify resolution).
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  participant EX as External
+  Note over S: Wizard доходит до AppTile WhatsApp
+  S->>EX: Проверить установлен ли пакет com.whatsapp
+  EX-->>S: Не установлен
+  S->>U: Показывает плитку c индикатором «not installed»
+  U->>S: Тапает плитку
+  S->>EX: Intent.ACTION_VIEW → Play Store link на com.whatsapp
+  alt Play Store доступен
+    EX-->>U: Play Store экран установки WhatsApp
+  else Play Store недоступен (Huawei / rooted / offline)
+    S-->>U: Toast «Приложение недоступно для установки»
+    S->>S: Отмечает статус Failed(NetworkUnavailable) или Failed(PolicyBlocked)
+  end
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant EN as ReconcileEngine
+  participant AP as AppTileProvider
+  participant PMF as PackageManagerFacade
+  participant HSF as HomeScreenFacade
+  participant STF as StoreIntentFacade
+  EN->>AP: check(AppTile("com.whatsapp"), profile)
+  AP->>PMF: isInstalled("com.whatsapp")
+  PMF-->>AP: false
+  AP-->>EN: NeedsApply
+  EN->>AP: apply(AppTile("com.whatsapp"), profile)
+  AP->>HSF: addTile(pkg, labelKey, iconKey, markInstalled=false)
+  HSF-->>AP: ok
+  AP->>STF: canOpenStore()
+  alt Store available
+    STF-->>AP: yes
+    AP->>HSF: attachClickHandler → Intent(ACTION_VIEW, market://details?id=com.whatsapp)
+    AP-->>EN: Ok
+  else Store unavailable
+    STF-->>AP: no (huawei / offline)
+    AP-->>EN: Failed(FailReason.NetworkUnavailable)
+  end
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- Это generic-паттерн для **любой плитки приложения** (WhatsApp / Госуслуги / банк / VK). Не нужен отдельный MessengerTile для этого — только для SSO-handoff (что в отдельной task-121).
+- Provider проверяет: установлен ли пакет? Если да → плитка кликабельна как обычно. Если нет → плитка **всё равно ставится** на home с флажком «not installed», тап → Play Store.
+- На устройствах без Play Store (Huawei, rooted, offline) — тап показывает toast «недоступно», статус Failed фиксируется. Пользователь не в замешательстве.
+- Ключевая деталь: **package manager запрашивается через порт `PackageManagerFacade`** — Android SDK не утекает в domain (rule 1). Facade возвращает `Boolean`, не `PackageInfo`.
+- `FailReason` — sealed категория, `NetworkUnavailable` — одна из 5 категорий (см. FR-008 revised).
+- Ссылка: SC-007, FR-014 (AppTile installed-check), US1 acceptance #1.
+<!-- MENTOR-DETAIL:END -->
+
+---
+
 ## Clarifications
 
 ### 2026-07-10 — Pre-plan clarification pass
