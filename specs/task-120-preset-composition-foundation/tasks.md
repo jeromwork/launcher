@@ -14,110 +14,110 @@ MVP wave: 4 Component subtypes — `AppTile`, `FontSize`, `Sos`, `Toolbar`.
 
 Zero Android imports. All types `@Serializable` where JSON-bound.
 
-- [ ] **T001** `Component.kt` — sealed hierarchy with 4 MVP subtypes (`AppTile`, `FontSize`, `Sos`, `Toolbar`), `@SerialName` discriminator, kotlinx.serialization polymorphic. (FR-001, data-model.md §1)
+- [x] **T001** `Component.kt` — sealed hierarchy with 4 MVP subtypes (`AppTile`, `FontSize`, `Sos`, `Toolbar`), `@SerialName` discriminator, kotlinx.serialization polymorphic. (FR-001, data-model.md §1)
   - Acceptance: sealed subclasses list = 4; roundtrip `Json.encodeToString(AppTile(...))` produces `{"type":"AppTile",...}`.
 
-- [ ] **T002** [P] `Outcome.kt` + `FailReason.kt` — sealed hierarchies with `toI18nKey()` mapping on FailReason. (FR-008, data-model.md §6-7)
+- [x] **T002** [P] `Outcome.kt` + `FailReason.kt` — sealed hierarchies with `toI18nKey()` mapping on FailReason. (FR-008, data-model.md §6-7)
   - Acceptance: `FailReason.PermissionDenied("android.permission.CAMERA").toI18nKey() == "outcome.failed.permission_denied"`.
 
-- [ ] **T003** [P] `WizardBehavior.kt` + `ComponentStatus.kt` + `RunMode.kt` + `Vendor.kt` — enums. (FR-009, FR-010, FR-018, data-model.md §5, §10)
+- [x] **T003** [P] `WizardBehavior.kt` + `ComponentStatus.kt` + `RunMode.kt` + `Vendor.kt` — enums. (FR-009, FR-010, FR-018, data-model.md §5, §10)
   - Acceptance: each enum has expected variants (WizardBehavior=3, ComponentStatus=4, RunMode=4, Vendor=6).
 
-- [ ] **T004** [P] `CapabilityFlag.kt` + `ValidationError.kt` — sealed hierarchies with `toI18nKey()` on ValidationError. (FR-027, data-model.md §8-9)
+- [x] **T004** [P] `CapabilityFlag.kt` + `ValidationError.kt` — sealed hierarchies with `toI18nKey()` on ValidationError. (FR-027, data-model.md §8-9)
   - Acceptance: `CapabilityFlag` has one MVP variant (`CloudSession`); `ValidationError` has 4 variants.
 
-- [ ] **T005** [P] `HandlerKey.kt` + `ChangeItem.kt` — data class + sealed. (FR-007, data-model.md §10-11)
+- [x] **T005** [P] `HandlerKey.kt` + `ChangeItem.kt` — data class + sealed. (FR-007, data-model.md §10-11)
   - Acceptance: `HandlerKey(KClass, platform?, vendor?)` equality/hashCode work for map lookup.
 
-- [ ] **T006** `ComponentDeclaration.kt` + `Pool.kt` — pool entry + typed catalog with `schemaVersion=1`. (FR-002, contracts/pool.md, data-model.md §2-3)
+- [x] **T006** `ComponentDeclaration.kt` + `Pool.kt` — pool entry + typed catalog with `schemaVersion=1`. (FR-002, contracts/pool.md, data-model.md §2-3)
   - Acceptance: `Pool.byId("font-tile")` returns declaration; unknown id returns null.
 
-- [ ] **T007** `Preset.kt` + `WizardFlowEntry.kt` + `SettingsMapEntry.kt` + `ActiveComponentEntry.kt` + `Sensitivity.kt` — three-field split, `schemaVersion=2`. (FR-003, FR-004, contracts/preset.md, data-model.md §4)
+- [x] **T007** `Preset.kt` + `WizardFlowEntry.kt` + `SettingsMapEntry.kt` + `ActiveComponentEntry.kt` + `Sensitivity.kt` — three-field split, `schemaVersion=2`. (FR-003, FR-004, contracts/preset.md, data-model.md §4)
   - Acceptance: `Preset` parses `simple-launcher.json` fixture; fields in three lists distinct.
 
-- [ ] **T008** `Profile.kt` + `ProfileComponent.kt` + `ProfileState.kt` — `schemaVersion=2` + `preWizardSnapshot: Profile?` + opaque state holder. (FR-013, FR-024, FR-029, contracts/profile.md, data-model.md §5)
+- [x] **T008** `Profile.kt` + `ProfileComponent.kt` + `ProfileState.kt` — `schemaVersion=2` + `preWizardSnapshot: Profile?` + opaque state holder. (FR-013, FR-024, FR-029, contracts/profile.md, data-model.md §5)
   - Acceptance: `Profile(components=[...], preWizardSnapshot=null)` serializes/deserializes; nested snapshot's own snapshot is null.
 
 ## Phase 2 — Domain ports (`core/preset/port/`, commonMain)
 
 All interfaces, zero implementations except NoOp default.
 
-- [ ] **T009** `Provider.kt` port + `NoOpProvider.kt` domain default. Inline TODO(capability-registry) per plan.md §2. (FR-006, contracts/provider-port.md)
+- [x] **T009** `Provider.kt` port + `NoOpProvider.kt` domain default. Inline TODO(capability-registry) per plan.md §2. (FR-006, contracts/provider-port.md)
   - Acceptance: `NoOpProvider.check(any, any) == Outcome.Unsupported`.
 
-- [ ] **T010** `ProviderRegistry.kt` port + reference resolve implementation with 3-tier fallback (vendor → platform → NoOp). (FR-007, contracts/provider-port.md)
+- [x] **T010** `ProviderRegistry.kt` port + reference resolve implementation with 3-tier fallback (vendor → platform → NoOp). (FR-007, contracts/provider-port.md)
   - Acceptance: registry unit test: fake vendor-specific hit, fake platform-generic fallback, missing → NoOp.
 
-- [ ] **T011** [P] `PoolSource.kt` + `PresetSource.kt` ports. Inline TODO(shareability) per plan.md §2. (FR-002, FR-003)
+- [x] **T011** [P] `PoolSource.kt` + `PresetSource.kt` ports. Inline TODO(shareability) per plan.md §2. (FR-002, FR-003)
   - Acceptance: ports compile with `suspend` signatures.
 
-- [ ] **T012** [P] `ProfileStore.kt` port — `load / save / setPreWizardSnapshot / restoreFromPreWizardSnapshot`. (FR-013, FR-024, FR-029)
+- [x] **T012** [P] `ProfileStore.kt` port — `load / save / setPreWizardSnapshot / restoreFromPreWizardSnapshot`. (FR-013, FR-024, FR-029)
   - Acceptance: port compiles.
 
-- [ ] **T013** [P] `InteractionSink.kt` port — `suspend fun askUser(component: ProfileComponent): Component?`. (FR-010)
+- [x] **T013** [P] `InteractionSink.kt` port — `suspend fun askUser(component: ProfileComponent): Component?`. (FR-010)
   - Acceptance: port compiles with nullable return (skip = null).
 
-- [ ] **T014** [P] `ConditionEvaluator.kt` port + minimal MVP adapter (`ProfileStateConditionEvaluator`) supporting only `{"var": "profile.state.<flag>"}`. (FR-020, US6)
+- [x] **T014** [P] `ConditionEvaluator.kt` port + minimal MVP adapter (`ProfileStateConditionEvaluator`) supporting only `{"var": "profile.state.<flag>"}`. (FR-020, US6)
   - Acceptance: adapter evaluates `{"var":"profile.state.cloud"}` correctly against ProfileState with/without flag; other JsonLogic ops throw or return false with logged Unsupported.
 
-- [ ] **T015** [P] `CapabilityQuery.kt` port + `Evidence` sealed. (FR-027, contracts/capability-ports.md)
+- [x] **T015** [P] `CapabilityQuery.kt` port + `Evidence` sealed. (FR-027, contracts/capability-ports.md)
   - Acceptance: port compiles; `Evidence.Token`, `Evidence.Hash`, `Evidence.Marker` variants present.
 
-- [ ] **T016** [P] `CapabilityContract.kt` port — `requires` + `provides`. (FR-027, contracts/capability-ports.md)
+- [x] **T016** [P] `CapabilityContract.kt` port — `requires` + `provides`. (FR-027, contracts/capability-ports.md)
   - Acceptance: port compiles.
 
-- [ ] **T017** [P] `LocalizedResources.kt` port. (FR-026)
+- [x] **T017** [P] `LocalizedResources.kt` port. (FR-026)
   - Acceptance: port compiles with `resolve(key: String, args: Map<String,String>): String`.
 
-- [ ] **T017b** [P] `PairingService.kt` port + `PairingId` value class + `FakePairingService` in commonTest. (FR-030)
+- [x] **T017b** [P] `PairingService.kt` port + `PairingId` value class + `FakePairingService` in commonTest. (FR-030)
   - Acceptance: port compiles with `suspend fun currentAdmin(): PairingId?`; fake supports canned response for tests. Real Android adapter deferred to TASK-67.
 
 ## Phase 3 — Domain engine (`core/preset/engine/`, commonMain)
 
-- [ ] **T018** `ProfileFactory.kt` — `create(preset, pool) → Profile`; resolves poolRef, applies paramsOverride, initializes statuses. (FR-005)
+- [x] **T018** `ProfileFactory.kt` — `create(preset, pool) → Profile`; resolves poolRef, applies paramsOverride, initializes statuses. (FR-005)
   - Acceptance: unit test with fake pool + preset produces expected Profile with resolved components + `Pending` status.
 
-- [ ] **T019** `PresetValidator.kt` — walks wizardFlow, checks ordering, returns ValidationError list. (FR-027, US 5.5, contracts/capability-ports.md)
+- [x] **T019** `PresetValidator.kt` — walks wizardFlow, checks ordering, returns ValidationError list. (FR-027, US 5.5, contracts/capability-ports.md)
   - Acceptance: valid → empty; malformed → `CapabilityMissing`; unknown ref → `UnknownPoolRef`; schema too high → `SchemaVersionUnsupported`.
 
-- [ ] **T020** `ReconcileEngine.kt` — `run(RunMode, InteractionSink?)`, filters per mode, dispatches through registry, updates Profile after each step. Inline TODO(capability-registry). (FR-006, FR-010)
+- [x] **T020** `ReconcileEngine.kt` — `run(RunMode, InteractionSink?)`, filters per mode, dispatches through registry, updates Profile after each step. Inline TODO(capability-registry). (FR-006, FR-010)
   - Acceptance: 4 RunMode tests (Wizard/BootCheck/Single/RemotePush) with fake providers pass expected outcomes.
 
-- [ ] **T021** `PresetDiff.kt` — `diff(current, incoming, pool) → List<ChangeItem>`. (FR-011)
+- [x] **T021** `PresetDiff.kt` — `diff(current, incoming, pool) → List<ChangeItem>`. (FR-011)
   - Acceptance: unit test: Added / Removed / ParamsChanged classifications correct on 3 synthetic pairs.
 
 ## Phase 4 — Test fakes (`core/preset/commonTest/fakes/`)
 
-- [ ] **T022** [P] `FakePoolSource` + `FakePresetSource` — deterministic returns from constructor args. (rule 6 mock-first)
+- [x] **T022** [P] `FakePoolSource` + `FakePresetSource` — deterministic returns from constructor args. (rule 6 mock-first)
   - Acceptance: fakes compile in commonTest, used by engine tests.
 
-- [ ] **T023** [P] `FakeProfileStore` — `MutableStateFlow<Profile>` backed in-memory with preWizardSnapshot support. (rule 6)
+- [x] **T023** [P] `FakeProfileStore` — `MutableStateFlow<Profile>` backed in-memory with preWizardSnapshot support. (rule 6)
   - Acceptance: setPreWizardSnapshot + restoreFromPreWizardSnapshot roundtrip.
 
-- [ ] **T024** [P] `FakeInteractionSink` — canned answers keyed by componentId. (rule 6)
+- [x] **T024** [P] `FakeInteractionSink` — canned answers keyed by componentId. (rule 6)
   - Acceptance: `askUser(component)` returns canned answer if provided, null otherwise.
 
-- [ ] **T025** [P] `FakeProvider<T>` — configurable Outcome per invocation; `FakeCapabilityQuery` (in-memory flag set); `FakeCapabilityContract` (map-backed). (rule 6)
+- [x] **T025** [P] `FakeProvider<T>` — configurable Outcome per invocation; `FakeCapabilityQuery` (in-memory flag set); `FakeCapabilityContract` (map-backed). (rule 6)
   - Acceptance: fakes support fluent config for engine tests.
 
-- [ ] **T026** [P] `FakeLocalizedResources` — canned key→string map. (rule 6, FR-026)
+- [x] **T026** [P] `FakeLocalizedResources` — canned key→string map. (rule 6, FR-026)
   - Acceptance: `resolve("missing.key")` returns key itself (fallback for tests).
 
-- [ ] **T027** [P] Fake test Components: `FakeSignIn(provides=CloudSession)`, `FakeCloudConsumer(requires=CloudSession)` — subclasses of `Component` used only in tests to exercise Capability model.
-  - Acceptance: fake components live in `commonTest/fakes/`, NOT in production Component sealed hierarchy.
+- [x] **T027** [P] Fake test Components — implemented as MVP-subclass stand-ins in `PresetValidatorTest` (Sos ~ provides CloudSession, Toolbar ~ requires CloudSession). Note: extending the `Component` sealed hierarchy from `commonTest` is disallowed by Kotlin (subclasses must live in the same compilation unit as `sealed class`); using existing MVP subclasses with `FakeCapabilityContract` maps exercises the Capability mechanism equivalently.
+  - Acceptance: capability semantics validated in `PresetValidatorTest`; no production Component subclass added.
 
 ## Phase 5 — Wire format tests (`core/preset/commonTest/roundtrip/`)
 
-- [ ] **T028** [P] Pool roundtrip test — encode/decode `assets/pool.json` fixture, assert equality. (SC-005, fitness #4, contracts/pool.md)
+- [x] **T028** [P] Pool roundtrip test — encode/decode `assets/pool.json` fixture, assert equality. (SC-005, fitness #4, contracts/pool.md)
   - Acceptance: `PoolRoundtripTest.testRoundtrip` passes.
 
-- [ ] **T029** [P] Preset roundtrip test — all 3 bundled seed fixtures. (SC-005, fitness #4, contracts/preset.md)
+- [x] **T029** [P] Preset roundtrip test — all 3 bundled seed fixtures. (SC-005, fitness #4, contracts/preset.md)
   - Acceptance: 3 test cases, each roundtrips.
 
-- [ ] **T030** [P] Profile roundtrip test — synthetic Profile with preWizardSnapshot. (SC-005, fitness #4, contracts/profile.md)
+- [x] **T030** [P] Profile roundtrip test — synthetic Profile with preWizardSnapshot. (SC-005, fitness #4, contracts/profile.md)
   - Acceptance: encode/decode/equal with all fields populated.
 
-- [ ] **T031** [P] Backward-compat scaffolding — fixture `pool-v1-legacy.json` (identical to v1 since we start at v1) + skeleton test asserting future v2 loader still reads v1. Placeholder until second schemaVersion arrives. (SC-008, fitness #5)
+- [x] **T031** [P] Backward-compat scaffolding — fixture `pool-v1-legacy.json` (identical to v1 since we start at v1) + skeleton test asserting future v2 loader still reads v1. Placeholder until second schemaVersion arrives. (SC-008, fitness #5)
   - Acceptance: test present, marked `@Ignore` with comment, unfreezes when v2 introduced.
 
 ## Phase 6 — Fitness functions (`core/preset/commonTest/fitness/`)
@@ -141,7 +141,7 @@ All interfaces, zero implementations except NoOp default.
 - [ ] **T037** Fitness #8 — Anti-explosion pool limit: test loads `pool.json`, groups by Component subtype, warns at 4-5 declarations, errors at ≥6. (FR-025, plan.md §6.6)
   - Acceptance: MVP pool with 4 subtypes × ≤3 declarations passes; synthetic pool with 6 FontSize declarations fails.
 
-- [ ] **T038** Fitness #9 — PresetValidator coverage: three canonical scenarios (valid ordering, malformed CapabilityMissing, optional path). (SC-014, plan.md §6.6)
+- [x] **T038** Fitness #9 — PresetValidator coverage: three canonical scenarios (valid ordering, malformed CapabilityMissing, optional path). (SC-014, plan.md §6.6)
   - Acceptance: `PresetValidatorTest` passes with 3 scenarios + 2 additional (UnknownPoolRef, SchemaVersionUnsupported).
   - Depends on: T019 (PresetValidator), T025 (FakeCapabilityContract), T027 (fake test Components).
 
@@ -159,11 +159,11 @@ All interfaces, zero implementations except NoOp default.
 
 ## Phase 8 — Engine tests
 
-- [ ] **T042** ReconcileEngine per-RunMode tests — 4 test methods covering each RunMode branch semantic. (FR-010, plan.md §6.3)
+- [x] **T042** ReconcileEngine per-RunMode tests — 4 test methods covering each RunMode branch semantic. (FR-010, plan.md §6.3)
   - Acceptance: 4 tests pass with fake providers.
   - Depends on: T020, T022, T024, T025.
 
-- [ ] **T043** PresetDiff tests — Added / Removed / ParamsChanged classifications. (FR-011, SC-009)
+- [x] **T043** PresetDiff tests — Added / Removed / ParamsChanged classifications. (FR-011, SC-009)
   - Acceptance: 3 canonical test cases pass; version rejection test (incoming ≤ current version).
   - Depends on: T021.
 
