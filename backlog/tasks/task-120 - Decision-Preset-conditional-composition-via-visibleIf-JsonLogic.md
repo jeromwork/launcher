@@ -4,7 +4,7 @@ title: 'Decision: Preset conditional composition via visibleIf + JsonLogic'
 status: In Progress
 assignee: []
 created_date: '2026-07-09 10:55'
-updated_date: '2026-07-10 12:00'
+updated_date: '2026-07-10 15:00'
 labels:
   - phase-2
   - foundation
@@ -27,47 +27,84 @@ references:
 
 ## Что это простыми словами
 
-Preset — это JSON-декларация «что должно быть настроено на устройстве» (какие плитки, какие permissions, войти ли в Google-аккаунт, etc.). Сейчас все шаги wizard'а — плоский список, всегда все показываются. Проблема: **Sign-In** (войти в Google) и **Recovery Setup** (задать пароль восстановления) сейчас захардкожены в `FirstLaunchActivity` (TASK-119 tech-debt) и **не выражены** в preset.
+**Фундамент** для настройки лаунчера. Устройство собирает свой профиль (что установлено, какие плитки, какие настройки) из **преcетов** — шаблонов, которые можно шарить между устройствами. Preset ссылается на **склад** заготовок (Pool), из которых Wizard, Settings, BootCheck и Admin push собирают то что нужно применить.
 
-Владелец хочет: положить Sign-In и Recovery в preset как обычные шаги, но с условиями «показывать только если preset требует cloud». То есть — **условное включение шагов** (conditional inclusion).
+По шагам (нормальный сценарий первого запуска):
+1. Устройство загружает bundled seed preset (`simple-launcher` / `launcher` / `workspace`) из assets.
+2. `PresetValidator` проверяет корректность preset'а (ordering, capability requirements, schemaVersion). Если что-то не так — Wizard **не стартует**, владелец / админ видит понятную ошибку.
+3. `ProfileFactory` собирает `Profile` из preset + pool.
+4. `ReconcileEngine` запускается в `RunMode.Wizard` — обходит `wizardFlow`, для каждого шага дёргает `Provider.check()` → если drift, `Provider.apply()` (Interactive → спрашивает через `InteractionSink`, AutoApply → молча, InitialDefault → значение уже есть).
+5. После Wizard'а `Profile.activeComponents` — source of truth. Settings редактирует его (через `RunMode.Single`), BootCheck реapply'ит критичные шаги (`RunMode.BootCheck`).
 
-Три варианта решения:
-1. **Axis-based** — фиксированный набор типизированных полей (`cloudRequirement`, `cloudBundle`), runtime собирает шаги из них.
-2. **Full DSL** — встроенный expression language (CEL / Rego), preset автор пишет свои `if/then/else`.
-3. **Гибрид** (рекомендация research): axis для основных параметров + **`visibleIf`** (JsonLogic expression) на каждом step'е для тонких conditional cases.
+Что происходит при отмене Wizard'а:
+- Owner нажимает «Отменить» → confirm dialog → `Profile` восстанавливается из `preWizardSnapshot`. **Runtime state (реальные Android настройки) НЕ откатывается автоматически** — toast «некоторые изменения вернутся вручную через Settings». Следующий BootCheck реапplyит старое значение.
 
-Решение принципиальное (one-way door) — оно определяет форму preset-файлов на много лет вперёд.
+Что происходит при cloud-зависимом preset'е:
+- Некоторые Component'ы дают cloud-state (SignInGoogle emits `CapabilityFlag.CloudSession`), другие требуют (HealthForward requires CloudSession). Validator ловит битый ordering **до** запуска Wizard'а. Нет отдельного поля `cloudRequirement` в JSON — это runtime через порт `CapabilityQuery`.
 
 ## Зачем
 
-- Убрать hardcoded Sign-In flow из `FirstLaunchActivity` (TASK-119 палатив, draft-1 techdebt).
-- Дать разным preset'ам разное отношение к cloud (workspace = required, simple-launcher = opt-in).
-- Открыть путь для будущих conditional шагов (recovery только если backup включён; adaptive UX preset показывает разные шаги для tremor/vision).
-- Сохранить principle rule 9 (shareability) — все conditional logic в декларативном JSON, без code changes.
+- Убрать hardcoded Sign-In flow и wizard-логику из `FirstLaunchActivity` (draft-1 tech-debt).
+- Дать разным preset'ам разное содержимое без правки кода лаунчера — новые Component'ы добавляются через 4 файла (Component sealed subtype + Provider + DI строка + pool.json entry). Ядро НЕ редактируется.
+- Разделить Wizard-сценарий (линейный) от Settings-карты (свободная) от reconcile-loop input (плоский список активных) — три поля в preset вместо одной нестрой Component-структуры.
+- Экспозиция шва для будущего Capability Registry (F-2 AI-агент exposure) без commit'а на конкретный протокол (MCP / Google Actions / OpenAI functions).
 
-## Что входит в решение (для AI-агента)
+## Что входит технически (для AI-агента, MVP scope)
 
-- **Wire format**: `preset.json` schemaVersion=1→2, добавляется опциональное поле `visibleIf: JsonLogicExpression?` на каждом элементе `configs[]`.
-- **Порт**: `ConditionEvaluator` в `core/preset/` domain (KMP common). Метод `evaluate(rule: JsonElement, ctx: EvaluationContext): Boolean`.
-- **Adapter**: `JsonLogicConditionEvaluator` (через `allegro/json-logic-kmp`, MIT, KMP, production в Allegro).
-- **Whitelist context** (wire format sam po sobie, schemaVersion=1): `preset.*` (значения самого preset'а), `device.hasGms`, `device.locale`, `signInResult.completed` (если Auth шаг был), `signInResult.failed`.
-- **Engine integration**: `WizardEngine.computePending()` перед возвратом step'а вызывает `ConditionEvaluator.evaluate(step.visibleIf, ctx)` — если false, step скипается.
-- **Migration writer**: `preset.json` v1→v2 (v1 без `visibleIf` → v2 с опциональным полем, дефолт `null` = всегда true).
-- **Roundtrip test + backward-compat test** — rule 5.
-- **JSON Schema validator** на preset load (draft 2020-12) — belt-and-suspenders с JsonLogic parse-time check.
+**Domain (core/preset/, commonMain, pure Kotlin)**:
+- `Component` sealed hierarchy с **4 MVP subtypes**: `AppTile`, `FontSize`, `Sos`, `Toolbar`. `MessengerTile` — deferred в task-121. `SignInGoogle` — deferred в draft-1.
+- `ComponentDeclaration`, `Pool` — реестр заготовок с `schemaVersion=1` (pool.json).
+- `Preset` — wire format `schemaVersion=2` с **тремя ортогональными полями**: `wizardFlow` / `settingsMap` / `activeComponents`. Опциональный `paramsOverride` per entry везде.
+- `Profile` — device snapshot, `schemaVersion=2` с `preWizardSnapshot: Profile?` для undo + опаковый `ProfileState` для capability evidence.
+- `Provider` port + `ProviderRegistry` с fallback vendor→platform→NoOp.
+- `Outcome` sealed: `Ok | NeedsApply | Failed(FailReason) | Unsupported`. `FailReason` — structured sealed (5 категорий) с `toI18nKey()` mapping.
+- `WizardBehavior` enum (`Interactive | AutoApply | InitialDefault`) — только в wizardFlow entries.
+- `ReconcileEngine` с 4 `RunMode` (Wizard / BootCheck / Single / RemotePush).
+- **`CapabilityFlag`** sealed (MVP: `CloudSession`) + **`CapabilityQuery`** port (runtime read/write) + **`CapabilityContract`** port (metadata для validator).
+- **`PresetValidator`** — прогоняется до `ReconcileEngine.run()`, ловит `CapabilityMissing`, `UnknownPoolRef`, `SchemaVersionUnsupported`.
+- `PresetDiff` для admin push (Added / Removed / ParamsChanged). Runtime реализация — future.
+- `InteractionSink`, `PoolSource`, `PresetSource`, `ProfileStore`, `LocalizedResources`, `ConditionEvaluator` (минимальный MVP для `{"var": "profile.state.<flag>"}`) — ports.
 
-## Что НЕ входит (deferred additions, каждое — additive не rewrite)
+**Adapter (app/androidMain/)**:
+- 4 Provider реализации для MVP wave Component'ов.
+- 4 facade'а (`PackageManagerFacade`, `HomeScreenFacade`, `StoreIntentFacade`, `UiPrefsFacade`) — ACL per rule 2.
+- `DataStoreProfileStore`, `DataStoreCapabilityAdapter`, `AndroidLocalizedResources`, `BundledPoolSource`, `BundledPresetSource`.
+- DI: Hilt `@IntoMap` с custom `@ComponentKey` annotation для ProviderRegistry.
 
-- **`onSuccess` / `onFailure` / `maxAttempts`** — retry/branch logic. Дефер: делать через callback в runtime, не в JSON. Добавляется как новые опциональные поля позже.
-- **Axis-поля (`cloudRequirement`, `cloudBundle`, `reminderPolicy`)** — top-level enum knobs preset'а. Дефер: три стартовых preset'а справятся через `visibleIf` + hardcoded runtime дефолты. Axis добавляются когда 4-й preset реально попросит.
-- **Sub-flows / вложенность (`ConfigKind.SubFlow`)** — вложенные wizard chains. Дефер: пока плоский список работает.
-- **JSON Pointer (RFC 6901) cross-references** — step-2 ссылается на выбор step-1. Дефер: не нужно для стартовых 3 preset'ов.
-- **JSON Patch (RFC 6902) incremental preset updates** — miграция preset v1→v2 не патчем а monolithic transformer. Дефер: работает для 1 breaking change; когда пойдёт v2→v3→v4 подряд — вернёмся.
-- **CEL как альтернатива JsonLogic** — swap через adapter, не рерайт callsite'ов.
+**Wire formats** (rule 5):
+- `pool.json` schemaVersion=1 (bundled, additive-only growth).
+- `preset.json` schemaVersion=2 (three-field split).
+- `profile.json` schemaVersion=2 (via DataStore).
+
+**Fitness functions (10)**:
+1. Import guard on engine (no Component subtype imports).
+2. `when`-guard on engine (no `when(component)` on subtypes).
+3. Coverage Component ↔ Provider (reflection test).
+4. Roundtrip pool+preset+profile.
+5. Backward-compat.
+6. Cross-provider isolation.
+7. `paramsOverride` schema validation.
+8. Anti-explosion pool limit (≤3 declarations per Component subtype).
+9. PresetValidator coverage (3 canonical scenarios).
+10. No-literal-strings in user-facing wire format (i18n keys mandatory).
+
+**Anti-explosion принцип** (owner Q1 clarify): новый `Component` subtype ТОЛЬКО когда семантика `apply()` принципиально другая — иначе параметризация через `paramsOverride`.
+
+## Что НЕ входит (deferred, каждое — additive не rewrite)
+
+- **`SignInGoogle` Component** — deferred в draft-1 (следующая downstream task). Foundation предоставляет механизм (Capability model), но не сам subtype.
+- **`MessengerTile` + SSO handoff** — deferred в task-121 (создан 2026-07-10 в Draft, dependencies TASK-120+TASK-27). Foundation поддерживает generic `AppTile` с проверкой установки через PackageManagerFacade + StoreIntentFacade.
+- **`SosDispatcher`** / cross-Component event bus — deferred. Fitness function #6 (cross-provider isolation) straps future addition — Provider'ы не могут звать друг друга напрямую, значит добавление dispatcher'а = pure addition.
+- **`Provider.rollback`** для admin push undo — deferred. `preWizardSnapshot` покрывает owner-triggered undo (без runtime state revert — deferred per-Component). `PanicReset` покрывает coarse recovery. Additive extension когда конкретный Component попросит.
+- **Full JsonLogic runtime** для `visibleIf` — deferred. MVP evaluator читает только `{"var": "profile.state.<flag>"}` для CapabilityFlag gating. Schema seam (поле `visibleIf` в wizardFlow) present. Полный runtime добавляется когда первый preset реально попросит.
+- **`ConsumerFilter` port** для 5-го consumer'а сверх Wizard/BootCheck/Settings/RemotePush — deferred. Bounded 4 RunMode покрывает MVP.
+- **`requiredModules`/`optionalModules` in preset schema** (Article VII §8) — deliberately skipped per rule 4 MVA. Один APK в MVP, module-based delivery — future. Accepts future schemaVersion=3 additive migration.
+- **iOS Provider реализации** — placeholder module. iOS parity — post-MVP.
+- **CEL как альтернатива JsonLogic** — swap через adapter, не rewrite callsite'ов (exit ramp).
 
 ## Состояние
 
-**Discussion, session 2.5 закрыта 2026-07-10.**
+**In Progress, /speckit.analyze passed READY-WITH-CAVEATS 2026-07-10.**
 
 Три сессии mentor + speckit-clarify pass прошли:
 - **Session 1** (2026-07-09 AM) — postavleny OQ-1..OQ-5 по conditional inclusion.
@@ -453,9 +490,42 @@ enum WizardBehavior { Interactive, AutoApply, InitialDefault }
 - [x] #2 Open questions OQ-1..OQ-11 либо resolved в Decision, либо явно deferred в spec-time (OQ-A..OQ-E из session 2.5 переходят в /speckit.clarify per owner directive «по ходу найдём»)
 - [x] #3 Downstream tasks (draft-1 Wizard manifest-driven refactoring, TASK-71 hidden steps, TASK-69 Settings as Profile View, TASK-68 workspace preset, TASK-19 Adaptive UX Presets) добавлены `dependencies: [TASK-120]` 2026-07-09
 - [x] #4 Session 2 mentor discussion зафиксирован в SECTION:DISCUSSION (foundational rescope: Component/Preset/Profile/Provider terminology + industrial parallels + OQ-6..OQ-11)
-- [ ] #5 Task rename при следующем touch: title → "Decision: Component/Preset/Profile foundational model" (расширенный scope, visibleIf становится частью presentation.wizard)
+- [ ] #5 [hand] Task file rename при следующем touch: title → "Decision: Component/Preset/Profile foundational model" (T068)
+- [ ] #6 [hand] Bundled seed presets (simple-launcher, launcher, workspace) applied end-to-end на FakeInteractionSink без ошибок; все ProfileComponent получают Applied или Skipped, не Failed (SC-001, SC-002)
+- [ ] #7 [hand] Wizard, Settings, BootCheck работают на одном ReconcileEngine, различаясь только RunMode enum — ноль спец-логики per RunMode внутри engine (SC-003)
+- [ ] #8 [hand] Platform-specific fallback: iOS Provider отсутствует → NoOp → engine пропускает шаг без крашей (SC-006)
+- [ ] #9 [hand] AppTile корректно handling'ит «app not installed» — check() → NeedsApply → apply() → Play Store intent или Failed(NetworkUnavailable) fallback (SC-007)
+- [ ] #10 [hand] PresetDiff корректно классифицирует Added/Removed/ParamsChanged на 5 concrete features (SC-009)
+- [ ] #11 [hand] Property-based test N=100 random preset combinations прогоняется через ReconcileEngine + roundtrip без крашей и с bit-identical serialization (SC-011)
+- [ ] #12 [hand] Anti-explosion pool limit: pool.json ≤3 declarations per Component subtype, fitness function #8 падает при N≥6 (SC-012)
+- [ ] #13 [hand] Undo Wizard: preWizardSnapshot восстанавливает Profile, next BootCheck реapply'ит старые значения на runtime drift; UX toast informs owner о manual re-application path (SC-013)
+- [ ] #14 [auto:checklist] specs/task-120-preset-composition-foundation/checklists/ai-readiness.md: 19/20 CHK [x] (retroactive lift после session 2.5.5)
+- [ ] #15 [auto:checklist] specs/task-120-preset-composition-foundation/checklists/capability-registry-readiness.md: 10/12 CHK [x] (retroactive PASS после MCP removal + TODO markers)
+- [ ] #16 [auto:checklist] specs/task-120-preset-composition-foundation/checklists/device-self-sufficiency.md: 11/17 CHK [x] (6 N/A)
+- [ ] #17 [auto:checklist] specs/task-120-preset-composition-foundation/checklists/dev-experience.md: 19/22 CHK [x]
+- [x] #18 [auto:checklist] specs/task-120-preset-composition-foundation/checklists/domain-isolation.md: 16/16 CHK [x] ✓
+- [ ] #19 [auto:checklist] specs/task-120-preset-composition-foundation/checklists/failure-recovery.md: 15/17 CHK [x] (retroactive lift после FailReason sealed + fitness #6 strap)
+- [ ] #20 [auto:checklist] specs/task-120-preset-composition-foundation/checklists/localization-ui.md: 15/25 CHK [x] (10 N/A; layout resilience deferred в downstream)
+- [ ] #21 [auto:checklist] specs/task-120-preset-composition-foundation/checklists/meta-minimization.md: 10/13 CHK [x]
+- [ ] #22 [auto:checklist] specs/task-120-preset-composition-foundation/checklists/modular-delivery.md: 14/18 CHK [x] (requiredModules accepted skip)
+- [ ] #23 [auto:checklist] specs/task-120-preset-composition-foundation/checklists/preset-readiness.md: 19/20 CHK [x] (retroactive lift после TODO(shareability) markers)
+- [ ] #24 [auto:checklist] specs/task-120-preset-composition-foundation/checklists/requirements-quality.md: 8/16 CHK [x] (foundation spec appropriately technical)
+- [ ] #25 [auto:checklist] specs/task-120-preset-composition-foundation/checklists/state-management.md: 7/16 CHK [x] (foundation-scope; lifecycle in downstream)
+- [ ] #26 [auto:checklist] specs/task-120-preset-composition-foundation/checklists/ux-quality.md: 10/27 CHK [x] (foundation-domain; UX concrete in downstream)
+- [ ] #27 [auto:checklist] specs/task-120-preset-composition-foundation/checklists/wire-format.md: 18/18 CHK [x] ✓ (retroactive PASS после contracts/ artifacts)
+- [ ] #28 [auto:deferred-local-emulator] Emulator smoke на Pixel 5 — assembleDebug + install + BundledPoolSource loads assets/pool.json + BundledPresetSource loads 3 seeds + PresetValidator returns empty for each (T067)
 <!-- AC:END -->
 
 ## Definition of Done
 
-Status → Draft, когда Decision block filled + AC #1-3 зелёные. Implementation отслеживается через downstream feature-tasks, не через этот decision-task.
+**Status → Done** когда:
+- Все AC `[hand]` (#5-#13) зелёные — hand-verified через тесты и пользовательский прогон.
+- Все AC `[auto:checklist]` (#14-#27) — pre-PR sync проставляет по фактическим count'ам чек-лист файлов; retroactive PASS-lifts за счёт session 2.5.5 blockers resolution.
+- AC `[auto:deferred-local-emulator]` (#28) — Owner прогоняет emulator smoke через skill `android-emulator`.
+
+Промежуточные статусы:
+- **In Progress** — code changes in flight, до PR merge.
+- **Verification** — PR merged, но #28 (emulator smoke) ещё не закрыт.
+- **Done** — все AC зелёные.
+
+Implementation отслеживается через **tasks.md T001-T072** в spec-папке, не через отдельные downstream tasks (downstream tasks получают контракт из этой фичи, но собственную реализацию имплементируют сами).
