@@ -17,6 +17,8 @@ dependencies:
   - TASK-65
 priority: high
 ordinal: 120000
+references:
+  - specs/task-120-preset-composition-foundation/
 ---
 
 ## Description
