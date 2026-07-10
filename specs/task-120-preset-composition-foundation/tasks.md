@@ -69,6 +69,9 @@ All interfaces, zero implementations except NoOp default.
 - [ ] **T017** [P] `LocalizedResources.kt` port. (FR-026)
   - Acceptance: port compiles with `resolve(key: String, args: Map<String,String>): String`.
 
+- [ ] **T017b** [P] `PairingService.kt` port + `PairingId` value class + `FakePairingService` in commonTest. (FR-030)
+  - Acceptance: port compiles with `suspend fun currentAdmin(): PairingId?`; fake supports canned response for tests. Real Android adapter deferred to TASK-67.
+
 ## Phase 3 — Domain engine (`core/preset/engine/`, commonMain)
 
 - [ ] **T018** `ProfileFactory.kt` — `create(preset, pool) → Profile`; resolves poolRef, applies paramsOverride, initializes statuses. (FR-005)

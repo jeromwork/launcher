@@ -44,7 +44,6 @@ Catalog of parameterized `ComponentDeclaration` entries. Preset entries referenc
       "id": "sos-main",
       "component": {
         "type": "Sos",
-        "targetPairingId": "PAIR-PLACEHOLDER",
         "shareLocation": true,
         "autoAnswer": true
       },
@@ -107,6 +106,18 @@ Field additions that require bumping `schemaVersion` from 1 → 2:
 - Changing a required field to a different type.
 
 Migration writer for schemaVersion bumps lives in `PoolSource` implementation.
+
+## Identity-free discipline (rule 9)
+
+Pool declarations MUST be identity-free — no `pairingId`, `phoneNumber`, `userUid`, `accountEmail`, or other identity-bound values. All identity resolution happens at Provider apply-time via dedicated ports:
+
+- `PairingService.currentAdmin(): PairingId?` — Sos target, admin push routing.
+- `CapabilityQuery.isActive(CloudSession): Boolean` — cloud-gated Components (SignInGoogle emits, HealthForward requires).
+- Future: `ContactsResolver`, `SubscriptionEntitlement`, etc.
+
+Pool declarations describe **capability** (e.g. «has SOS with location sharing on») not **binding** (e.g. «SOS to +7-123»). Bindings live in Profile (device-local, identity-carrying) and are resolved at apply-time by Providers querying the appropriate port.
+
+**Anti-pattern**: `{"type":"Sos","targetPairingId":"PAIR-PLACEHOLDER"}` — placeholder strings in Pool. Instead: `Sos` has no target field; `SosProvider.apply()` queries `PairingService.currentAdmin()`.
 
 ## Anti-explosion limit (FR-025, fitness #8)
 

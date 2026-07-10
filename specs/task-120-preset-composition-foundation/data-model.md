@@ -33,9 +33,10 @@ sealed class Component {
 
     @Serializable @SerialName("Sos")
     data class Sos(
-        val targetPairingId: String,    // opaque id, not phone number
         val shareLocation: Boolean = true,
         val autoAnswer: Boolean = true,
+        // NO targetPairingId here — identity is resolved via PairingService port at apply-time.
+        // Preset stays identity-free per rule 9 (shareability-readiness).
     ) : Component()
 
     @Serializable @SerialName("Toolbar")
@@ -56,7 +57,7 @@ sealed class Component {
 |---|---|---|
 | AppTile | `iconKey`, `pinProtected`, `labelKey` (rare — only if preset wants override) | `packageName` (different pkg = different tile = different pool declaration) |
 | FontSize | `scale` | (nothing else) |
-| Sos | `shareLocation`, `autoAnswer` | `targetPairingId` (identity-bound) |
+| Sos | `shareLocation`, `autoAnswer` | (no identity fields — pairing target resolved via `PairingService` port at apply-time) |
 | Toolbar | `items` order, `layoutKey` | (nothing else) |
 
 Mutability declared via companion JSON Schema per Component. Fitness #7 enforces.
@@ -210,11 +211,14 @@ sealed class FailReason {
         val args: Map<String, String> = emptyMap(),
     ) : FailReason()
 
+    object PairingNotEstablished : FailReason()             // Sos and others requiring admin pairing
+
     fun toI18nKey(): String = when (this) {
         is PermissionDenied -> "outcome.failed.permission_denied"
         is PolicyBlocked -> "outcome.failed.policy_blocked"
         NetworkUnavailable -> "outcome.failed.network_unavailable"
         Cancelled -> "outcome.failed.cancelled"
+        PairingNotEstablished -> "outcome.failed.pairing_not_established"
         is InternalError -> messageKey
     }
 }
@@ -295,6 +299,31 @@ sealed class ChangeItem {
 
 - All top-level types are `data class` or `object` (sealed variants).
 - Mutation only through explicit `copy()` — engine `mark`/`replaceComponent` helpers use `copy` internally.
+
+## Identity-bound value resolution — dedicated ports
+
+Preset stays identity-free (rule 9). Providers resolve identity-bound values at apply-time via dedicated ports:
+
+```kotlin
+package com.launcher.preset.port
+
+/** Resolves pairing target for identity-bound Components (Sos, MessengerTile handoff, admin push). */
+interface PairingService {
+    suspend fun currentAdmin(): PairingId?
+}
+
+@JvmInline
+value class PairingId(val opaqueId: String)   // opaque, not derivable from Google sub / phone / email
+```
+
+MVP usage: `SosProvider.apply()` calls `pairingService.currentAdmin()`. If null → `Outcome.Failed(FailReason.PairingNotEstablished)` (new FailReason category), Wizard offers a nested pairing step (deferred to TASK-67 pairing spec; foundation just returns Failed).
+
+Future ports (all follow same pattern):
+- `ContactsResolver` — resolves human-readable contact identity.
+- `SubscriptionEntitlement` — cloud entitlement check.
+- `AccessibilityService` — a11y state.
+
+**Rule**: any identity-bound value Provider needs → new port + interface + adapter, NOT new Component field.
 
 ## What is NOT in domain
 
