@@ -161,4 +161,13 @@ val task120Module = module {
             store = get(),
         )
     }
+
+    // TASK-126 Phase 2 T051 — WizardViewModel bridges ReconcileEngine to Compose UI.
+    single {
+        com.launcher.app.wizard.WizardViewModel(
+            bootstrap = get(),
+            engine = get(),
+            store = get(),
+        )
+    }
 }
