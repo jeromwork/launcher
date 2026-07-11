@@ -62,9 +62,9 @@ Six phases per plan.md §Phased Migration Order (D9). Every task is traced to a 
 - [ ] **T033** [P] `LanguageProvider`: `check()` queries `AppCompatDelegate.getApplicationLocales()`; `apply()` calls `AppCompatDelegate.setApplicationLocales()`. Sentinel `"system"` yields empty locale list. Traceable to FR-004, FR-022, SC-11.
 - [ ] **T034** [P] `StatusBarPolicyProvider`: `check()` stateless (always Ok — apply idempotent); `apply()` calls `WindowInsetsControllerCompat.hide(statusBars())`; MIUI fallback via `Build.MANUFACTURER == "Xiaomi"` inline check → `window.addFlags(FLAG_FULLSCREEN)`. Traceable to FR-005, US-6.
 - [ ] **T035** [P] `BundledHintPoolSource` in `app/src/main/java/com/launcher/app/preset/task126/BundledHintPoolSource.kt` implementing `HintPoolSource`: reads `assets/hint-pool.json`; missing file → empty list (no crash). Add inline `// TODO(shareability): future ConfigSource adapters — file import, share intent, marketplace`. Traceable to FR-007 (CL-7), rule 9.
-- [ ] **T036** [P] `ThemeCatalog` in androidMain/app: reads `assets/theme-catalog.json`; expands `ThemeRef(name)` → flat Theme fields at write time. Traceable to FR-003 (D3).
-- [ ] **T037** Ship `assets/hint-pool.json` with `schemaVersion: 1` + empty pool (or existing hints if any). Traceable to FR-007.
-- [ ] **T038** Ship `assets/theme-catalog.json` with baseline themes referenced by bundled presets. Traceable to FR-003.
+- [x] **T036** [P] `ThemeCatalog` in androidMain/app: reads `assets/theme-catalog.json`; expands `ThemeRef(name)` → flat Theme fields at write time. Traceable to FR-003 (D3).
+- [x] **T037** Ship `assets/hint-pool.json` with `schemaVersion: 1` + empty pool (or existing hints if any). Traceable to FR-007.
+- [x] **T038** Ship `assets/theme-catalog.json` with baseline themes referenced by bundled presets. Traceable to FR-003.
 
 ### 1.7 Provider unit tests (androidMain/app)
 
