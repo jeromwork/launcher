@@ -1,10 +1,10 @@
 ---
-id: TASK-126
-title: 'Wizard runtime migration to Preset composition foundation'
-status: In Progress
+id: DRAFT-2
+title: Wizard runtime migration to Preset composition foundation
+status: Draft
 assignee: []
 created_date: '2026-07-11 07:45'
-updated_date: '2026-07-11 08:00'
+updated_date: '2026-07-11 13:17'
 labels:
   - phase-2
   - refactor
@@ -288,9 +288,41 @@ MVP Component wave: `AppTile`, `FontSize`, `Sos`, `Toolbar` — outcome state. T
 
 #### Session 2 entry point
 
-Fresh AI session начинает с чтения этой Discussion secции + [spec-задачи TASK-120](../../specs/task-120-preset-composition-foundation/spec.md) [data-model.md](../../specs/task-120-preset-composition-foundation/data-model.md) [contracts/preset.md](../../specs/task-120-preset-composition-foundation/contracts/preset.md) [contracts/pool.md](../../specs/task-120-preset-composition-foundation/contracts/pool.md). Владелец отвечает на Q1-Q6 → переходим к `/speckit.specify` для migration плана.
+### Session 2 mentor — 2026-07-11 Q1-Q6 resolved
 
-Ветка: `task-126-wizard-runtime-migration` (пустой commit только с этой Discussion — кода нет).
+Все 6 вопросов закрыты. Дополнительно выяснены: cross-app TODO, один PR (много коммитов), component dependency validation.
+
+#### Решения session 2
+
+| # | Вопрос | Решение |
+|---|---|---|
+| Q1 | LauncherRole params | Без параметров. `check()` = SkipIfSet внутри. Reject = не включать в preset |
+| Q2 | Theme | Гибрид: `ThemeRef(name)` раскрывается в `PaletteSeedHex + TypographyScale + ShapeStyle + DarkMode` при записи. Wire-format всегда flat |
+| Q3 | Language | `Language(locale)` где `"system"` = sentinel (системный locale) |
+| Q4 | TutorialHint | Отдельный `hint-pool.json` + `hintFlow: List<HintFlowEntry>` в Preset. Не в основном pool |
+| Q5 | Permissions | Provider-inline. Нет отдельных Permission компонентов |
+| Q6 | StatusBarPolicy | `Component.StatusBarPolicy` в preset, Provider через `WindowInsetsController`. AccessibilityService удалить |
+| new | Component dependencies | `requires: [ComponentRef]` в pool.json. Валидатор при десериализации Preset проверяет порядок |
+| new | Cross-app | TODO в коде + TASK-127 Draft (только описание, без spec) |
+| new | Один PR | Много коммитов по подсистемам (Phase 1→6), один PR |
+
+#### OpenSpec артефакты (session 2, вспомогательные)
+
+Созданы в `openspec/changes/task-126-wizard-runtime-migration/` — design.md (D1-D9 решения + план 6 фаз) и tasks.md (47 задач). Используй как входной материал для `/speckit.specify`, не как замену speckit pipeline.
+
+Причина возврата на speckit: opsx не даёт sequence диаграмм, MENTOR-DETAIL объяснений и архитектурных чеклистов — критично для владельца-новичка.
+
+### Decision (English, immutable) 🔒
+
+**Choice**: Migrate all production wizard flows to TASK-120 foundation (`com.launcher.preset.*`). Delete legacy `com.launcher.api.wizard.*` and TASK-65 `com.launcher.api.preset.*` entirely. Add 4 new Component subtypes (LauncherRole, Theme, Language, StatusBarPolicy). Permissions are Provider-inline. TutorialHint lives in separate hint-pool. Component ordering validated via `requires` field in pool.json.
+
+**Rationale**: No production users → no migration writer needed. Single engine (ReconcileEngine) eliminates dual-maintenance. ECS architecture (Component/Provider/Profile) delivers value only when real UI is on it. ThemeRef expands to flat fields at write time to avoid wire-format ambiguity. Provider-inline permissions prevent orphan Permission components when parent Component is removed.
+
+**Applies to**: TASK-126 migration scope — `FirstLaunchActivity`, `WizardScreen`, `PendingChecklistViewModel`, `BootCheckReceiver`, all `CheckHandler`/`ApplyHandler` pairs, E2E tests. TASK-121 (MessengerTile) and TASK-127 (cross-app shared Profile) build on top of stabilized Provider port contract from this task.
+
+**Trade-offs accepted**: One large PR (phased commits) instead of multiple PRs. ThemeRef is design-time sugar only — no runtime named-theme lookup. TutorialHint has no reconcile semantics — UI layer owns rendering.
+
+**Exit ramp**: If ReconcileEngine proves inadequate for new Component types → introduce `ReconcileStrategy` port (additive, no rewrite). If cross-app Theme sharing needed → lift `Theme` + `Language` into shared Profile layer (TASK-127, additive move, no wire-format break).
 
 <!-- SECTION:DISCUSSION:END -->
 
