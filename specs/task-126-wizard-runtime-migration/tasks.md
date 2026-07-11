@@ -178,8 +178,8 @@ Six phases per plan.md §Phased Migration Order (D9). Every task is traced to a 
 
 ### 6.4 Fitness function FF-011
 
-- [ ] **T112** Add custom Android lint rule FF-011 in `lint-rules/` module (or existing lint host): detects `import com.launcher.api.wizard` in any `.kt` under `app/` or `core/` production source → `Severity.ERROR` with message pointing to migration guide. Extend to also flag `import com.launcher.api.preset` per CL-4. Traceable to FR-015, NFR-003.
-- [ ] **T113** [P] FF-011 lint rule test: fixture file with banned import fails lint; fixture without it passes. Traceable to FR-015, US-7.
+- [x] **T112** Add custom Android lint rule FF-011 in `lint-rules/` module (or existing lint host): detects `import com.launcher.api.wizard` in any `.kt` under `app/` or `core/` production source → `Severity.ERROR` with message pointing to migration guide. Extend to also flag `import com.launcher.api.preset` per CL-4. Traceable to FR-015, NFR-003.
+- [x] **T113** [P] FF-011 lint rule test: fixture file with banned import fails lint; fixture without it passes. Traceable to FR-015, US-7.
 
 ### 6.5 Verification gates
 

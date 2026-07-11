@@ -36,16 +36,16 @@ class PresetIdBranchingDetector(config: Config = Config.empty) : Rule(config) {
         "com/launcher/architecture/",
     )
 
-    private var active = true
+    private var scanning = true
 
     override fun visitKtFile(file: KtFile) {
         val path = file.virtualFilePath.replace('\\', '/')
-        active = whitelist.none { path.contains(it) }
-        if (active) super.visitKtFile(file)
+        scanning = whitelist.none { path.contains(it) }
+        if (scanning) super.visitKtFile(file)
     }
 
     override fun visitIfExpression(expression: KtIfExpression) {
-        if (active) {
+        if (scanning) {
             val condText = expression.condition?.text.orEmpty()
             if (triggerNames.any { name ->
                     condText.contains("$name ==") || condText.contains("$name==")
@@ -61,7 +61,7 @@ class PresetIdBranchingDetector(config: Config = Config.empty) : Rule(config) {
     }
 
     override fun visitWhenExpression(expression: KtWhenExpression) {
-        if (active) {
+        if (scanning) {
             val subj = expression.subjectExpression?.text.orEmpty().trim()
             if (subj in triggerNames) {
                 report(CodeSmell(
