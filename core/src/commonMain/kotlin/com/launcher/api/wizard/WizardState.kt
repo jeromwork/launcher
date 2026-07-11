@@ -4,9 +4,6 @@ import kotlinx.serialization.json.JsonElement
 
 typealias StepId = String
 
-@Deprecated(
-    "Superseded by TASK-120 Profile + ProfileComponent state — see com.launcher.preset.model.Profile. Removal scheduled for the draft-1 wizard refactor.",
-)
 sealed class WizardState {
     data object Idle : WizardState()
     data class Running(

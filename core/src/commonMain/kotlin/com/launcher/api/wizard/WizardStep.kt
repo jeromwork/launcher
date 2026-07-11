@@ -2,9 +2,6 @@ package com.launcher.api.wizard
 
 import kotlinx.serialization.json.JsonElement
 
-@Deprecated(
-    "Superseded by TASK-120 Component/Preset/Profile model — see com.launcher.preset.model.Component + com.launcher.preset.engine.ReconcileEngine. Removal scheduled for the draft-1 wizard refactor.",
-)
 interface WizardStep {
     val stepType: StepType
     val canSkip: Boolean

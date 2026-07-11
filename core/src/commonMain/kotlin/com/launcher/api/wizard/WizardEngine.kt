@@ -4,9 +4,6 @@ import com.launcher.api.wizard.data.StepEntry
 import com.launcher.api.wizard.data.WizardManifest
 import kotlinx.coroutines.flow.StateFlow
 
-@Deprecated(
-    "Superseded by TASK-120 ReconcileEngine — see com.launcher.preset.engine.ReconcileEngine. Removal scheduled for the draft-1 wizard refactor.",
-)
 interface WizardEngine {
     suspend fun run(manifest: WizardManifest): WizardOutcome
     fun currentState(): StateFlow<WizardState>
