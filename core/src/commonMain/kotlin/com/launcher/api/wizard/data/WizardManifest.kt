@@ -5,6 +5,9 @@ import com.launcher.api.wizard.StepType
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
+@Deprecated(
+    "Superseded by TASK-120 Preset (three-field split: wizardFlow / settingsMap / activeComponents) — see com.launcher.preset.model.Preset. Removal scheduled for the draft-1 wizard refactor.",
+)
 @Serializable
 data class WizardManifestBody(
     val autoOrder: Boolean = false,

@@ -12,6 +12,9 @@ import kotlinx.serialization.json.JsonElement
  * Bumped schemaVersion handling: load with schemaVersion > known → engine
  * treats as invalid → starts from step 0 (graceful, no crash). FR-003.
  */
+@Deprecated(
+    "Superseded by TASK-120 Profile persistence (via com.launcher.preset.port.ProfileStore + preWizardSnapshot). Removal scheduled for the draft-1 wizard refactor.",
+)
 @Serializable
 data class WizardCheckpoint(
     val schemaVersion: Int = 1,

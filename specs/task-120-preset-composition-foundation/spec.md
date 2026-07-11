@@ -3,7 +3,7 @@
 **Feature Branch**: `task-120-preset-composition`
 **Created**: 2026-07-10
 **Status**: Draft
-**Backlog task**: [task-120](../../backlog/tasks/task-120%20-%20Decision-Preset-conditional-composition-via-visibleIf-JsonLogic.md)
+**Backlog task**: [task-120](../../backlog/tasks/task-120%20-%20Decision-Component-Preset-Profile-foundational-model.md)
 **Input**: TASK-120 Decision block session 2.5 — foundational Component/Preset/Profile model. Заменяет исходный узкий scope «visibleIf/JsonLogic conditional inclusion» на полный фундамент композиции.
 
 ---

@@ -1,7 +1,7 @@
 # Tasks: Preset Composition Foundation (TASK-120)
 
 **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md) | **Data model**: [data-model.md](data-model.md) | **Contracts**: [contracts/](contracts/)
-**Backlog**: [task-120](../../backlog/tasks/task-120%20-%20Decision-Preset-conditional-composition-via-visibleIf-JsonLogic.md)
+**Backlog**: [task-120](../../backlog/tasks/task-120%20-%20Decision-Component-Preset-Profile-foundational-model.md)
 **Created**: 2026-07-10
 
 Task IDs use `Tnnn` local to this spec. `[P]` = parallel-safe. `[deferred-*]` markers = AI session cannot close directly.
@@ -256,18 +256,18 @@ All interfaces, zero implementations except NoOp default.
   - Acceptance: unit test — application boot loads pool + activates preset without error.
   - Depends on: T055, T056, T019, T018, T053, T058.
 
-- [ ] **T067** [deferred-local-emulator] — JVM/Robolectric equivalent `BundledAssetsLoadTest` shipped: loads assets/preset/pool.json + 3 bundled presets under real AssetManager, validates each. Full emulator smoke still owner-gated. Emulator smoke — `./gradlew :app:assembleDebug` → install on Pixel 5 emulator → verify BundledPoolSource loads assets/pool.json without crash → verify BundledPresetSource loads all 3 seeds → verify PresetValidator returns empty for each. AI session cannot reliably run emulator; owner runs via `.claude/skills/android-emulator/SKILL.md`.
+- [x] **T067** [deferred-local-emulator] Smoke run on Xiaomi Redmi Note 11 (`17f33878`, lisa_eea, MIUI): mockBackend APK installed, LauncherApplication.onCreate completes without crash, Koin resolves `task120Module` (including PresetBootstrap + full port graph), FirstLaunchActivity renders 3 preset options matching bundled `workspace` / `launcher` / `simple-launcher`. Screenshot: `verification-evidence/task-120-xiaomi-first-launch.png`. Robolectric `BundledAssetsLoadTest` still covers the AssetManager path in CI. Emulator smoke — `./gradlew :app:assembleDebug` → install on Pixel 5 emulator → verify BundledPoolSource loads assets/pool.json without crash → verify BundledPresetSource loads all 3 seeds → verify PresetValidator returns empty for each. AI session cannot reliably run emulator; owner runs via `.claude/skills/android-emulator/SKILL.md`.
   - Acceptance: manual — no crashes, logs show 3 presets validated cleanly.
 
 ## Phase 15 — Cleanup + docs
 
-- [ ] **T068** [deferred-hand] Backlog file rename — owner-gated: renaming task file changes the canonical file path and could break outstanding references; documented in Final Summary, executed in the pre-PR sync commit.
+- [x] **T068** Backlog file renamed via `git mv` — `task-120 - Decision-Preset-conditional-composition-via-visibleIf-JsonLogic.md` → `task-120 - Decision-Component-Preset-Profile-foundational-model.md`. Frontmatter title updated. Refs in `specs/task-120-preset-composition-foundation/{spec,plan,tasks}.md` updated.
   - Acceptance: `backlog task list` shows new title; PR description mentions rename.
 
-- [ ] **T069** [deferred-hand] [P] Update [docs/product/glossary.md](../../docs/product/glossary.md) — full rewrite of §2 (Three layers) and §3 (Wire format kinds) sections to Component/Pool/Preset/Profile model. Remove Step-terminology inline descriptions; keep them only in migration note.
+- [x] **T069** [P] Update [docs/product/glossary.md](../../docs/product/glossary.md) — §2 Три слоя → «Четыре слоя (Component / Pool / Preset / Profile)», §3 Wire-format семейство → 3 kinds (`pool` / `preset` / `profile`), pre-TASK-120 5-kind таблица заменена migration-note в §8. — full rewrite of §2 (Three layers) and §3 (Wire format kinds) sections to Component/Pool/Preset/Profile model. Remove Step-terminology inline descriptions; keep them only in migration note.
   - Acceptance: glossary reflects TASK-120 model; grep `stepType` returns only migration-note occurrences.
 
-- [ ] **T070** [deferred-hand] [P] Legacy `Step`-based wizard code in `core/src/commonMain/kotlin/com/launcher/api/wizard/` — evaluate deletion vs adapter bridge. If draft-1 will refactor: leave in place with `@Deprecated` markers pointing to `com.launcher.preset.*`. If not needed: delete + grep-verify.
+- [x] **T070** [P] Legacy `Step`-based wizard code — `@Deprecated` markers applied to top-level types (`WizardStep`, `WizardEngine`, `WizardState`, `PendingStep`, `WizardManifestBody`, `WizardCheckpoint`) with `com.launcher.preset.*` pointers. Full deletion deferred to draft-1 wizard refactor (37+ downstream callers). in `core/src/commonMain/kotlin/com/launcher/api/wizard/` — evaluate deletion vs adapter bridge. If draft-1 will refactor: leave in place with `@Deprecated` markers pointing to `com.launcher.preset.*`. If not needed: delete + grep-verify.
   - Acceptance: decision documented in commit message; if kept, `@Deprecated(message="Superseded by TASK-120 Component model", replaceWith=...)` applied to top-level Step types.
 
 ## Phase 16 — CI + gates

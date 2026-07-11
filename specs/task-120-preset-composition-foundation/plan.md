@@ -1,7 +1,7 @@
 # Implementation Plan: Preset Composition Foundation
 
 **Spec**: [spec.md](spec.md)
-**Backlog**: [task-120](../../backlog/tasks/task-120%20-%20Decision-Preset-conditional-composition-via-visibleIf-JsonLogic.md)
+**Backlog**: [task-120](../../backlog/tasks/task-120%20-%20Decision-Component-Preset-Profile-foundational-model.md)
 **Status**: Draft
 **Created**: 2026-07-10
 
@@ -308,7 +308,7 @@ Files reviewed for this plan (per Article XII §7):
 - [docs/product/glossary.md](../../docs/product/glossary.md) — legacy Step-terminology, superseded by TASK-120 header note 2026-07-10.
 - [docs/architecture/pool-naming.md](../../docs/architecture/pool-naming.md) — pool architectural invariant.
 - [docs/dev/server-roadmap.md](../../docs/dev/server-roadmap.md) — no direct touch (foundation LOCAL per FR-028).
-- [backlog/tasks/task-120](../../backlog/tasks/task-120%20-%20Decision-Preset-conditional-composition-via-visibleIf-JsonLogic.md) — Decision block (English) is contract.
+- [backlog/tasks/task-120](../../backlog/tasks/task-120%20-%20Decision-Component-Preset-Profile-foundational-model.md) — Decision block (English) is contract.
 - [backlog/tasks/task-121](../../backlog/tasks/task-121%20-%20Messenger-tile-with-SSO-handoff.md) — downstream, receives foundation contract.
 - [docs/adr/ADR-011-ai-owner-collaboration-conventions.md](../../docs/adr/ADR-011-ai-owner-collaboration-conventions.md) — output discipline, MENTOR-DETAIL blocks, language-by-audience.
 

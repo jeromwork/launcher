@@ -1,6 +1,6 @@
 ---
 id: TASK-120
-title: 'Decision: Preset conditional composition via visibleIf + JsonLogic'
+title: 'Decision: Component/Preset/Profile foundational model'
 status: In Progress
 assignee: []
 created_date: '2026-07-09 10:55'
