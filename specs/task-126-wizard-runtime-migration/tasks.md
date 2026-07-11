@@ -68,12 +68,12 @@ Six phases per plan.md §Phased Migration Order (D9). Every task is traced to a 
 
 ### 1.7 Provider unit tests (androidMain/app)
 
-- [ ] **T039** [P] `LauncherRoleProviderTest` (Robolectric): default → `check()`==Ok; not default → `NeedsApply`; `apply()` fires Intent once. Traceable to US-2, FR-002.
-- [ ] **T040** [P] `ThemeProviderTest` (Robolectric): `apply()` writes DataStore; `check()` returns current state. Traceable to FR-003.
-- [ ] **T041** [P] `LanguageProviderTest` (Robolectric): `apply()` calls `setApplicationLocales`; sentinel `"system"` produces empty LocaleList. Traceable to FR-004.
-- [ ] **T042** [P] `StatusBarPolicyProviderTest` (Robolectric): standard path uses `WindowInsetsControllerCompat.hide`; MIUI path uses `FLAG_FULLSCREEN`. Traceable to FR-005, US-6.
-- [ ] **T043** [P] `HintPoolSourceTest`: `BundledHintPoolSource.load()` reads valid JSON; missing asset → empty list; malformed JSON → empty list + logged error (no crash). Traceable to FR-007 (CL-7).
-- [ ] **T044** [P] `ThemeRefExpansionTest`: `ThemeRef("dark")` → known flat fields; unknown name → validation error before persistence. Traceable to FR-003.
+- [x] **T039** [P] `LauncherRoleProviderTest` (Robolectric): default → `check()`==Ok; not default → `NeedsApply`; `apply()` fires Intent once. Traceable to US-2, FR-002.
+- [x] **T040** [P] `ThemeProviderTest` (Robolectric): `apply()` writes DataStore; `check()` returns current state. Traceable to FR-003.
+- [x] **T041** [P] `LanguageProviderTest` (Robolectric): `apply()` calls `setApplicationLocales`; sentinel `"system"` produces empty LocaleList. Traceable to FR-004.
+- [x] **T042** [P] `StatusBarPolicyProviderTest` (Robolectric): standard path uses `WindowInsetsControllerCompat.hide`; MIUI path uses `FLAG_FULLSCREEN`. Traceable to FR-005, US-6.
+- [x] **T043** [P] `HintPoolSourceTest`: `BundledHintPoolSource.load()` reads valid JSON; missing asset → empty list; malformed JSON → empty list + logged error (no crash). Traceable to FR-007 (CL-7).
+- [x] **T044** [P] `ThemeRefExpansionTest`: `ThemeRef("dark")` → known flat fields; unknown name → validation error before persistence. Traceable to FR-003.
 
 ### 1.8 DI wiring
 
