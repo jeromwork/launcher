@@ -51,9 +51,9 @@ Six phases per plan.md §Phased Migration Order (D9). Every task is traced to a 
 
 ### 1.5 Fake adapters (mock-first, rule 6)
 
-- [ ] **T028** [P] `FakeInteractionSink` in `core/src/commonTest/kotlin/com/launcher/preset/fake/FakeInteractionSink.kt`: auto-answers each Interactive step with configurable response; records call order for assertions. Traceable to CLAUDE.md rule 6, US-1/US-2 test scaffold.
-- [ ] **T029** [P] `FakeHintPoolSource` in `core/src/commonTest/kotlin/com/launcher/preset/fake/FakeHintPoolSource.kt`: returns configured list; supports empty-pool scenario. Traceable to FR-007.
-- [ ] **T030** [P] Confirm existing `FakeProfileStore` (TASK-120 test tree) supports new Component subtypes; extend if needed. Traceable to US-3.
+- [x] **T028** [P] `FakeInteractionSink` in `core/src/commonTest/kotlin/com/launcher/preset/fake/FakeInteractionSink.kt`: auto-answers each Interactive step with configurable response; records call order for assertions. Traceable to CLAUDE.md rule 6, US-1/US-2 test scaffold.
+- [x] **T029** [P] `FakeHintPoolSource` in `core/src/commonTest/kotlin/com/launcher/preset/fake/FakeHintPoolSource.kt`: returns configured list; supports empty-pool scenario. Traceable to FR-007.
+- [x] **T030** [P] Confirm existing `FakeProfileStore` (TASK-120 test tree) supports new Component subtypes; extend if needed. Traceable to US-3. — Confirmed: `com.launcher.preset.fakes.FakeProfileStore` stores `Profile` and delegates Component polymorphism to kotlinx.serialization; no code change needed for new subtypes (LauncherRole / Theme / Language / StatusBarPolicy).
 
 ### 1.6 Android adapters (androidMain / app)
 
