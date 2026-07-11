@@ -15,3 +15,9 @@ enum class Vendor { Xiaomi, Samsung, Huawei, GoogleTV, GenericAndroid, iOS }
 
 @Serializable
 enum class Sensitivity { Normal, High, Admin }
+
+@Serializable
+enum class TypographyScale { Small, Medium, Large, ExtraLarge }
+
+@Serializable
+enum class ShapeStyle { Rounded, Sharp, Mixed }

@@ -21,23 +21,23 @@ Six phases per plan.md §Phased Migration Order (D9). Every task is traced to a 
 
 ### 1.1 Domain models (commonMain)
 
-- [ ] **T010** [P] Add `Component.LauncherRole` subtype (no parameters) to `core/src/commonMain/kotlin/com/launcher/preset/model/Component.kt`. Traceable to FR-002. Acceptance: sealed hierarchy compiles; kotlinx.serialization discriminator added.
-- [ ] **T011** [P] Add `Component.Theme` subtype with fields `paletteSeedHex: String`, `typographyScale: TypographyScale`, `shapeStyle: ShapeStyle`, `darkMode: Boolean`. Traceable to FR-003. Acceptance: fields serialize/deserialize; ThemeRef NOT part of wire format (write-time sugar only).
-- [ ] **T012** [P] Add `Component.Language` subtype with `locale: String` (sentinel `"system"`). Traceable to FR-004. Acceptance: `null` locale deserialization rejected by validator (see T023).
-- [ ] **T013** [P] Add `Component.StatusBarPolicy` subtype (no parameters). Traceable to FR-005. Acceptance: sealed hierarchy compiles.
-- [ ] **T014** Add `HintFlowEntry` data class (`hintId: String`, `targetComponentId: String`, `textKey: String`) to `core/src/commonMain/kotlin/com/launcher/preset/model/HintFlowEntry.kt`. Traceable to FR-007.
-- [ ] **T015** Extend `Preset` with `hintFlow: List<HintFlowEntry>? = null` + `wizardPresentation: WizardPresentation? = null` fields; bump `Preset.schemaVersion` to 2. Traceable to FR-003 (wizardPresentation), FR-007 (hintFlow), FR-014 (schema bump). Depends on T014. Acceptance: existing v1 fixtures still deserialize with defaults.
-- [ ] **T016** [P] Add `WizardPresentation` data class (`darkMode: Boolean`, `typographyScale: TypographyScale`) in same package as Preset. Traceable to FR-003 (CL-2).
-- [ ] **T017** Extend `Pool.ComponentDeclaration` with `requires: List<String>? = null` + `required: Boolean = false`; bump `Pool.schemaVersion` to 2. Traceable to FR-006, FR-014. Acceptance: v1 pool.json deserializes with defaults; roundtrip preserves fields when present.
-- [ ] **T018** [P] Add `ValidationError` sealed class in `core/src/commonMain/kotlin/com/launcher/preset/model/ValidationError.kt` with variants `RequiresOrderViolation(offenderId, missingId)`, `UnknownComponentId(id)`, `NullLocale`, `SchemaVersionUnsupported(actual, expected)`. Traceable to FR-019 (CL-8).
+- [x] **T010** [P] Add `Component.LauncherRole` subtype (no parameters) to `core/src/commonMain/kotlin/com/launcher/preset/model/Component.kt`. Traceable to FR-002. Acceptance: sealed hierarchy compiles; kotlinx.serialization discriminator added.
+- [x] **T011** [P] Add `Component.Theme` subtype with fields `paletteSeedHex: String`, `typographyScale: TypographyScale`, `shapeStyle: ShapeStyle`, `darkMode: Boolean`. Traceable to FR-003. Acceptance: fields serialize/deserialize; ThemeRef NOT part of wire format (write-time sugar only).
+- [x] **T012** [P] Add `Component.Language` subtype with `locale: String` (sentinel `"system"`). Traceable to FR-004. Acceptance: `null` locale deserialization rejected by validator (see T023).
+- [x] **T013** [P] Add `Component.StatusBarPolicy` subtype (no parameters). Traceable to FR-005. Acceptance: sealed hierarchy compiles.
+- [x] **T014** Add `HintFlowEntry` data class (`hintId: String`, `targetComponentId: String`, `textKey: String`) to `core/src/commonMain/kotlin/com/launcher/preset/model/HintFlowEntry.kt`. Traceable to FR-007.
+- [x] **T015** Extend `Preset` with `hintFlow: List<HintFlowEntry>? = null` + `wizardPresentation: WizardPresentation? = null` fields; bump `Preset.schemaVersion` to 2. Traceable to FR-003 (wizardPresentation), FR-007 (hintFlow), FR-014 (schema bump). Depends on T014. Acceptance: existing v1 fixtures still deserialize with defaults.
+- [x] **T016** [P] Add `WizardPresentation` data class (`darkMode: Boolean`, `typographyScale: TypographyScale`) in same package as Preset. Traceable to FR-003 (CL-2).
+- [x] **T017** Extend `Pool.ComponentDeclaration` with `requires: List<String>? = null` + `required: Boolean = false`; bump `Pool.schemaVersion` to 2. Traceable to FR-006, FR-014. Acceptance: v1 pool.json deserializes with defaults; roundtrip preserves fields when present.
+- [x] **T018** [P] Add `ValidationError` sealed class in `core/src/commonMain/kotlin/com/launcher/preset/model/ValidationError.kt` with variants `RequiresOrderViolation(offenderId, missingId)`, `UnknownComponentId(id)`, `NullLocale`, `SchemaVersionUnsupported(actual, expected)`. Traceable to FR-019 (CL-8).
 
 ### 1.2 Ports (commonMain)
 
-- [ ] **T019** [P] Define `HintPoolSource` port in `core/src/commonMain/kotlin/com/launcher/preset/port/HintPoolSource.kt` — single `suspend fun load(): List<HintFlowEntry>`. Add inline `// TODO(shareability): future HintPoolSource adapters — file import, share intent, marketplace` per CLAUDE.md rule 9. Traceable to FR-007 (CL-7).
+- [x] **T019** [P] Define `HintPoolSource` port in `core/src/commonMain/kotlin/com/launcher/preset/port/HintPoolSource.kt` — single `suspend fun load(): List<HintFlowEntry>`. Add inline `// TODO(shareability): future HintPoolSource adapters — file import, share intent, marketplace` per CLAUDE.md rule 9. Traceable to FR-007 (CL-7).
 
 ### 1.3 Validator (commonMain)
 
-- [ ] **T020** Extend `PresetValidator` in `core/src/commonMain/kotlin/com/launcher/preset/engine/PresetValidator.kt` to return `Result<Preset, ValidationError>` (Kotlin `Result` with typed error variant, no exceptions across domain boundary). Detect `requires` ordering violations against Pool descriptors; detect unknown component IDs; detect null locale on Language; detect unsupported schemaVersion. Traceable to FR-006, FR-019 (CL-8). Depends on T017, T018.
+- [x] **T020** Extend `PresetValidator` in `core/src/commonMain/kotlin/com/launcher/preset/engine/PresetValidator.kt` to return `Result<Preset, ValidationError>` (Kotlin `Result` with typed error variant, no exceptions across domain boundary). Detect `requires` ordering violations against Pool descriptors; detect unknown component IDs; detect null locale on Language; detect unsupported schemaVersion. Traceable to FR-006, FR-019 (CL-8). Depends on T017, T018.
 
 ### 1.4 Wire format contracts + tests (commonMain)
 
