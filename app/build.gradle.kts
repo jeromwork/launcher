@@ -201,6 +201,10 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.datetime)
+    // TASK-120 — wire format decoding for pool.json / preset.json / profile blobs
+    // in :app Android adapters (BundledPoolSource, BundledPresetSource,
+    // DataStoreProfileStore).
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
 
     implementation(libs.koin.android)

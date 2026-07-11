@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 2,
+  "presetId": "launcher",
+  "version": 1,
+  "layoutKey": "layout.grid.2x3",
+  "wizardFlow": [
+    {
+      "poolRef": "font-tile",
+      "order": 1,
+      "wizardTitleKey": "wizard.font.title",
+      "wizardIntroKey": "wizard.font.intro",
+      "behavior": "Interactive",
+      "paramsOverride": { "scale": 1.2 }
+    },
+    {
+      "poolRef": "sos-main",
+      "order": 2,
+      "wizardTitleKey": "wizard.sos.title",
+      "behavior": "Interactive"
+    },
+    {
+      "poolRef": "tile-whatsapp",
+      "order": 3,
+      "wizardTitleKey": "wizard.apptile.title",
+      "behavior": "AutoApply"
+    },
+    {
+      "poolRef": "toolbar-minimal",
+      "order": 4,
+      "wizardTitleKey": "wizard.toolbar.title",
+      "behavior": "InitialDefault"
+    }
+  ],
+  "settingsMap": [
+    { "poolRef": "font-tile", "categoryKey": "settings.category.vision", "sensitivity": "Normal" },
+    { "poolRef": "sos-main", "categoryKey": "settings.category.safety", "sensitivity": "High" },
+    { "poolRef": "tile-whatsapp", "categoryKey": "settings.category.apps", "sensitivity": "Normal" },
+    { "poolRef": "toolbar-minimal", "categoryKey": "settings.category.layout", "sensitivity": "Admin" }
+  ],
+  "activeComponents": [
+    { "poolRef": "font-tile", "paramsOverride": { "scale": 1.2 } },
+    { "poolRef": "sos-main" },
+    { "poolRef": "tile-whatsapp" },
+    { "poolRef": "toolbar-minimal" }
+  ]
+}

@@ -55,7 +55,7 @@ class LibsodiumArgon2idPasswordHash : PasswordHash {
 
         val derived: UByteArray = LibsodiumPwhash.pwhash(
             outputLength = outputLength,
-            password = String(password),
+            password = password.concatToString(),
             salt = saltFixed.toUByteArray(),
             opsLimit = iterations.toULong(),
             memLimit = memoryKib * 1024,
