@@ -77,7 +77,7 @@ Six phases per plan.md §Phased Migration Order (D9). Every task is traced to a 
 
 ### 1.8 DI wiring
 
-- [ ] **T045** Wire new Providers (`LauncherRoleProvider`, `ThemeProvider`, `LanguageProvider`, `StatusBarPolicyProvider`) + `BundledHintPoolSource` + `ThemeCatalog` into `Task120Module` (to be renamed in Phase 6). Register `CapabilityContract` entries. Traceable to FR-001, FR-016. Depends on T031–T036.
+- [x] **T045** Wire new Providers (`LauncherRoleProvider`, `ThemeProvider`, `LanguageProvider`, `StatusBarPolicyProvider`) + `BundledHintPoolSource` + `ThemeCatalog` into `Task120Module` (to be renamed in Phase 6). Register `CapabilityContract` entries. Traceable to FR-001, FR-016. Depends on T031–T036.
 
 ---
 
