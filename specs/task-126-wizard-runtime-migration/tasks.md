@@ -41,13 +41,13 @@ Six phases per plan.md §Phased Migration Order (D9). Every task is traced to a 
 
 ### 1.4 Wire format contracts + tests (commonMain)
 
-- [ ] **T021** [P] Roundtrip test `PresetSchemaV2RoundtripTest` in `core/src/commonTest/kotlin/com/launcher/preset/wire/`: encode Preset (with hintFlow + wizardPresentation) → decode → assert equal. Traceable to FR-014, contracts/preset-schema-v2.md. Constitution rule 5.
-- [ ] **T022** [P] Backward-compat test `PresetSchemaV1ReadV2Test`: v1 reader ignores `hintFlow` + `wizardPresentation`; v2 reader defaults them to null on v1 input. Traceable to FR-014. Constitution rule 5.
-- [ ] **T023** [P] Roundtrip test `PoolSchemaV2RoundtripTest`: encode Pool with `requires`/`required` on descriptors → decode → assert equal. Traceable to FR-014, contracts/pool-schema-v2.md.
-- [ ] **T024** [P] Backward-compat test `PoolSchemaV1ReadV2Test`: v1 pool.json (no requires/required) deserializes with defaults. Traceable to FR-014.
-- [ ] **T025** [P] Roundtrip test `HintPoolSchemaV1RoundtripTest` for `hint-pool.json` shape (schemaVersion: 1). Traceable to FR-007 (CL-7), contracts/hint-pool-schema-v1.md.
-- [ ] **T026** [P] Validator test `PresetValidatorTest`: valid ordering → `Result.Success`; `requires` violation → `Result.Failure(RequiresOrderViolation)`; missing ID → `UnknownComponentId`; null locale → `NullLocale`. Traceable to FR-006, FR-019.
-- [ ] **T027** Compile-time bundled preset validation test `BundledPresetValidationTest`: iterate every JSON under `app/src/main/assets/presets/` (and any additional bundled preset directories), assert `PresetValidator.validate()` returns `Result.Success`. Traceable to FR-019, SC-12 (CL-8). Depends on T020.
+- [x] **T021** [P] Roundtrip test `PresetSchemaV2RoundtripTest` in `core/src/commonTest/kotlin/com/launcher/preset/wire/`: encode Preset (with hintFlow + wizardPresentation) → decode → assert equal. Traceable to FR-014, contracts/preset-schema-v2.md. Constitution rule 5.
+- [x] **T022** [P] Backward-compat test `PresetSchemaV1ReadV2Test`: v1 reader ignores `hintFlow` + `wizardPresentation`; v2 reader defaults them to null on v1 input. Traceable to FR-014. Constitution rule 5.
+- [x] **T023** [P] Roundtrip test `PoolSchemaV2RoundtripTest`: encode Pool with `requires`/`required` on descriptors → decode → assert equal. Traceable to FR-014, contracts/pool-schema-v2.md.
+- [x] **T024** [P] Backward-compat test `PoolSchemaV1ReadV2Test`: v1 pool.json (no requires/required) deserializes with defaults. Traceable to FR-014.
+- [x] **T025** [P] Roundtrip test `HintPoolSchemaV1RoundtripTest` for `hint-pool.json` shape (schemaVersion: 1). Traceable to FR-007 (CL-7), contracts/hint-pool-schema-v1.md.
+- [x] **T026** [P] Validator test `PresetValidatorTest`: valid ordering → `Result.Success`; `requires` violation → `Result.Failure(RequiresOrderViolation)`; missing ID → `UnknownComponentId`; null locale → `NullLocale`. Traceable to FR-006, FR-019.
+- [x] **T027** Compile-time bundled preset validation test `BundledPresetValidationTest`: iterate every JSON under `app/src/main/assets/presets/` (and any additional bundled preset directories), assert `PresetValidator.validate()` returns `Result.Success`. Traceable to FR-019, SC-12 (CL-8). Depends on T020.
 
 ### 1.5 Fake adapters (mock-first, rule 6)
 
