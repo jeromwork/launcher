@@ -1,10 +1,10 @@
 ---
 id: TASK-126
 title: 'Wizard runtime migration to Preset composition foundation'
-status: Draft
+status: In Progress
 assignee: []
 created_date: '2026-07-11 07:45'
-updated_date: '2026-07-11 07:45'
+updated_date: '2026-07-11 08:00'
 labels:
   - phase-2
   - refactor
@@ -182,6 +182,117 @@ EFFORT:
 ```
 
 <!-- SECTION:DESCRIPTION:END -->
+
+## Discussion
+
+<!-- SECTION:DISCUSSION:BEGIN -->
+
+### Session 1 mentor — 2026-07-11 explore/paused
+
+Paused for fresh session. **No code touched.** Explore stance до конца — recon + market research + 6 open questions владельцу.
+
+#### Recon: три параллельных мира в repo
+
+1. **Legacy wizard** (`com.launcher.api.wizard.*` 26 files + `ui.wizard.*` ~10 + `adapters.wizard.*` ~13) — 411 imports across 87 files, powers `FirstLaunchActivity` сегодня
+2. **TASK-65 preset model** (`com.launcher.api.preset.*` 4 files + `api.profile.*` + `api.switchstrategy.*`) — mid-flight, используется `PresetPickerScreen` + `PresetSelectionService` (последний импортирует ОБА world 1 и world 2)
+3. **TASK-120 foundation** (`com.launcher.preset.*`) — parallel, unused, 4 MVP Component subtypes wired через `task120Module`
+
+**Owner directive 2026-07-11**: всё legacy (worlds 1 + 2) выпиливаем без следов. TASK-120 — единственная правда. Wire-format migration writer НЕ нужен (нет пользователей).
+
+#### Key finding: TASK-120 foundation НЕ покрывает interaction-примитивы
+
+MVP Component wave: `AppTile`, `FontSize`, `Sos`, `Toolbar` — outcome state. TASK-120 полностью НЕ адресует:
+- **HOME role** — ноль упоминаний в spec
+- **Прочие system permissions** (POST_NOTIFICATIONS, CALL_PHONE, AccessibilityService, battery-optimization) — но `FailReason.PermissionDenied` first-class + design intent (CHK013) = Provider-inline preconditions
+- **Theme, Language** — были в session 2 middle-granularity list как `Theme(name)` / `Language(...)`, superseded в session 2.5
+- **TutorialHint** — ноль упоминаний где-либо в TASK-120
+- **hide_status_bar** — UX chrome
+
+Из legacy [android-pool.json](../../core/src/androidMain/assets/wizard/system-settings/android-pool.json) 6 системных настроек нуждаются в mapping'е: `android.role.home`, `POST_NOTIFICATIONS`, `CALL_PHONE`, `accessibility.our-service`, `battery.ignore_optimizations`, `hide_status_bar`.
+
+#### Market research 2026-07-11
+
+**Coach marks / TutorialHint** ([NN/g contextual onboarding](https://www.nngroup.com/articles/onboarding-tutorials/), [Onborda](https://onboardjs.com/blog/5-best-react-onboarding-libraries-in-2025-compared)):
+- Contextual just-in-time > upfront tour; one hint at a time; dismissible
+- Onborda pattern «named tours над плоским catalog steps» — mirror нашего Pool→Preset
+- Per-preset variability подтверждена рынком
+
+**Material 3 Theme** ([Codelab](https://codelabs.developers.google.com/jetpack-compose-theming), [Compose M3](https://developer.android.com/develop/ui/compose/designsystems/material3), [Design tokens practical guide](https://softaai.com/design-tokens-in-material-design-with-jetpack-compose/)):
+- Tokens трёхуровневые (reference → system → component), но production apps используют 3 seed'а + tonal palette algorithm
+- Coarse `Theme(seed, typography, shape, dark)` совпадает с production practice
+- Atomic 25-token подход = overengineering для senior-safe launcher
+
+**Flat vs nested schema** ([Terraform provider design principles](https://developer.hashicorp.com/terraform/plugin/best-practices/hashicorp-provider-design-principles), [module composition](https://developer.hashicorp.com/terraform/language/modules/develop/composition)):
+- Schema follows API structure — не изобретать nesting
+- Composition через references (наш `poolRef`) — market-approved
+- Additive versioning (rule 5) даёт path к nested-расширению без ломки — **NOT one-way door**
+
+#### Package delete list (черновой, sanity-check в следующей сессии)
+
+**Уверенно на удаление:**
+- `core/commonMain/com/launcher/api/wizard/` (26 files)
+- `core/commonMain/com/launcher/ui/wizard/` (~10 files: WizardEngineImpl, WizardHostScreen, steps/*)
+- `core/androidMain/com/launcher/adapters/wizard/` (~13 files: handlers + stores + facades)
+- `core/commonMain/com/launcher/api/preset/` (TASK-65 model, 4 files)
+- `core/commonMain/com/launcher/api/profile/` + `androidMain/adapters/profile/` (заменяется `preset.port.ProfileStore` + `DataStoreProfileStore`)
+- `core/commonMain/com/launcher/api/pools/` + `api/switchstrategy/`
+- `app/main/java/com/launcher/app/wizard/` (WizardActivity + NoopAdapters)
+- DI: `Spec015Module.kt`, `Task65Module.kt` (сливаются в переименованный `PresetModule`)
+- Assets `core/androidMain/assets/wizard/` (tile-sets/*, system-settings/*)
+- Тесты под `core/commonTest/**/wizard/**`, `androidUnitTest/**/wizard/**`
+
+**Требует переписать (не удалить):**
+- `core/androidMain/adapters/preset/PresetSelectionService|PresetSwitchService|PresetReminderService` — импортируют TASK-65 + wizard.ConfigSource, перевести на TASK-120 API
+- Compose UI legacy: `core/commonMain/ui/screens/WizardScreens.kt`, `SettingsScreen.kt`, `ui/navigation/WizardComponents.kt` — переписать под `InteractionSink` pattern
+- E2E тесты: `BootBenchmarkE2ETest`, `BootCriticalMissingE2ETest`, `FirstLaunchPickerE2ETest`, `XiaomiOemMatrixE2ETest` — на `PresetBootstrap + ReconcileEngine` API
+
+**Требует уточнения scope:**
+- `core/commonMain/api/setup/*`, `adapters/setup/CallPhoneCheckAdapter.kt`, `ui/dialog/CallPhoneRationaleScreen.kt` — spec-010 setup-assistant, отдельная параллельная жизнь; проверить в scope миграции или нет
+- `core/commonMain/api/config/*` (ConfigDocument, ConfigDocumentWireFormat, ConfigSnapshot) — spec-009 config history, НЕ legacy этого task, оставить
+
+#### Owner input — уже зафиксировано в session 1
+
+- **HOME role = Component** (per-preset user override), не bootstrap — семантика params уточняется в Q1
+- **Preset schema НЕ должна жёстко зашивать flat** — сохранить path к future nesting через schemaVersion + optional field additive
+- **Theme**: coarse vs atomic — market view дан, ждём choice (Q2)
+- **Language** — один Component (Q3 confirm)
+- **TutorialHint** — per-preset composition, не полностью вне; возможно свой Pool (Q4)
+- **Permissions Provider-inline** — просит объяснить (Q5)
+- **hide_status_bar / AccessibilityService** — просит объяснить (Q6)
+
+#### Open questions for next session
+
+**Q1. HOME role Component params.** С чем? `LauncherRole(mode: Prompt|SkipIfSet|Reject)` или без параметров (просто наличие в preset = «Wizard спросит»)?
+
+**Q2. Theme granularity.** (a) coarse `Theme(paletteSeedHex, typographyScale, shapeStyle, darkMode)` 1 subtype 4 params, (b) atomic `PaletteSeed / Typography / Shapes / DarkMode` 4 subtypes, (c) hybrid?
+
+**Q3. Language.** `Language(locale)` — confirm единый subtype один параметр?
+
+**Q4. TutorialHint layout.**
+- (a) отдельный `hint-pool.json` (mirror Component/Pool паттерн) + новое поле `hintFlow: List<HintFlowEntry>` в Preset рядом с `wizardFlow/settingsMap/activeComponents` — рекомендация
+- (b) новый `Component.TutorialHint(targetId, textKey)` subtype в общем pool — унифицирует, но нарушает FR-025 (TutorialHint не reconcile-able)
+
+**Q5. Provider-inline permissions.** Confirm понимание формулировки:
+> «SosProvider знает что для звонка нужен CALL_PHONE. В pool.json НЕТ отдельной записи `call-phone-permission`. Пользователь видит permission-запрос через Wizard только когда Sos-компонент проходит через Wizard и его check() возвращает Failed(PermissionDenied). После grant Sos применяется. Никаких изолированных permission-шагов в preset'е.»
+
+**Q6. hide_status_bar / AccessibilityService.**
+- (a) bootstrap `WindowInsetsController` при старте launcher app, AccessibilityService **удаляется целиком** — рекомендация (Play Store risk + лишний permission gone)
+- (b) `Component.StatusBarPolicy(hidden: Bool)` — preset решает
+- (c) сохранить legacy AccessibilityService — против рекомендации
+
+#### Session 1 склоны (для дальнейшего давления)
+
+- **Theme**: (a) coarse — совпадает с M3 production practice, простое ментальное моделирование, atomic — future additive через wire-format bump
+- **TutorialHint**: (a) отдельный hint-pool + `hintFlow` — TutorialHint принципиально не reconcile-able (нельзя apply/check)
+- **hide_status_bar**: (a) bootstrap WindowInsetsController — удаляет весь AccessibilityService пласт риска
+
+#### Session 2 entry point
+
+Fresh AI session начинает с чтения этой Discussion secции + [spec-задачи TASK-120](../../specs/task-120-preset-composition-foundation/spec.md) [data-model.md](../../specs/task-120-preset-composition-foundation/data-model.md) [contracts/preset.md](../../specs/task-120-preset-composition-foundation/contracts/preset.md) [contracts/pool.md](../../specs/task-120-preset-composition-foundation/contracts/pool.md). Владелец отвечает на Q1-Q6 → переходим к `/speckit.specify` для migration плана.
+
+Ветка: `task-126-wizard-runtime-migration` (пустой commit только с этой Discussion — кода нет).
+
+<!-- SECTION:DISCUSSION:END -->
 
 ## Acceptance Criteria
 
