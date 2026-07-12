@@ -43,9 +43,15 @@ class BootCheckWorkerTest {
 
     @After
     fun tearDown() {
-        // WorkManagerTestInitHelper doesn't require explicit teardown; the
-        // in-memory database is discarded when the Robolectric Application
-        // is torn down between tests.
+        // Explicit teardown avoids leaking the WorkManager singleton into
+        // subsequent Robolectric tests in the same JVM run (which caused a
+        // SQLite "illegal connection pointer" flake between BootCheckWorkerTest
+        // and BundledPresetValidationTest).
+        try {
+            WorkManager.getInstance(ApplicationProvider.getApplicationContext())
+                .cancelAllWork()
+        } catch (_: Throwable) {
+        }
     }
 
     @Test
