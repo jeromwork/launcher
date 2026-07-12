@@ -272,33 +272,16 @@
             android:exported="false"
             android:label="@string/setup_gms_hard_block_title" />
 
-        <!--
-          Spec 015 (F-3) FR-007: first-run wizard entry. Routed to from
-          FirstLaunchActivity when `wizardCompleted(presetId)` is false.
-          Not exported — never reachable from outside the app.
-        -->
-        <activity
-            android:name=".wizard.WizardActivity"
-            android:exported="false"
-            android:label="@string/wizard_loading" />
-
-        <!-- TASK-126 T054/T055 — новый preset-composition wizard host.
-             Splash theme держится до первого non-Loading state WizardViewModel'а. -->
+        <!-- TASK-126 T054/T055 — preset-composition wizard host.
+             Splash theme keeps until WizardViewModel emits its first
+             non-Loading state. Replaces the legacy `.wizard.WizardActivity`
+             + `.wizard.PlayStoreFallbackActivity` pair that lived here
+             pre-TASK-126. -->
         <activity
             android:name=".wizard.WizardHostActivity"
             android:exported="false"
             android:theme="@style/Theme.Launcher.WizardSplash"
             android:label="@string/wizard_loading" />
-
-        <!--
-          Spec 015 (F-3) FR-016: hard-fail fallback shown when a bundled
-          config has schemaVersion > known, per Q-6 (b). Launched explicitly
-          by WizardActivity.
-        -->
-        <activity
-            android:name=".wizard.PlayStoreFallbackActivity"
-            android:exported="false"
-            android:label="@string/play_store_fallback_title" />
 
         <!--
           TASK-126 Phase 4 T080 — dispatch-only receiver for BOOT_COMPLETED.

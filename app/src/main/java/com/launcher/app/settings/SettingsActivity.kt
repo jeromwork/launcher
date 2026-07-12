@@ -16,32 +16,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.launcher.api.localization.StringResolver
-import com.launcher.api.wizard.WizardEngine
-import com.launcher.app.wizard.WizardActivity
+import com.launcher.app.wizard.WizardHostActivity
 import com.launcher.ui.senior.theme.SeniorWarmTheme
 import org.koin.android.ext.android.inject
 
 /**
- * Minimal Settings host activity for TASK-7 Phase 6 (FR-014 / FR-014a /
- * FR-017a). Bundles the three independent Composables introduced in
- * TASK-7:
- *  - [LocaleDivergenceIndicator] (Phase 3).
- *  - [PendingChecklistScreen] (Phase 6).
- *  - [WalkThroughButton] (Phase 6).
- *
- * The "Walk through" CTA launches [WizardActivity] with an extra so
- * `WizardActivity` knows to call `engine.runWalkThrough` instead of
- * `engine.run`. Final wiring of the extra → engine entry point is
- * documented as a Phase 6+ follow-up (the wizard host needs to pick
- * up the mode flag from intent extras).
- *
- * TODO(phase-6-ui-polish): senior-safe Settings entry — wire into
- * HomeActivity's overflow menu, add app-bar, theme switcher, etc.
- * Out of TASK-7 scope; this Activity stays minimal.
+ * Minimal Settings host activity (FR-014 / FR-014a / FR-017a).
+ * Bundles:
+ *  - [LocaleDivergenceIndicator]
+ *  - [PendingChecklistScreen]
+ *  - [WalkThroughButton] — TASK-126 rewire: opens the new preset-composition
+ *    wizard host so the user can re-walk the flow. The legacy F-3
+ *    `WizardEngine.runWalkThrough` mode does not exist in the ECS runtime;
+ *    ReconcileEngine re-derives progress from `Provider.check()` on every
+ *    run, so a fresh entry into `WizardHostActivity` skips already-Applied
+ *    components and re-prompts for the rest.
  */
 class SettingsActivity : ComponentActivity() {
 
-    private val engine: WizardEngine by inject()
     private val pendingVmDeps: PendingChecklistViewModel by inject()
     private val localeVmDeps: LocaleDivergenceViewModel by inject()
     private val stringResolver: StringResolver by inject()
@@ -81,8 +73,7 @@ class SettingsActivity : ComponentActivity() {
 
     private fun launchWalkThrough() {
         startActivity(
-            Intent(this, WizardActivity::class.java).apply {
-                putExtra(WizardActivity.EXTRA_WALK_THROUGH, true)
+            Intent(this, WizardHostActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             },
         )
