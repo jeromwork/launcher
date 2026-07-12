@@ -251,17 +251,6 @@
         </activity>
 
         <!--
-          TASK-65 (T65A/T65C) — preset picker host (FR-012). Launched by the
-          legacy FirstLaunchActivity once it routes through PresetBootRouter,
-          and by SettingsActivity for "change preset" entry. adb-launchable
-          for QA: `am start -n com.launcher.app/.preset.PresetPickerActivity`.
-        -->
-        <activity
-            android:name=".preset.PresetPickerActivity"
-            android:exported="false"
-            android:label="@string/app_name" />
-
-        <!--
           Spec 010 T046 — GMS hard-block screen (FR-042). Launched explicitly
           by FirstLaunchActivity when GoogleApiAvailability reports MissingFatal.
           NEVER reachable from outside the app: android:exported="false" enforced
