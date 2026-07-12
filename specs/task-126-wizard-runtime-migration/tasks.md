@@ -141,11 +141,11 @@ Six phases per plan.md §Phased Migration Order (D9). Every task is traced to a 
 **Goal**: all 4 E2E tests rewired to `PresetBootstrap` + `ReconcileEngine`; `simple-launcher` golden JSON regenerated for schemaVersion 2.
 **Gate**: `[deferred-physical-device]` `./gradlew :app:connectedMockBackendDebugAndroidTest --tests "*E2E*"` green on Xiaomi.
 
-- [ ] **T090** Regenerate `simple-launcher` golden JSON at `app/src/main/assets/presets/simple-launcher.json` (or wherever bundled) for `schemaVersion: 2`. Include before/after diff in PR description. Traceable to FR-013, FR-014.
-- [ ] **T091** [P] Rewrite `BootBenchmarkE2ETest` on `ReconcileEngine` API. Traceable to FR-013, NFR-001 regression guard.
-- [ ] **T092** [P] Rewrite `BootCriticalMissingE2ETest` on `ReconcileEngine` API. Traceable to FR-013, US-4.
-- [ ] **T093** [P] Rewrite `FirstLaunchPickerE2ETest` on `ReconcileEngine` API. Traceable to FR-013, US-1.
-- [ ] **T094** [P] Rewrite `XiaomiOemMatrixE2ETest` covering `StatusBarPolicyProvider` MIUI path. Traceable to FR-013, US-6, CL-9 (OEM matrix).
+- [x] **T090** Regenerate `simple-launcher` golden JSON at `app/src/main/assets/presets/simple-launcher.json` (or wherever bundled) for `schemaVersion: 2`. Include before/after diff in PR description. Traceable to FR-013, FR-014. — File is at `app/src/main/assets/preset/bundled-presets/simple-launcher.json` (already `schemaVersion: 2`). Added v2 fields `hintFlow: []` + `wizardPresentation` so the bundled fixture exercises the new schema surface end-to-end. `BundledPresetValidationTest` green.
+- [x] **T091** [P] Rewrite `BootBenchmarkE2ETest` on `ReconcileEngine` API. Traceable to FR-013, NFR-001 regression guard. — Now measures `PresetBootstrap.bootstrap()` + `ReconcileEngine.run(RunMode.BootCheck)` (same P95 ≤ 1500 ms budget).
+- [x] **T092** [P] Rewrite `BootCriticalMissingE2ETest` on `ReconcileEngine` API. Traceable to FR-013, US-4. — Asserts BootCheck walks the `critical=true` LauncherRole component to a terminal `ComponentStatus` (Applied / Failed / Pending).
+- [x] **T093** [P] Rewrite `FirstLaunchPickerE2ETest` on `ReconcileEngine` API. Traceable to FR-013, US-1. — Verifies `PresetSource.listAvailable()` contains `simple-launcher`, `PoolSource.loadPool()` returns non-null, and `PresetBootstrap.bootstrap()` activates end-to-end (Profile persisted).
+- [x] **T094** [P] Rewrite `XiaomiOemMatrixE2ETest` covering `StatusBarPolicyProvider` MIUI path. Traceable to FR-013, US-6, CL-9 (OEM matrix). — Wired to `LauncherRoleProvider` + `StatusBarPolicyProvider` from Koin; keeps the ACTION_MANAGE_DEFAULT_APPS_SETTINGS + RoleManager resolvability assertions. Note: `PresetSelectionE2ETest` + `PresetSwitchE2ETest` still reference legacy services; they will be deleted in T108 with the services they test.
 - [ ] **T095** [deferred-physical-device] Run full E2E suite on Xiaomi Redmi Note 11: `./gradlew :app:connectedMockBackendDebugAndroidTest --tests "*E2E*"` → green. Traceable to SC-8.
 
 ---

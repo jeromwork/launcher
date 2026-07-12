@@ -42,5 +42,10 @@
     { "poolRef": "sos-main" },
     { "poolRef": "tile-whatsapp" },
     { "poolRef": "toolbar-minimal" }
-  ]
+  ],
+  "hintFlow": [],
+  "wizardPresentation": {
+    "darkMode": false,
+    "typographyScale": "Medium"
+  }
 }
