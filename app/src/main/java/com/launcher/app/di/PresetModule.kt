@@ -59,7 +59,7 @@ import org.koin.dsl.module
  * Adding a new Component subtype = add its Provider binding here + update
  * CapabilityContract map (both MVP-empty for now).
  */
-val task120Module = module {
+val presetModule = module {
 
     // Facades (ACL over Android SDK)
     single<PackageManagerFacade> { AndroidPackageManagerFacade(androidContext()) }

@@ -2,7 +2,7 @@ package com.launcher.app.preset.task126
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import com.launcher.app.di.task120Module
+import com.launcher.app.di.presetModule
 import com.launcher.app.preset.task120.PresetBootstrap
 import com.launcher.app.wizard.WizardViewModel
 import com.launcher.preset.engine.ReconcileEngine
@@ -27,7 +27,7 @@ import org.robolectric.annotation.Config
  * does before it launches `WizardHostActivity`).
  *
  * Uses a bare `Application` (not `LauncherApplication`) so we start Koin
- * ourselves with only `task120Module` — the prod graph pulls Firebase / crypto
+ * ourselves with only `presetModule` — the prod graph pulls Firebase / crypto
  * dependencies that aren't available in JVM unit tests.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -43,7 +43,7 @@ class PresetBootstrapIntegrationTest {
         if (GlobalContext.getOrNull() != null) stopKoin()
         val koin = startKoin {
             androidContext(ApplicationProvider.getApplicationContext())
-            modules(task120Module)
+            modules(presetModule)
         }.koin
 
         val bootstrap = koin.get<PresetBootstrap>()
@@ -60,7 +60,7 @@ class PresetBootstrapIntegrationTest {
         if (GlobalContext.getOrNull() != null) stopKoin()
         val koin = startKoin {
             androidContext(ApplicationProvider.getApplicationContext())
-            modules(task120Module)
+            modules(presetModule)
         }.koin
         val bootstrap = koin.get<PresetBootstrap>()
 

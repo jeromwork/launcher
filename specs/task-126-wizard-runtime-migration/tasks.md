@@ -157,9 +157,9 @@ Six phases per plan.md §Phased Migration Order (D9). Every task is traced to a 
 
 ### 6.1 DI consolidation
 
-- [ ] **T100** Rename `Task120Module.kt` → `PresetModule.kt`; merge contents of `Spec015Module.kt` + `Task65Module.kt` into it; update all Koin bootstrap references. Traceable to FR-016.
-- [ ] **T101** Delete `app/src/main/java/com/launcher/app/di/Spec015Module.kt`. Traceable to FR-016.
-- [ ] **T102** Delete `app/src/main/java/com/launcher/app/di/Task65Module.kt`. Traceable to FR-016.
+- [x] **T100** Rename `Task120Module.kt` → `PresetModule.kt`; merge contents of `Spec015Module.kt` + `Task65Module.kt` into it; update all Koin bootstrap references. Traceable to FR-016. — Rename done (`git mv` preserves history). Merge deferred: `Spec015Module` still owns runtime bindings used by `WizardActivity`, `SettingsActivity`, `FirstLaunchActivity`, `PresetPickerScreen`; `Task65Module` still owns legacy `PoolSource` / `ProfileStore` / `PresetSelectionService` / `PresetSwitchService`. Merging now would either duplicate bindings or break runtime callers before they are removed. Merge folded into T101/T102 which run **after** the callers are deleted (moved to Phase 7 to preserve ordering).
+- [ ] **T101** Delete `app/src/main/java/com/launcher/app/di/Spec015Module.kt`. Traceable to FR-016. — **Blocked by T103/T110**: `spec015Module` binds `StringResolver`, `LocaleProvider`, `Clock`, `WizardEngine`, `SystemSettingPort` and other ports still referenced by `SettingsActivity`, `LocaleDivergenceViewModel`, `WizardActivity`, `HomeBanner`, `PresetPickerScreen`. Delete after these callers are migrated or removed. Owner-authorised follow-up commit.
+- [ ] **T102** Delete `app/src/main/java/com/launcher/app/di/Task65Module.kt`. Traceable to FR-016. — **Blocked by T108/T110**: `task65Module` binds legacy `com.launcher.api.pools.PoolSource`, `com.launcher.api.profile.ProfileStore`, `PresetSelectionService`, `PresetSwitchService`, `PresetReminderService`. Delete after `PresetBootRouter` + `PresetPickerActivity` + `HomeBanner` are removed or migrated. Owner-authorised follow-up commit.
 
 ### 6.2 Legacy package deletion
 
