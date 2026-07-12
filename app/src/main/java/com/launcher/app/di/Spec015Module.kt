@@ -147,9 +147,10 @@ val spec015Module = module {
     factory {
         com.launcher.app.settings.LocaleDivergenceViewModel(
             localeProvider = get(),
-            userPreferencesStore = get(),
+            localeOverrideStore = get(),
         )
     }
+    single { com.launcher.app.locale.LocaleOverrideStore(androidContext()) }
 
     single<Map<StepType, WizardStep>>(named("wizardSteps")) {
         mapOf(

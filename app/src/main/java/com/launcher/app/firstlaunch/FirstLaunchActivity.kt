@@ -76,7 +76,7 @@ class FirstLaunchActivity : ComponentActivity() {
 
     private val presetRepository: PresetRepository by inject()
     private val gmsAvailability: GmsAvailabilityPort by inject()
-    private val userPreferencesStore: com.launcher.api.wizard.UserPreferencesStore by inject()
+    private val profileStore: com.launcher.preset.port.ProfileStore by inject()
     private val authProvider: AuthProvider by inject()
 
     // task-6 wiring 2026-06-30: dependencies for the F-5 Setup-passphrase step
@@ -634,14 +634,19 @@ class FirstLaunchActivity : ComponentActivity() {
         // (GMS + role-home + notifications) and F-4 Sign-In + F-5 recovery
         // steps remain intact — this rewire touches only the final hop.
         //
-        // The legacy `userPreferencesStore.isWizardCompleted` gate is
-        // preserved: it signals «user already finished the wizard for this
-        // preset». For a fresh install / preset change we route to the new
-        // wizard; the new engine derives progress from `Provider.check()` on
-        // every run (CL-5), so re-entry after process death is safe.
+        // TASK-126 Phase 7 wave B: ECS-based wizard-completion gate.
+        // The legacy `userPreferencesStore.isWizardCompleted(presetId)` flag
+        // was persisted only from the legacy WizardEngine, which no longer
+        // runs. The ECS runtime derives progress from `Provider.check()` on
+        // every run (CL-5): a Profile whose Interactive components are all
+        // `Applied` = the user has finished the wizard for this preset.
         lifecycleScope.launch {
-            val presetId = "simple-launcher"
-            val next = if (!userPreferencesStore.isWizardCompleted(presetId)) {
+            val profile = profileStore.load()
+            val wizardDone = profile != null && profile.components.none { pc ->
+                pc.wizardBehavior == com.launcher.preset.model.WizardBehavior.Interactive &&
+                    pc.status != com.launcher.preset.model.ComponentStatus.Applied
+            }
+            val next = if (!wizardDone) {
                 Intent(this@FirstLaunchActivity, com.launcher.app.wizard.WizardHostActivity::class.java)
             } else {
                 Intent(this@FirstLaunchActivity, HomeActivity::class.java)

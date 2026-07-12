@@ -23,7 +23,7 @@ import com.launcher.app.di.spec014Module
 import com.launcher.app.di.spec015Module
 import com.launcher.app.di.presetModule
 import com.launcher.app.di.task65Module
-import com.launcher.api.wizard.UserPreferencesStore
+import com.launcher.app.locale.LocaleOverrideStore
 import com.launcher.core.LauncherCore
 import com.launcher.di.backendModule
 import com.launcher.di.setupModule
@@ -159,10 +159,10 @@ class LauncherApplication : Application(), Configuration.Provider {
     }
 
     private fun applyPersistedLocaleOverride() {
-        val store: UserPreferencesStore = org.koin.java.KoinJavaComponent.get(
-            UserPreferencesStore::class.java,
+        val store: LocaleOverrideStore = org.koin.java.KoinJavaComponent.get(
+            LocaleOverrideStore::class.java,
         )
-        val override = runBlocking { store.current().languageOverride } ?: return
+        val override = runBlocking { store.current() } ?: return
         AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(override))
     }
 

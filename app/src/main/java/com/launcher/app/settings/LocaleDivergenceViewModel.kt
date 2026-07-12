@@ -2,7 +2,7 @@ package com.launcher.app.settings
 
 import androidx.appcompat.app.AppCompatDelegate
 import com.launcher.api.localization.LocaleProvider
-import com.launcher.api.wizard.UserPreferencesStore
+import com.launcher.app.locale.LocaleOverrideStore
 
 /**
  * Computes whether the app's per-app locale (managed via
@@ -19,10 +19,10 @@ import com.launcher.api.wizard.UserPreferencesStore
  */
 class LocaleDivergenceViewModel(
     private val localeProvider: LocaleProvider,
-    private val userPreferencesStore: UserPreferencesStore,
+    private val localeOverrideStore: LocaleOverrideStore,
 ) {
     suspend fun state(): LocaleDivergenceState {
-        val override = userPreferencesStore.current().languageOverride
+        val override = localeOverrideStore.current()
         val appTag = override ?: localeProvider.currentLocaleTag()
         val systemTag = AppCompatDelegate.getApplicationLocales().toLanguageTags()
             .ifEmpty { localeProvider.currentLocaleTag() }
