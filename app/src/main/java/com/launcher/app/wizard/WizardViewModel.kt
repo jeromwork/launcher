@@ -129,12 +129,12 @@ class WizardViewModel(
      */
     fun deny(component: ProfileComponent) {
         if (component.critical) {
+            // Emit Denied and leave the engine's askUser suspended — the UI's «try
+            // preset Y» button navigates back to the preset picker, which finishes
+            // this Activity (cancelling viewModelScope) and starts a fresh run.
+            // Resuming with null here would let the engine proceed and overwrite
+            // Denied with Done on the next terminal emit.
             _state.value = ReconcileState.Denied(component = component, required = true)
-            // We do NOT resume the engine — the wizard is now blocked. The UI's «try
-            // preset Y» button navigates back to the preset picker, which finishes this
-            // Activity and starts a fresh run.
-            pendingAnswer?.complete(null)
-            pendingAnswer = null
             return
         }
         // Non-critical: proceed with Skipped semantics — the engine's runWizard treats

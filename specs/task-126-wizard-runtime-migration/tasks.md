@@ -96,12 +96,12 @@ Six phases per plan.md §Phased Migration Order (D9). Every task is traced to a 
 
 ### Phase 2 tests
 
-- [ ] **T057** [P] `WizardViewModelTest` (Robolectric): state transitions Loading → Interactive → Applied → Done; `InteractionSink.answer()` advances state; state survives `SavedStateHandle` roundtrip. Traceable to FR-008.
-- [ ] **T058** [P] `PresetBootstrapIntegrationTest`: Koin graph resolves without `UninitializedPropertyAccessException`; `PresetBootstrap` completes before `FirstLaunchActivity.onCreate` returns. Traceable to FR-001, risk mitigation from plan.md.
-- [ ] **T059** [P] `WizardLocaleChangeTest` (Robolectric): locale change mid-wizard → `WizardViewModel` retained via `SavedStateHandle` → step re-renders with new locale strings within 200 ms. Traceable to FR-022, SC-11 (CL-5, CL-9).
-- [ ] **T060** [P] `WizardResumeCheckTest` (Robolectric): mutate Android OS state externally between runs (e.g., grant permission via test facade) → next `ReconcileEngine.run` sees `check() == Ok` → step skipped; no drift from a persisted counter. Traceable to FR-008, SC-10 (CL-5).
-- [ ] **T061** [P] `WizardDenialUxTest` (Robolectric): `required=false` denial → step Skipped, wizard proceeds; `required=true` denial → blocking screen with «try preset Y» copy. Traceable to FR-002, FR-006 (CL-6).
-- [ ] **T062** [P] `WizardForceCloseResumeTest` (Robolectric): simulate process death mid-wizard → reopen → `ReconcileEngine` re-walks flow and resumes at first `NeedsApply` step. Traceable to US-3.
+- [x] **T057** [P] `WizardViewModelTest` (Robolectric): state transitions Loading → Interactive → Applied → Done; `InteractionSink.answer()` advances state; state survives `SavedStateHandle` roundtrip. Traceable to FR-008.
+- [x] **T058** [P] `PresetBootstrapIntegrationTest`: Koin graph resolves without `UninitializedPropertyAccessException`; `PresetBootstrap` completes before `FirstLaunchActivity.onCreate` returns. Traceable to FR-001, risk mitigation from plan.md.
+- [x] **T059** [P] `WizardLocaleChangeTest` (Robolectric): locale change mid-wizard → `WizardViewModel` retained via `SavedStateHandle` → step re-renders with new locale strings within 200 ms. Traceable to FR-022, SC-11 (CL-5, CL-9).
+- [x] **T060** [P] `WizardResumeCheckTest` (Robolectric): mutate Android OS state externally between runs (e.g., grant permission via test facade) → next `ReconcileEngine.run` sees `check() == Ok` → step skipped; no drift from a persisted counter. Traceable to FR-008, SC-10 (CL-5).
+- [x] **T061** [P] `WizardDenialUxTest` (Robolectric): `required=false` denial → step Skipped, wizard proceeds; `required=true` denial → blocking screen with «try preset Y» copy. Traceable to FR-002, FR-006 (CL-6).
+- [x] **T062** [P] `WizardForceCloseResumeTest` (Robolectric): simulate process death mid-wizard → reopen → `ReconcileEngine` re-walks flow and resumes at first `NeedsApply` step. Traceable to US-3.
 - [ ] **T063** [deferred-physical-device] Manual smoke on Xiaomi Redmi Note 11: fresh install → preset picker → simple-launcher → wizard → home. Screenshot comparison against `verification-evidence/task-120-xiaomi-first-launch.png` — UX visually identical (NFR-004, US-1). Verify: no double permission dialogs (US-2); StatusBar hidden after home appears (US-6); StatusBarPolicyProvider MIUI path works. Owner runs manually.
 
 ---
