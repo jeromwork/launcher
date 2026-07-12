@@ -194,6 +194,7 @@ dependencies {
     // TASK-49 — CloudAvailability + LocalAlternative + EmergencyNumberResolver.
     implementation(project(":core:cloud"))
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.process)

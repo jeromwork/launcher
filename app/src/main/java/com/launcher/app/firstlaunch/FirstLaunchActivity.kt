@@ -629,14 +629,20 @@ class FirstLaunchActivity : ComponentActivity() {
     }
 
     private fun proceedToHome() {
-        // Spec 015 (F-3) FR-005 — if the user-facing wizard has not run yet for
-        // the active preset, route to WizardActivity instead of HomeActivity.
-        // Spec 010 setup wizard handles GMS + role-home + notifications; F-3
-        // wizard handles language / theme / tile-set / system-settings detail.
+        // TASK-126 T055 — replaces legacy F-3 WizardActivity with the new
+        // preset-composition WizardHostActivity. Spec 010 setup wizard above
+        // (GMS + role-home + notifications) and F-4 Sign-In + F-5 recovery
+        // steps remain intact — this rewire touches only the final hop.
+        //
+        // The legacy `userPreferencesStore.isWizardCompleted` gate is
+        // preserved: it signals «user already finished the wizard for this
+        // preset». For a fresh install / preset change we route to the new
+        // wizard; the new engine derives progress from `Provider.check()` on
+        // every run (CL-5), so re-entry after process death is safe.
         lifecycleScope.launch {
             val presetId = "simple-launcher"
             val next = if (!userPreferencesStore.isWizardCompleted(presetId)) {
-                Intent(this@FirstLaunchActivity, com.launcher.app.wizard.WizardActivity::class.java)
+                Intent(this@FirstLaunchActivity, com.launcher.app.wizard.WizardHostActivity::class.java)
             } else {
                 Intent(this@FirstLaunchActivity, HomeActivity::class.java)
             }

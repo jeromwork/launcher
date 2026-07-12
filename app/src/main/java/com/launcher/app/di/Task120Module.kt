@@ -170,4 +170,12 @@ val task120Module = module {
             store = get(),
         )
     }
+
+    // TASK-126 Phase 2 T056 — post-wizard kiosk apply (StatusBar + LauncherRole).
+    single {
+        com.launcher.app.wizard.PostWizardKioskApply(
+            registry = get(),
+            store = get(),
+        )
+    }
 }

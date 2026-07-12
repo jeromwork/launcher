@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Launcher.Workspace" parent="Theme.AppCompat.Light.NoActionBar" />
+
+    <!-- TASK-126 T054 — SplashScreen theme для WizardHostActivity.
+         Держим splash до тех пор, пока WizardViewModel не эмитит first non-Loading state. -->
+    <style name="Theme.Launcher.WizardSplash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@android:color/white</item>
+        <item name="postSplashScreenTheme">@style/Theme.Launcher.Workspace</item>
+    </style>
 </resources>

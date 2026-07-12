@@ -274,6 +274,14 @@
             android:exported="false"
             android:label="@string/wizard_loading" />
 
+        <!-- TASK-126 T054/T055 — новый preset-composition wizard host.
+             Splash theme держится до первого non-Loading state WizardViewModel'а. -->
+        <activity
+            android:name=".wizard.WizardHostActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Launcher.WizardSplash"
+            android:label="@string/wizard_loading" />
+
         <!--
           Spec 015 (F-3) FR-016: hard-fail fallback shown when a bundled
           config has schemaVersion > known, per Q-6 (b). Launched explicitly
