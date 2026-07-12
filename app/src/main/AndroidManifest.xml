@@ -11,6 +11,14 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!--
+      TASK-126 Phase 4 (FR-012, US-4, CL-9): boot-check receiver dispatches
+      a WorkManager job to re-apply `critical=true` preset components after
+      a device reboot. BootCheckReceiver.onReceive() returns within ~100 ms;
+      actual reconcile runs in BootCheckWorker outside the receiver context.
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!--
       Spec 009 FR-023: READ_CONTACTS for admin-only ACTION_PICK flow
       (system contact picker in EditorScreen). Permission is requested
       lazily at first picker tap, with rationale (FR-023a) + manual-entry
@@ -291,6 +299,22 @@
             android:name=".wizard.PlayStoreFallbackActivity"
             android:exported="false"
             android:label="@string/play_store_fallback_title" />
+
+        <!--
+          TASK-126 Phase 4 T080 — dispatch-only receiver for BOOT_COMPLETED.
+          Enqueues BootCheckWorker via WorkManager and returns immediately.
+          Not exported: only the system fires BOOT_COMPLETED for the app's
+          own receiver.
+        -->
+        <receiver
+            android:name=".boot.BootCheckReceiver"
+            android:exported="true"
+            android:enabled="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <!--
           Spec 008 FR-022 T3: disable default WorkManager auto-init so our
