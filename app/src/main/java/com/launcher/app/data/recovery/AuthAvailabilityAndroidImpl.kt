@@ -2,9 +2,9 @@ package com.launcher.app.data.recovery
 
 import com.launcher.api.setup.GmsAvailabilityPort
 import com.launcher.api.setup.GmsStatus
-import family.keys.api.AuthAvailability
-import family.keys.api.AuthAvailabilityStatus
-import family.keys.api.AvailabilityReason
+import cryptokit.keys.api.AuthAvailability
+import cryptokit.keys.api.AuthAvailabilityStatus
+import cryptokit.keys.api.AvailabilityReason
 
 /**
  * Android adapter wiring F-4's [GmsAvailabilityPort] (spec 010) onto the F-5

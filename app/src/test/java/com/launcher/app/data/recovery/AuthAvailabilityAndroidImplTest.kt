@@ -2,8 +2,8 @@ package com.launcher.app.data.recovery
 
 import com.launcher.api.setup.GmsAvailabilityPort
 import com.launcher.api.setup.GmsStatus
-import family.keys.api.AuthAvailabilityStatus
-import family.keys.api.AvailabilityReason
+import cryptokit.keys.api.AuthAvailabilityStatus
+import cryptokit.keys.api.AvailabilityReason
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

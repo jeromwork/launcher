@@ -1,7 +1,7 @@
 package com.launcher.app.push
 
-import family.keys.api.ConfigSaver
-import family.keys.api.IdentityProof
+import cryptokit.keys.api.ConfigSaver
+import cryptokit.keys.api.IdentityProof
 import family.push.api.EventType
 import family.push.api.PushHandler
 import family.push.api.PushHandlerRegistry

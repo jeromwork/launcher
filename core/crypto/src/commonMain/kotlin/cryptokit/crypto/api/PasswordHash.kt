@@ -60,7 +60,7 @@ interface PasswordHash {
         const val SALT_SIZE: Int = 16
 
         // TODO(pre-release-audit): Argon2id parameter review — see full checklist in
-        // family.keys.api.KdfParams.kt companion object. Keep DEFAULT_MEMORY_KIB and
+        // cryptokit.keys.api.KdfParams.kt companion object. Keep DEFAULT_MEMORY_KIB and
         // DEFAULT_ITERATIONS in sync with KdfParams.DEFAULT_MEMORY_KB / DEFAULT_ITERATIONS
         // (single source of truth per pre-release-audit → review both files).
     }

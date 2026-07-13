@@ -1,18 +1,19 @@
 ---
 id: TASK-56
 title: Rename family.keys.* → cryptokit.keys.* namespace
-status: Draft
+status: Done
 assignee: []
 created_date: '2026-06-26 09:44'
+updated_date: '2026-07-13'
 labels:
   - crypto
   - refactor
   - namespace
   - follow-up
-milestone: m-4
+milestone: m-1
 dependencies:
   - TASK-51
-priority: low
+priority: medium
 ordinal: 56000
 ---
 
@@ -48,8 +49,10 @@ Trivial. ~30 мин — это чистый find-replace + git mv + import updat
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 grep -rn "family\.keys" --include="*.kt" . = 0 матчей в production коде
-- [ ] #2 Все ports + impls + tests из :core:keys переименованы из family.keys.* в cryptokit.keys.*
-- [ ] #3 Build green, все unit + Robolectric тесты зелёные
-- [ ] #4 Konsist fitness rule NoLegacyFamilyNamespaceTest расширен на cryptokit.keys.* (если не покрыт)
+- [x] #1 [hand] grep -rn "family\.keys" --include="*.kt" . = 0 матчей в production коде
+- [x] #2 [hand] Все ports + impls + tests из :core:keys переименованы из family.keys.* в cryptokit.keys.*
+- [x] #3 [hand] Build green, все unit + Robolectric тесты зелёные
+- [x] #4 [hand] Konsist fitness rule NoLegacyFamilyNamespaceTest расширен на family.keys.*
+- [x] #5 [hand] Wire literal `PrimitiveSerialDescriptor("family.keys.ByteArrayBase64")` переименован в `cryptokit.keys.ByteArrayBase64` (owner authorized 2026-07-13 — no production consumers)
+- [x] #6 [hand] Addendum consolidation: ByteArrayBase64Serializer унифицирован в :core:crypto (был продублирован в :core:crypto и :core:keys); :core:keys импортит из :core:crypto; SerialDescriptor name = `cryptokit.ByteArrayBase64` (stack-wide, не module-scoped)
 <!-- AC:END -->
