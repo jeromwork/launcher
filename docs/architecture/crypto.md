@@ -1236,6 +1236,37 @@ F-CRYPTO 1.0.0 включает `iosX64`, `iosArm64`, `iosSimulatorArm64` target
 
 ---
 
+## FFI Toolchain — Exit Ramps
+<!-- TASK-122 -->
+
+Foundation, установленный в TASK-122, использует:
+- **UniFFI 0.28+** (proc-macro mode) — генератор биндингов Rust ↔ Kotlin.
+- **cargo-ndk 4.1.2** — плагин для кросс-компиляции Rust под Android под Gradle.
+- **Прямые `Exec` таски** в `crypto-ffi/build.gradle.kts` (никаких third-party cargo-ndk Gradle-плагинов — willir / mozilla плагины отстают от AGP 8.7 по состоянию на 2026-07).
+
+### Exit ramp — UniFFI умирает или ломает контракт
+
+Стоимость: ~2–3 недели на каждую crypto-поверхность, процедура хорошо задокументирована.
+Путь:
+1. Заменить `#[uniffi::export]` на ручные `extern "C"` функции.
+2. Использовать `cbindgen` для генерации C-хедера из Rust.
+3. Написать Kotlin `external fun` декларации против C ABI.
+4. Обернуть каждый `Java_...` в `std::panic::catch_unwind` (см. [Rustonomicon — Unwinding](https://doc.rust-lang.org/nomicon/unwinding.html)).
+5. Reference-реализация: Signal `libsignal` `bridge_fn` macro — production-quality pattern (https://github.com/signalapp/libsignal).
+
+### Exit ramp — cargo-ndk сломался / заброшен
+
+Стоимость: ~1–2 дня на каждый Rust crate.
+Путь: заменить вызовы `cargo ndk build` на прямой `cargo build --target aarch64-linux-android --release` + ручное копирование `.so` в `jniLibs/arm64-v8a/`. Понадобится выставить env переменные NDK toolchain (`CC_aarch64_linux_android`, `AR_aarch64_linux_android`) — см. [Android NDK docs](https://developer.android.com/ndk/guides/other_build_systems).
+
+### Panic contract (FR-011 fitness function)
+
+UniFFI 0.28+ автоматически оборачивает экспортируемые функции в `catch_unwind`. Для non-throwing сигнатур (как наша `panics(msg: String) -> String`) Rust-паника превращается в `InternalException` на Kotlin-стороне — **не** в abort процесса. Этот behavior **не задокументирован** в официальных UniFFI docs (выведен из source + issue #485). Мы шипим явный smoke-тест (`PanicFfiTest.panic_isConvertedToKotlinException`) и skill [`crypto-ffi-panic-check`](../../.claude/skills/crypto-ffi-panic-check/SKILL.md) чтобы ловить breakage при апгрейдах UniFFI.
+
+<!-- /TASK-122 -->
+
+---
+
 ## Cross-reference index
 
 - Spec F-CRYPTO: [`specs/016-f-crypto-core-module/spec.md`](../../specs/016-f-crypto-core-module/spec.md).

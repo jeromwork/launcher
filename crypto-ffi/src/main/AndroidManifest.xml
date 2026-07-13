@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TASK-122 F-CRYPTO Rust FFI Foundation — empty manifest for :crypto-ffi library module.
+     The Rust `.so` is loaded via System.loadLibrary() from the UniFFI-generated Kotlin
+     binding on first FFI call. No components, no permissions. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
