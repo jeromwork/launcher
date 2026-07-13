@@ -1,10 +1,10 @@
 ---
 id: TASK-126
 title: Wizard runtime migration to Preset composition foundation
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-07-11 07:45'
-updated_date: '2026-07-11 17:00'
+updated_date: '2026-07-13 06:36'
 labels:
   - phase-2
   - refactor

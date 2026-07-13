@@ -1,10 +1,10 @@
 ---
 id: TASK-127
 title: HomeActivity config-load failure post-wizard (TASK-126 regression)
-status: In Progress
+status: Paused
 assignee: []
 created_date: '2026-07-13'
-updated_date: '2026-07-13'
+updated_date: '2026-07-13 06:36'
 labels:
   - phase-2
   - home-screen
@@ -79,3 +79,16 @@ TASK-52 закрыл этот класс багов через детермин�
 ## Definition of Done
 
 `In Progress → Done` через `pre-pr-backlog-sync` после fix + verification на Xiaomi 11 (тот же adb id `17f33878`, свежая установка).
+
+<!-- SECTION:PAUSE_REASON:BEGIN -->
+## Pause reason (2026-07-13)
+
+Owner decision: приоритет — F-CRYPTO wave (TASK-122). Bug обнаружен во время TASK-126 physical verification, задокументирован, evidence сохранён — но fix отложен. Не блокирует internal development (F-CRYPTO не касается HomeActivity), блокирует только user-facing smoke test на Xiaomi.
+
+**Resume conditions**:
+- F-CRYPTO wave завершится (TASK-122 → TASK-123 → TASK-124), ИЛИ
+- Понадобится показать MVP кому-то (пользователю или инвестору) → visible bug должен быть закрыт.
+
+**Где сохранена частичная работа**: только backlog файл + evidence в `verification-evidence/task-128-xiaomi-*` (screenshots, logcat). Никакого код-WIP нет.
+
+<!-- SECTION:PAUSE_REASON:END -->

@@ -1,10 +1,10 @@
 ---
 id: TASK-128
-title: VERIFY-xiaomi bucket #1 (post-TASK-126 manual gates)
-status: In Progress
+title: VERIFY-xiaomi bucket
+status: Paused
 assignee: []
 created_date: '2026-07-13'
-updated_date: '2026-07-13'
+updated_date: '2026-07-13 06:36'
 labels:
   - phase-2
   - verification
@@ -62,3 +62,12 @@ Both items pending resolution of TASK-127 (HomeActivity config-load failure post
 ## Definition of Done
 
 Both AC `[x]` after TASK-127 resolution + re-verification on Xiaomi Redmi Note 11 (adb id `17f33878`).
+
+<!-- SECTION:PAUSE_REASON:BEGIN -->
+## Pause reason (2026-07-13)
+
+Bucket pause = следствие паузы TASK-127. Оба items заблокированы одной первопричиной (HomeActivity config-load failure). Bucket остаётся `Paused` пока TASK-127 не возобновится и не закроется.
+
+**Rotation правило (verify-bucket-rotate skill)**: Monday-отсечка не применяется к Paused bucket'ам — только к активным Draft/In Progress. Bucket оживёт когда TASK-127 → Done + prior re-run.
+
+<!-- SECTION:PAUSE_REASON:END -->

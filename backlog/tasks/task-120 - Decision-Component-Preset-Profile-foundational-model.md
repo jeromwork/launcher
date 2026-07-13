@@ -1,10 +1,10 @@
 ---
 id: TASK-120
 title: 'Decision: Component/Preset/Profile foundational model'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-07-09 10:55'
-updated_date: '2026-07-11 08:00'
+updated_date: '2026-07-13 06:36'
 labels:
   - phase-2
   - foundation
@@ -15,10 +15,10 @@ labels:
 milestone: m-1
 dependencies:
   - TASK-65
-priority: high
-ordinal: 120000
 references:
   - specs/task-120-preset-composition-foundation/
+priority: high
+ordinal: 120000
 ---
 
 ## Description
