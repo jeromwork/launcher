@@ -53,6 +53,19 @@
 
 ---
 
+## Sequences
+
+**Skipped intentionally** for this spec.
+
+**Rationale**: TASK-122 is pure build infrastructure — no user-visible runtime behavior, no external services, no multi-step user flows. The only "sequence" is `developer runs ./gradlew build → cargo compiles Rust → UniFFI generates Kotlin binding → androidTest calls hello("world") → passes`. This is a build pipeline, not application behavior — sequence diagrams would document tooling, not domain flow. `speckit-scenarios` skill's own "When NOT to invoke" allows skip for trivial specs.
+
+Sequences will be authored for downstream F-CRYPTO tasks that DO have user-visible runtime:
+- TASK-124 (openmls integration) — MLS group creation / message send-receive flows.
+- TASK-67 (snow pairing) — Noise handshake sequence between devices.
+- TASK-125 (SQLCipher) — encrypted persistence read/write flows.
+
+---
+
 ### User Story 2 — CI автоматически валидирует Rust FFI на каждом PR (Priority: P2)
 
 Разработчик открывает PR, задевающий `crypto-ffi/`. GitHub Actions автоматически: (a) устанавливает Rust toolchain + Android targets, (b) кросс-компилит `.so` под 4 ABI, (c) запускает Kotlin androidTest на эмуляторе. Если что-то падает — PR blocked. Позволяет ловить регрессии до merge.
