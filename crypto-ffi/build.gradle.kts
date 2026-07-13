@@ -217,6 +217,92 @@ afterEvaluate {
         .configureEach { dependsOn(buildRustLibraries) }
 }
 
+// ---------------------------------------------------------------------------
+// verifyUniffiVersions — fitness function per FR-008 / CLAUDE.md rule 7
+// ---------------------------------------------------------------------------
+//
+// Guards against UniFFI version drift between three sources of truth:
+//   1. Cargo.toml [dependencies]      — the crate we compile against.
+//   2. Cargo.toml [build-dependencies] — the codegen crate at build.rs time.
+//   3. Cargo.lock                     — the authoritative resolved version.
+//
+// Kotlin runtime is JNA-only in UniFFI 0.28 (generated file is self-contained,
+// no separate `uniffi-kotlin-runtime` artifact) — so there is no fourth source
+// to align today. Future-proofed: if a Kotlin runtime dep appears later, add
+// a fourth check here.
+//
+// Cargo.toml pins as major.minor ("0.28"); Cargo.lock resolves to full semver
+// ("0.28.3"). We compare on major.minor to reflect the actual pin semantics
+// (any 0.28.x is intended-compatible; a 0.29 in the lock file would mean the
+// pin drifted).
+val verifyUniffiVersions by tasks.registering {
+    group = "verification"
+    description = "Fitness function per FR-008: UniFFI version lockstep across " +
+        "Cargo.toml [dependencies], [build-dependencies], and Cargo.lock."
+
+    val cargoTomlFile = File(rustCrateDir, "Cargo.toml")
+    val cargoLockFile = File(rustCrateDir, "Cargo.lock")
+    inputs.file(cargoTomlFile)
+    inputs.file(cargoLockFile)
+
+    doLast {
+        val cargoToml = cargoTomlFile.readText()
+
+        // Match every `uniffi = { version = "X.Y" ... }` line (covers both
+        // [dependencies] and [build-dependencies] sections).
+        val tomlVersions = Regex("""^\s*uniffi\s*=\s*\{\s*version\s*=\s*"([^"]+)".*$""", RegexOption.MULTILINE)
+            .findAll(cargoToml)
+            .map { it.groupValues[1] }
+            .toList()
+
+        require(tomlVersions.isNotEmpty()) {
+            "verifyUniffiVersions: no `uniffi = { version = ... }` entry found in Cargo.toml. " +
+                "Expected both [dependencies] and [build-dependencies] to pin uniffi."
+        }
+        require(tomlVersions.size >= 2) {
+            "verifyUniffiVersions: expected uniffi in BOTH [dependencies] and " +
+                "[build-dependencies], only found ${tomlVersions.size} entry: $tomlVersions."
+        }
+        require(tomlVersions.toSet().size == 1) {
+            "UniFFI version drift within Cargo.toml: $tomlVersions. " +
+                "All uniffi entries in [dependencies] and [build-dependencies] MUST match. " +
+                "See crypto-ffi/README.md § UniFFI bump."
+        }
+        val cargoTomlVersion = tomlVersions.first()
+
+        // Cargo.lock: find the `[[package]]` entry for uniffi and extract its version.
+        val cargoLock = cargoLockFile.readText()
+        val lockVersion = Regex("""\[\[package\]\]\s*\r?\nname\s*=\s*"uniffi"\s*\r?\nversion\s*=\s*"([^"]+)"""")
+            .find(cargoLock)
+            ?.groupValues
+            ?.get(1)
+            ?: throw GradleException(
+                "verifyUniffiVersions: no `[[package]] name = \"uniffi\"` entry in Cargo.lock. " +
+                    "Run `cargo build` in crypto-ffi/ to regenerate."
+            )
+
+        fun majorMinor(v: String): String = v.split(".").take(2).joinToString(".")
+
+        val tomlMM = majorMinor(cargoTomlVersion)
+        val lockMM = majorMinor(lockVersion)
+        require(tomlMM == lockMM) {
+            "UniFFI version drift: Cargo.toml=$cargoTomlVersion (major.minor $tomlMM), " +
+                "Cargo.lock=$lockVersion (major.minor $lockMM). All sources MUST match on major.minor. " +
+                "See crypto-ffi/README.md § UniFFI bump."
+        }
+
+        logger.lifecycle(
+            "verifyUniffiVersions: PASS — Cargo.toml=$cargoTomlVersion, Cargo.lock=$lockVersion " +
+                "(major.minor $tomlMM aligned)."
+        )
+    }
+}
+
+// Wire into :crypto-ffi:check so drift is caught on every build.
+tasks.named("check") {
+    dependsOn(verifyUniffiVersions)
+}
+
 dependencies {
     // JNA — UniFFI-generated Kotlin binding uses JNA to call into libcrypto_ffi.so.
     // Version 5.14.0 per plan.md §Technical Context. `@aar` variant bundles the

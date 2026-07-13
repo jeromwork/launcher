@@ -100,14 +100,14 @@ AI session: androidTest classes compile + APK builds. Owner (post-merge, in Veri
 
 Purpose: catch version drift between Rust `uniffi` crate and Kotlin runtime binding at build-time instead of runtime crash.
 
-- [ ] **T017** Add Gradle task `verifyUniffiVersions` to `crypto-ffi/build.gradle.kts`. Task logic:
+- [x] **T017** Add Gradle task `verifyUniffiVersions` to `crypto-ffi/build.gradle.kts`. Task logic:
   1. Read `uniffi` version from `crypto-ffi/Cargo.toml` (parse via regex on `uniffi = "X.Y"` line under `[dependencies]`).
   2. Read `uniffi` version from `crypto-ffi/Cargo.lock` (authoritative resolved version).
   3. Read Kotlin runtime version by running `cargo run --bin uniffi-bindgen -- --version` OR by comparing against the `crypto_ffi.kt` generated file's declared version comment.
   4. Fail with actionable message if any of the three disagree: `"UniFFI version mismatch: Cargo.toml=X, Cargo.lock=Y, bindgen=Z. All three must match. See crypto-ffi/README.md § UniFFI bump."`.
   Wire task into `tasks.named("check") { dependsOn("verifyUniffiVersions") }`. **Files**: `crypto-ffi/build.gradle.kts` (edit). **Verify**: `./gradlew :crypto-ffi:verifyUniffiVersions` green in normal state. (FR-008, US3, SC-005, Plan §Phase 2.5)
 
-- [ ] **T018** Manual mismatch trial: temporarily edit `crypto-ffi/Cargo.toml` to `uniffi = "0.27"`, run `./gradlew :crypto-ffi:verifyUniffiVersions`, confirm task fails with the actionable message from T017. **Revert edit** after confirmation. Record proof in commit message ("verified fitness function fires on artificial mismatch"). **Files**: none (transient edit reverted). **Verify**: build log shows expected FAIL then, after revert, PASS. (SC-005, US3)
+- [x] **T018** Manual mismatch trial: temporarily edit `crypto-ffi/Cargo.toml` to `uniffi = "0.27"`, run `./gradlew :crypto-ffi:verifyUniffiVersions`, confirm task fails with the actionable message from T017. **Revert edit** after confirmation. Record proof in commit message ("verified fitness function fires on artificial mismatch"). **Files**: none (transient edit reverted). **Verify**: build log shows expected FAIL then, after revert, PASS. (SC-005, US3)
 
 ### Checkpoint Phase 2.5
 
