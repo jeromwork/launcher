@@ -66,18 +66,27 @@ Sequences will be authored for downstream F-CRYPTO tasks that DO have user-visib
 
 ---
 
-### User Story 2 — CI автоматически валидирует Rust FFI на каждом PR (Priority: P2)
+### User Story 2 — Manual local verification workflow (Priority: P2) — replaces original "CI automation"
 
-Разработчик открывает PR, задевающий `crypto-ffi/`. GitHub Actions автоматически: (a) устанавливает Rust toolchain + Android targets, (b) кросс-компилит `.so` под 4 ABI, (c) запускает Kotlin androidTest на эмуляторе. Если что-то падает — PR blocked. Позволяет ловить регрессии до merge.
+**Original scope** (initial draft, pre-Q2): «GitHub Actions автоматически прогоняет pipeline на каждом PR». **Отменено** в Clarifications Q2 — владелец не хочет тратить GitHub CI-минуты, ноутбук слишком слабый для эмулятора, real device (Xiaomi 11T) уже есть.
 
-**Why this priority**: без CI foundation превращается в «работает на моей машине» — следующие крипто-таски (TASK-124 openmls) могут случайно поломать build на другой машине / другой NDK версии.
+**Actual scope** (post-Q2): manual verification workflow через backlog status transitions.
 
-**Independent Test**: открыть test-PR, изменяющий один символ в `crypto-ffi/src/lib.rs` (например, поменять `"Hello, "` на `"Hi, "`) — CI должен упасть на тесте, потому что assertion не совпадает.
+Разработчик открывает PR, задевающий `crypto-ffi/`. **Никакой GitHub Actions не запускается.** Вместо этого:
+1. PR review + merge происходит по стандартной процедуре.
+2. Backlog task-122 переходит в статус `Verification` (не `Done`) с note «pending: local emulator + Xiaomi 11T smoke».
+3. Владелец за desktop-ПК запускает `./gradlew :crypto-ffi:connectedAndroidTest` — либо на arm64-эмуляторе Android Studio, либо на Xiaomi 11T через USB.
+4. Оба теста (`hello` + `panic_isConvertedToKotlinException`) зелёные → task-122 переходит в `Done`.
+
+**Why this priority (post-Q2)**: без manual verification foundation превращается в «работает на моей машине». Разница с Q2 original: verification делаем **вручную владельцем**, а не автоматически на GitHub.
+
+**Independent Test**: изменить один символ в `crypto-ffi/src/lib.rs` (например, `"Hello, "` → `"Hi, "`) — при следующем manual verification прогоне тест должен упасть с assertion mismatch. Это demonstration что verification workflow работает.
 
 **Acceptance Scenarios**:
 
-1. **Given** новый PR затрагивает `crypto-ffi/**` или `.github/workflows/crypto-ffi.yml`, **When** CI триггерится, **Then** запускается pipeline: setup Rust → cross-compile 4 ABI → run androidTest на эмуляторе. Успех = зелёный чек.
-2. **Given** PR ломает Rust-функцию (например, меняет сигнатуру `hello`), **When** CI запущен, **Then** сборка или тест падает, PR помечен red.
+1. **Given** PR merged, task-122 в статусе `Verification`, **When** владелец за desktop-ПК запускает `./gradlew :crypto-ffi:connectedAndroidTest` с Xiaomi 11T подключённым через USB, **Then** оба теста зелёные, task-122 переходит в `Done`.
+2. **Given** PR ломает Rust-функцию (например, меняет сигнатуру `hello`), **When** владелец прогоняет verification, **Then** сборка или тест падает — task-122 остаётся в `Verification`, следующий PR исправляет.
+3. **Given** device временно недоступен, **When** приоритет верификации подождать до появления device, **Then** task-122 остаётся в `Verification` (не `Done`) без давления — это soft gate, не автоматический CI.
 
 ---
 
@@ -124,16 +133,16 @@ Sequences will be authored for downstream F-CRYPTO tasks that DO have user-visib
 
 - **NFR-001**: Rust toolchain версия MUST быть pinned в `rust-toolchain.toml` (per Clarifications Q3). Первичный выбор — **1.97.0** (текущая stable на dev-машине владельца). Bump = отдельная backlog-задача. Cargo.toml `rust-version` (MSRV) НЕ используется (это concept для library crates-consumer'ов).
 - **NFR-002**: `Cargo.lock` MUST быть committed в git (стандарт для binary crates / приложений).
-- **NFR-003**: Generated Kotlin bindings MUST быть в `.gitignore` (генерируются at build time, source of truth — `.udl` или proc-macro в Rust).
+- **NFR-003**: Generated Kotlin bindings MUST быть в `.gitignore` (генерируются at build time, source of truth — proc-macro annotations в `lib.rs`).
 - **NFR-004**: `libcrypto_ffi.so` MUST быть в `.gitignore` (build artefact).
 
 ### Key Entities
 
 - **`crypto-ffi/Cargo.toml`**: root workspace manifest, MSRV, deps (`uniffi`, `uniffi_bindgen`).
 - **`crypto-ffi/src/lib.rs`**: Rust source с exported function `hello`.
-- **UniFFI interface**: либо `crypto_ffi.udl` файл, либо proc-macro atributes в `lib.rs` (choice → clarify).
+- **UniFFI interface**: proc-macro attributes (`#[uniffi::export]`, `#[derive(uniffi::Object)]`) inline в `lib.rs` (per Clarifications Q1). `.udl` файл не используется.
 - **`crypto-ffi/build.gradle.kts`**: Gradle module, cargo-ndk plugin config, UniFFI kotlin gen task.
-- **`.github/workflows/crypto-ffi.yml`**: CI workflow.
+- **`crypto-ffi/src/bin/uniffi-bindgen.rs`**: entry-point для UniFFI bindgen CLI, живёт внутри крейта per UniFFI 0.28+ convention.
 
 ## Success Criteria *(mandatory)*
 
