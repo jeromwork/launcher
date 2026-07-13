@@ -5,24 +5,21 @@ import org.junit.Test
 import java.io.File
 
 /**
- * TASK-51 T072 — fitness rule: zero `family.crypto.*` / `family.pairing.*`
- * imports anywhere. Phase 4 renamed the namespaces to `cryptokit.*`
- * (FR-007, FR-016, SC-012).
+ * TASK-51 T072 + TASK-56 — fitness rule: zero `family.crypto.*` /
+ * `family.pairing.*` / `family.keys.*` imports anywhere. All three
+ * namespaces have been renamed to `cryptokit.*`:
+ *  - `family.crypto.*`  -> `cryptokit.crypto.*` (TASK-51 Phase 4)
+ *  - `family.pairing.*` -> `cryptokit.pairing.*` (TASK-51 Phase 4)
+ *  - `family.keys.*`    -> `cryptokit.keys.*` (TASK-56)
  *
- * NOTE: `family.keys.*` is intentionally EXCLUDED — that namespace is
- * the territory of follow-up TASK-56 (rename `family.keys.*` →
- * `cryptokit.keys.*`) and still lives in `core/keys/` at the time of
- * TASK-51 close.
- *
- * Whitelist: fitness tests + specs/ + docs/ + backlog/ + core/keys/
- * (still owns `family.keys.*` until TASK-56 lands).
+ * Whitelist: fitness tests + specs/ + docs/ + backlog/ (historical prose only).
  */
 class NoLegacyFamilyNamespaceTest {
 
     @Test
-    fun nothingImports_familyCrypto_or_familyPairing() {
+    fun nothingImports_legacyFamilyNamespaces() {
         val violations = mutableListOf<String>()
-        val forbiddenPrefixes = listOf("family.crypto", "family.pairing")
+        val forbiddenPrefixes = listOf("family.crypto", "family.pairing", "family.keys")
         scanRepo().forEach { file ->
             file.useLines { lines ->
                 lines.forEachIndexed { idx, raw ->
@@ -36,9 +33,9 @@ class NoLegacyFamilyNamespaceTest {
             }
         }
         assertTrue(
-            "Namespaces family.crypto.* / family.pairing.* removed in TASK-51 " +
-                "Phase 4 (renamed to cryptokit.*). family.keys.* remains until " +
-                "TASK-56.\nViolations:\n${violations.joinToString("\n")}",
+            "Namespaces family.crypto.* / family.pairing.* / family.keys.* all " +
+                "removed (renamed to cryptokit.* in TASK-51 Phase 4 and TASK-56).\n" +
+                "Violations:\n${violations.joinToString("\n")}",
             violations.isEmpty(),
         )
     }

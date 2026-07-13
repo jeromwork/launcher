@@ -1,9 +1,9 @@
 package com.launcher.app.ui.recovery
 
-import family.keys.api.AuthIdentity
-import family.keys.api.Outcome
-import family.keys.api.PassphrasePrompter
-import family.keys.api.RecoveryError
+import cryptokit.keys.api.AuthIdentity
+import cryptokit.keys.api.Outcome
+import cryptokit.keys.api.PassphrasePrompter
+import cryptokit.keys.api.RecoveryError
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -14,7 +14,7 @@ import org.junit.Test
  * Минимальный unit test для RecoveryViewModel state machine (T072a, US2 acceptance).
  *
  * Polный E2E recovery flow tests живут в core/keys/commonTest
- * ([family.keys.RecoveryFlowTest]). Тут проверяется только ViewModel-side
+ * ([cryptokit.keys.RecoveryFlowTest]). Тут проверяется только ViewModel-side
  * state transitions и passphrase-bridge поведение.
  *
  * Так как RecoveryFlow в production требует Android SecureKeyStore + libsodium

@@ -12,9 +12,9 @@ import com.launcher.app.push.FcmTokenPublisherImpl
 import com.launcher.app.push.FirebaseIdTokenProviderAdapter
 import com.launcher.app.push.PushTriggerConfigChangeNotifier
 import com.launcher.cloud.api.CloudAvailability
-import family.keys.api.ConfigChangeNotifier
-import family.keys.api.IdentityProof
-import family.keys.api.internal.DeviceIdentity
+import cryptokit.keys.api.ConfigChangeNotifier
+import cryptokit.keys.api.IdentityProof
+import cryptokit.keys.api.internal.DeviceIdentity
 import family.push.android.HttpPushTrigger
 import family.push.android.WorkManagerBackgroundDispatcher
 import family.push.api.BackgroundDispatcher

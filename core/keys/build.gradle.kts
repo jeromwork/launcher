@@ -1,7 +1,7 @@
 // :core:keys — F-5 key hierarchy + ConfigCipher + Recovery (spec 018).
 //
-// Package convention: family.keys.* (consistent c family.crypto.*, готово к extract
-// в family-crypto-kmp вместе с :core:crypto).
+// Package convention: cryptokit.keys.* (consistent c cryptokit.crypto.*, готово к extract
+// в cryptokit-kmp вместе с :core:crypto). Renamed from family.keys.* in TASK-56.
 //
 // Module rules (per spec 018 plan.md):
 //  • commonMain — pure-Kotlin domain (ports, wire-format, sealed errors, fakes).
@@ -79,7 +79,7 @@ kotlin {
 }
 
 android {
-    namespace = "family.keys"
+    namespace = "cryptokit.keys"
     compileSdk = libs.versions.compileSdk.get().toInt()
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()
