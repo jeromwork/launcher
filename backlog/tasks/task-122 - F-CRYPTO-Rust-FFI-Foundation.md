@@ -1,10 +1,10 @@
 ---
 id: TASK-122
 title: F-CRYPTO Rust FFI Foundation (cargo-ndk + UniFFI toolchain)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-07-10 16:40'
-updated_date: '2026-07-13 06:50'
+updated_date: '2026-07-13'
 labels:
   - phase-2
   - F-feature
@@ -141,8 +141,8 @@ EFFORT: ~1 week (32-40 часов).
 <!-- AC:BEGIN -->
 - [x] #1 [hand] Windows dev setup автоматизирован: skill `rust-android-setup` + companion script `scripts/setup-rust-android.ps1`. Idempotent, ставит только недостающее, refuse'ит на не-Windows машине. Владелец запускает раз на новой машине, ~15 мин.
 - [x] #2 [hand] `./gradlew :crypto-ffi:build` собирает `libcrypto_ffi.so` под **arm64-v8a** (343 KB, verified 2026-07-13); structure supports adding armv7/x86_64 через one-line изменение `abiFilters` без rewrite'ов Kotlin/Rust/tests
-- [ ] #3 [hand] Kotlin androidTest вызывает Rust `hello("world")` → возвращает `"Hello, world"` → зелёный на **Xiaomi 11T (arm64) через USB** ИЛИ на arm64-эмуляторе Android Studio
-- [ ] #4 [hand] Panic smoke-test (`panic_isConvertedToKotlinException`) — зелёный на том же устройстве; Rust `panic!()` конвертируется в Kotlin exception, а не в process abort
+- [x] #3 [hand] Kotlin androidTest вызывает Rust `hello("world")` → возвращает `"Hello, world"` → зелёный на **Xiaomi 11T (arm64) через USB** (verified 2026-07-13, commit 0f19d05, HelloFfiTest green)
+- [x] #4 [hand] Panic smoke-test (`panic_isConvertedToKotlinException`) — зелёный на том же устройстве (verified 2026-07-13, commit 0f19d05, PanicFfiTest green)
 - [x] #5 [hand] README в `crypto-ffi/` содержит инструкции: добавить функцию / пересобрать / обновить UniFFI
 - [x] #6 [hand] Fitness function падает при расхождении uniffi-rs / uniffi-bindgen / runtime versions (verified 2026-07-13 artificial-mismatch trial, T018)
 - [x] #7 [hand] Skill `crypto-ffi-panic-check` создан в `.claude/skills/` — статически проверяет наличие `panics()` функции и panic-теста, опционально прогоняет тест
@@ -150,7 +150,7 @@ EFFORT: ~1 week (32-40 часов).
 - [x] #9 [auto:checklist] checklists/meta-minimization.md: 13/13 CHK [x]
 - [x] #10 [auto:checklist] checklists/dev-experience.md: 14/14 CHK [x] (+ 5 N/A, 1 exempt)
 - [x] #11 [auto:deferred-physical-device] Xiaomi 11T USB smoke `./gradlew :crypto-ffi:connectedAndroidTest` — 3/3 green ✓ 2026-07-13 (device 2109119DG, Android 11, 0.010s) (T015, T025)
-- [ ] #12 [auto:deferred-local-emulator] arm64 AVD fallback smoke — infrastructure-blocked on Windows x86_64 hosts (Google limitation, T016). Not a merge blocker; T015 physical device is primary path.
+- [N/A] #12 [auto:deferred-local-emulator] arm64 AVD fallback smoke — N/A on Windows x86_64 hosts (Google limitation, documented in specs/task-122-crypto-ffi-foundation/verification/b7-deferred-note.md). T015 physical device (Xiaomi 11T) is the verification path.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -212,3 +212,20 @@ PR merge → task-122 status → **`Verification`** (не `Done`) per CLAUDE.md 
 - Self-hosted GitHub runner если ручной прогон окажется unreliable.
 
 <!-- SECTION:NOTES:END -->
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+
+## Final Summary (Done — 2026-07-13)
+
+**PR #50 merged** (`dc445e3`) → main. F-CRYPTO Rust FFI Foundation complete: Rust workspace `crypto-ffi/` + Gradle module `:crypto-ffi` + UniFFI proc-macro bindings + cargo-ndk cross-compile (arm64-v8a) + 3/3 androidTest green on Xiaomi 11T (HelloFfiTest + PanicFfiTest, device `2109119DG`).
+
+**AC state**: 11/12 `[x]`, 1/12 `[N/A]` (AC #12 arm64 emulator — Google infra limitation on Windows x86_64 hosts, documented in b7-deferred-note.md; physical device path via AC #11 is the primary verification and it's green).
+
+**Unblocks**: TASK-123 (Domain ports + fakes), TASK-124 (openmls Rust adapter), TASK-125 (SQLCipher storage). Foundation теперь reusable для любой будущей Rust integration (snow crate для pairing handshake, post-quantum crypto).
+
+**Deferred to future backlog tasks** (per Session 2026-07-13 clarify):
+- Rust version bump procedure — при выходе 1.98 stable.
+- armv7-linux-androideabi ABI addition — после покупки arm32 phone (~2 недели, one-liner `abiFilters`).
+- Self-hosted GitHub runner — только если ручной прогон окажется unreliable.
+
+<!-- SECTION:FINAL_SUMMARY:END -->
