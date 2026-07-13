@@ -20,11 +20,11 @@ Any task suggesting `.udl`, GitHub Actions, x86 build, or Rust version other tha
 
 Purpose: create the standalone Rust crate skeleton so `cargo check` succeeds against an empty `lib.rs`. No Gradle, no UniFFI yet.
 
-- [ ] **T001** Create `crypto-ffi/Cargo.toml` — single-crate manifest (no `[workspace]`), `[package] name = "crypto_ffi"`, `edition = "2021"`, `[lib] crate-type = ["cdylib", "staticlib"]`, `[dependencies] uniffi = { version = "0.28", features = ["cli"] }`, `[build-dependencies] uniffi = { version = "0.28", features = ["build"] }`. **Files**: `crypto-ffi/Cargo.toml` (new). **Verify**: `cd crypto-ffi && cargo check` errors only on missing `src/lib.rs` (expected). (Plan §Phase 2.1, FR-001, NFR-002)
+- [x] **T001** Create `crypto-ffi/Cargo.toml` — single-crate manifest (no `[workspace]`), `[package] name = "crypto_ffi"`, `edition = "2021"`, `[lib] crate-type = ["cdylib", "staticlib"]`, `[dependencies] uniffi = { version = "0.28", features = ["cli"] }`, `[build-dependencies] uniffi = { version = "0.28", features = ["build"] }`. **Files**: `crypto-ffi/Cargo.toml` (new). **Verify**: `cd crypto-ffi && cargo check` errors only on missing `src/lib.rs` (expected). (Plan §Phase 2.1, FR-001, NFR-002)
 
-- [ ] **T002** [P] Create `crypto-ffi/rust-toolchain.toml` pinning Rust `1.97.0` with `targets = ["aarch64-linux-android"]` and `components = ["rustfmt", "clippy"]`. **Files**: `crypto-ffi/rust-toolchain.toml` (new). **Verify**: `rustup show` inside `crypto-ffi/` reports `1.97.0` as active toolchain. (NFR-001, Clarifications Q3, Q5)
+- [x] **T002** [P] Create `crypto-ffi/rust-toolchain.toml` pinning Rust `1.97.0` with `targets = ["aarch64-linux-android"]` and `components = ["rustfmt", "clippy"]`. **Files**: `crypto-ffi/rust-toolchain.toml` (new). **Verify**: `rustup show` inside `crypto-ffi/` reports `1.97.0` as active toolchain. (NFR-001, Clarifications Q3, Q5)
 
-- [ ] **T003** [P] Append `.gitignore` entries at repo root: `/crypto-ffi/target/`, `/crypto-ffi/build/`, `/crypto-ffi/**/*.so`, `/crypto-ffi/src/main/jniLibs/`. **Do NOT** ignore `Cargo.lock`. **Files**: `.gitignore` (edit). **Verify**: `git check-ignore crypto-ffi/target/foo` returns match; `git check-ignore crypto-ffi/Cargo.lock` returns no match. (NFR-002, NFR-003, NFR-004)
+- [x] **T003** [P] Append `.gitignore` entries at repo root: `/crypto-ffi/target/`, `/crypto-ffi/build/`, `/crypto-ffi/**/*.so`, `/crypto-ffi/src/main/jniLibs/`. **Do NOT** ignore `Cargo.lock`. **Files**: `.gitignore` (edit). **Verify**: `git check-ignore crypto-ffi/target/foo` returns match; `git check-ignore crypto-ffi/Cargo.lock` returns no match. (NFR-002, NFR-003, NFR-004)
 
 ### Checkpoint Phase 2.1
 

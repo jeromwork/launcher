@@ -68,3 +68,10 @@ tmp/
 firestore-tests/test-*.mjs
 
 .tmp/
+
+# TASK-122 crypto-ffi Rust crate: build artefacts + generated bindings + .so
+# NOTE: Cargo.lock is NOT ignored (application crate — committed per NFR-002).
+/crypto-ffi/target/
+/crypto-ffi/build/
+/crypto-ffi/**/*.so
+/crypto-ffi/src/main/jniLibs/
