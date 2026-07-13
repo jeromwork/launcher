@@ -35,6 +35,9 @@ check_*.png
 current_*.png
 ui_raw.txt
 ui.xml
+# TASK-126+ physical smoke evidence — screenshots + logcat dumps.
+# Живут локально, не в git (owner keeps evidence out of history per 2026-07-13 decision).
+verification-evidence/
 
 # Kotlin compiler daemon cache (regenerated on every build).
 .kotlin/
