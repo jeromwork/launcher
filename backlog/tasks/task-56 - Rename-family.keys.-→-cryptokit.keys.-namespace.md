@@ -53,4 +53,6 @@ Trivial. ~30 мин — это чистый find-replace + git mv + import updat
 - [x] #2 [hand] Все ports + impls + tests из :core:keys переименованы из family.keys.* в cryptokit.keys.*
 - [x] #3 [hand] Build green, все unit + Robolectric тесты зелёные
 - [x] #4 [hand] Konsist fitness rule NoLegacyFamilyNamespaceTest расширен на family.keys.*
+- [x] #5 [hand] Wire literal `PrimitiveSerialDescriptor("family.keys.ByteArrayBase64")` переименован в `cryptokit.keys.ByteArrayBase64` (owner authorized 2026-07-13 — no production consumers)
+- [x] #6 [hand] Addendum consolidation: ByteArrayBase64Serializer унифицирован в :core:crypto (был продублирован в :core:crypto и :core:keys); :core:keys импортит из :core:crypto; SerialDescriptor name = `cryptokit.ByteArrayBase64` (stack-wide, не module-scoped)
 <!-- AC:END -->
