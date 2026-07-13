@@ -140,12 +140,17 @@ EFFORT: ~1 week (32-40 часов).
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 [hand] Windows dev setup автоматизирован: skill `rust-android-setup` + companion script `scripts/setup-rust-android.ps1`. Idempotent, ставит только недостающее, refuse'ит на не-Windows машине. Владелец запускает раз на новой машине, ~15 мин.
-- [ ] #2 [hand] `./gradlew :crypto-ffi:build` собирает `libcrypto_ffi.so` под **arm64-v8a**; structure supports adding armv7/x86_64 через one-line изменение `abiFilters` без rewrite'ов Kotlin/Rust/tests
+- [x] #2 [hand] `./gradlew :crypto-ffi:build` собирает `libcrypto_ffi.so` под **arm64-v8a** (343 KB, verified 2026-07-13); structure supports adding armv7/x86_64 через one-line изменение `abiFilters` без rewrite'ов Kotlin/Rust/tests
 - [ ] #3 [hand] Kotlin androidTest вызывает Rust `hello("world")` → возвращает `"Hello, world"` → зелёный на **Xiaomi 11T (arm64) через USB** ИЛИ на arm64-эмуляторе Android Studio
 - [ ] #4 [hand] Panic smoke-test (`panic_isConvertedToKotlinException`) — зелёный на том же устройстве; Rust `panic!()` конвертируется в Kotlin exception, а не в process abort
-- [ ] #5 [hand] README в `crypto-ffi/` содержит инструкции: добавить функцию / пересобрать / обновить UniFFI
-- [ ] #6 [hand] Fitness function падает при расхождении uniffi-rs / uniffi-bindgen / runtime versions
+- [x] #5 [hand] README в `crypto-ffi/` содержит инструкции: добавить функцию / пересобрать / обновить UniFFI
+- [x] #6 [hand] Fitness function падает при расхождении uniffi-rs / uniffi-bindgen / runtime versions (verified 2026-07-13 artificial-mismatch trial, T018)
 - [x] #7 [hand] Skill `crypto-ffi-panic-check` создан в `.claude/skills/` — статически проверяет наличие `panics()` функции и panic-теста, опционально прогоняет тест
+- [x] #8 [auto:checklist] checklists/requirements-quality.md: 14/14 CHK [x]
+- [x] #9 [auto:checklist] checklists/meta-minimization.md: 13/13 CHK [x]
+- [x] #10 [auto:checklist] checklists/dev-experience.md: 14/14 CHK [x] (+ 5 N/A, 1 exempt)
+- [ ] #11 [auto:deferred-physical-device] Xiaomi 11T USB smoke `./gradlew :crypto-ffi:connectedAndroidTest` — 3/3 green (T015, T025)
+- [ ] #12 [auto:deferred-local-emulator] arm64 AVD fallback smoke — infrastructure-blocked on Windows x86_64 hosts (Google limitation, T016). Not a merge blocker; T015 physical device is primary path.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -187,5 +192,23 @@ PR merge → task-122 status → **`Verification`** (не `Done`) per CLAUDE.md 
 1. **Rust version bump procedure + first bump task** — документировать процедуру (test matrix, breaking change check, Cargo.lock regeneration) + создать первый future bump task когда 1.98 stable выйдет и подтвердится industry adoption.
 2. **armv7-linux-androideabi ABI addition** (~2 недели) — после покупки владельцем старого arm32 телефона. One-liner в `abiFilters` + прогон тестов на устройстве.
 3. **Self-hosted GitHub runner** — только если ручной прогон окажется unreliable (регулярно забывается / затягивается). Сейчас не нужен.
+
+### Implementation complete 2026-07-13 (batches B1-B8)
+
+- **B1** (T001-T003): Rust workspace scaffold — Cargo.toml, rust-toolchain.toml (1.97.0), .gitignore. Commit `04dea79`.
+- **B2** (T004-T006): hello() + panics() functions in lib.rs (proc-macro), Cargo.lock committed. Commit `9c5a0c7`.
+- **B3** (T007-T011): Gradle :crypto-ffi module with direct cargo-ndk Exec tasks (no third-party plugin — willir/mozilla lag AGP 8.7 as of 2026-07). arm64-v8a only. First .so build 343 KB, Kotlin binding generated. Commit `5a48bf9`.
+- **B4** (T012-T014): androidTest HelloFfiTest + PanicFfiTest, compile-only verified. Commit `2f58fec`.
+- **B5** (T017-T018): verifyUniffiVersions fitness function, artificial mismatch trial passed. Commit `a8ce0f6`.
+- **B6** (T019-T021): crypto-ffi/README.md (English), docs/dev/rust-setup.md (Russian), exit-ramp note in docs/architecture/crypto.md. Commit `8afadca`.
+- **B7** (T015-T016): arm64 emulator smoke test — DEFERRED. Root cause: Android Emulator on Windows x86_64 hosts does not support arm64 QEMU (Google limitation, Linux/macOS only). See `specs/task-122-crypto-ffi-foundation/verification/b7-deferred-note.md`. T015 (Xiaomi 11T USB) remains primary verification path. Commit `47627e3`.
+- **B8** (T022-T023): panic-check skill run + pre-pr-backlog-sync + PR draft. This commit.
+
+**Verification path forward**: owner подключит Xiaomi 11T USB, прогонит `./gradlew :crypto-ffi:connectedAndroidTest` — если 3/3 tests green, T015 закрывается, T016 остаётся [deferred-local-emulator] по infra-причине (не blocker для Done). Then transition to `Verification` → `Done`.
+
+**Sub-tasks placeholder for future**:
+- Rust version bump procedure (~monthly, отдельная backlog-task per Q3).
+- armv7 ABI addition (~2 недели после покупки arm32 phone, per Q5).
+- Self-hosted GitHub runner если ручной прогон окажется unreliable.
 
 <!-- SECTION:NOTES:END -->
