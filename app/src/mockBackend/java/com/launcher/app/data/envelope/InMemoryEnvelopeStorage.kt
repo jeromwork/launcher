@@ -1,9 +1,9 @@
 package com.launcher.app.data.envelope
 
-import family.keys.api.Envelope
-import family.keys.api.Outcome
-import family.keys.api.internal.EnvelopeStorage
-import family.keys.api.internal.EnvelopeStorageError
+import cryptokit.keys.api.Envelope
+import cryptokit.keys.api.Outcome
+import cryptokit.keys.api.internal.EnvelopeStorage
+import cryptokit.keys.api.internal.EnvelopeStorageError
 import java.util.concurrent.ConcurrentHashMap
 
 /**

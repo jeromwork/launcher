@@ -4,10 +4,10 @@ import com.launcher.api.auth.AuthError
 import com.launcher.api.auth.AuthIdentity as F4AuthIdentity
 import com.launcher.api.auth.AuthProvider
 import com.launcher.api.result.Outcome as F4Outcome
-import family.keys.api.AuthIdentity as F5AuthIdentity
-import family.keys.api.IdentityError
-import family.keys.api.IdentityProof
-import family.keys.api.Outcome as F5Outcome
+import cryptokit.keys.api.AuthIdentity as F5AuthIdentity
+import cryptokit.keys.api.IdentityError
+import cryptokit.keys.api.IdentityProof
+import cryptokit.keys.api.Outcome as F5Outcome
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map

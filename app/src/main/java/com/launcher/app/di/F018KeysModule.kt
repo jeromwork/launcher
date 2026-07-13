@@ -9,11 +9,11 @@ import cryptokit.crypto.api.PasswordHash
 import cryptokit.crypto.api.RandomSource
 import cryptokit.crypto.api.SecureKeyStore
 import cryptokit.crypto.libsodium.LibsodiumArgon2idPasswordHash
-import family.keys.api.IdentityProof
-import family.keys.api.PassphraseAttemptCounter
-import family.keys.api.SchemaVersionMemory
-import family.keys.impl.Argon2idPassphraseKdf
-import family.keys.impl.RootKeyManagerImpl
+import cryptokit.keys.api.IdentityProof
+import cryptokit.keys.api.PassphraseAttemptCounter
+import cryptokit.keys.api.SchemaVersionMemory
+import cryptokit.keys.impl.Argon2idPassphraseKdf
+import cryptokit.keys.impl.RootKeyManagerImpl
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
@@ -27,12 +27,12 @@ import org.koin.dsl.module
  *  • [RootKeyManagerImpl] singleton (потребляет F-CRYPTO ports).
  *
  * **Flavor-specific bindings** (см. f018KeysBackendModule):
- *  • [family.keys.api.RecoveryKeyBackup] → FirestoreRecoveryKeyBackup (realBackend)
+ *  • [cryptokit.keys.api.RecoveryKeyBackup] → FirestoreRecoveryKeyBackup (realBackend)
  *    или NoOpRecoveryKeyBackup (mockBackend / non-GMS fallback).
- *  • [family.keys.api.RemoteStorage] / [family.keys.api.ConfigSaver] /
- *    [family.keys.api.EnvelopeBootstrap] (F-5b envelope surface).
+ *  • [cryptokit.keys.api.RemoteStorage] / [cryptokit.keys.api.ConfigSaver] /
+ *    [cryptokit.keys.api.EnvelopeBootstrap] (F-5b envelope surface).
  *  • [PassphraseAttemptCounter] → DataStorePassphraseAttemptCounter.
- *  • [family.keys.api.PassphrasePrompter] → AndroidPassphrasePrompter.
+ *  • [cryptokit.keys.api.PassphrasePrompter] → AndroidPassphrasePrompter.
  *
  * RecoveryFlow создаётся on-demand в ViewModel'ах после Sign-In; root key
  * восстанавливается через passphrase, а envelope-decryption ключи (per-device
@@ -58,6 +58,6 @@ val f018KeysModule = module {
 
     // F-5b envelope caller surface (ConfigSaver, EnvelopeBootstrap) лежит в
     // f018KeysBackendModule — потому что эти binding'и используют internal
-    // family.keys.api.internal ports (DeviceIdentity, PublicKeyDirectory),
+    // cryptokit.keys.api.internal ports (DeviceIdentity, PublicKeyDirectory),
     // которые fitness rule запрещает импортировать из app/src/main.
 }

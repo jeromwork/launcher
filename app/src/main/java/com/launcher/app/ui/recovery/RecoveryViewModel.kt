@@ -2,11 +2,11 @@ package com.launcher.app.ui.recovery
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import family.keys.api.AuthIdentity
-import family.keys.api.Outcome
-import family.keys.api.PassphrasePrompter
-import family.keys.api.RecoveryError
-import family.keys.impl.RecoveryFlow
+import cryptokit.keys.api.AuthIdentity
+import cryptokit.keys.api.Outcome
+import cryptokit.keys.api.PassphrasePrompter
+import cryptokit.keys.api.RecoveryError
+import cryptokit.keys.impl.RecoveryFlow
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,7 +37,7 @@ class RecoveryViewModel(
     private var pendingRecovery: CompletableDeferred<CharArray>? = null
 
     /** Стартует setup flow (после bootstrap'а нового root). */
-    fun startSetup(rootKey: family.keys.api.RootKey) {
+    fun startSetup(rootKey: cryptokit.keys.api.RootKey) {
         viewModelScope.launch {
             _state.value = State.SettingUp(AwaitingPassphraseKind.SETUP)
             when (val r = recoveryFlow.performSetup(identity, rootKey)) {

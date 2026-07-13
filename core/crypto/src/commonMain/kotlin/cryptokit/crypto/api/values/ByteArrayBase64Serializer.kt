@@ -10,10 +10,15 @@ import kotlinx.serialization.encoding.Encoder
 /**
  * KMP-portable Base64 codec — encodes [ByteArray] as a Base64 string in JSON, per
  * contracts/key-blob-v1.md (`wrappedKey`, `iv` are base64 strings, not number arrays).
+ *
+ * **TASK-56 consolidation (2026-07-13)**: `public` so `:core:keys` and any future
+ * crypto-adjacent module can reuse this single implementation instead of duplicating
+ * an identical Base64 codec. Serial descriptor name is stack-wide (`cryptokit.ByteArrayBase64`),
+ * not module-scoped, because the wire format is identical across modules.
  */
-internal object ByteArrayBase64Serializer : KSerializer<ByteArray> {
+object ByteArrayBase64Serializer : KSerializer<ByteArray> {
     override val descriptor: SerialDescriptor =
-        PrimitiveSerialDescriptor("family.crypto.ByteArrayBase64", PrimitiveKind.STRING)
+        PrimitiveSerialDescriptor("cryptokit.ByteArrayBase64", PrimitiveKind.STRING)
 
     override fun serialize(encoder: Encoder, value: ByteArray) {
         encoder.encodeString(Base64.encode(value))

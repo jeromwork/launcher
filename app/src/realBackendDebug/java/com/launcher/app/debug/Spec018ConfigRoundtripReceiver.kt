@@ -4,8 +4,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import family.keys.api.ConfigSaver
-import family.keys.api.Outcome
+import cryptokit.keys.api.ConfigSaver
+import cryptokit.keys.api.Outcome
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
