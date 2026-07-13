@@ -12,7 +12,7 @@
       2. Detect Android NDK, export ANDROID_NDK_HOME to user env.
       3. Install rustup + Rust stable (if missing) or update.
       4. Install 4 Android targets (aarch64, armv7, i686, x86_64).
-      5. Install cargo-ndk + uniffi-bindgen (via cargo install --locked).
+      5. Install cargo-ndk + uniffi_bindgen (via cargo install --locked).
       6. Verify all tools are on PATH and reachable.
 
     Requires: Windows 10/11, PowerShell 5+, Android Studio installed,
@@ -134,9 +134,9 @@ if (-not $androidStudioFound) {
 Write-Ok "Android Studio detected"
 
 # MSVC Build Tools check — cargo needs a linker (link.exe or clang).
-$msvcFound = Test-CommandExists 'link' -or `
-    (Get-ChildItem "$env:ProgramFiles\Microsoft Visual Studio\*\*\VC\Tools\MSVC" -ErrorAction SilentlyContinue) -or `
-    (Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft Visual Studio\*\*\VC\Tools\MSVC" -ErrorAction SilentlyContinue)
+$msvcFound = (Test-CommandExists 'link') -or `
+    [bool](Get-ChildItem "$env:ProgramFiles\Microsoft Visual Studio\*\*\VC\Tools\MSVC" -ErrorAction SilentlyContinue) -or `
+    [bool](Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft Visual Studio\*\*\VC\Tools\MSVC" -ErrorAction SilentlyContinue)
 
 if (-not $msvcFound) {
     Write-Do "MSVC Build Tools not detected. cargo requires them to link Windows binaries."
@@ -238,9 +238,15 @@ foreach ($t in $targets) {
     }
 }
 
-# --- Step 5: cargo-ndk + uniffi-bindgen ---------------------------------------
+# --- Step 5: cargo-ndk --------------------------------------------------------
+#
+# Note: uniffi-bindgen used to be a standalone CLI (pre-0.28). Since UniFFI 0.28+
+# the bindgen must live inside the consuming crate itself (invoked via
+# `cargo run --features=cli --bin uniffi-bindgen`). We do NOT install it globally.
+# The TASK-122 `crypto-ffi/` crate declares uniffi_bindgen as a build-dep + bin
+# entry per official UniFFI docs.
 
-Write-Header "Step 5 of 6: Install cargo-ndk + uniffi-bindgen"
+Write-Header "Step 5 of 6: Install cargo-ndk"
 
 if (Test-CommandExists 'cargo-ndk') {
     Write-Skip "cargo-ndk already installed: $((cargo ndk --version))"
@@ -251,24 +257,14 @@ if (Test-CommandExists 'cargo-ndk') {
     Write-Ok "cargo-ndk installed: $((cargo ndk --version))"
 }
 
-if (Test-CommandExists 'uniffi-bindgen') {
-    Write-Skip "uniffi-bindgen already installed: $((uniffi-bindgen --version))"
-} else {
-    Write-Do "Installing uniffi-bindgen (~2-3 min)..."
-    cargo install uniffi-bindgen --locked
-    if ($LASTEXITCODE -ne 0) { Exit-WithError "cargo install uniffi-bindgen failed" }
-    Write-Ok "uniffi-bindgen installed: $((uniffi-bindgen --version))"
-}
-
 # --- Step 6: Verify ------------------------------------------------------------
 
 Write-Header "Step 6 of 6: Verify"
 
 $checks = @{
-    'rustc'          = { rustc --version }
-    'cargo'          = { cargo --version }
-    'cargo-ndk'      = { cargo ndk --version }
-    'uniffi-bindgen' = { uniffi-bindgen --version }
+    'rustc'     = { rustc --version }
+    'cargo'     = { cargo --version }
+    'cargo-ndk' = { cargo ndk --version }
 }
 $allOk = $true
 foreach ($name in $checks.Keys) {
@@ -303,7 +299,7 @@ if ($allOk) {
     Write-Host ""
     Write-Host "  Next steps for TASK-122:" -ForegroundColor White
     Write-Host "    1. Restart PowerShell (to pick up updated PATH/env)."
-    Write-Host "    2. Verify: rustc --version; cargo ndk --version; uniffi-bindgen --version"
+    Write-Host "    2. Verify: rustc --version; cargo ndk --version; uniffi_bindgen --version"
     Write-Host "    3. When TASK-122 lands: cd to repo root, run ./gradlew :crypto-ffi:build"
     Write-Host ""
     exit 0
