@@ -1,10 +1,10 @@
 ---
 id: TASK-122
-title: 'F-CRYPTO Rust FFI Foundation (cargo-ndk + UniFFI toolchain)'
-status: Draft
+title: F-CRYPTO Rust FFI Foundation (cargo-ndk + UniFFI toolchain)
+status: In Progress
 assignee: []
 created_date: '2026-07-10 16:40'
-updated_date: '2026-07-10 16:40'
+updated_date: '2026-07-13 06:50'
 labels:
   - phase-2
   - F-feature
@@ -137,9 +137,30 @@ EFFORT: ~1 week (32-40 часов).
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 [hand] `./gradlew :crypto-ffi:build` собирает `.so` под 4 Android ABI (armv7, aarch64, x86, x86_64)
-- [ ] #2 [hand] Kotlin androidTest вызывает Rust `hello("world")` → возвращает `"Hello, world"` → зелёный на pixel_5_api_34
-- [ ] #3 [hand] CI pipeline (Rust setup + cross-compile + emulator smoke) зелёный на PR
-- [ ] #4 [hand] README в `crypto-ffi/` содержит инструкции: добавить функцию / пересобрать / обновить UniFFI
-- [ ] #5 [hand] Fitness function падает при расхождении uniffi-rs / uniffi-bindgen / runtime versions
+- [x] #1 [hand] Windows dev setup автоматизирован: skill `rust-android-setup` + companion script `scripts/setup-rust-android.ps1`. Idempotent, ставит только недостающее, refuse'ит на не-Windows машине. Владелец запускает раз на новой машине, ~15 мин.
+- [ ] #2 [hand] `./gradlew :crypto-ffi:build` собирает `.so` под 4 Android ABI (armv7, aarch64, x86, x86_64)
+- [ ] #3 [hand] Kotlin androidTest вызывает Rust `hello("world")` → возвращает `"Hello, world"` → зелёный на pixel_5_api_34
+- [ ] #4 [hand] CI pipeline (Rust setup + cross-compile + emulator smoke) зелёный на PR
+- [ ] #5 [hand] README в `crypto-ffi/` содержит инструкции: добавить функцию / пересобрать / обновить UniFFI
+- [ ] #6 [hand] Fitness function падает при расхождении uniffi-rs / uniffi-bindgen / runtime versions
 <!-- AC:END -->
+
+## Implementation Notes
+<!-- SECTION:NOTES:BEGIN -->
+
+**Session 2026-07-13 (branch `task-122-crypto-ffi-foundation`)**: слой setup закрыт — Windows dev-машина настраивается через одну команду. Skill + script готовы. Владелец подтвердил: работаем только на Windows.
+
+**Что ещё НЕ сделано в этом PR** (scope для следующих sessions):
+- Rust workspace `crypto-ffi/` с `hello()` функцией.
+- Gradle module `crypto-ffi:` с cargo-ndk plugin.
+- UniFFI `.udl` + build.rs.
+- Kotlin androidTest.
+- CI workflow (`.github/workflows/crypto-ffi.yml`).
+- Fitness function version lockstep.
+- README + `docs/dev/rust-setup.md`.
+
+**Почему setup skill в отдельном PR**: (a) skill сам по себе — reusable инфраструктура, не требует spec-kit; (b) владелец может запустить его на своей машине **до** того, как реализация начнётся, чтобы окружение было готово; (c) уменьшает scope основного TASK-122 PR — implementation отделена от dev-env.
+
+**Next session pickup**: следующая сессия начинает с `Skill mentor` или `speckit-specify TASK-122`, ветка та же (`task-122-crypto-ffi-foundation`), setup уже сделан.
+
+<!-- SECTION:NOTES:END -->
