@@ -149,7 +149,7 @@ EFFORT: ~1 week (32-40 часов).
 - [x] #8 [auto:checklist] checklists/requirements-quality.md: 14/14 CHK [x]
 - [x] #9 [auto:checklist] checklists/meta-minimization.md: 13/13 CHK [x]
 - [x] #10 [auto:checklist] checklists/dev-experience.md: 14/14 CHK [x] (+ 5 N/A, 1 exempt)
-- [ ] #11 [auto:deferred-physical-device] Xiaomi 11T USB smoke `./gradlew :crypto-ffi:connectedAndroidTest` — 3/3 green (T015, T025)
+- [x] #11 [auto:deferred-physical-device] Xiaomi 11T USB smoke `./gradlew :crypto-ffi:connectedAndroidTest` — 3/3 green ✓ 2026-07-13 (device 2109119DG, Android 11, 0.010s) (T015, T025)
 - [ ] #12 [auto:deferred-local-emulator] arm64 AVD fallback smoke — infrastructure-blocked on Windows x86_64 hosts (Google limitation, T016). Not a merge blocker; T015 physical device is primary path.
 <!-- AC:END -->
 
