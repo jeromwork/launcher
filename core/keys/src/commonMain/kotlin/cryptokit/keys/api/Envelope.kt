@@ -1,6 +1,6 @@
 package cryptokit.keys.api
 
-import cryptokit.keys.api.internal.ByteArrayBase64Serializer
+import cryptokit.crypto.api.values.ByteArrayBase64Serializer
 import kotlinx.serialization.Serializable
 
 /**
