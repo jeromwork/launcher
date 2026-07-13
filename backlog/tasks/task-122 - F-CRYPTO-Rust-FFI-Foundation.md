@@ -16,6 +16,8 @@ milestone: m-1
 dependencies: []
 priority: high
 ordinal: 122000
+references:
+  - specs/task-122-crypto-ffi-foundation/
 ---
 
 ## Description
@@ -138,11 +140,12 @@ EFFORT: ~1 week (32-40 часов).
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 [hand] Windows dev setup автоматизирован: skill `rust-android-setup` + companion script `scripts/setup-rust-android.ps1`. Idempotent, ставит только недостающее, refuse'ит на не-Windows машине. Владелец запускает раз на новой машине, ~15 мин.
-- [ ] #2 [hand] `./gradlew :crypto-ffi:build` собирает `.so` под 4 Android ABI (armv7, aarch64, x86, x86_64)
-- [ ] #3 [hand] Kotlin androidTest вызывает Rust `hello("world")` → возвращает `"Hello, world"` → зелёный на pixel_5_api_34
-- [ ] #4 [hand] CI pipeline (Rust setup + cross-compile + emulator smoke) зелёный на PR
+- [ ] #2 [hand] `./gradlew :crypto-ffi:build` собирает `libcrypto_ffi.so` под **arm64-v8a**; structure supports adding armv7/x86_64 через one-line изменение `abiFilters` без rewrite'ов Kotlin/Rust/tests
+- [ ] #3 [hand] Kotlin androidTest вызывает Rust `hello("world")` → возвращает `"Hello, world"` → зелёный на **Xiaomi 11T (arm64) через USB** ИЛИ на arm64-эмуляторе Android Studio
+- [ ] #4 [hand] Panic smoke-test (`panic_isConvertedToKotlinException`) — зелёный на том же устройстве; Rust `panic!()` конвертируется в Kotlin exception, а не в process abort
 - [ ] #5 [hand] README в `crypto-ffi/` содержит инструкции: добавить функцию / пересобрать / обновить UniFFI
 - [ ] #6 [hand] Fitness function падает при расхождении uniffi-rs / uniffi-bindgen / runtime versions
+- [x] #7 [hand] Skill `crypto-ffi-panic-check` создан в `.claude/skills/` — статически проверяет наличие `panics()` функции и panic-теста, опционально прогоняет тест
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -162,5 +165,27 @@ EFFORT: ~1 week (32-40 часов).
 **Почему setup skill в отдельном PR**: (a) skill сам по себе — reusable инфраструктура, не требует spec-kit; (b) владелец может запустить его на своей машине **до** того, как реализация начнётся, чтобы окружение было готово; (c) уменьшает scope основного TASK-122 PR — implementation отделена от dev-env.
 
 **Next session pickup**: следующая сессия начинает с `Skill mentor` или `speckit-specify TASK-122`, ветка та же (`task-122-crypto-ffi-foundation`), setup уже сделан.
+
+### Session 2026-07-13 (clarify)
+
+Владелец прошёл mentor-clarify по 5 grey zones. Финальные решения (полная rationale в [`specs/task-122-crypto-ffi-foundation/spec.md#clarifications`](../../specs/task-122-crypto-ffi-foundation/spec.md#clarifications)):
+
+- **Q1 UniFFI interface**: proc-macro (`#[uniffi::export]` inline в Rust), НЕ `.udl` файл. Индустриальный default (Matrix Element X, Bitwarden, Mozilla). Two-way door — migration тривиальная.
+- **Q2 Testing environment**: локальные прогоны на desktop-ПК владельца (эмулятор Android Studio или Xiaomi 11T через USB), НЕ GitHub Actions CI. Владелец не хочет тратить CI-минуты; ноутбук слабый; реальный device есть. Verification workflow — через backlog status transitions.
+- **Q3 Rust version**: `rust-toolchain.toml` pinned на `1.97.0`. Bump = отдельная future task.
+- **Q4 Panic across FFI**: явный smoke-test `panic_isConvertedToKotlinException` + функция `panics()` в Rust + skill `crypto-ffi-panic-check`. UniFFI docs НЕ гарантируют panic contract — inferred from source. Element X / Matrix Rust SDK делают то же.
+- **Q5 Android ABI matrix**: только **arm64-v8a**. Xiaomi 11T = единственное тестовое устройство. armv7 — отдельная future task (~2 недели, покупка arm32 телефона). x86 / x86_64 не собираем совсем. Structure тестов пишется универсально — добавление ABI позже = one-liner `abiFilters`.
+
+### Status transition post-implementation
+
+PR merge → task-122 status → **`Verification`** (не `Done`) per CLAUDE.md status workflow. Ждёт local emulator smoke + Xiaomi 11T device smoke (AC #2, #3, #4). Владелец приходит за desktop-ПК → агент напоминает («что висит в Verification?») → прогон `./gradlew :crypto-ffi:connectedAndroidTest` → зелёный → transitions to `Done` через повторный `pre-pr-backlog-sync`. Никакого «merged = Done» автомата.
+
+### Sub-tasks created (placeholders, будущая работа)
+
+Пока НЕ создаются как отдельные backlog task-файлы — записаны здесь как памятка для будущих sessions:
+
+1. **Rust version bump procedure + first bump task** — документировать процедуру (test matrix, breaking change check, Cargo.lock regeneration) + создать первый future bump task когда 1.98 stable выйдет и подтвердится industry adoption.
+2. **armv7-linux-androideabi ABI addition** (~2 недели) — после покупки владельцем старого arm32 телефона. One-liner в `abiFilters` + прогон тестов на устройстве.
+3. **Self-hosted GitHub runner** — только если ручной прогон окажется unreliable (регулярно забывается / затягивается). Сейчас не нужен.
 
 <!-- SECTION:NOTES:END -->
