@@ -40,8 +40,12 @@ data class Preset(
     val wizardFlow: List<WizardFlowEntry> = emptyList(),
     val settingsMap: List<SettingsMapEntry> = emptyList(),
     val activeComponents: List<ActiveComponentEntry> = emptyList(),
+    // T015 (FR-007, FR-003): v2 additions. Nullable defaults keep v1 fixtures deserializing.
+    val hintFlow: List<HintFlowEntry>? = null,
+    val wizardPresentation: WizardPresentation? = null,
 ) {
     companion object {
+        /** v2: adds `hintFlow` + `wizardPresentation` (TASK-126). */
         const val CURRENT_SCHEMA_VERSION: Int = 2
     }
 }

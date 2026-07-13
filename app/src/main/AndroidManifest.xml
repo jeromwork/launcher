@@ -11,6 +11,14 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!--
+      TASK-126 Phase 4 (FR-012, US-4, CL-9): boot-check receiver dispatches
+      a WorkManager job to re-apply `critical=true` preset components after
+      a device reboot. BootCheckReceiver.onReceive() returns within ~100 ms;
+      actual reconcile runs in BootCheckWorker outside the receiver context.
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!--
       Spec 009 FR-023: READ_CONTACTS for admin-only ACTION_PICK flow
       (system contact picker in EditorScreen). Permission is requested
       lazily at first picker tap, with rationale (FR-023a) + manual-entry
@@ -243,17 +251,6 @@
         </activity>
 
         <!--
-          TASK-65 (T65A/T65C) — preset picker host (FR-012). Launched by the
-          legacy FirstLaunchActivity once it routes through PresetBootRouter,
-          and by SettingsActivity for "change preset" entry. adb-launchable
-          for QA: `am start -n com.launcher.app/.preset.PresetPickerActivity`.
-        -->
-        <activity
-            android:name=".preset.PresetPickerActivity"
-            android:exported="false"
-            android:label="@string/app_name" />
-
-        <!--
           Spec 010 T046 — GMS hard-block screen (FR-042). Launched explicitly
           by FirstLaunchActivity when GoogleApiAvailability reports MissingFatal.
           NEVER reachable from outside the app: android:exported="false" enforced
@@ -264,25 +261,32 @@
             android:exported="false"
             android:label="@string/setup_gms_hard_block_title" />
 
-        <!--
-          Spec 015 (F-3) FR-007: first-run wizard entry. Routed to from
-          FirstLaunchActivity when `wizardCompleted(presetId)` is false.
-          Not exported — never reachable from outside the app.
-        -->
+        <!-- TASK-126 T054/T055 — preset-composition wizard host.
+             Splash theme keeps until WizardViewModel emits its first
+             non-Loading state. Replaces the legacy `.wizard.WizardActivity`
+             + `.wizard.PlayStoreFallbackActivity` pair that lived here
+             pre-TASK-126. -->
         <activity
-            android:name=".wizard.WizardActivity"
+            android:name=".wizard.WizardHostActivity"
             android:exported="false"
+            android:theme="@style/Theme.Launcher.WizardSplash"
             android:label="@string/wizard_loading" />
 
         <!--
-          Spec 015 (F-3) FR-016: hard-fail fallback shown when a bundled
-          config has schemaVersion > known, per Q-6 (b). Launched explicitly
-          by WizardActivity.
+          TASK-126 Phase 4 T080 — dispatch-only receiver for BOOT_COMPLETED.
+          Enqueues BootCheckWorker via WorkManager and returns immediately.
+          Not exported: only the system fires BOOT_COMPLETED for the app's
+          own receiver.
         -->
-        <activity
-            android:name=".wizard.PlayStoreFallbackActivity"
-            android:exported="false"
-            android:label="@string/play_store_fallback_title" />
+        <receiver
+            android:name=".boot.BootCheckReceiver"
+            android:exported="true"
+            android:enabled="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <!--
           Spec 008 FR-022 T3: disable default WorkManager auto-init so our

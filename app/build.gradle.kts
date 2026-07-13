@@ -194,6 +194,7 @@ dependencies {
     // TASK-49 — CloudAvailability + LocalAlternative + EmergencyNumberResolver.
     implementation(project(":core:cloud"))
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.process)
@@ -275,6 +276,8 @@ dependencies {
     // payloads for the wizard step host. kotlinx-serialization-json is
     // implementation in :core (not api) so test classpath needs it explicit.
     testImplementation(libs.kotlinx.serialization.json)
+    // TASK-126 Phase 4 T086 — WorkManagerTestInitHelper for BootCheckWorkerTest.
+    testImplementation("androidx.work:work-testing:2.9.1")
 
     // F-5b E2E instrumented tests (app/src/androidTest/).
     // Firebase SDKs (firestore/auth) уже подключены к realBackend variant'у

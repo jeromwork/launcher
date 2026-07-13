@@ -39,16 +39,16 @@ class ExtractionReadinessDetector(config: Config = Config.empty) : Rule(config) 
         "com.launcher.app.contacts",
     )
 
-    private var active = false
+    private var inScope = false
 
     override fun visitKtFile(file: KtFile) {
         val path = file.virtualFilePath.replace('\\', '/')
-        active = scope.any { path.contains(it) }
+        inScope = scope.any { path.contains(it) }
         super.visitKtFile(file)
     }
 
     override fun visitImportDirective(importDirective: KtImportDirective) {
-        if (active) {
+        if (inScope) {
             val fqName = importDirective.importedFqName?.asString().orEmpty()
             if (forbiddenPrefixes.any { fqName.startsWith(it) }) {
                 report(CodeSmell(

@@ -2,15 +2,9 @@ package com.launcher.app.preset
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.launcher.adapters.preset.PresetReminderService
-import com.launcher.adapters.preset.PresetSelectionService
-import com.launcher.api.preset.PresetRef
-import com.launcher.api.profile.ProfileStore
-import com.launcher.api.wizard.ConfigKind
-import com.launcher.api.wizard.ConfigSource
-import com.launcher.api.wizard.ConfigSourceResult
-import com.launcher.api.wizard.data.ConfigDocument
-import com.launcher.ui.PresetBootRouter
+import com.launcher.app.preset.task120.PresetBootstrap
+import com.launcher.preset.engine.ReconcileEngine
+import com.launcher.preset.model.RunMode
 import kotlin.system.measureTimeMillis
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertNotNull
@@ -21,16 +15,14 @@ import org.junit.runner.RunWith
 import org.koin.core.context.GlobalContext
 
 /**
- * Spec T67J coverage (SC-007, R4) — measures the boot-time path through
- * [PresetBootRouter] which is the critical-section the SC budget covers:
- * load active profile from DataStore + look up bundled preset via
- * ConfigSource + classify critical-missing settings.
+ * TASK-126 Phase 5 T091 — boot-time benchmark for the new ECS runtime.
+ * Replaces the legacy `PresetBootRouter.decide()` measurement with the
+ * actual critical section that runs on cold boot:
  *
- * Activity start cost (Compose first-frame, Application.onCreate) is
- * unrelated to TASK-65 changes and not measured here.
+ *   PresetBootstrap.bootstrap()  (idempotent — no-op if profile exists)
+ *   + ReconcileEngine.run(RunMode.BootCheck)  (only critical=true providers)
  *
- * Asserts P95 ≤ 1500ms across 10 iterations. First iteration is treated
- * as warm-up and excluded.
+ * Asserts P95 ≤ 1500 ms across 10 iterations. First iteration is warm-up.
  */
 @RunWith(AndroidJUnit4::class)
 class BootBenchmarkE2ETest {
@@ -44,32 +36,32 @@ class BootBenchmarkE2ETest {
     }
 
     @Test
-    fun bootRouterP95UnderBudget() = runBlocking {
+    fun bootCheckP95UnderBudget() = runBlocking {
         val koin = GlobalContext.get()
-        val store: ProfileStore = koin.get()
-        val configSource: ConfigSource = koin.get()
-        val reminders: PresetReminderService = koin.get()
-        val selection: PresetSelectionService = koin.get()
+        val bootstrap: PresetBootstrap = koin.get()
+        val engine: ReconcileEngine = koin.get()
 
-        // Set up an active preset so decide() takes the ShowHome branch.
-        store.setActive(null)
-        selection.beginSetup("simple-launcher")
-
-        val router = PresetBootRouter(store, configSource, reminders)
+        // Warm the profile so subsequent iterations measure the boot-check
+        // steady state (bootstrap is no-op when a profile already exists).
+        bootstrap.bootstrap()
 
         val samples = mutableListOf<Long>()
         repeat(10) {
-            val ms = measureTimeMillis { runBlocking { router.decide() } }
+            val ms = measureTimeMillis {
+                runBlocking {
+                    bootstrap.bootstrap()
+                    engine.run(RunMode.BootCheck)
+                }
+            }
             samples += ms
         }
-        // Drop warm-up sample.
         val trimmed = samples.drop(1).sorted()
         val p95Index = (trimmed.size * 0.95).toInt().coerceAtMost(trimmed.size - 1)
         val p95 = trimmed[p95Index]
 
         assertNotNull("must have samples", trimmed.firstOrNull())
         assertTrue(
-            "PresetBootRouter P95 must be <= 1500ms, got ${p95}ms; samples=$samples",
+            "BootCheck P95 must be <= 1500ms, got ${p95}ms; samples=$samples",
             p95 <= 1500,
         )
     }

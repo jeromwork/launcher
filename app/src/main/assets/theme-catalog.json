@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "themes": [
+    {
+      "name": "default",
+      "paletteSeedHex": "#6750A4",
+      "typographyScale": "Medium",
+      "shapeStyle": "Rounded",
+      "darkMode": false
+    },
+    {
+      "name": "dark",
+      "paletteSeedHex": "#6750A4",
+      "typographyScale": "Medium",
+      "shapeStyle": "Rounded",
+      "darkMode": true
+    },
+    {
+      "name": "senior-large",
+      "paletteSeedHex": "#0B6BCB",
+      "typographyScale": "ExtraLarge",
+      "shapeStyle": "Rounded",
+      "darkMode": false
+    }
+  ]
+}

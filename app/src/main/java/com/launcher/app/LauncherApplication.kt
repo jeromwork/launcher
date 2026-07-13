@@ -21,9 +21,8 @@ import com.launcher.app.di.pairingModule
 import com.launcher.app.di.spec006Module
 import com.launcher.app.di.spec014Module
 import com.launcher.app.di.spec015Module
-import com.launcher.app.di.task120Module
-import com.launcher.app.di.task65Module
-import com.launcher.api.wizard.UserPreferencesStore
+import com.launcher.app.di.presetModule
+import com.launcher.app.locale.LocaleOverrideStore
 import com.launcher.core.LauncherCore
 import com.launcher.di.backendModule
 import com.launcher.di.setupModule
@@ -117,8 +116,7 @@ class LauncherApplication : Application(), Configuration.Provider {
                 setupModule,   // spec 010 GmsAvailabilityPort + List<SetupCheck>
                 spec014Module, // spec 014 tile-editing — empty в Phase 0, bindings landed в T060
                 spec015Module, // spec 015 (F-3) wizard + localization + senior UI
-                task65Module,  // TASK-65 PoolSource + ProfileSwitchStrategy + ProfileStore
-                task120Module, // TASK-120 Preset composition foundation (com.launcher.preset.*)
+                presetModule, // TASK-120 Preset composition foundation (com.launcher.preset.*)
             )
             if (debugOverlays.isNotEmpty()) {
                 allowOverride(true)
@@ -159,10 +157,10 @@ class LauncherApplication : Application(), Configuration.Provider {
     }
 
     private fun applyPersistedLocaleOverride() {
-        val store: UserPreferencesStore = org.koin.java.KoinJavaComponent.get(
-            UserPreferencesStore::class.java,
+        val store: LocaleOverrideStore = org.koin.java.KoinJavaComponent.get(
+            LocaleOverrideStore::class.java,
         )
-        val override = runBlocking { store.current().languageOverride } ?: return
+        val override = runBlocking { store.current() } ?: return
         AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(override))
     }
 
