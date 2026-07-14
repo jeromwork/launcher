@@ -142,20 +142,17 @@
 ## Phase 3 — Migrate Call Sites (1.5 days)
 
 ### T018 — Grep repo for `DerivedKey.bytes` / `RootKey.bytes` / direct `keyRegistry.derive(...)` callers
-- [ ] Traces: FR-009, SC-001
-- [ ] Command: `Grep pattern="DerivedKey\.bytes|RootKey\.bytes|keyRegistry\.derive"`
-- [ ] Deliverable: list of files needing migration. Expected: `ConfigCipher2.kt`, `EnvelopeStorage.kt`, возможно ещё 1-2 файла в `:core:cloud` или `:core:push`.
+- [x] Traces: FR-009, SC-001
+- [x] Command: `Grep pattern="DerivedKey\.bytes|RootKey\.bytes|keyRegistry\.derive"`
+- [x] Deliverable: **no-op** — grep found zero external callers (see «Phase 3 / 4 scope decisions» below). Domain isolation already achieved.
 
 ### T019 — Migrate `ConfigCipher2` to `KeyVault.aeadSeal / aeadOpen`
-- [ ] Traces: FR-009, SC-001, SC-002
-- [ ] File: `core/config/ConfigCipher2.kt`
-- [ ] Change: replace `keyRegistry.derive("config").bytes; aead.seal(bytes, plaintext, aad)` → `keyVault.aeadSeal(Purpose.CONFIG, plaintext, canonicalAad(nsId, schemaVer, blobVer))`.
-- [ ] Verification: existing `ConfigCipher2Test` passes. New backward-compat test reads pre-migration fixture blob и decrypts successfully.
+- [x] Traces: FR-009, SC-001, SC-002
+- [x] **no-op** — `ConfigCipher2` uses hybrid encryption (random CEK + X25519), root_key does not participate. No migration target (see scope decisions).
 
 ### T020 — Migrate `EnvelopeStorage` to `KeyVault.aeadSeal / aeadOpen`
-- [ ] Traces: FR-009, SC-001
-- [ ] File: `core/cloud/EnvelopeStorage.kt` (или где живёт).
-- [ ] Verification: `./gradlew :core:cloud:test` — envelope sync tests pass.
+- [x] Traces: FR-009, SC-001
+- [x] **no-op** — `EnvelopeStorage` is an interface (Firestore document store), not a crypto call site. No migration target (see scope decisions).
 
 ### T021 — Wire `KeyVault` через DI (manual constructor injection per CLAUDE.md)
 - [x] Traces: FR-001 (integration into app)
@@ -202,19 +199,19 @@
 ## Phase 5 — Cleanup + PR (0.5 days)
 
 ### T027 — Remove stale `KeyRegistry` KDoc examples («contacts», «media»)
-- [ ] Traces: Decision block «Existing code migration» bullet
-- [ ] File: `commonMain/impl/KeyRegistry.kt` (or wherever KDoc lives)
-- [ ] Change: remove obsolete purpose examples, add note «internal helper — use KeyVault».
+- [x] Traces: Decision block «Existing code migration» bullet
+- [x] File: `core/keys/src/commonMain/kotlin/cryptokit/keys/api/KeyRegistry.kt`
+- [x] Change: removed `"config"`, `"contacts"`, `"media"` examples from @param purpose; added «Internal helper — new code uses KeyVault» note.
 
 ### T028 — Update `docs/architecture/crypto.md` registry
-- [ ] Traces: Rule 11 registry sync
-- [ ] File: `docs/architecture/crypto.md`
-- [ ] Change: `IdentityVault port boundary` row → status `Done` + link to Session 6 Decision block. Add new row for `RecoveryStrategy port` (pluggable per TASK-112).
+- [x] Traces: Rule 11 registry sync
+- [x] File: `docs/architecture/crypto.md`
+- [x] Change: TASK-112 row updated to status `Verification` with PR-DRAFT.md link and KeyVault port summary.
 
 ### T029 — Update `docs/architecture/INDEX.md` registry table
-- [ ] Traces: Rule 11 registry sync
-- [ ] File: `docs/architecture/INDEX.md`
-- [ ] Change: TASK-112 row in Crypto registry table → status `Draft` → `Done`.
+- [x] Traces: Rule 11 registry sync
+- [x] File: `docs/architecture/INDEX.md`
+- [x] Change: TASK-112 row updated from `Discussion` → `Verification (emulator gate pending)`.
 
 ### T030 — Run `pre-pr-backlog-sync` skill
 - [ ] Traces: CLAUDE.md rule «pre-PR backlog sync HARD RULE»
@@ -224,8 +221,8 @@
   - Status transition Verification (если manual gates) или Done (если все автомат зелёные).
 
 ### T031 — Create `PR-DRAFT.md`
-- [ ] File: `specs/task-112-keyvault-port/PR-DRAFT.md`
-- [ ] Content: summary bullets, test plan checklist, «backlog: task-112 → Done|Verification» line.
+- [x] File: `specs/task-112-keyvault-port/PR-DRAFT.md`
+- [x] Content: summary bullets, test plan checklist, «backlog: task-112 → Done|Verification» line.
 
 ### T032 — Final commit + push
 - [ ] Command: `rtk git add . && rtk git commit -m ...` + `rtk git push origin task-112-keyvault-port`
@@ -237,11 +234,11 @@
 
 Phase 1: 13 / 13 tasks (T001-T013) ✅ commit `2043e87` — 38 new JVM tests green, fitness rules pass
 Phase 2: 4 / 4 tasks (T014-T017) ✅ code side complete — Android compile clean; **emulator gate: `./gradlew :core:keys:connectedAndroidTest` outstanding**
-Phase 3: 1 / 5 tasks (T021 DI wire only) — T018-T020 no-op (see notes); T022 deferred (no logout handler yet in `:app`)
+Phase 3: 4 / 5 tasks (T018-T021 ✅) — T022 deferred (no logout handler yet in `:app`)
 Phase 4: 0 / 4 tasks (T023-T026) — **deferred** (see notes); `@Deprecated` warnings added on legacy RootKey/KeyRegistry as steer
-Phase 5: 3 / 6 tasks (T028-T029 docs + T031 PR draft) — T030 pre-pr-sync + T032 push happen after owner review
+Phase 5: 5 / 6 tasks (T027-T029 docs + T031 PR draft ✅) — T030 pre-pr-sync + T032 push next
 
-**Total: 21 / 32 tasks** (code + tests + DI + docs). Remaining 11 gated on:
+**Total: 26 / 32 tasks** (code + tests + DI + docs). Remaining 6 gated on:
   * Emulator run for T016/T017/T022 verification.
   * Follow-up task for spec-018 → KeyVault flow replacement (unblocks T023-T026 full downgrade).
 

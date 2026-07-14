@@ -32,8 +32,10 @@ interface KeyRegistry {
      * Выводит [DerivedKey] для пары ([stableId], [purpose]).
      * Детерминировано: те же входы → тот же ключ.
      *
+     * Internal helper — new code uses [cryptokit.keys.api.vault.KeyVault] instead.
+     *
      * @param stableId Provider-агностичный UUID идентификатор пользователя.
-     * @param purpose Строковое имя цели (например `"config"`, `"contacts"`, `"media"`).
+     * @param purpose Строковое имя цели derivation (например `"recovery-blob"`).
      * @return Derived key, содержащий 32 байта HKDF output.
      */
     suspend fun derive(stableId: StableId, purpose: String): Outcome<DerivedKey, RootKeyError>

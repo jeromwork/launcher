@@ -140,7 +140,7 @@ flowchart LR
 | MLS client-библиотека | **openmls** (Rust · MIT · аудирован SRLabs 2024) | [TASK-58](../../backlog/tasks/task-58%20-%20Research-Signal-Sender-Keys-vs-MLS-for-family-group-E2E.md) research → owner Decision pending | **Proposed** | `mls-rs` swap в адаптере (~3-5 дней через GroupCryptoPort) |
 | Kotlin binding для openmls | UniFFI-сгенерированные bindings | [TASK-58](../../backlog/tasks/task-58%20-%20Research-Signal-Sender-Keys-vs-MLS-for-family-group-E2E.md) | **Proposed** | Manual JNI (~2-3 недели rewrite) |
 | Encrypted keystore | SQLCipher provider для openmls | [TASK-58](../../backlog/tasks/task-58%20-%20Research-Signal-Sender-Keys-vs-MLS-for-family-group-E2E.md) | **Proposed** | Room + separate Android Keystore |
-| IdentityVault port boundary | Operation-on-vault + narrow `exportDerivedKey` hatch + newtype-per-object | [TASK-112](../../backlog/tasks/task-112%20-%20Decision-Cross-platform-IdentityVault.md) (Discussion) | **Discussion** | Rust `vault-rs` через UniFFI (Phase-4+) |
+| IdentityVault port boundary | Operation-on-vault + narrow `exportDerivedKey` hatch + newtype-per-object | [TASK-112](../../backlog/tasks/task-112%20-%20Decision-Cross-platform-IdentityVault.md) | **Verification** (emulator gate pending) | Rust `vault-rs` через UniFFI (Phase-4+) |
 | KeyPackage pool cap | 100 per identity | [TASK-104](../../backlog/tasks/task-104%20-%20Decision-KeyPackage-rate-limit.md) | Draft | Preset field |
 | KeyPackage dedup TTL | 10 min | [TASK-104](../../backlog/tasks/task-104%20-%20Decision-KeyPackage-rate-limit.md) | Draft | Preset field |
 | Last-resort rotation | 7 дней (family default) | [TASK-104](../../backlog/tasks/task-104%20-%20Decision-KeyPackage-rate-limit.md) | Draft | Preset field |
