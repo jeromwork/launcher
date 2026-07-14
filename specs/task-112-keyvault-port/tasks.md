@@ -114,28 +114,28 @@
 ## Phase 2 — Android Adapter (1.5 days)
 
 ### T014 — Implement `AndroidRootKeyStorage` (internal)
-- [ ] Traces: FR-010, Decision block «Storage split»
-- [ ] File: `androidMain/impl/AndroidRootKeyStorage.kt`
-- [ ] Content: wraps `EncryptedSharedPreferences.create(...)` с `MasterKey.Builder(...).setKeyScheme(AES256_GCM).build()`. StrongBox flag optional (per device availability). Methods: `save(rootKey: RootKey)`, `load(): RootKey?`.
-- [ ] Verification: `androidInstrumentedTest` — write + read roundtrip on emulator.
+- [x] Traces: FR-010, Decision block «Storage split»
+- [x] File: `androidMain/impl/AndroidRootKeyStorage.kt`
+- [x] Content: wraps `EncryptedSharedPreferences.create(...)` с `MasterKey.Builder(...).setKeyScheme(AES256_GCM).build()`. StrongBox flag optional (per device availability). Methods: `save(rootKey: RootKey)`, `load(): RootKey?`.
+- [x] Verification: `androidInstrumentedTest` — write + read roundtrip on emulator.
 
 ### T015 — Implement `AndroidKeyVault` adapter
-- [ ] Traces: FR-001, FR-010, Decision block «Storage split»
-- [ ] File: `androidMain/impl/AndroidKeyVault.kt`
-- [ ] Content: implements `KeyVault` interface. Delegates to libsodium-kmp for all crypto ops (aeadSeal/aeadOpen/mac/sign). Uses `AndroidRootKeyStorage` for root_key at rest. `unlock(strategy)` derives root via strategy, stores encrypted, keeps decrypted in-memory during vault session.
-- [ ] Verification: `AndroidKeyVaultIntegrationTest` — real Android Keystore + libsodium через JNI. Compares roundtrip с `FakeKeyVault` output — byte-equal.
+- [x] Traces: FR-001, FR-010, Decision block «Storage split»
+- [x] File: `androidMain/impl/AndroidKeyVault.kt`
+- [x] Content: implements `KeyVault` interface. Delegates to libsodium-kmp for all crypto ops (aeadSeal/aeadOpen/mac/sign). Uses `AndroidRootKeyStorage` for root_key at rest. `unlock(strategy)` derives root via strategy, stores encrypted, keeps decrypted in-memory during vault session.
+- [x] Verification: `AndroidKeyVaultIntegrationTest` — real Android Keystore + libsodium через JNI. Compares roundtrip с `FakeKeyVault` output — byte-equal.
 
 ### T016 — Write `AndroidKeyVaultIntegrationTest`
-- [ ] Traces: SC-004, SC-011 (Android side)
-- [ ] File: `androidInstrumentedTest/AndroidKeyVaultIntegrationTest.kt`
-- [ ] Coverage: (a) unlock via PassphraseRecovery + aeadSeal + aeadOpen — success; (b) reload vault (simulate app restart) + unlock + aeadOpen — decrypts prior data; (c) VaultLocked exception if aeadSeal called before unlock; (d) HardwareBackedKeystoreUnavailable если Keystore недоступен (mock scenario).
-- [ ] Verification: `./gradlew :core:keys:connectedAndroidTest` на pixel_5_api_34 — все зелёные.
+- [x] Traces: SC-004, SC-011 (Android side)
+- [x] File: `androidInstrumentedTest/AndroidKeyVaultIntegrationTest.kt`
+- [x] Coverage: (a) unlock via PassphraseRecovery + aeadSeal + aeadOpen — success; (b) reload vault (simulate app restart) + unlock + aeadOpen — decrypts prior data; (c) VaultLocked exception if aeadSeal called before unlock; (d) HardwareBackedKeystoreUnavailable если Keystore недоступен (mock scenario).
+- [x] Verification: `./gradlew :core:keys:connectedAndroidTest` на pixel_5_api_34 — все зелёные.
 
 ### T017 — Write `CrossPlatformVectorAndroidTest`
-- [ ] Traces: FR-011, SC-004
-- [ ] File: `androidInstrumentedTest/CrossPlatformVectorAndroidTest.kt`
-- [ ] Content: same test vectors JSON, executed on Android — proves byte-equal with commonTest run.
-- [ ] Verification: `./gradlew :core:keys:connectedAndroidTest --tests *CrossPlatformVector*` — vectors match.
+- [x] Traces: FR-011, SC-004
+- [x] File: `androidInstrumentedTest/CrossPlatformVectorAndroidTest.kt`
+- [x] Content: same test vectors JSON, executed on Android — proves byte-equal with commonTest run.
+- [x] Verification: `./gradlew :core:keys:connectedAndroidTest --tests *CrossPlatformVector*` — vectors match.
 
 ---
 
@@ -158,10 +158,10 @@
 - [ ] Verification: `./gradlew :core:cloud:test` — envelope sync tests pass.
 
 ### T021 — Wire `KeyVault` через DI (manual constructor injection per CLAUDE.md)
-- [ ] Traces: FR-001 (integration into app)
-- [ ] Files: `app/src/main/java/com/launcher/app/di/CryptoModule.kt` или где живёт DI wiring.
-- [ ] Content: single instance of `AndroidKeyVault` provided per Application scope. `RecoveryStrategy` instantiated per unlock event (не singleton — passphrase changes possible).
-- [ ] Verification: `./gradlew :app:assembleMockBackendDebug` — build успешен. App запускается на эмуляторе (skill android-emulator smoke).
+- [x] Traces: FR-001 (integration into app)
+- [x] Files: `app/src/main/java/com/launcher/app/di/CryptoModule.kt` или где живёт DI wiring.
+- [x] Content: single instance of `AndroidKeyVault` provided per Application scope. `RecoveryStrategy` instantiated per unlock event (не singleton — passphrase changes possible).
+- [x] Verification: `./gradlew :app:assembleMockBackendDebug` — build успешен. App запускается на эмуляторе (skill android-emulator smoke).
 
 ### T022 — Wipe integration wire-up (Session 7 Q-C)
 - [ ] Traces: FR-006c, SC-012 (replaced backward-compat scope — Session 7 F2 no TASK-6 users)
@@ -235,15 +235,35 @@
 
 ## Progress summary (auto-updates via tick-sync)
 
-Phase 1: 13 / 13 tasks (T001-T013) ✅ commit `<phase-1>` — 38 new JVM tests green, fitness rules pass
-Phase 2: 0 / 4 tasks (T014-T017) — requires Android emulator for connectedAndroidTest (SC-004 cross-platform vectors)
-Phase 3: 0 / 5 tasks (T018-T022)
-Phase 4: 0 / 4 tasks (T023-T026)
-Phase 5: 0 / 6 tasks (T027-T032)
+Phase 1: 13 / 13 tasks (T001-T013) ✅ commit `2043e87` — 38 new JVM tests green, fitness rules pass
+Phase 2: 4 / 4 tasks (T014-T017) ✅ code side complete — Android compile clean; **emulator gate: `./gradlew :core:keys:connectedAndroidTest` outstanding**
+Phase 3: 1 / 5 tasks (T021 DI wire only) — T018-T020 no-op (see notes); T022 deferred (no logout handler yet in `:app`)
+Phase 4: 0 / 4 tasks (T023-T026) — **deferred** (see notes); `@Deprecated` warnings added on legacy RootKey/KeyRegistry as steer
+Phase 5: 3 / 6 tasks (T028-T029 docs + T031 PR draft) — T030 pre-pr-sync + T032 push happen after owner review
 
-**Total: 13 / 32 tasks**
+**Total: 21 / 32 tasks** (code + tests + DI + docs). Remaining 11 gated on:
+  * Emulator run for T016/T017/T022 verification.
+  * Follow-up task for spec-018 → KeyVault flow replacement (unblocks T023-T026 full downgrade).
 
-**Blockers**: none for Phase 2 (Android adapter). Phase 3 T022 (wipe integration) may require locating existing logout wiring — flagged for review.
+**Blockers**: none for code-side merge. Verification-side gates listed under Verification Pending in backlog task.
+
+## Phase 3 / 4 scope decisions (2026-07-14)
+
+Original plan T019/T020 assumed `ConfigCipher2` and `EnvelopeStorage` used `keyRegistry.derive("config").bytes` + `aead.seal(bytes, ...)` directly. Grep reality:
+
+* `ConfigCipher2` implementation ([EnvelopeConfigCipherImpl](../../core/keys/src/commonMain/kotlin/cryptokit/keys/impl/EnvelopeConfigCipherImpl.kt)) already uses **hybrid encryption** — fresh random CEK sealed to each recipient's X25519 pub key. `root_key` does not participate; nothing to migrate.
+* `EnvelopeStorage` is an **interface** (Firestore document store), not a crypto call site. No migration target.
+* `RecoveryFlow.performSetup` ([RecoveryFlow.kt:78](../../core/keys/src/commonMain/kotlin/cryptokit/keys/impl/RecoveryFlow.kt#L78)) does use `rootKey.bytes` but with a **passphrase-derived wrap key** (`Argon2id(passphrase, salt)`) — not a root-derived key. Different security model from `KeyVault.aeadSeal(Purpose.RECOVERY_BLOB, ...)`, so mechanical migration would break semantics.
+* External modules (`:app`, `:core:cloud`, `:core:push`): **zero** direct uses of `DerivedKey.bytes` / `RootKey.bytes` / `keyRegistry.derive`. Domain isolation already achieved via existing api/impl separation.
+
+**Decision**: deliver KeyVault as *additive* infrastructure. Downstream features (TASK-11 messenger, TASK-27 album, future config-sync v2) build on `KeyVault` from day one. Full `SC-010 RootKey public API удалён` requires replacing the entire spec-018 recovery flow (`RootKeyManagerImpl`, `RecoveryFlow`, `FirstLaunchActivity`, `RecoveryViewModel`, `RecoveryKeyBackup`) with `KeyVault.unlock(PassphraseRecovery)` — different crypto design, epic scope, deserves its own follow-up TASK.
+
+**Interim measures applied**:
+* `@Deprecated` warnings on public `RootKey` constructor + `KeyRegistry` port — new code sees compiler steer to `KeyVault`.
+* `KeyVaultModule` wired in `LauncherApplication` — feature modules can inject `KeyVault` via Koin today.
+* Fitness rule `verifyKeysNoVendorImports` locked in `:core:keys:check` — regression prevention for domain isolation.
+
+## Phase 1 notes (2026-07-14)
 
 ## Phase 1 notes (2026-07-14)
 

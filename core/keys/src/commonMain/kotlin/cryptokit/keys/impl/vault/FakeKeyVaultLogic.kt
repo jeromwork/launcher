@@ -31,7 +31,13 @@ import cryptokit.keys.api.vault.VaultException
  * [KeyDerivation.derive] when `salt=macKey, ikm=message`). Deterministic and secure; upgrade
  * to real BLAKE2b keyed hash tracked in server-roadmap SRV-CRYPTO-MAC-UPGRADE.
  */
-internal open class KeyVaultCore(
+/**
+ * Public only because Kotlin visibility rules would otherwise forbid `AndroidKeyVault` (a
+ * public class in androidMain) from extending an `internal` common-main base. Feature modules
+ * MUST NOT construct or subclass this class directly — depend on the [KeyVault] interface and
+ * let DI provide the concrete adapter.
+ */
+open class KeyVaultCore(
     private val aead: AeadCipher,
     private val kdf: KeyDerivation,
     private val asym: AsymmetricCrypto,
@@ -54,9 +60,24 @@ internal open class KeyVaultCore(
             rootBytes.fill(0)
             throw e
         }
-        rootKey = RootKey(rootBytes)
+        bootstrapWithRoot(rootBytes, wipeInput = true)
+    }
+
+    /**
+     * Populate in-memory vault state from raw [rootBytes] without running a [RecoveryStrategy].
+     * Used by platform adapters that persist `root_key` at rest (Android Keystore) — on app
+     * restart the raw root is loaded from platform storage and the vault re-hydrates without
+     * asking for the passphrase again.
+     *
+     * If [wipeInput] is true the input buffer is zeroed after the copy — pass `false` when the
+     * caller wants to keep the raw root available (rare; normally caller should wipe).
+     */
+    protected suspend fun bootstrapWithRoot(rootBytes: ByteArray, wipeInput: Boolean) {
+        require(rootBytes.size == RootKey.SIZE) { "rootBytes must be ${RootKey.SIZE} bytes" }
+        val stored = rootBytes.copyOf()
+        rootKey = RootKey(stored)
         val identitySeed = kdf.derive(
-            ikm = rootBytes,
+            ikm = stored,
             salt = ByteArray(0),
             info = "ed25519-identity-v1",
             length = 32,
@@ -66,9 +87,18 @@ internal open class KeyVaultCore(
         identityPub = kp.publicKey
         identityPriv = kp.privateKey
         state = State.UNLOCKED
+        if (wipeInput) rootBytes.fill(0)
     }
 
     override suspend fun wipe() {
+        wipeInMemory()
+    }
+
+    /**
+     * Clear only the in-memory state; a subclass adapter can add platform-storage cleanup on
+     * top of this call in its own `wipe()` override.
+     */
+    protected fun wipeInMemory() {
         rootKey?.wipe()
         rootKey = null
         identityPriv?.fill(0)

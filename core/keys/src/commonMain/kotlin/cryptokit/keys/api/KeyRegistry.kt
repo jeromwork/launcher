@@ -21,6 +21,12 @@ package cryptokit.keys.api
  * @see DerivedKey
  * @see StableId
  */
+@Deprecated(
+    message = "Legacy spec-018 port. New code MUST use cryptokit.keys.api.vault.KeyVault " +
+        "(operation-on-vault — no derived-key bytes cross the boundary). Removal blocked on " +
+        "spec-018 recovery-flow replacement (TASK-112 follow-up).",
+    level = DeprecationLevel.WARNING,
+)
 interface KeyRegistry {
     /**
      * Выводит [DerivedKey] для пары ([stableId], [purpose]).

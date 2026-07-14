@@ -15,6 +15,7 @@ import com.launcher.app.di.cloudModule
 import com.launcher.app.di.cryptokitModule
 import com.launcher.app.di.f018KeysBackendModule
 import com.launcher.app.di.f018KeysModule
+import com.launcher.app.di.keyVaultModule
 import com.launcher.app.di.f019PushBackendModule
 import com.launcher.app.push.f019PushCommonModule
 import com.launcher.app.di.pairingModule
@@ -110,6 +111,7 @@ class LauncherApplication : Application(), Configuration.Provider {
                 cryptokitModule, // TASK-51 unified: spec 016 (F-CRYPTO) ports + spec 011 pairing-side adapters + coordinator
                 f018KeysModule,   // spec 018 (F-5) RootKeyManager + IdentityProof + Argon2id KDF
                 f018KeysBackendModule, // spec 018 RecoveryKeyBackup (flavor-resolved)
+                keyVaultModule,   // TASK-112 KeyVault port + AndroidKeyVault (additive to spec-018)
                 f019PushCommonModule,  // spec 019 (F-5c) PushHandlerRegistry + ConfigUpdatedHandler
                 f019PushBackendModule, // spec 019 PushTrigger / FcmTokenPublisher / ConfigChangeNotifier (flavor-resolved)
                 cloudModule,   // TASK-49 CloudAvailability + EmergencyNumberResolver + SOSDialerAlternative

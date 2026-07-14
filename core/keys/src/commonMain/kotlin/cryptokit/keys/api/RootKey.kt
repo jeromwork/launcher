@@ -15,6 +15,12 @@ package cryptokit.keys.api
  * inline classes). Если в будущем targeting K2 stable + Kotlin 2.0+ permits —
  * можно конвертировать в value class.
  */
+@Deprecated(
+    message = "Legacy spec-018 type. New code MUST route symmetric AEAD / MAC / sign through " +
+        "cryptokit.keys.api.vault.KeyVault instead — root_key never crosses the port boundary. " +
+        "Removal blocked on spec-018 recovery-flow replacement (TASK-112 follow-up).",
+    level = DeprecationLevel.WARNING,
+)
 class RootKey(val bytes: ByteArray) {
     init {
         require(bytes.size == SIZE) {
