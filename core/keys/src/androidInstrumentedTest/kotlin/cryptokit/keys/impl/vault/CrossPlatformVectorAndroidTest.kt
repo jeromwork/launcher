@@ -7,8 +7,10 @@ import cryptokit.keys.api.vault.Purpose
 import cryptokit.keys.api.vault.RecoveryStrategy
 import cryptokit.keys.api.vault.canonicalAad
 import kotlinx.coroutines.runBlocking
+import com.ionspin.kotlin.crypto.LibsodiumInitializer
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import cryptokit.crypto.api.KeyStoreContext
@@ -33,6 +35,11 @@ private class FixedRootStrategy(private val root: ByteArray) : RecoveryStrategy(
 class CrossPlatformVectorAndroidTest {
 
     private val context: Context get() = ApplicationProvider.getApplicationContext()
+
+    @Before
+    fun initLibsodium() = runBlocking {
+        if (!LibsodiumInitializer.isInitialized()) LibsodiumInitializer.initialize()
+    }
 
     @After
     fun cleanup() = runBlocking {

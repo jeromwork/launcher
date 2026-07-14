@@ -14,10 +14,12 @@ import cryptokit.crypto.libsodium.LibsodiumAeadCipher
 import cryptokit.crypto.libsodium.LibsodiumArgon2idPasswordHash
 import cryptokit.crypto.libsodium.LibsodiumKeyDerivation
 import kotlinx.coroutines.runBlocking
+import com.ionspin.kotlin.crypto.LibsodiumInitializer
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -33,6 +35,11 @@ class AndroidKeyVaultIntegrationTest {
 
     private val context: Context get() = ApplicationProvider.getApplicationContext()
     private val hint = IdentityHint.GoogleAccount("uid-integration-test")
+
+    @Before
+    fun initLibsodium() = runBlocking {
+        if (!LibsodiumInitializer.isInitialized()) LibsodiumInitializer.initialize()
+    }
 
     @After
     fun cleanup() = runBlocking {
