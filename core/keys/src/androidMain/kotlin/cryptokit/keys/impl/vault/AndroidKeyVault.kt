@@ -95,7 +95,11 @@ class AndroidKeyVault(
     }
 
     companion object {
-        /** Fixed [KeyId] under which the wrapped root is persisted. */
-        const val ROOT_KEY_ID: String = "keyvault-root-v1"
+        /**
+         * Fixed [KeyId] under which the wrapped root is persisted. Uses the framework-internal
+         * `__internal-` namespace prefix per `KeyNamespace` validation rules — this key belongs
+         * to the KeyVault infrastructure itself, not to any application-level Purpose.
+         */
+        const val ROOT_KEY_ID: String = "__internal-keyvault-root-v1"
     }
 }
