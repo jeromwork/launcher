@@ -16,7 +16,7 @@ Introduce `KeyVault` port + `RecoveryStrategy` port in `:core:keys` domain layer
 **Target Platform**: `commonMain` (KMP) → Android now, iOS via TASK-26 (parking-lot), HarmonyOS/desktop hypothetical
 **Project Type**: KMP library module (`:core:keys` — pure domain + adapter subfolder)
 **Performance Goals**: `aeadSeal(1KB)` ≤ 5ms JVM P95; `aeadOpen(1KB)` ≤ 5ms; `Argon2id V1` recovery ≤ 3s P95 (unchanged from TASK-6 UX expectation)
-**Constraints**: Zero vendor SDK imports in `:core:keys` (rule 1); byte-equal cross-platform test vectors (Android+JVM+Fake); backward-compat с existing TASK-6 ciphertext blobs (via schema-version migration path).
+**Constraints**: Zero vendor SDK imports in `:core:keys` (rule 1); byte-equal cross-platform test vectors (Android+JVM+Fake). Backward-compat DROPPED (Session 7 — no TASK-6 users exist yet).
 **Scale/Scope**: 5 implementation phases, ~1 week estimate. ~10 new Kotlin files + 3-5 migrated call sites + 5+ test files + fixture JSON.
 
 ## Constitution Check
@@ -27,7 +27,7 @@ Per `.specify/memory/constitution.md` Article XVI (8 mandatory gates):
 
 | Gate | Requirement | TASK-112 Compliance | Notes |
 |---|---|---|---|
-| Architecture | Domain isolated (rule 1), ACL wrapping (rule 2) | ✅ | `KeyVault` port lives in `family.keys.api`; adapters in `family.keys.impl.*`; zero vendor imports in domain (fitness rule) |
+| Architecture | Domain isolated (rule 1), ACL wrapping (rule 2) | ✅ | `KeyVault` port lives in `com.launcher.core.keys.api`; adapters in `com.launcher.core.keys.impl.*`; zero vendor imports in domain (fitness rule) |
 | Core/System Integration | No transport types in domain, no static singletons | ✅ | `KeyVault` = DI-injected interface, no static state; blob format = internal domain type, not exposed as transport DTO |
 | Configuration | Wire-format versioning (rule 5) | ✅ | Blob header carries `format_version` (currently 0x01); Argon2Params versioned (V1 frozen); test vectors JSON has version field |
 | Required Context Review | Consulted CLAUDE.md rules 1-13, all Session 1-6 discussion, docs/architecture/crypto.md, TASK-6/25/100/104/115/122/124 dependencies | ✅ | Session 6 explicit — revised Decision incorporates external review, mentor deliberation, source verification |
@@ -62,7 +62,7 @@ specs/task-112-keyvault-port/
 core/keys/
 ├── build.gradle.kts                          # KMP module config (already exists)
 ├── src/
-│   ├── commonMain/kotlin/family/keys/
+│   ├── commonMain/kotlin/com/launcher/core/keys/
 │   │   ├── api/
 │   │   │   ├── KeyVault.kt                   # PORT (interface + newtypes + Purpose enum)
 │   │   │   ├── RecoveryStrategy.kt           # PORT (RecoveryStrategy interface)
@@ -73,10 +73,10 @@ core/keys/
 │   │       ├── Argon2Params.kt               # Versioned KDF parameters (V1 frozen)
 │   │       ├── BlobHeader.kt                 # internal — header pack/unpack (magic + format_version + purpose_id + key_epoch + nonce)
 │   │       └── RootKey.kt                    # internal — 32 bytes, never crosses port
-│   ├── androidMain/kotlin/family/keys/impl/
+│   ├── androidMain/kotlin/com/launcher/core/keys/impl/
 │   │   ├── AndroidKeyVault.kt                # Android adapter (Keystore + libsodium-kmp)
 │   │   └── AndroidRootKeyStorage.kt          # internal — EncryptedSharedPreferences wrapper
-│   ├── commonTest/kotlin/family/keys/
+│   ├── commonTest/kotlin/com/launcher/core/keys/
 │   │   ├── FakeKeyVault.kt                   # Fake adapter (deterministic in-memory)
 │   │   ├── KeyVaultContractTest.kt           # Port contract tests
 │   │   ├── PurposeEnforcementTest.kt         # WrongPurpose exception coverage
@@ -87,7 +87,7 @@ core/keys/
 │   │   └── resources/
 │   │       ├── vectors/v1.json               # Cross-platform test vectors
 │   │       └── fixtures/task-6-legacy.bin    # Pre-migration ciphertext for backward compat
-│   ├── androidInstrumentedTest/kotlin/family/keys/
+│   ├── androidInstrumentedTest/kotlin/com/launcher/core/keys/
 │   │   ├── AndroidKeyVaultIntegrationTest.kt # Real Android Keystore + libsodium via JNI
 │   │   └── CrossPlatformVectorAndroidTest.kt # Same vectors as commonTest, on device
 │   └── androidUnitTest/                      # (existing tests continue to pass)
@@ -146,15 +146,15 @@ core/config/                                   # (existing, migrated to KeyVault
 - `core/config/ConfigCipher2.kt` — replaces direct `DerivedKey.bytes` access.
 - `core/config/EnvelopeStorage.kt` — same.
 - `app/src/.../MainApplication.kt` (или DI wiring point) — provides `KeyVault` singleton через `AndroidKeyVault`.
-- Backward-compat test: `commonTest/BackwardCompatTest.kt` reads `fixtures/task-6-legacy.bin` blob и verify decryption works через new code path.
+- Logout handler (existing TASK-6 wiring) — calls `keyVault.wipe()` on logout event (Session 7 Q-C).
 
-**Verification**: `./gradlew :app:testMockBackendDebugUnitTest` — existing TASK-6 tests зелёные. `./gradlew :core:cloud:test` — config sync тесты зелёные (используют ConfigCipher2 под капотом).
+**Verification**: `./gradlew :app:testMockBackendDebugUnitTest` — existing TASK-6 tests зелёные. `./gradlew :core:cloud:test` — config sync тесты зелёные. Wipe integration test: logout → subsequent `aeadOpen` → `NoRootKey` exception.
 
-**Blocker for phase-4**: SC-002 (backward compat with TASK-6 blobs) должен пройти до начала downgrade.
+**Note (Session 7 F2)**: no backward-compat test needed — TASK-6 has no production users yet, все данные создаются через новый code path.
 
 ### Phase 4 — Downgrade RootKey + KeyRegistry (1 day)
 
-**Deliverable**: `RootKey` public class → `internal class family.keys.impl.RootKey`. `KeyRegistry` public port → `internal helper`. Все feature-модули не могут больше вызывать `RootKey(bytes)` или `keyRegistry.derive(...)`.
+**Deliverable**: `RootKey` public class → `internal class com.launcher.core.keys.impl.RootKey`. `KeyRegistry` public port → `internal helper`. Все feature-модули не могут больше вызывать `RootKey(bytes)` или `keyRegistry.derive(...)`.
 
 **Files modified**:
 - `commonMain/impl/RootKey.kt` — `internal` visibility.

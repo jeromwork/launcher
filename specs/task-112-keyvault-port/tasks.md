@@ -14,13 +14,13 @@
 
 ### T001 — Create `KeyVault` interface with port shape from Decision block
 - [ ] Traces: FR-001, Decision block «Port shape (Kotlin common)» section
-- [ ] File: `core/keys/src/commonMain/kotlin/family/keys/api/KeyVault.kt`
-- [ ] Content: interface `KeyVault` с 8 методами (`unlock`, `aeadSeal`, `aeadOpen`, `mac`, `verifyMac`, `sign`, `verify`, `publicIdentity`). Все `@Throws(VaultException::class)` (кроме `verify` — pure).
+- [ ] File: `core/keys/src/commonMain/kotlin/com/launcher/core/keys/api/KeyVault.kt`
+- [ ] Content: interface `KeyVault` с 9 методами (`unlock`, `wipe`, `aeadSeal`, `aeadOpen`, `mac`, `verifyMac`, `sign`, `verify`, `publicIdentity`). `@Throws(VaultException::class)` для всех кроме `wipe` и `verify` (pure). `wipe()` per Session 7 Q-C.
 - [ ] Verification: `./gradlew :core:keys:compileCommonMainKotlinMetadata` — compiles.
 
 ### T002 — Create `Purpose` enum with registry attributes
 - [ ] Traces: FR-002, Decision block Purpose registry
-- [ ] File: `core/keys/src/commonMain/kotlin/family/keys/api/Purpose.kt` (или внутри KeyVault.kt)
+- [ ] File: `core/keys/src/commonMain/kotlin/com/launcher/core/keys/api/Purpose.kt` (или внутри KeyVault.kt)
 - [ ] Content: `enum class Purpose(val algorithm: Algorithm, val exportable: Boolean, val rotationPolicy: RotationPolicy)` с 2 variants: CONFIG (XChaCha20Poly1305, false, LazyOnDemand), RECOVERY_BLOB (XChaCha20Poly1305, false, Manual). Plus `Algorithm` + `RotationPolicy` enums.
 - [ ] Verification: unit test — все variants имеют `exportable = false`.
 
@@ -40,17 +40,25 @@
 - [ ] Content: sealed class с 7 наследниками (VaultLocked, WrongPurpose, TamperDetected, UnsupportedFormatVersion, NoRootKey, HardwareBackedKeystoreUnavailable, RecoveryFailed).
 - [ ] Verification: `when (ex) { ... }` exhaustive check в тесте — все 7 покрыты без else.
 
-### T005 — Create `RecoveryStrategy` port
-- [ ] Traces: FR-005, Session 6 owner insight (pluggable recovery)
-- [ ] File: `commonMain/api/RecoveryStrategy.kt`
-- [ ] Content: interface `RecoveryStrategy { internal fun deriveRoot(): ByteArray }`. Note: `internal fun` — root не пересекает module boundary.
+### T005 — Create `RecoveryStrategy` port + `IdentityHint` sealed class
+- [ ] Traces: FR-005, Session 6 owner insight (pluggable recovery), Session 7 Q-B/Q-D
+- [ ] Files:
+  - `commonMain/api/RecoveryStrategy.kt` — interface с `internal fun deriveRoot(): ByteArray` + `internal fun verifyUnlock(candidateRoot: ByteArray)` (Q-D D1 hook).
+  - `commonMain/api/IdentityHint.kt` — sealed class с variants `GoogleAccount(googleUid: String)` / `NoGmsDevice(deviceRandomSalt: ByteArray)`. Per Session 7 Q-B Bitwarden pattern.
 - [ ] Verification: compile — external module не может вызвать `deriveRoot()`.
 
-### T006 — Implement `PassphraseRecovery` adapter matching TASK-6
-- [ ] Traces: FR-006, TASK-6 regression preservation
+### T006 — Implement `PassphraseRecovery` adapter (Bitwarden salt + validation blob)
+- [ ] Traces: FR-006, FR-006b, Session 7 Q-A/Q-B/Q-D
 - [ ] File: `commonMain/impl/PassphraseRecovery.kt` + `Argon2Params.kt`
-- [ ] Content: class `PassphraseRecovery(passphrase, salt, params: Argon2Params)` → `deriveRoot() = libsodiumArgon2id(passphrase, salt, params.V1)`. `Argon2Params.V1 = memory=64MiB, iterations=3, parallelism=1`.
-- [ ] Verification: unit test — same passphrase + salt + params V1 → same root bytes byte-equal. Regression test с TASK-6 fixture.
+- [ ] Content:
+  - `class PassphraseRecovery(passphrase, identityHint: IdentityHint, params = Argon2Params.V1) : RecoveryStrategy`
+  - Salt derivation в `deriveRoot()`:
+    - `identityHint is GoogleAccount` → `salt = HKDF(googleUid.toByteArray(UTF_8), info = "salt-v1", length = 16)`.
+    - `identityHint is NoGmsDevice` → `salt = deviceRandomSalt`.
+  - `root = Argon2id(passphrase, salt, params.V1)` (libsodium `crypto_pwhash`).
+  - `Argon2Params.V1(memory = 64 * 1024 KB, iterations = 3, parallelism = 1)` — frozen.
+  - `verifyUnlock(root)` internal — attempts `aeadOpen` на internally stored `Ciphertext_valid` (sealed at first setup с plaintext `"vault-init-v1"`). TamperDetected → throw `RecoveryFailed`.
+- [ ] Verification: unit test — same passphrase + same identityHint → same root (deterministic). Wrong passphrase → `verifyUnlock` throws RecoveryFailed. HKDF salt derivation reproducible.
 
 ### T007 — Create `RootKey` internal class + `BlobHeader` internal helper
 - [ ] Traces: FR-003, FR-008, Decision block «internal RootKey»
@@ -61,13 +69,13 @@
 
 ### T008 — Implement `FakeKeyVault` (deterministic in-memory)
 - [ ] Traces: FR-014, Rule 6 (mock-first)
-- [ ] File: `commonTest/kotlin/family/keys/FakeKeyVault.kt`
+- [ ] File: `commonTest/kotlin/com/launcher/core/keys/FakeKeyVault.kt`
 - [ ] Content: in-memory Map-based vault. Uses libsodium-kmp under hood для реальных крипто операций (не «фейк» с random bytes). Fixed root seed для test vector reproducibility.
 - [ ] Verification: contract test — `fakeVault.aeadSeal(...)` + `aeadOpen` → roundtrip. Same seed → same output bytes across test runs.
 
 ### T009 — Write contract tests for `KeyVault` port
 - [ ] Traces: SC-004, SC-007, SC-008
-- [ ] File: `commonTest/kotlin/family/keys/KeyVaultContractTest.kt`
+- [ ] File: `commonTest/kotlin/com/launcher/core/keys/KeyVaultContractTest.kt`
 - [ ] Coverage:
   - roundtrip `aeadSeal → aeadOpen` для CONFIG и RECOVERY_BLOB
   - `WrongPurpose` — Ciphertext(CONFIG), open(RECOVERY_BLOB) → exception (SC-008)
@@ -76,6 +84,7 @@
   - `mac` + `verifyMac` roundtrip
   - `sign` + `verify` roundtrip (positive), verify(wrong signature) → false (negative)
   - `VaultLocked` — вызовы без `unlock()` → exception
+  - **Wipe cascade (SC-012)**: unlock → aeadSeal → wipe() → subsequent aeadOpen → `NoRootKey` exception. Wipe idempotent (safe to call twice).
 - [ ] Verification: `./gradlew :core:keys:test` — все проходят.
 
 ### T010 — Write `PurposeEnforcementTest`
@@ -83,10 +92,11 @@
 - [ ] File: `commonTest/PurposeEnforcementTest.kt`
 - [ ] Coverage: `aeadOpen` с mismatched purpose → `WrongPurpose(expected=asked, actual=headerPurpose)` exception. Проверка что header покрывает случай.
 
-### T011 — Write `RecoveryStrategyTest`
-- [ ] Traces: SC-011, FR-005
-- [ ] File: `commonTest/RecoveryStrategyTest.kt`
-- [ ] Coverage: `PassphraseRecovery` deterministic (same passphrase+salt → same root). `TestRecoveryStrategy(fakeRootBytes)` — mock adapter. `unlock` c wrong strategy → subsequent `aeadOpen` fails (TamperDetected).
+### T011 — Write `RecoveryStrategyTest` + `PassphraseRecoveryValidationTest`
+- [ ] Traces: SC-011, SC-013, SC-014, FR-005, FR-006b
+- [ ] Files:
+  - `commonTest/RecoveryStrategyTest.kt` — extensibility check: `PassphraseRecovery` deterministic (same passphrase+identityHint → same root). `TestRecoveryStrategy(fakeRootBytes)` — mock adapter plug-in works без изменений KeyVault interface.
+  - `commonTest/PassphraseRecoveryValidationTest.kt` — Session 7 Q-D coverage: (a) correct passphrase → unlock success; (b) wrong passphrase → `VaultException.RecoveryFailed` (not silent); (c) salt derivation from `IdentityHint.GoogleAccount(uid)` deterministic — same uid → same salt; (d) `NoGmsDevice` path — different device random salt → different root.
 
 ### T012 — Create cross-platform test vectors fixture
 - [ ] Traces: FR-011, SC-004
@@ -153,12 +163,13 @@
 - [ ] Content: single instance of `AndroidKeyVault` provided per Application scope. `RecoveryStrategy` instantiated per unlock event (не singleton — passphrase changes possible).
 - [ ] Verification: `./gradlew :app:assembleMockBackendDebug` — build успешен. App запускается на эмуляторе (skill android-emulator smoke).
 
-### T022 — Write `BackwardCompatTest` для TASK-6 legacy blobs
-- [ ] Traces: SC-002
+### T022 — Wipe integration wire-up (Session 7 Q-C)
+- [ ] Traces: FR-006c, SC-012 (replaced backward-compat scope — Session 7 F2 no TASK-6 users)
 - [ ] Files:
-  - Fixture: `commonTest/resources/fixtures/task-6-legacy-blob.bin` (extract из running TASK-6 device перед migration'ом OR synthesize via existing pre-migration crypto path).
-  - Test: `commonTest/BackwardCompatTest.kt` — reads fixture bytes через новый code path, expects successful decryption to same plaintext.
-- [ ] Verification: тест зелёный.
+  - Grep existing logout handler in `:app` (likely `LogoutManager.kt` или similar в TASK-6 wiring).
+  - Add call `keyVault.wipe()` в logout path.
+  - Integration test: `androidInstrumentedTest/WipeIntegrationTest.kt` — trigger logout → verify Keystore entry gone via reflection or by attempting re-unlock (should require fresh setup, not resume).
+- [ ] Verification: `./gradlew :core:keys:connectedAndroidTest --tests *Wipe*` — passes. Manual smoke на эмуляторе: setup → login → data → logout → login (fresh) → previous data unrecoverable.
 
 ---
 

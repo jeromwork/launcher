@@ -1,7 +1,7 @@
 # Pre-Implementation Analysis Report
 
 **Feature**: TASK-112 KeyVault Port Boundary
-**Date**: 2026-07-14
+**Date**: 2026-07-14 (updated after Session 7 owner review)
 **Verdict**: **READY**
 
 ## Scope
@@ -39,7 +39,7 @@ Success Criteria backwards trace:
 | SC | Task(s) | Notes |
 |---|---|---|
 | SC-001 [backlog] all DerivedKey.bytes migrated | T018 (grep), T019, T020, T023, T024, T025 | Complete |
-| SC-002 [backlog] backward-compat with TASK-6 blobs | T022 BackwardCompatTest | Blocker if fixture blob не найдётся — see risks |
+| ~~SC-002~~ DROPPED (Session 7 F2 — no TASK-6 users) | — | Removed |
 | SC-003 [backlog] TASK-6 recovery flow regression | T021 (DI wiring) + T006 (PassphraseRecovery) + implicit `RecoveryUiTest` re-run | Covered |
 | SC-004 cross-platform vectors byte-equal | T012, T017 | Complete |
 | SC-005 [backlog] TASK-6 UI flow unchanged | T021 + existing RecoveryUiTest | Covered |
@@ -73,9 +73,9 @@ Re-run of 8 gates after plan design (per constitution requirement):
 
 ### Medium risk
 
-1. **libsodium-kmp Argon2id API surface** — plan assumes `crypto_pwhash` binding доступен для Argon2id. **Verification needed** in phase-1 T006 before locking `Argon2Params.V1` parameters. **Mitigation**: если API отсутствует — использовать `libsodium.jvm.core` napkin binding via kotlinx-crypto shim, что затянет phase-1 на ~0.5 day.
+1. **libsodium-kmp Argon2id API surface** — plan assumes `crypto_pwhash` binding доступен для Argon2id + HKDF (`crypto_kdf_derive_from_key` для salt derivation). **Verification needed** в phase-1 T006 before locking `Argon2Params.V1` parameters. **Mitigation**: если API отсутствует — использовать `libsodium.jvm.core` napkin binding via kotlinx-crypto shim, что затянет phase-1 на ~0.5 day.
 
-2. **TASK-6 legacy blob fixture** (SC-002, T022) — если existing production data не имеет canonical AAD (previous ConfigCipher2 clearly didn't have length-prefixed AAD), backward compatibility требует **read compatibility shim**: `aeadOpen` при `UnsupportedFormatVersion` OR при legacy blob (no header magic) → fall back в legacy code path → decrypt через old KeyRegistry.derive path → re-encrypt в new format lazily. **Mitigation**: add T033 (new task) — «legacy blob fallback path in AndroidKeyVault» if fixture reveals non-conforming legacy data. Estimated +1 day.
+2. ~~**TASK-6 legacy blob fixture**~~ **DROPPED** — Session 7 owner confirmed no TASK-6 production users exist. Backward-compat requirement removed, T022 repurposed для wipe integration test.
 
 3. **DI wiring `KeyVault` singleton** (T021) — CLAUDE.md says «Manual constructor injection (без DI framework в MVP)». Existing codebase may already have DI framework (Koin/Hilt) — need to grep at phase-3 start. **Mitigation**: pattern-match existing DI setup, follow it.
 
@@ -87,9 +87,7 @@ Re-run of 8 gates after plan design (per constitution requirement):
 
 ## Sanity checks
 
-- **File naming consistency**: `family.keys.api.KeyVault` vs older code `com.launcher.core.keys.*` — need alignment. Plan uses `family.keys.*` per Session 2 Decision precedent. Existing `:core:keys` module has `com.launcher.core.keys.*` naming — **potential rename** in phase-4. **Mitigation**: add T034 — «align package name to family.keys or keep com.launcher.core.keys» decision. Prefer keeping existing naming (rule 4 MVA — don't rename without cause).
-
-  **Action**: update plan.md and Decision block to use `com.launcher.core.keys` naming instead of `family.keys` (aligns с existing module structure).
+- **Package naming**: Session 7 F3 owner decision — align к existing `com.launcher.core.keys.*` pattern. All artifacts (spec, plan, tasks, Decision block) already updated. ✅.
 
 - **Backlog task file references**: task-112 file link paths use spaces (`task-112 - Decision-Cross-platform-IdentityVault.md`). Confirmed correct via markdown link URL encoding (`%20`). ✅.
 
@@ -97,9 +95,23 @@ Re-run of 8 gates after plan design (per constitution requirement):
 
 ## Actionable follow-ups (fold into tasks.md if adopted)
 
-- **F1**: T006 opens phase-1 by verifying libsodium-kmp Argon2id API. If missing → T006 blocked until shim.
-- **F2**: T022 may reveal need for legacy blob fallback shim → potentially add T033.
-- **F3**: Package naming decision — `family.keys.*` vs `com.launcher.core.keys.*` needs alignment. Recommend keeping existing `com.launcher.core.keys.*` in implementation, updating Decision block prose accordingly at commit time.
+- **F1** (still open): T006 opens phase-1 by verifying libsodium-kmp Argon2id + HKDF API. If missing → T006 blocked until shim (~0.5 day).
+- ~~**F2**~~ DROPPED (Session 7 — no TASK-6 users).
+- ~~**F3**~~ RESOLVED (Session 7 — `com.launcher.core.keys.*` chosen, all artifacts updated).
+
+## Session 7 additions (post-analyze owner review)
+
+**Salt derivation approach** — Bitwarden pattern (client-side, deterministic from stable public identifier):
+- GMS device: `salt = HKDF(googleUid.toByteArray(UTF_8), info="salt-v1", 16)` — no separate salt storage needed.
+- No-GMS device: `salt = deviceRandomSalt` (16 bytes CSPRNG, stored device-only в Android Keystore при first setup).
+- `IdentityHint` sealed class differentiates path.
+- Reference implementations: WhatsApp E2E Backup 2021 (HSM+OPAQUE overkill for MVP), Signal SVR (SGX overkill), Bitwarden (matches our scale).
+
+**Wipe cascade** — `KeyVault.wipe()` method added to port. Called from logout event, atomically clears root_key from Android Keystore + in-memory state. Idempotent. All subsequent ops throw `NoRootKey` until re-unlock. New SC-012 covers.
+
+**Passphrase validation** — inside `PassphraseRecovery` adapter (D1). Known-plaintext blob `"vault-init-v1"` sealed at first setup, verified via `aeadOpen` attempt on subsequent unlock. Wrong passphrase → `RecoveryFailed` (not silent). New SC-013 covers.
+
+**Package naming** — all `family.keys.*` prose references в task-file + spec + plan + tasks replaced with `com.launcher.core.keys.*`. Aligns с existing `com.launcher.core.crypto`, `.cloud`, `.push` modules.
 
 ## Verdict
 
@@ -107,7 +119,8 @@ Re-run of 8 gates after plan design (per constitution requirement):
 
 Recommended sequence for fresh implementation session:
 1. Read `spec.md`, `plan.md`, `tasks.md`, `analyze-report.md` (в этом порядке).
-2. Read Session 6 Decision block в task-112 file (immutable контракт).
-3. Verify libsodium-kmp Argon2id API surface (F1) before starting T001.
-4. Package naming decision (F3) — align на существующий `com.launcher.core.keys.*`.
-5. Start Phase 1 T001-T013 with tick-sync HARD RULE.
+2. Read Session 6 + Session 7 Decision block в task-112 file (current contract).
+3. Verify libsodium-kmp `crypto_pwhash` (Argon2id) + HKDF (`crypto_kdf_derive_from_key`) API surface (F1) before starting T001.
+4. Start Phase 1 T001-T013 with tick-sync HARD RULE.
+
+Package naming decision (F3) — уже resolved к `com.launcher.core.keys.*`. Backward-compat (F2) — уже dropped.

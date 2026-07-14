@@ -646,7 +646,9 @@ Total add-back cost: 2-3 days, non-breaking для existing CONFIG/RECOVERY_BLOB
 
 **Port name**: `KeyVault` (unchanged from Session 2).
 
-**Port shape (Kotlin common, `family.keys.api`)**:
+**Port shape (Kotlin common, `com.launcher.core.keys.api`)**:
+
+*Package naming — Session 7 F3 alignment*: implementation uses `com.launcher.core.keys.*` matching existing `:core:*` module convention (`com.launcher.core.crypto`, `com.launcher.core.cloud`, `com.launcher.core.push`). Prose snippet below shows short `keys.api` for readability; actual code uses fully-qualified `com.launcher.core.keys.api.*`.
 
 ```kotlin
 // Purpose registry — attributes per purpose (not raw enum)
@@ -679,6 +681,11 @@ interface KeyVault {
     // Bootstrap: initialize vault by unlocking root via RecoveryStrategy adapter
     @Throws(VaultException::class) fun unlock(strategy: RecoveryStrategy)
 
+    // Lifecycle: cascade-wipe on logout (Session 7 Q-C, C1 decision)
+    // Wipes root_key from Android Keystore + clears in-memory state.
+    // All previously encrypted data becomes unrecoverable on this device.
+    fun wipe()
+
     // AEAD (operation-on-vault; derived key never leaves vault)
     @Throws(VaultException::class) fun aeadSeal(purpose: Purpose, plaintext: ByteArray, aad: Aad): Ciphertext
     @Throws(VaultException::class) fun aeadOpen(purpose: Purpose, ciphertext: Ciphertext, aad: Aad): ByteArray
@@ -696,12 +703,35 @@ interface KeyVault {
     // See Session 6 exit ramp for add-back path (~2-3 days additive, openmls from_raw verified).
 }
 
-// Recovery strategy — pluggable adapter (owner insight, Session 6)
+// Recovery strategy — pluggable adapter (Session 6 owner insight; Session 7 Q-D validation blob inside adapter)
 interface RecoveryStrategy {
     // deriveRoot returns opaque root material to KeyVault impl; never exposed to callers
     internal fun deriveRoot(): ByteArray
+    // Post-unlock verification hook (Session 7 D1 decision):
+    // Adapter internally seals a known plaintext ("vault-init-v1") on first setup,
+    // stores Ciphertext_valid in adapter-owned scope. On unlock: derive candidate root,
+    // try aeadOpen(Ciphertext_valid). Success = correct; TamperDetected = wrong -> throws RecoveryFailed.
+    // KeyVault.unlock(strategy) delegates this check to the strategy.
+    @Throws(VaultException::class) internal fun verifyUnlock(candidateRoot: ByteArray)
 }
-class PassphraseRecovery(passphrase: String, salt: ByteArray, params: Argon2Params) : RecoveryStrategy
+
+// Session 7 Q-B salt derivation — Bitwarden pattern (client-side, deterministic from stable ID)
+class PassphraseRecovery(
+    val passphrase: String,
+    val identityHint: IdentityHint,   // wraps googleUid for GMS devices, or device-random for no-GMS
+    val params: Argon2Params = Argon2Params.V1
+) : RecoveryStrategy {
+    // salt derivation:
+    //   GMS device:    salt = HKDF(googleUid.toByteArray(UTF_8), info = "salt-v1", length = 16)
+    //   no-GMS device: salt = deviceRandomSalt (stored in Android Keystore at first-setup)
+    // Deterministic from stable public identifier — no separate salt storage needed on GMS path.
+}
+
+sealed class IdentityHint {
+    class GoogleAccount(val googleUid: String) : IdentityHint()
+    class NoGmsDevice(val deviceRandomSalt: ByteArray) : IdentityHint()  // 16 bytes CSPRNG, stored device-only
+}
+
 // Future adapters: Bip39Recovery, TwoFactorRecovery, HardwareKeyRecovery — plug in without changing KeyVault
 
 // Sealed exception hierarchy
@@ -795,5 +825,12 @@ Length-prefixed layout eliminates ambiguity (no string concatenation). Callers o
   - Session 5: mentor self-adversarial deliberation (attack scenarios, self-critique of Session 4 biases).
   - Owner Session 6 decisions on C1 (passphrase with pluggable RecoveryStrategy port — architectural insight added), C2 (remove exportDerivedKey), C3 (libsodium software layer).
   - openmls source verification (2026-07-14) — corrected wrong Session 4 rationale, C2 conclusion re-grounded on TASK-100 model.
+- **Session 7 (2026-07-14)** — Owner micro-decisions after post-analyze review; salt approach research (WhatsApp/Signal/Bitwarden industry patterns). Decision block re-touched (still mutable, still zero implementation):
+  - **F2 dropped** — no TASK-6 users exist yet; SC-002 backward-compat requirement removed, T022 dropped from tasks.md.
+  - **F3 direction B** — package naming aligned to existing `com.launcher.core.keys.*` (follows `:core:*` module convention), Decision prose updated in-place from `family.keys.*` references.
+  - **Q-A** — `Argon2Params.V1` confirmed at `memory=64MiB, iterations=3, parallelism=1`. Matches Bitwarden default 2023 + OWASP recommendation.
+  - **Q-B** — salt approach: **Bitwarden pattern** (client-side derivation from stable public identifier). Formula: `salt = HKDF(googleUid, info="salt-v1", 16 bytes)`. For no-GMS devices (Huawei fallback, TASK-6 already handles): random 16 bytes stored device-only in Android Keystore, cross-device recovery impossible in that mode. Exit ramp if server compromise scenario materializes: migrate to per-user random salt + Google Drive Backup API for cross-device transfer (~1 week additive).
+  - **Q-C** — `KeyVault.wipe()` method added to port. On logout event → wipes root_key from Keystore + clears in-memory state. `KeyVault` = singleton per app instance (not per identity — user re-login = re-unlock, previous data cascaded-wiped).
+  - **Q-D** — validation blob logic **inside `PassphraseRecovery` adapter** (D1). Adapter internally seals a known plaintext (`"vault-init-v1"`) at first setup, stores `Ciphertext_valid`. On subsequent unlock: derive candidate root → attempt `aeadOpen(Ciphertext_valid)`. Success = correct passphrase; `TamperDetected` = wrong passphrase → adapter throws `VaultException.RecoveryFailed`.
 
 <!-- SECTION:DISCUSSION:END -->
