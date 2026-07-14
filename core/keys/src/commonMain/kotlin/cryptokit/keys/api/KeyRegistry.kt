@@ -21,13 +21,21 @@ package cryptokit.keys.api
  * @see DerivedKey
  * @see StableId
  */
+@Deprecated(
+    message = "Legacy spec-018 port. New code MUST use cryptokit.keys.api.vault.KeyVault " +
+        "(operation-on-vault — no derived-key bytes cross the boundary). Removal blocked on " +
+        "spec-018 recovery-flow replacement (TASK-112 follow-up).",
+    level = DeprecationLevel.WARNING,
+)
 interface KeyRegistry {
     /**
      * Выводит [DerivedKey] для пары ([stableId], [purpose]).
      * Детерминировано: те же входы → тот же ключ.
      *
+     * Internal helper — new code uses [cryptokit.keys.api.vault.KeyVault] instead.
+     *
      * @param stableId Provider-агностичный UUID идентификатор пользователя.
-     * @param purpose Строковое имя цели (например `"config"`, `"contacts"`, `"media"`).
+     * @param purpose Строковое имя цели derivation (например `"recovery-blob"`).
      * @return Derived key, содержащий 32 байта HKDF output.
      */
     suspend fun derive(stableId: StableId, purpose: String): Outcome<DerivedKey, RootKeyError>

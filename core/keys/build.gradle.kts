@@ -108,3 +108,38 @@ tasks.register("verifyKeysIsolation") {
     }
 }
 tasks.named("check") { dependsOn("verifyKeysIsolation") }
+
+// TASK-112 T013: source-level fitness rule — commonMain sources MUST NOT import forbidden
+// packages (vendor SDKs, platform system types). Grep-based; cheap alternative to a detekt
+// custom rule until detekt is wired into the project.
+tasks.register("verifyKeysNoVendorImports") {
+    val commonMain = file("src/commonMain/kotlin")
+    inputs.dir(commonMain)
+    doLast {
+        if (!commonMain.exists()) return@doLast
+        val forbiddenPrefixes = listOf(
+            "com.google.",
+            "android.",
+            "androidx.",
+            "com.launcher.core.cloud.",
+            "com.launcher.core.push.",
+        )
+        val violations = mutableListOf<String>()
+        commonMain.walkTopDown().filter { it.isFile && it.extension == "kt" }.forEach { file ->
+            file.readLines().forEachIndexed { idx, line ->
+                val trimmed = line.trim()
+                if (trimmed.startsWith("import ")) {
+                    val importPath = trimmed.removePrefix("import ").removeSuffix(";").trim()
+                    if (forbiddenPrefixes.any { importPath.startsWith(it) }) {
+                        violations += "${file.relativeTo(rootDir)}:${idx + 1}  $trimmed"
+                    }
+                }
+            }
+        }
+        check(violations.isEmpty()) {
+            "Forbidden vendor imports in :core:keys commonMain (CLAUDE.md rule 1, TASK-112 FR-007):\n" +
+                violations.joinToString("\n") { "  $it" }
+        }
+    }
+}
+tasks.named("check") { dependsOn("verifyKeysNoVendorImports") }

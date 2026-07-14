@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "description": "Cross-platform test vectors for KeyVault (TASK-112, FR-011, SC-004). Each case: fixed root + fixed plaintext + fixed AAD -> expected Ciphertext bytes (hex). Byte-equal on JVM libsodium, Android libsodium via JNI, iOS libsodium (future). Vectors regenerated on major format_version bump.",
+  "notes": "Placeholder — actual expected ciphertexts will be filled in phase-2 T012 by executing FakeKeyVault against these inputs on JVM and freezing the outputs. Until then, CrossPlatformVectorTest runs the roundtrip (seal+open of same bytes) rather than pinning expected outputs."
+}

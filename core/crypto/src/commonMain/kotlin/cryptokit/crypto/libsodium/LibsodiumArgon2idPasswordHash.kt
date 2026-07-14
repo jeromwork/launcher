@@ -50,6 +50,8 @@ class LibsodiumArgon2idPasswordHash : PasswordHash {
             "Argon2id iterations must be ≥ 1, got $iterations"
         }
 
+        LibsodiumInit.ensure()
+
         // libsodium expects exactly crypto_pwhash_SALTBYTES (16) bytes; truncate if caller passed more.
         val saltFixed = if (salt.size == crypto_pwhash_SALTBYTES) salt else salt.copyOf(crypto_pwhash_SALTBYTES)
 

@@ -20,6 +20,15 @@ interface AsymmetricCrypto {
     suspend fun generateEd25519KeyPair(): KeyPair
 
     /**
+     * Deterministic Ed25519 keypair derived from a 32-byte seed (libsodium
+     * `crypto_sign_seed_keypair`). Used by TASK-112 [cryptokit.keys.api.vault.KeyVault] to derive
+     * the identity keypair from `root_key`.
+     *
+     * Same seed → same keypair, bit-for-bit, across platforms.
+     */
+    suspend fun ed25519KeyPairFromSeed(seed: ByteArray): KeyPair
+
+    /**
      * X25519 ECDH key agreement.
      * @param myPrivate 32-byte X25519 private key.
      * @param theirPublic 32-byte X25519 public key from peer.

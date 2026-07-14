@@ -43,6 +43,19 @@ class LibsodiumAsymmetricCrypto : AsymmetricCrypto {
         )
     }
 
+    override suspend fun ed25519KeyPairFromSeed(seed: ByteArray): KeyPair {
+        require(seed.size == ED25519_SEED_SIZE) {
+            "Ed25519 seed must be $ED25519_SEED_SIZE bytes, got ${seed.size}"
+        }
+        LibsodiumInit.ensure()
+        val kp = SodiumSignature.seedKeypair(seed.asUByteArray())
+        return KeyPair(
+            privateKey = kp.secretKey.asByteArray(),
+            publicKey = kp.publicKey.asByteArray(),
+            algorithm = "Ed25519"
+        )
+    }
+
     override suspend fun deriveSharedSecret(
         myPrivate: ByteArray,
         theirPublic: ByteArray
@@ -144,5 +157,6 @@ class LibsodiumAsymmetricCrypto : AsymmetricCrypto {
         const val ED25519_SECRET_KEY_SIZE = 64
         const val ED25519_PUBLIC_KEY_SIZE = 32
         const val ED25519_SIGNATURE_SIZE = 64
+        const val ED25519_SEED_SIZE = 32
     }
 }
