@@ -1,10 +1,10 @@
 ---
 id: TASK-112
 title: 'Decision: KeyVault port boundary — operation-on-vault + narrow export'
-status: In Progress
+status: Verification
 assignee: []
 created_date: '2026-07-07'
-updated_date: '2026-07-10 17:30'
+updated_date: '2026-07-14'
 labels:
   - decision
   - crypto
@@ -138,6 +138,26 @@ internal class RootKey(internal val bytes: ByteArray)
 **HarmonyOS NEXT / desktop / future platforms** — тот же port, новый adapter, ноль изменений в domain и downstream tasks. Это и есть цель.
 
 <!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+
+<!-- AC:BEGIN -->
+- [x] #1 [hand] `KeyVault` port + `Purpose` enum + sealed `VaultException` (7 variants) compile in `:core:keys commonMain` — no vendor/platform imports (`verifyKeysNoVendorImports` fitness rule wired in `:check`)
+- [x] #2 [hand] JVM contract tests pass: aeadSeal→aeadOpen roundtrip, purpose-mismatch throws `WrongPurpose`, tamper-detection throws `TamperDetected`, wipe cascade → `NoRootKey` (38 tests green, `FakeKeyVault` + `KeyVaultContractTest`)
+- [x] #3 [hand] `AndroidKeyVault` wired via Koin in `LauncherApplication` — `assembleMockBackendDebug` succeeds, new code injects `KeyVault` instead of `KeyRegistry`
+- [x] #4 [hand] `PassphraseRecovery` deterministic: same passphrase + same `IdentityHint` → same root key across JVM test runs; wrong passphrase → `VaultException.RecoveryFailed`
+- [x] #5 [hand] `@Deprecated(WARNING)` steer on legacy `KeyRegistry` + public `RootKey` constructor — compiler warns any new caller to use `KeyVault` instead
+- [ ] #6 [hand] Android instrumented tests on pixel_5_api_34: `AndroidKeyVaultIntegrationTest` (unlock + seal + reopen after restart) + `CrossPlatformVectorAndroidTest` (byte-equal with JVM vectors) — `./gradlew :core:keys:connectedAndroidTest`
+<!-- AC:END -->
+
+<!-- SECTION:VERIFICATION_PENDING:BEGIN -->
+### Verification Pending
+
+PR merged 2026-07-14. Pending AC:
+
+- **#6** `[hand]` Android instrumented tests on pixel_5_api_34 — requires AVD `pixel_5_api_34`.
+  Recovery: run `./gradlew :core:keys:connectedAndroidTest` on a running emulator; confirm all tests green; update AC #6 to `[x]` → transition to Done via second `pre-pr-backlog-sync`.
+<!-- SECTION:VERIFICATION_PENDING:END -->
 
 ## Discussion
 
