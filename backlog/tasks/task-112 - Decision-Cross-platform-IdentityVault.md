@@ -1,7 +1,7 @@
 ---
 id: TASK-112
 title: 'Decision: KeyVault port boundary — operation-on-vault + narrow export'
-status: Verification
+status: Done
 assignee: []
 created_date: '2026-07-07'
 updated_date: '2026-07-14'
@@ -147,17 +147,16 @@ internal class RootKey(internal val bytes: ByteArray)
 - [x] #3 [hand] `AndroidKeyVault` wired via Koin in `LauncherApplication` — `assembleMockBackendDebug` succeeds, new code injects `KeyVault` instead of `KeyRegistry`
 - [x] #4 [hand] `PassphraseRecovery` deterministic: same passphrase + same `IdentityHint` → same root key across JVM test runs; wrong passphrase → `VaultException.RecoveryFailed`
 - [x] #5 [hand] `@Deprecated(WARNING)` steer on legacy `KeyRegistry` + public `RootKey` constructor — compiler warns any new caller to use `KeyVault` instead
-- [ ] #6 [hand] Android instrumented tests on pixel_5_api_34: `AndroidKeyVaultIntegrationTest` (unlock + seal + reopen after restart) + `CrossPlatformVectorAndroidTest` (byte-equal with JVM vectors) — `./gradlew :core:keys:connectedAndroidTest`
+- [x] #6 [hand] Android instrumented tests on Xiaomi 11T (2109119DG, Android 11): `AndroidKeyVaultIntegrationTest` (4 tests) + `CrossPlatformVectorAndroidTest` (1 test) — 5/5 green. Fix: added `LibsodiumInit.ensure()` to `LibsodiumArgon2idPasswordHash` (missing vs other adapters).
 <!-- AC:END -->
 
-<!-- SECTION:VERIFICATION_PENDING:BEGIN -->
-### Verification Pending
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+### Final Summary
 
-PR merged 2026-07-14. Pending AC:
-
-- **#6** `[hand]` Android instrumented tests on pixel_5_api_34 — requires AVD `pixel_5_api_34`.
-  Recovery: run `./gradlew :core:keys:connectedAndroidTest` on a running emulator; confirm all tests green; update AC #6 to `[x]` → transition to Done via second `pre-pr-backlog-sync`.
-<!-- SECTION:VERIFICATION_PENDING:END -->
+All 6 AC closed 2026-07-14. AC #6 verified on physical Xiaomi 11T (2109119DG, Android 11):
+- 5/5 `connectedAndroidTest` green (`AndroidKeyVaultIntegrationTest` × 4 + `CrossPlatformVectorAndroidTest` × 1).
+- Incidental fix: `LibsodiumArgon2idPasswordHash` was missing `LibsodiumInit.ensure()` — only caught on first physical device run (JVM tests pre-initialize libsodium explicitly in `@Before`).
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Discussion
 
