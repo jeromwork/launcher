@@ -481,6 +481,238 @@ enum WizardBehavior { Interactive, AutoApply, InitialDefault }
 - Rename задачи title: `"Decision: Component/Preset/Profile foundational model"` — на следующем touch (AC #5).
 - Downstream tasks (draft-1, TASK-71, TASK-69, TASK-68, TASK-19) — dependencies already set.
 
+---
+
+### Session 3 mentor — Part B: mapping notes 11-24 to codebase (2026-07-14)
+
+Контекст: owner принёс архитектурные заметки из другого агента (notes 11-24). Задача — сверить с реальным кодом после TASK-126 реализации. TASK-120 Decision immutable; эта секция — архивный контекст owner'а.
+
+#### 5.5 Sanity-check notes против кода
+
+**Что совпадает точно:**
+- **Notes 12-13** (DeviceProfile + Platform Facade) → `Component` sealed (no Android imports, pure domain) + `Provider<T>` (check/apply port). Дословное соответствие. «DeviceProfile не знает о платформе» — именно так Component уже спроектирован.
+- **Notes 17-18** (Condition DSL / Rule DSL) → `visibleIf` поле в wizardFlow entries + `ConditionEvaluator` port (deferred per MVA). JsonLogic seam уже присутствует в wire format.
+- **Note 19** (Launcher и Settings — разные продукты) → подтверждается кодом: LauncherTheme, FlowScreen, WizardHostActivity — отдельные UI слои над одним Profile.
+- **Note 14** (ValidationResult с полями) → `Outcome` sealed (Ok/NeedsApply/Failed(FailReason)/Unsupported) реализован. `expected/actual/importance` — additive extension, WHERE it displays не определено; уточнять при TASK-69.
+
+**Что требует внимания:**
+- **Note 11 Variant 3** (Hybrid Migration Engine): правильная цель, но текущий код — Variant 1 (Profile в DataStore, Preset читается из assets при каждом BootCheck). Migration Engine при Preset schemaVersion bump — OQ-11 из TASK-120, formally deferred, нужен при Preset v3. Риск: если Profile DataStore format меняется без migration writer — нарушение rule 5.
+- **Notes 20-22** (Presentation Builders): **единственный layer которого нет в коде**. `InMemoryHomeScreenFacade` — placeholder для `LauncherPresentationBuilder`, но он dead-end: `MutableStateFlow<tiles>` никто не читает. Реальный рендеринг идёт через `ConfigDocument` (Firestore) → `ConfigBackedFlowRepository` → `FlowScreen → TileCard`. Именно этот gap = корень TASK-127.
+- **Note 16** (Required enum REQUIRED/RECOMMENDED/OPTIONAL/HIDDEN): текущее `critical: Boolean` в ComponentDeclaration покрывает только critical/non-critical. Enum — valid additive extension, но schemaVersion bump pool.json 1→2 с migration writer (rule 5). Делать только когда первый preset реально попросит RECOMMENDED/OPTIONAL различие.
+
+**Критическое слепое пятно в notes 11-24:** `ConfigDocument` не упомянут. А он — текущий основной источник истины для рендеринга home screen. Profile (ReconcileEngine output) и ConfigDocument (Firestore wire format) — **два disconnected источника**, и notes описывают только первый.
+
+#### 6. Рекомендация
+
+Vision notes 11-24 архитектурно верный, largely consistent с TASK-120 Decision. Три action item'а по приоритету:
+
+**1. TASK-127 (немедленно):** Fix disconnect — wizard finish должен seed'ить ConfigDocument из Profile. Без этого ReconcileEngine writes fall into a void (InMemoryHomeScreenFacade dead-end), HomeActivity видит пустой конфиг → Error UI.
+
+**2. LauncherPresentationBuilder (следующий архитектурный шаг):** После TASK-127 — формализовать pipeline `Profile → LauncherPresentationBuilder → ConfigDocument` как порт. InMemoryHomeScreenFacade заменяется реальным builder'ом. Это реализует notes 21 и закрывает архитектурный gap.
+
+**3. Migration Engine (Variant 3):** Планировать при Preset schemaVersion=3. Текущий code ближе к Variant 1 (one-shot). Variant 3 требует ProfileMigrator: `Profile(v2) + Preset(v3) → Profile(v3)`. Добавлять когда первый breaking change в pool.json или preset.json.
+
+**Architectural вопрос который notes не поднимают (нужен ответ перед TASK-127):**  
+ConfigDocument пишется admin'ом (remote push) ИЛИ wizard'ом (local seed) ИЛИ обоими. Кто приоритетнее? Implied answer из TASK-120: admin-supplied ConfigDocument имеет приоритет post-pairing; wizard seed'ит только при first launch (когда нет admin config). Нужно зафиксировать явно в TASK-127 Decision.
+
+#### Карта: concept из notes → backlog task
+
+| Concept из notes | Backlog task |
+|---|---|
+| LauncherPresentationBuilder | TASK-127 (fix) |
+| SettingsPresentationBuilder | TASK-69 (Settings as Profile View) |
+| WizardBuilder + ConditionEvaluator activation | TASK-71 (Wizard Hidden Steps) |
+| Required enum (ComponentPriority) | follow-up к TASK-120 или TASK-71 |
+| Migration Engine (Variant 3) | TASK-70 (Profile Sync and State Cache) |
+| ValidationResult expected/actual | TASK-69 или TASK-73 |
+
+#### 8. Типичные ошибки при реализации extensions
+
+1. **Путать Profile с ConfigDocument**: Profile = что IS applied (device settings state). ConfigDocument = что показывать (layout + tiles, admin-controlled). Разные источники, разные жизненные циклы.
+2. **Писать LauncherPresentationBuilder поверх InMemoryHomeScreenFacade** — нельзя. HomeScreen читает из ConfigBackedFlowRepository, не из facade. Builder пишет в ConfigDocument (local или Firestore).
+3. **Добавлять ECS** — явно отклонено в TASK-120 Decision (scale ~15×2/lifetime, compile-time safety потеряется, ECS оверкилл для этого объёма).
+4. **Имплементировать `expected/actual` в Outcome** до понимания где это отображается — риск добавить unused fields во wire format (нарушает rule 5 wire-format versioning).
+5. **SettingsBuilder пишет в ConfigDocument напрямую** — должен писать в Profile; ProfileBootstrap при следующем BootCheck обновляет ConfigDocument из Profile.
+
+#### 10. Adjacent concerns — что не поднято в notes 11-24
+
+1. **ConfigDocument ownership**: кто пишет ConfigDocument — wizard (seed), admin (push), settings (local edit)? Если все трое — нужна merge strategy с приоритетами. Сейчас подразумевается только admin writes; wizard должен seed'ить при first-launch. Зафиксировать до TASK-127 implementation.
+2. **Profile DataStore write-on-wizard-finish**: DataStoreProfileStore реализован (TASK-120), но вызывает ли WizardViewModel.finish() profileStore.save() после ReconcileEngine — нужно проверить. Если нет — это root cause TASK-127 и PRIMARY fix.
+3. **ConditionEvaluator activation**: `visibleIf` seam и port готовы. JsonLogic implementation deferred. TASK-71 (hidden steps) — первый кандидат на activation. Когда TASK-71 стартует → ConditionEvaluator надо реализовать в том же PR.
+4. **Required enum и pool.json schemaVersion**: добавление `ComponentPriority` enum вместо `critical: Boolean` = schemaVersion bump 1→2 с migration writer. Нельзя добавить ad-hoc без version bump (rule 5). Планировать заранее, не in-flight.
+
+---
+
+### Session 4 mentor — Component Catalog concept (2026-07-14)
+
+Owner предлагает отдельную сущность **Component Catalog** — место хранения UI metadata (title, description, help, icon, category, supportedPlatforms) отдельно от Profile (state) и Preset (rules).
+
+#### 5.5 Sanity-check
+
+**Инсайт верный:** Profile не должен хранить UI strings и иконки. Одна сущность — одна ответственность.
+
+**Но: Component Catalog уже существует, просто под другим именем.**
+
+Сейчас это **Pool** (`ComponentDeclaration`) + **LocalizedResources** (port, `AndroidLocalizedResources` adapter). Эти два элемента вместе = то что owner называет Catalog. Чего НЕ ХВАТАЕТ — canonical UI поля в `ComponentDeclaration`: `icon`, `i18nKey`, `helpUrl`, `category`, `supportedPlatforms`. Их там нет сейчас.
+
+**Per-consumer copy (разный текст для Wizard vs Settings vs Web)** уже решена three-field preset split:
+- `wizardFlow[i].wizardTitle`, `wizardFlow[i].description` — wizard-специфичный copy
+- `settingsMap[i].category`, `settingsMap[i].settingsIcon` — settings-специфичный
+- Web Panel — read canonical из pool.json (i18nKey)
+
+**Риск отдельной сущности Component Catalog:**
+- Два источника правды о "какие компоненты существуют": Pool и Catalog
+- Sync drift: component есть в Pool но нет в Catalog → PresentationBuilder падает молча
+- OQ-3 (preset author safety): whitelist нужно проверять против обоих источников
+
+#### 6. Рекомендация
+
+**Не создавать отдельную сущность ComponentCatalog.** Вместо этого — extend `ComponentDeclaration` в pool.json canonical UI полями:
+
+```json
+{
+  "id": "home-role",
+  "component": "HomeRole",
+  "i18nKey": "comp.home_role",
+  "icon": "ic_home_role",
+  "helpUrl": "help/home-role",
+  "category": "system",
+  "supportedPlatforms": ["GenericAndroid", "Xiaomi", "Samsung"],
+  "wizardBehavior": "Interactive",
+  "critical": true
+}
+```
+
+Pool = ComponentDeclaration (enriched) = то что owner называет ComponentCatalog. **Один источник правды**.
+
+Это pool.json schemaVersion **1→2** с migration writer (rule 5 — one-way door, нельзя без explicit migration).
+
+**Source mapping для карточки HomeRole — таблица owner'а верная:**
+
+| Поле | Источник |
+|---|---|
+| Title, Description, Help, Icon | `ComponentDeclaration` в pool.json (canonical) |
+| Wizard-specific copy | `wizardFlow[i].wizardTitle` в Preset |
+| Settings category | `settingsMap[i].category` в Preset |
+| Current state | Profile |
+| Required, Condition | Preset entry (wizardFlow или settingsMap) |
+| ValidationResult | Outcome из ReconcileEngine |
+
+**Исключение — Web Panel**: admin web panel не имеет доступа к Android resources. Для него нужен отдельный `catalog-i18n.json` (locale → key → string) на сервере / CDN. Это аналог ComponentCatalog, но только для cross-platform delivery. Не нужно сейчас; планировать при TASK-34 (clinic B2B) или TASK-72 (Pool Browser UI).
+
+#### 7. Альтернативы
+
+**A. Отдельный `catalog.json` параллельно pool.json** (что предлагает owner):
+- Pro: Pool = rules (машиночитаемые), Catalog = metadata (человекочитаемые). Разные группы могут обновлять.
+- Con: sync drift risk. Фитнес-функция должна проверять что каждый pool.id есть в catalog и наоборот — дополнительный CI gate.
+- **Когда выбирать А**: если команда разработки и команда контента работают независимо, с разными release cadence. Для MVP — overhead без выгоды.
+
+**B. UI metadata в Component sealed class subtypes** (`HomeRole(title="...", icon="...")`):
+- Нарушает rule 1 (domain isolation): UI strings в domain model. **Отклонено безусловно.**
+
+**C. Только в Preset per-consumer entry** (wizard/settings/web copy внутри Preset, не в Pool):
+- Canonical metadata дублируется в каждом Preset. При N presets — N копий одного icon reference. **Избыточно.**
+
+Рекомендация: A только для web panel i18n; для Android — enrich ComponentDeclaration (вариант из §6).
+
+#### 8. Типичные ошибки при реализации
+
+1. **Создать ComponentCatalog как отдельную sealed hierarchy** — две параллельные таксономии: Component sealed (domain logic) + Catalog sealed (UI). Нарушает rule 4 MVA: одна sealed = один источник о том, что configurable.
+2. **Hardcode localized strings в pool.json** (`"title": "Главный экран"`) — нарушает rule 9 shareability: одна locale в wire format, другие пользователи не смогут share. Правильно: `"i18nKey": "comp.home_role"`, resolve через LocalizedResources port.
+3. **Дублировать per-consumer copy** в "Catalog" когда уже есть в Preset three-field: `wizardFlow[i].wizardTitle`, `settingsMap[i].category` — это уже решённая проблема.
+4. **Добавить `title`/`description` прямо в Component sealed subtypes** (`data class HomeRole(val title: String, ...)`) — нарушает rule 1: UI strings в domain = coupling infrastructure к domain.
+5. **Bump pool.json schemaVersion без migration writer** — нарушает rule 5. Существующие pool.json на устройствах без новых полей должны парситься gracefully (missing fields → defaults).
+
+#### 10. Adjacent concerns
+
+1. **Icon strategy**: `"icon": "ic_home_role"` в pool.json — как разрешается? На Android: `R.drawable` через AndroidLocalizedResources. На web panel: URL или bundled SVG. Нужна явная icon resolution strategy до TASK-72 (Pool Browser UI). Иначе web panel и Android разойдутся.
+2. **pool.json schemaVersion 1→2**: добавление canonical UI полей = wire format change (rule 5 one-way door). Нужен migration writer `v1→v2` ДО shipping любого preset читающего эти поля. Планировать отдельным коммитом с тестом.
+3. **Fitness function: i18nKey completeness**: если pool.json хранит `"i18nKey": "comp.home_role"`, но в `strings.xml` (для какой-то locale) ключ отсутствует → runtime empty string или crash. Нужна build-time проверка: "каждый i18nKey из pool.json должен присутствовать во всех supported locale strings.xml". Добавить как fitness function #11 (rule 7).
+4. **Web Panel catalog endpoint**: если планируется admin web panel для просмотра/редактирования Preset — нужен GET `/catalog` endpoint возвращающий ComponentDeclaration list. Это Tier 1 сервер (minimal directory, server sees opaque component descriptors) per rule 13. Зафиксировать в server-log.md когда TASK-34 (clinic B2B) или TASK-72 стартует.
+
+---
+
+### Session 5 mentor — «Pool как Component Library» confirmation + localization + actions (2026-07-14)
+
+Owner самостоятельно пришёл к выводу: **Pool = Component Library, Preset = lightweight config**. Это верно и совпадает с TASK-120 Decision. Session 5 — confirmation + детали которых не было в S4.
+
+#### Ответ на вопрос owner'а: ДА, Pool — это и есть Component Library.
+
+Pool (enriched `ComponentDeclaration`) отвечает на вопрос «Что такое HomeRole?»  
+Preset отвечает на вопрос «Нужен ли HomeRole этому устройству и как?»  
+Profile отвечает на вопрос «Каков статус HomeRole прямо сейчас?»
+
+Это разделение **уже зафиксировано в TASK-120 Decision**. Недостающее — canonical UI поля в `ComponentDeclaration`.
+
+#### Конкретная схема enriched pool.json entry
+
+```json
+{
+  "id": "home-role",
+  "component": "HomeRole",
+  "i18nKey": "comp.home_role",
+  "icon": "ic_home_role",
+  "category": "system_claims",
+  "helpUrl": "help/home-role",
+  "supportedPlatforms": ["GenericAndroid", "Xiaomi", "Samsung"],
+  "actions": ["OPEN_HOME_SETTINGS"],
+  "validationKey": "comp.home_role.validation_message",
+  "critical": true,
+  "wizardBehavior": "Interactive"
+}
+```
+
+SchemaVersion bump: `pool.json 1 → 2` с migration writer (rule 5). Существующие записи без новых полей → defaults (null / empty), backward-compat читается.
+
+#### Локализация: что живёт где
+
+**НЕ** хранить строки прямо в pool.json (`"title": "Главный экран"`) — нарушает shareability rule 9: разные локали = разные файлы, pool.json потеряет нейтральность.
+
+Правильная схема:
+- `pool.json`: `"i18nKey": "comp.home_role"` — только ключ
+- `strings.xml` (Android): `comp.home_role.title`, `comp.home_role.description`, `comp.home_role.help`, `comp.home_role.wizard_instruction`, `comp.home_role.validation_message`
+- `LocalizedResources` port: `getString(key, locale)` → Android resolver
+- Web Panel: отдельный `catalog-i18n-{locale}.json` на CDN, индексированный по тому же `i18nKey` — web panel не имеет strings.xml
+
+Pool.json = нейтральный, локаль-независимый. Strings — платформоспецифичны.
+
+#### Actions: что это и где граница
+
+`ComponentDeclaration.actions: List<String>` = **что доступно** (`["OPEN_HOME_SETTINGS"]`).  
+`Provider.apply()` = **как выполнить** (платформо-специфичная реализация открытия настроек).
+
+PresentationBuilder читает actions из ComponentDeclaration → показывает кнопку «Открыть настройки».  
+При тапе → вызывает Provider или intent through Android adapter.  
+ComponentDeclaration не знает как открыть — только что эта action существует.
+
+#### ValidationKey vs Outcome.Failed(FailReason)
+
+Owner спрашивал про `validation` в Component Library. Это НЕ логика проверки (она в Provider). Это i18n ключ для сообщения об ошибке:
+
+`"validationKey": "comp.home_role.validation_message"` → отображается в Wizard/Settings когда Provider.check() возвращает `Outcome.Failed`.
+
+Текущий `FailReason.toI18nKey()` в Outcome уже частично это делает. Можно расширить: `ComponentDeclaration.validationKey` = fallback когда FailReason не имеет своего ключа.
+
+#### Итоговый source mapping (финальная версия)
+
+| Поле карточки | Источник |
+|---|---|
+| Title, Description, Help | `i18nKey` из `ComponentDeclaration` → `LocalizedResources` |
+| Icon | `icon` из `ComponentDeclaration` |
+| Action button label | `actions` из `ComponentDeclaration` → `LocalizedResources` |
+| Wizard-specific copy | `wizardFlow[i].wizardTitle` в Preset (override canonical) |
+| Settings grouping | `settingsMap[i].category` в Preset (override canonical) |
+| Required / Condition | Preset entry |
+| Current state | Profile |
+| ValidationResult | `Outcome` из ReconcileEngine |
+| Validation message | `validationKey` из `ComponentDeclaration` → `LocalizedResources` |
+
+#### Adjacent concern: remote Pool update
+
+Owner сказал «Component Library — часть приложения». Это верно для MVP (pool.json в assets, обновляется только через app store). Но:
+
+Если в будущем Pool может приходить с сервера (TASK-33 Capability Registry / TASK-19 Adaptive UX Presets) → Pool перестаёт быть «частью приложения» и становится remote resource. Тогда pool.json schemaVersion и UI strings нужно версионировать синхронно. Пока — не нужно. Фиксировать как exit ramp в `docs/dev/server-roadmap.md` при тронье TASK-33.
+
 <!-- SECTION:DISCUSSION:END -->
 
 ## Acceptance Criteria
