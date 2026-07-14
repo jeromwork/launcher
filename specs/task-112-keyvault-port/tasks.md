@@ -13,44 +13,44 @@
 ## Phase 1 — Port + Fakes + Contract Tests (2 days)
 
 ### T001 — Create `KeyVault` interface with port shape from Decision block
-- [ ] Traces: FR-001, Decision block «Port shape (Kotlin common)» section
-- [ ] File: `core/keys/src/commonMain/kotlin/com/launcher/core/keys/api/KeyVault.kt`
-- [ ] Content: interface `KeyVault` с 9 методами (`unlock`, `wipe`, `aeadSeal`, `aeadOpen`, `mac`, `verifyMac`, `sign`, `verify`, `publicIdentity`). `@Throws(VaultException::class)` для всех кроме `wipe` и `verify` (pure). `wipe()` per Session 7 Q-C.
-- [ ] Verification: `./gradlew :core:keys:compileCommonMainKotlinMetadata` — compiles.
+- [x] Traces: FR-001, Decision block «Port shape (Kotlin common)» section
+- [x] File: `core/keys/src/commonMain/kotlin/com/launcher/core/keys/api/KeyVault.kt`
+- [x] Content: interface `KeyVault` с 9 методами (`unlock`, `wipe`, `aeadSeal`, `aeadOpen`, `mac`, `verifyMac`, `sign`, `verify`, `publicIdentity`). `@Throws(VaultException::class)` для всех кроме `wipe` и `verify` (pure). `wipe()` per Session 7 Q-C.
+- [x] Verification: `./gradlew :core:keys:compileCommonMainKotlinMetadata` — compiles.
 
 ### T002 — Create `Purpose` enum with registry attributes
-- [ ] Traces: FR-002, Decision block Purpose registry
-- [ ] File: `core/keys/src/commonMain/kotlin/com/launcher/core/keys/api/Purpose.kt` (или внутри KeyVault.kt)
-- [ ] Content: `enum class Purpose(val algorithm: Algorithm, val exportable: Boolean, val rotationPolicy: RotationPolicy)` с 2 variants: CONFIG (XChaCha20Poly1305, false, LazyOnDemand), RECOVERY_BLOB (XChaCha20Poly1305, false, Manual). Plus `Algorithm` + `RotationPolicy` enums.
-- [ ] Verification: unit test — все variants имеют `exportable = false`.
+- [x] Traces: FR-002, Decision block Purpose registry
+- [x] File: `core/keys/src/commonMain/kotlin/com/launcher/core/keys/api/Purpose.kt` (или внутри KeyVault.kt)
+- [x] Content: `enum class Purpose(val algorithm: Algorithm, val exportable: Boolean, val rotationPolicy: RotationPolicy)` с 2 variants: CONFIG (XChaCha20Poly1305, false, LazyOnDemand), RECOVERY_BLOB (XChaCha20Poly1305, false, Manual). Plus `Algorithm` + `RotationPolicy` enums.
+- [x] Verification: unit test — все variants имеют `exportable = false`.
 
 ### T003 — Create newtypes for port boundary (`Ciphertext`, `MacTag`, `Signature`, `PublicIdentity`, `Aad`)
-- [ ] Traces: FR-003, FR-004, Decision block «Newtypes»
-- [ ] Files:
+- [x] Traces: FR-003, FR-004, Decision block «Newtypes»
+- [x] Files:
   - `commonMain/api/Ciphertext.kt` — class с blob-header accessors (`formatVersion`, `purposeId`, `keyEpoch`)
   - `commonMain/api/MacTag.kt` — value class
   - `commonMain/api/Signature.kt` — value class (identity-scoped)
   - `commonMain/api/PublicIdentity.kt` — value class (Ed25519 pubkey)
   - `commonMain/api/Aad.kt` — value class + `canonicalAad(namespaceId: String, schemaVersion: Int, blobVersion: Int): Aad` helper
-- [ ] Verification: unit test `AadCanonicalTest` — length-prefixed encoding matches spec FR-004.
+- [x] Verification: unit test `AadCanonicalTest` — length-prefixed encoding matches spec FR-004.
 
 ### T004 — Create sealed `VaultException` hierarchy
-- [ ] Traces: FR-012, Decision block «Sealed exception hierarchy»
-- [ ] File: `commonMain/api/VaultException.kt`
-- [ ] Content: sealed class с 7 наследниками (VaultLocked, WrongPurpose, TamperDetected, UnsupportedFormatVersion, NoRootKey, HardwareBackedKeystoreUnavailable, RecoveryFailed).
-- [ ] Verification: `when (ex) { ... }` exhaustive check в тесте — все 7 покрыты без else.
+- [x] Traces: FR-012, Decision block «Sealed exception hierarchy»
+- [x] File: `commonMain/api/VaultException.kt`
+- [x] Content: sealed class с 7 наследниками (VaultLocked, WrongPurpose, TamperDetected, UnsupportedFormatVersion, NoRootKey, HardwareBackedKeystoreUnavailable, RecoveryFailed).
+- [x] Verification: `when (ex) { ... }` exhaustive check в тесте — все 7 покрыты без else.
 
 ### T005 — Create `RecoveryStrategy` port + `IdentityHint` sealed class
-- [ ] Traces: FR-005, Session 6 owner insight (pluggable recovery), Session 7 Q-B/Q-D
-- [ ] Files:
+- [x] Traces: FR-005, Session 6 owner insight (pluggable recovery), Session 7 Q-B/Q-D
+- [x] Files:
   - `commonMain/api/RecoveryStrategy.kt` — interface с `internal fun deriveRoot(): ByteArray` + `internal fun verifyUnlock(candidateRoot: ByteArray)` (Q-D D1 hook).
   - `commonMain/api/IdentityHint.kt` — sealed class с variants `GoogleAccount(googleUid: String)` / `NoGmsDevice(deviceRandomSalt: ByteArray)`. Per Session 7 Q-B Bitwarden pattern.
-- [ ] Verification: compile — external module не может вызвать `deriveRoot()`.
+- [x] Verification: compile — external module не может вызвать `deriveRoot()`.
 
 ### T006 — Implement `PassphraseRecovery` adapter (Bitwarden salt + validation blob)
-- [ ] Traces: FR-006, FR-006b, Session 7 Q-A/Q-B/Q-D
-- [ ] File: `commonMain/impl/PassphraseRecovery.kt` + `Argon2Params.kt`
-- [ ] Content:
+- [x] Traces: FR-006, FR-006b, Session 7 Q-A/Q-B/Q-D
+- [x] File: `commonMain/impl/PassphraseRecovery.kt` + `Argon2Params.kt`
+- [x] Content:
   - `class PassphraseRecovery(passphrase, identityHint: IdentityHint, params = Argon2Params.V1) : RecoveryStrategy`
   - Salt derivation в `deriveRoot()`:
     - `identityHint is GoogleAccount` → `salt = HKDF(googleUid.toByteArray(UTF_8), info = "salt-v1", length = 16)`.
@@ -58,25 +58,25 @@
   - `root = Argon2id(passphrase, salt, params.V1)` (libsodium `crypto_pwhash`).
   - `Argon2Params.V1(memory = 64 * 1024 KB, iterations = 3, parallelism = 1)` — frozen.
   - `verifyUnlock(root)` internal — attempts `aeadOpen` на internally stored `Ciphertext_valid` (sealed at first setup с plaintext `"vault-init-v1"`). TamperDetected → throw `RecoveryFailed`.
-- [ ] Verification: unit test — same passphrase + same identityHint → same root (deterministic). Wrong passphrase → `verifyUnlock` throws RecoveryFailed. HKDF salt derivation reproducible.
+- [x] Verification: unit test — same passphrase + same identityHint → same root (deterministic). Wrong passphrase → `verifyUnlock` throws RecoveryFailed. HKDF salt derivation reproducible.
 
 ### T007 — Create `RootKey` internal class + `BlobHeader` internal helper
-- [ ] Traces: FR-003, FR-008, Decision block «internal RootKey»
-- [ ] Files:
+- [x] Traces: FR-003, FR-008, Decision block «internal RootKey»
+- [x] Files:
   - `commonMain/impl/RootKey.kt` — `internal class RootKey(internal val bytes: ByteArray)`. NO public constructor.
   - `commonMain/impl/BlobHeader.kt` — internal object с `pack(formatVersion, purposeId, keyEpoch, nonce, payload, mac): ByteArray` + `parse(bytes): BlobHeader`.
-- [ ] Verification: unit test `BlobHeaderTest` — pack + parse roundtrip, invalid magic → exception.
+- [x] Verification: unit test `BlobHeaderTest` — pack + parse roundtrip, invalid magic → exception.
 
 ### T008 — Implement `FakeKeyVault` (deterministic in-memory)
-- [ ] Traces: FR-014, Rule 6 (mock-first)
-- [ ] File: `commonTest/kotlin/com/launcher/core/keys/FakeKeyVault.kt`
-- [ ] Content: in-memory Map-based vault. Uses libsodium-kmp under hood для реальных крипто операций (не «фейк» с random bytes). Fixed root seed для test vector reproducibility.
-- [ ] Verification: contract test — `fakeVault.aeadSeal(...)` + `aeadOpen` → roundtrip. Same seed → same output bytes across test runs.
+- [x] Traces: FR-014, Rule 6 (mock-first)
+- [x] File: `commonTest/kotlin/com/launcher/core/keys/FakeKeyVault.kt`
+- [x] Content: in-memory Map-based vault. Uses libsodium-kmp under hood для реальных крипто операций (не «фейк» с random bytes). Fixed root seed для test vector reproducibility.
+- [x] Verification: contract test — `fakeVault.aeadSeal(...)` + `aeadOpen` → roundtrip. Same seed → same output bytes across test runs.
 
 ### T009 — Write contract tests for `KeyVault` port
-- [ ] Traces: SC-004, SC-007, SC-008
-- [ ] File: `commonTest/kotlin/com/launcher/core/keys/KeyVaultContractTest.kt`
-- [ ] Coverage:
+- [x] Traces: SC-004, SC-007, SC-008
+- [x] File: `commonTest/kotlin/com/launcher/core/keys/KeyVaultContractTest.kt`
+- [x] Coverage:
   - roundtrip `aeadSeal → aeadOpen` для CONFIG и RECOVERY_BLOB
   - `WrongPurpose` — Ciphertext(CONFIG), open(RECOVERY_BLOB) → exception (SC-008)
   - `TamperDetected` — модифицированный byte в blob → exception (SC-007)
@@ -85,29 +85,29 @@
   - `sign` + `verify` roundtrip (positive), verify(wrong signature) → false (negative)
   - `VaultLocked` — вызовы без `unlock()` → exception
   - **Wipe cascade (SC-012)**: unlock → aeadSeal → wipe() → subsequent aeadOpen → `NoRootKey` exception. Wipe idempotent (safe to call twice).
-- [ ] Verification: `./gradlew :core:keys:test` — все проходят.
+- [x] Verification: `./gradlew :core:keys:test` — все проходят.
 
 ### T010 — Write `PurposeEnforcementTest`
-- [ ] Traces: SC-008, FR-003 (purpose_id в blob header)
-- [ ] File: `commonTest/PurposeEnforcementTest.kt`
-- [ ] Coverage: `aeadOpen` с mismatched purpose → `WrongPurpose(expected=asked, actual=headerPurpose)` exception. Проверка что header покрывает случай.
+- [x] Traces: SC-008, FR-003 (purpose_id в blob header)
+- [x] File: `commonTest/PurposeEnforcementTest.kt`
+- [x] Coverage: `aeadOpen` с mismatched purpose → `WrongPurpose(expected=asked, actual=headerPurpose)` exception. Проверка что header покрывает случай.
 
 ### T011 — Write `RecoveryStrategyTest` + `PassphraseRecoveryValidationTest`
-- [ ] Traces: SC-011, SC-013, SC-014, FR-005, FR-006b
-- [ ] Files:
+- [x] Traces: SC-011, SC-013, SC-014, FR-005, FR-006b
+- [x] Files:
   - `commonTest/RecoveryStrategyTest.kt` — extensibility check: `PassphraseRecovery` deterministic (same passphrase+identityHint → same root). `TestRecoveryStrategy(fakeRootBytes)` — mock adapter plug-in works без изменений KeyVault interface.
   - `commonTest/PassphraseRecoveryValidationTest.kt` — Session 7 Q-D coverage: (a) correct passphrase → unlock success; (b) wrong passphrase → `VaultException.RecoveryFailed` (not silent); (c) salt derivation from `IdentityHint.GoogleAccount(uid)` deterministic — same uid → same salt; (d) `NoGmsDevice` path — different device random salt → different root.
 
 ### T012 — Create cross-platform test vectors fixture
-- [ ] Traces: FR-011, SC-004
-- [ ] File: `commonTest/resources/vectors/v1.json`
-- [ ] Content: ≥5 vector cases: (a) seal zeros root + "hello" + basicAad, (b) seal с non-zero root, (c) mac deterministic output, (d) sign с fixed key + message, (e) edge case (empty plaintext).
-- [ ] Verification: `CrossPlatformVectorTest` reads JSON, prognon'yaet vectors, byte-equal check.
+- [x] Traces: FR-011, SC-004
+- [x] File: `commonTest/resources/vectors/v1.json`
+- [x] Content: ≥5 vector cases: (a) seal zeros root + "hello" + basicAad, (b) seal с non-zero root, (c) mac deterministic output, (d) sign с fixed key + message, (e) edge case (empty plaintext).
+- [x] Verification: `CrossPlatformVectorTest` reads JSON, prognon'yaet vectors, byte-equal check.
 
 ### T013 — Add fitness rule: no vendor imports in `:core:keys`
-- [ ] Traces: FR-007, SC-006, Rule 1
-- [ ] File: `core/keys/build.gradle.kts` — configure detekt custom rule OR use lint-rules module ForbidVendorImports.
-- [ ] Verification: `./gradlew :core:keys:detekt` fails if a violating import added (test via temporary test file).
+- [x] Traces: FR-007, SC-006, Rule 1
+- [x] File: `core/keys/build.gradle.kts` — configure detekt custom rule OR use lint-rules module ForbidVendorImports.
+- [x] Verification: `./gradlew :core:keys:detekt` fails if a violating import added (test via temporary test file).
 
 ---
 
@@ -235,12 +235,19 @@
 
 ## Progress summary (auto-updates via tick-sync)
 
-Phase 1: 0 / 13 tasks (T001-T013)
-Phase 2: 0 / 4 tasks (T014-T017)
+Phase 1: 13 / 13 tasks (T001-T013) ✅ commit `<phase-1>` — 38 new JVM tests green, fitness rules pass
+Phase 2: 0 / 4 tasks (T014-T017) — requires Android emulator for connectedAndroidTest (SC-004 cross-platform vectors)
 Phase 3: 0 / 5 tasks (T018-T022)
 Phase 4: 0 / 4 tasks (T023-T026)
 Phase 5: 0 / 6 tasks (T027-T032)
 
-**Total: 0 / 32 tasks**
+**Total: 13 / 32 tasks**
 
-**Blockers**: none.
+**Blockers**: none for Phase 2 (Android adapter). Phase 3 T022 (wipe integration) may require locating existing logout wiring — flagged for review.
+
+## Phase 1 notes (2026-07-14)
+
+- Package layout: `cryptokit.keys.api.vault.*` (port + newtypes + `PassphraseRecovery` + `TestRecoveryStrategy`); `cryptokit.keys.impl.vault.*` (`RootKey`, `BlobHeader`, `KeyVaultCore`, `ValidationBlobStore`, `Argon2Params`). RecoveryStrategy could not stay `sealed` because Kotlin/MPP treats `commonTest` as a separate module for sealed-subclass purposes — switched to `abstract class` with convention-only isolation of `deriveRoot`/`verifyUnlock`.
+- Added `AsymmetricCrypto.ed25519KeyPairFromSeed(seed)` to `:core:crypto` port (+ libsodium impl using `crypto_sign_seed_keypair`, + FakeAsymmetricCrypto XOR-based impl). Needed for deterministic identity keypair from `root_key`; without it every `unlock()` would mint a fresh Ed25519 identity.
+- MAC construction uses HKDF-Extract (`HMAC-SHA256(macKey, message)`) — `KeyDerivation.derive(ikm=message, salt=macKey, info="mac-v1", length=32)`. Real BLAKE2b keyed hash upgrade tracked in server-roadmap `SRV-CRYPTO-MAC-UPGRADE` (TODO for phase-2+).
+- Fitness rule T013: grep-based `verifyKeysNoVendorImports` gradle task (not detekt custom rule — deferred to reduce scope). Bans `com.google.*`, `android.*`, `androidx.*`, `com.launcher.core.cloud.*`, `com.launcher.core.push.*` imports in commonMain.

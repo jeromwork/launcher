@@ -31,6 +31,13 @@ class FakeAsymmetricCrypto(seed: Int = 0) : AsymmetricCrypto {
         return makePair("Ed25519", n)
     }
 
+    override suspend fun ed25519KeyPairFromSeed(seed: ByteArray): KeyPair {
+        require(seed.size == KEY_SIZE) { "Ed25519 seed must be $KEY_SIZE bytes" }
+        val priv = seed.copyOf()
+        val pub = derivePublic(priv)
+        return KeyPair(privateKey = priv, publicKey = pub, algorithm = "Ed25519")
+    }
+
     override suspend fun deriveSharedSecret(myPrivate: ByteArray, theirPublic: ByteArray): SharedSecret {
         require(myPrivate.size == KEY_SIZE) { "myPrivate must be $KEY_SIZE bytes" }
         require(theirPublic.size == KEY_SIZE) { "theirPublic must be $KEY_SIZE bytes" }
