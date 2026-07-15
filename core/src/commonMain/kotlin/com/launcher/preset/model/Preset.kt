@@ -4,6 +4,23 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
+/**
+ * Preset — shareable JSON template describing WHICH components to use and WHEN.
+ *
+ * The three list fields below (`wizardFlow` / `settingsMap` / `activeComponents`)
+ * express the **LIFECYCLE dimension** of the model: they describe *when* a
+ * component appears (during first-run wizard, in the Settings screen, or
+ * currently applied at runtime).
+ *
+ * This is orthogonal to the **SEMANTIC dimension** carried by `Component.tags`
+ * which describes *what* a component is about (Presentation, Safety, Accessibility, …).
+ *
+ * Do NOT conflate the two — a component may appear in `wizardFlow` AND carry
+ * tags `[Presentation, Communication]`; both facets are independently useful.
+ *
+ * See `docs/architecture/preset-model.md` § "Two orthogonal dimensions" for full
+ * discussion, and TASK-127 Decision block for the tag+query extension of TASK-120.
+ */
 @Serializable
 data class WizardFlowEntry(
     val poolRef: String,
