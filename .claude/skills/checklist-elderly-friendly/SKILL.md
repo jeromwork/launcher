@@ -66,4 +66,6 @@ Reference: [`specs/002-whatsapp-tile-return/checklists/elderly-friendly-ux.md`](
 
 ## Output
 
-Inline into `specs/<id>/checklists/elderly-friendly.md`.
+Chat only — one red-only summary line per ADR-011 §5:
+`checklist-elderly-friendly: N/Total ✓, FAIL: CHK-XXX (short why)`.
+Do NOT create `specs/<id>/checklists/elderly-friendly.md`. Scratch buffer permitted, must be deleted before returning. Grey items land as edits to `spec.md` / `plan.md`.

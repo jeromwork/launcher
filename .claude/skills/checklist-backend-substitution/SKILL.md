@@ -68,4 +68,6 @@ If a feature passes every gate below, recommend proceeding as designed. If a gat
 
 ## Output
 
-Inline into `specs/<id>/checklists/backend-substitution.md` when invoked during spec authoring. For discussion-mode invocations (no spec yet), the skill returns the gate review and the cost-of-swap paragraph directly in the conversation, with any `TODO(server-roadmap)` items proposed.
+Chat only — one red-only summary line per ADR-011 §5:
+`checklist-backend-substitution: N/Total ✓, FAIL: CHK-XXX (short why)`.
+Do NOT create `specs/<id>/checklists/backend-substitution.md`. Scratch buffer permitted, must be deleted before returning. Cost-of-swap paragraph and any `TODO(server-roadmap)` items land as edits to `spec.md` / `plan.md` (or as a note in the discussion thread if no spec yet), not in a checklist file.

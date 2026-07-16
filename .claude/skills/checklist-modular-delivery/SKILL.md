@@ -59,4 +59,6 @@ Enforces the **modular-delivery** discipline that lets this project grow into mu
 
 ## Output
 
-Inline into `specs/<id>/checklists/modular-delivery.md`. Notable failures must surface in the `speckit-analyze` punch list. A failure on CHK012 (missing delivery-channel ADR) blocks implementation until resolved.
+Chat only — one red-only summary line per ADR-011 §5:
+`checklist-modular-delivery: N/Total ✓, FAIL: CHK-XXX (short why)`.
+Do NOT create `specs/<id>/checklists/modular-delivery.md`. Scratch buffer permitted, must be deleted before returning. Notable failures must surface in the `speckit-analyze` punch list; CHK012 failure (missing delivery-channel ADR) blocks implementation until resolved. Grey items land as edits to `spec.md` / `plan.md`.

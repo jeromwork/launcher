@@ -66,4 +66,6 @@ Reference: `CLAUDE.md` §6 (mock-first development), memory `reference_testing_e
 
 ## Output
 
-Inline into `specs/<id>/checklists/dev-experience.md`.
+Chat only — one red-only summary line per ADR-011 §5:
+`checklist-dev-experience: N/Total ✓, FAIL: CHK-XXX (short why)`.
+Do NOT create `specs/<id>/checklists/dev-experience.md`. Scratch buffer permitted, must be deleted before returning. Grey items land as edits to `spec.md` / `plan.md`.

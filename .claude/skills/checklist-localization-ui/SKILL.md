@@ -67,7 +67,9 @@ Per project decision 2026-06-15: localization is mandatory from day 1. Translati
 
 ## Output
 
-Inline into `specs/<id>/checklists/localization-ui.md`.
+Chat only — one red-only summary line per ADR-011 §5:
+`checklist-localization-ui: N/Total ✓, FAIL: CHK-XXX (short why)`.
+Do NOT create `specs/<id>/checklists/localization-ui.md`. Scratch buffer permitted, must be deleted before returning. Grey items land as edits to `spec.md` / `plan.md`.
 
 ## When to refuse
 

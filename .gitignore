@@ -69,6 +69,13 @@ firestore-tests/test-*.mjs
 
 .tmp/
 
+# Checklist run buffers (2026-07-16 rule change). Skill'ы checklist-* могут
+# писать временные файлы в specs/<id>/checklists/ во время прогона как рабочий
+# буфер, но результат живёт только как red-only summary в чате per ADR-011 §5.
+# Файлы удаляются до commit'а; .gitignore — safety net на случай забытого cleanup.
+# Старые specs/001..016/checklists/* уже committed до правила — их не трогаем.
+specs/**/checklists/
+
 # TASK-122 crypto-ffi Rust crate: build artefacts + generated bindings + .so
 # NOTE: Cargo.lock is NOT ignored (application crate — committed per NFR-002).
 /crypto-ffi/target/

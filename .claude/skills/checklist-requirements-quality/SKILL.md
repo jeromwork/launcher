@@ -46,4 +46,6 @@ Source: spec-kit canonical [`checklists/requirements.md`](https://github.com/git
 
 ## Output
 
-Inline checklist into `specs/<id>/checklists/requirements.md`. If file exists, update it.
+Chat only — one red-only summary line per ADR-011 §5:
+`checklist-requirements-quality: N/Total ✓, FAIL: CHK-XXX (short why)`.
+Do NOT create `specs/<id>/checklists/requirements.md`. Scratch buffer permitted, must be deleted before returning. Grey items land as edits to `spec.md` / `plan.md`.

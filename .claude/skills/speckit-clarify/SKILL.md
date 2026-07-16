@@ -84,11 +84,12 @@ Then weave the resolutions into the relevant FR / scope sections (don't leave th
 
 For each checklist returned by `procedure-assess-spec-complexity`:
 1. Invoke `Skill` tool with that checklist name.
-2. Each checklist writes / updates `specs/<id>/checklists/<name>.md`.
+2. Each checklist emits a red-only summary line in chat per ADR-011 §5. No files under `specs/<id>/checklists/` are created (rule revised 2026-07-16). Grey items surfaced by a checklist must land as edits to `spec.md` — do not park them in a checklist file.
+3. If a checklist skill wrote a scratch buffer under `specs/<id>/checklists/`, delete it before Step 5b. `.gitignore` prevents commit but scratch pollution is still noise.
 
 ### Step 5b — Add novice summaries
 
-**Mandatory.** For every artifact this orchestrator touched (updated `spec.md`, `checklists/_overview.md`, individual `checklists/<name>.md` files with open items), invoke `procedure-add-novice-summary` to append a plain-Russian "for newcomers" section at the bottom.
+**Mandatory.** For every artifact this orchestrator touched (`spec.md`), invoke `procedure-add-novice-summary` to append a plain-Russian "for newcomers" section at the bottom. Checklist runs produce no artifacts (chat-only), so no summary is added for them.
 
 ### Step 5c — Sync backlog AC
 
@@ -100,9 +101,9 @@ For each checklist returned by `procedure-assess-spec-complexity`:
 SPECKIT-CLARIFY for specs/<id>/spec.md:
   Asked: 4 questions
   Updated spec.md: 4 resolutions woven into §FR-007, §Scope, §5.2, §Clarifications table
-  Checklists run: requirements-quality (12/16 ✓), meta-minimization (10/13 ✓), wire-format (15/18 ✓), domain-isolation (16/16 ✓), failure-recovery (12/17 ✓)
-  Open issues: 8 — see checklist files for detail
-  Next step: address open checklist items, then run speckit-plan
+  Checklists run (chat-only, no files): requirements-quality (12/16 ✓), meta-minimization (10/13 ✓), wire-format (15/18 ✓), domain-isolation (16/16 ✓), failure-recovery (12/17 ✓)
+  Open issues: 8 — see chat above for failing CHK IDs; resolve by editing spec.md
+  Next step: address open items in spec.md, then run speckit-plan
 ```
 
 ---

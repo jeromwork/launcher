@@ -65,4 +65,6 @@ Reference: [`specs/002-whatsapp-tile-return/checklists/performance-accessibility
 
 ## Output
 
-Inline into `specs/<id>/checklists/performance.md`.
+Chat only — one red-only summary line per ADR-011 §5:
+`checklist-performance: N/Total ✓, FAIL: CHK-XXX (short why)`.
+Do NOT create `specs/<id>/checklists/performance.md`. Scratch buffer permitted, must be deleted before returning. Grey items land as edits to `spec.md` / `plan.md`.

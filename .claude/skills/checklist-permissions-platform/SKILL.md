@@ -62,4 +62,6 @@ Verifies the spec accounts for **Android-specific platform constraints** that fr
 
 ## Output
 
-Inline into `specs/<id>/checklists/permissions-platform.md`.
+Chat only — one red-only summary line per ADR-011 §5:
+`checklist-permissions-platform: N/Total ✓, FAIL: CHK-XXX (short why)`.
+Do NOT create `specs/<id>/checklists/permissions-platform.md`. Scratch buffer permitted, must be deleted before returning. Grey items land as edits to `spec.md` / `plan.md`.

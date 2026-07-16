@@ -301,7 +301,9 @@ Every server-side component (Cloudflare Worker today, own-server microservices l
 13. Push notification без declared severity criterion (actionable + time-sensitive + user-relevant) и без actionable destination (нарушает rule 10 notification minimization). Alternative: in-app indicator или in-app notification center.
 14. PR создаётся (`gh pr create`) на feature-ветке без предварительного вызова skill [`pre-pr-backlog-sync`](.claude/skills/pre-pr-backlog-sync/SKILL.md), результат: backlog Kanban расходится с реальностью (как PR #21/#22 → TASK-3/TASK-4 ушли в Done с 0/4 AC). Alternative: STOP, вызвать `pre-pr-backlog-sync` first; статус Done разрешён только при всех AC `[x]`, иначе Verification (PR merged, ждём физических гейтов) или Paused (work suspended).
 15. Backlog AC содержит **pseudo-gate** — формулировку, которую физически невозможно проверить в текущем окружении (например «Huawei без GMS работает», когда Huawei устройства нет). Alternative: либо переписать как `[hand]` DI-override test + inline-TODO `physical-device` в коде, либо удалить AC если он избыточен.
-16. Backlog AC проставлен `[x]` на слово владельца без grep'а `[deferred-*]` маркеров в `tasks.md` и проверки `checklists/*.md`. Alternative: STOP, выполнить шаги 4a-4b skill'а `pre-pr-backlog-sync`; deferred-маркированные tasks автоматически блокируют соответствующие AC независимо от owner override.
+16. Backlog AC проставлен `[x]` на слово владельца без grep'а `[deferred-*]` маркеров в `tasks.md`. Alternative: STOP, выполнить шаг 4b skill'а `pre-pr-backlog-sync`; deferred-маркированные tasks автоматически блокируют соответствующие AC независимо от owner override. (Note: `[auto:checklist]` file-based AC retired per ADR-011 §5 revised 2026-07-16 — checklists chat-only, файлов нет.)
+
+16a. Файл `specs/<NNN>/checklists/*.md` создан или ре-создан в новом коммите — нарушает ADR-011 §5 revised 2026-07-16 (чек-листы chat-only, файлы не commit'аем). Alternative: STOP, удалить файлы, применить skill в chat-only режиме, грей items вписать в `spec.md` / `plan.md`. `.gitignore` (`specs/**/checklists/`) — safety net; старые файлы под `specs/001..016/` не трогаем (historical).
 17. Task в статусе `Discussion` перешёл в `Draft` **без** заполненного `### Decision (English)` sub-блока в `SECTION:DISCUSSION` — downstream tasks не получают machine-readable контракт (нарушает rule 11). Alternative: STOP, заполнить Decision block (Choice / Rationale / Applies to / Trade-offs / Exit ramp), только потом status → Draft. Decision block mutable до начала implementation per rule 11 mutability window.
 18. Architecture decision дублирован inline в другом task'е вместо `dependencies: [TASK-N]` — sync сломается когда upstream Decision изменится (нарушает rule 11 cross-task references). Alternative: удалить дублирование, добавить в `dependencies:`, prose ссылку «See TASK-N Decision».
 19. Новый `docs/dev/*-mentor-overview.md` файл создан для нового архитектурного домена (backend, UX, i18n) вместо backlog-tasks в статусе Discussion — повторяет ошибку старой модели, ведёт к desync (нарушает rule 11 universality). Alternative: создать decision-task'и с меткой домена (`decision + <domain>`), использовать backlog Kanban как Discussion queue.
@@ -323,9 +325,9 @@ For each: surface the issue in one sentence, propose the corrected shape, then c
 - Push after each significant step, not after several piled up.
 - Never use hook-bypassing flags (no-verify, no-gpg-sign, etc.) without explicit user approval.
 - Never commit secrets, signing keys, service-account credentials, or machine-local configuration.
-- **Checklists in chat — red-only summary** (ADR-011). Emit one line per checklist: `checklist-X: N/Total ✓, FAIL: CHK-A (short why), CHK-B (short why)`. Full table stays in `specs/<NNN>/checklists/<name>.md`. Backlog AC carries counts via `[auto:checklist]`. Do not paste full tables in chat — wastes tens of thousands of tokens over a long session.
+- **Checklists in chat — red-only summary, no persisted files** (ADR-011 §5, revised 2026-07-16). Emit one line per checklist: `checklist-X: N/Total ✓, FAIL: CHK-A (short why), CHK-B (short why)`. Chat line = only artefact. Do NOT create `specs/<NNN>/checklists/<name>.md` files; if a skill needs a scratch buffer during evaluation it must delete it before returning. `.gitignore` covers `specs/**/checklists/` as safety net. Grey items surfaced during the run land as edits to `spec.md` / `plan.md` (project truth), not in a separate checklist file. Backlog AC no longer carries new `[auto:checklist]` file-count entries; existing entries in already-committed tasks stay as-is.
 - **Change reports — `file:line` markdown links, not diffs** (ADR-011). Emit a list: `- [Foo.kt:42](path/Foo.kt#L42) — one-line description`. Owner does not read code; on demand he opens the link in VSCode (the IDE extension renders `[name.kt:42](path#L42)` natively). Only paste a diff block when the owner explicitly asks for one.
-- **Language by audience** (ADR-011, HARD RULE): write each new artifact in the language of its primary audience. **English** for AI-only files: `CLAUDE.md`, ADRs, `plan.md`, `tasks.md`, `contracts/`, `checklists/`, skill `SKILL.md`, code comments, commit bodies, PR descriptions. **Russian** for owner-facing files: `spec.md`, backlog task descriptions, `vision.md`, `docs/product/use-cases/*`, MENTOR-DETAIL blocks inside sequences, novice TL;DR summaries, chat replies to owner. Reason: English is ~30% denser for AI parsing; Russian in AI-only files wastes tokens with no offsetting value. Do **not** preemptively migrate existing files — apply on next touch.
+- **Language by audience** (ADR-011, HARD RULE): write each new artifact in the language of its primary audience. **English** for AI-only files: `CLAUDE.md`, ADRs, `plan.md`, `tasks.md`, `contracts/`, skill `SKILL.md`, code comments, commit bodies, PR descriptions. **Russian** for owner-facing files: `spec.md`, backlog task descriptions, `vision.md`, `docs/product/use-cases/*`, MENTOR-DETAIL blocks inside sequences, novice TL;DR summaries, chat replies to owner. Reason: English is ~30% denser for AI parsing; Russian in AI-only files wastes tokens with no offsetting value. Do **not** preemptively migrate existing files — apply on next touch.
 - **Tasks.md tick-sync (HARD RULE)**: каждый implementation commit, закрывающий один или несколько `Tnnn` из spec-kit `tasks.md`, ОБЯЗАН в том же diff'е проставить `- [x]` напротив этих task'ов. Refuse to commit без этого.
   - **Один commit может покрывать несколько `Tnnn`** (`phase-N: Tnnn-Tmmm`) — все они должны быть `[x]` в этом же diff'е.
   - **Запрещено**: «потом догонит», «в конце фазы», «ticks отдельным commit'ом». Это создаёт desync, наблюдавшийся на TASK-49 phase 1-4.
@@ -419,7 +421,7 @@ For tests:
 - **Status workflow (5 статусов, обновлено 2026-06-24):**
   - `Draft` — task существует как идея / в roadmap'е, но ещё не обсуждалась. Дефолт для новых task'ов. Ничего не написано (нет spec.md, нет частичного кода).
   - `In Progress` — task взят в работу прямо сейчас. Внутри `In Progress` идёт весь Spec Kit pipeline: `/speckit.specify` → `/speckit.clarify` → `/speckit.scenarios` → `/speckit.plan` → `/speckit.tasks` → `/speckit.analyze` → `/speckit.implement` → review → merge. Промежуточные стадии Spec Kit'а **не выделяются в отдельные backlog-статусы** (владелец работает по одной задаче за раз).
-  - `Verification` — **код смержен в `main` (PR closed)**, но физические/manual гейты ещё не пройдены (emulator smoke, real-device verification, OEM check, manual document review). AC секции `[hand]` и `[auto:checklist]` зелёные, но `[auto:deferred-*]` остаются `[ ]`. Note в `<!-- SECTION:VERIFICATION_PENDING:BEGIN -->`: «PR #X merged YYYY-MM-DD, pending AC: #N (deferred-local-emulator), #M (deferred-physical-device)». Снимается, когда отложенные AC закрываются — переход в Done через повторный `pre-pr-backlog-sync`.
+  - `Verification` — **код смержен в `main` (PR closed)**, но физические/manual гейты ещё не пройдены (emulator smoke, real-device verification, OEM check, manual document review). AC секции `[hand]` зелёные, но `[auto:deferred-*]` остаются `[ ]`. Note в `<!-- SECTION:VERIFICATION_PENDING:BEGIN -->`: «PR #X merged YYYY-MM-DD, pending AC: #N (deferred-local-emulator), #M (deferred-physical-device)». Снимается, когда отложенные AC закрываются — переход в Done через повторный `pre-pr-backlog-sync`.
   - `Paused` — работа была начата (есть spec.md / частичный код в untracked / в stash / в ветке), но **владелец временно переключился на другую задачу**. Note: «причина паузы», «куда положили частичную работу» (stash/ветка/spec-папка). Отличается от `Draft` тем, что **что-то уже написано**; отличается от `Verification` тем, что **ещё нет merged PR** или есть зависимость от другой in-flight задачи. Возврат в `In Progress` подразумевает recovery работы.
   - `Done` — merged в `main` **И все AC `[x]`** (или `[N/A]`). Если merged без всех зелёных AC → `Verification`, не Done. Никакого «merged = Done» автомата.
 
@@ -428,20 +430,19 @@ For tests:
   - `Paused` — pipeline остановлен на полпути, ждёт человеческого решения / другой задачи.
   - Когда сомнения — `Paused` если ещё нет merged PR; `Verification` если PR merged.
 
-- **Acceptance Criteria — hybrid model (обновлено 2026-06-24):**
+- **Acceptance Criteria — hybrid model (обновлено 2026-07-16):**
   AC в `backlog/tasks/*.md` имеют **два источника**, помеченные inline-маркерами:
   ```
   - [x] #1 [hand] CloudAvailability port + Android adapter
-  - [x] #2 [auto:checklist] checklists/domain-isolation.md: 16/16 CHK [x]
+  - [x] #2 [hand] FcmTokenRegistrationGuard откладывает FCM до cloudAvailable=true
   - [ ] #3 [auto:deferred-local-emulator] Emulator smoke pixel_5_api_34 (T043, T031-T036)
   - [ ] #4 [auto:deferred-physical-device] Physical device verification Xiaomi 11T (T041)
-  - [N/A] #5 [auto:checklist] checklists/wire-format.md: N/A (no wire format)
   ```
   - **`[hand]`** — author-written user-visible criterion (5±2 пункта, project-specific behaviour). Pre-PR sync **не переписывает**, только проставляет `[x]`.
-  - **`[auto:checklist]`** — auto-generated, по одной строке на каждый файл в `specs/<NNN>/checklists/`. Текст «<file>: X/Y CHK [x]». Pre-PR sync **переписывает полностью** (count'ы обновляются).
   - **`[auto:deferred-<type>]`** — auto-generated, по одной строке на каждый уникальный `[deferred-<type>]` маркер в `tasks.md`. Pre-PR sync **переписывает полностью**.
   - Marker types для deferred: `local-emulator` (нужен AVD ≤ API 34 или другой), `physical-device` (нужен реальный девайс), `firebase-emulator` (нужна Firebase emulator suite), `external` (third-party provisioning).
   - **AC без маркера** — legacy формат, постепенно мигрируется в hand/auto при следующем pre-PR sync.
+  - **Retired**: `[auto:checklist]` file-based counts (существовавшие до 2026-07-16). Concept выведен из употребления вместе с persisted checklist files per ADR-011 §5 revised. На уже committed tasks legacy `[auto:checklist]` строки **остаются как исторические** — не регенерируем, не удаляем, не пересчитываем. На новых task'ах не создаём.
 
   **Pseudo-gates запрещены** в AC: формулировки, которые невозможно физически проверить (например «Huawei без GMS работает», когда Huawei устройства нет и не будет). Альтернатива: `[hand]` DI-override test + inline-TODO `physical-device` в коде.
 - **Автопереход `Draft → In Progress` (HARD RULE для AI):**
@@ -449,18 +450,18 @@ For tests:
   - **Когда task-N назван** — AI **первым шагом** (до любых других tool calls) вызывает MCP `editTask task-N -s "In Progress"`. Только после успешного перехода — запускает speckit-команды / делает правки кода.
   - **Никаких "догадок"**: AI не выбирает task-N сам из похожих, даже если есть очевидный кандидат. Всегда явное подтверждение владельца.
   - **Множественные task'и одновременно — запрещены** (по решению владельца «работаю только над одной за раз»). Если владелец просит начать работу над task-X пока task-Y уже `In Progress` — AI обязан спросить: «task-Y сейчас In Progress. Закрыть её (Done) / поставить на `Paused` (с записью где лежит частичная работа) / оставить и взять обе?».
-- **Pre-PR sync (HARD RULE для AI, обновлено 2026-06-24):**
+- **Pre-PR sync (HARD RULE для AI, обновлено 2026-07-16):**
   - **Перед `gh pr create`** на любой ветке, привязанной к spec'у или к backlog-task'у, AI **обязан** вызвать skill [`pre-pr-backlog-sync`](.claude/skills/pre-pr-backlog-sync/SKILL.md). Skill:
     1. Находит соответствующий task через `references:` поле.
-    2. Регенерирует `[auto:checklist]` строки из `specs/<NNN>/checklists/*.md` (count'ы `[x]` vs total).
+    2. **Refuse gate**: проверяет что в рабочем дереве нет файлов `specs/<NNN>/checklists/*.md` (per ADR-011 §5 revised — чек-листы chat-only). Если есть — STOP, попросить владельца удалить.
     3. Регенерирует `[auto:deferred-*]` строки из `specs/<NNN>/tasks.md` (grep `\[deferred-(local-emulator|physical-device|firebase-emulator|external)\]`).
     4. Для `[hand]` AC: по grep'у кода/тестов помечает кандидаты `[x]`, спрашивает владельца про manual gates.
-    5. Решает статус: **все `[x]` или `[N/A]` → Done** (+ Final Summary); **есть `[ ]` среди `[auto:deferred-*]` → Verification**; **есть `[ ]` среди `[hand]` или `[auto:checklist]` → In Progress** (PR open не должен, фича не закончена); специальный case **Paused** (a) — только по явному owner-решению «переключаюсь на другое».
+    5. Решает статус: **все `[x]` или `[N/A]` → Done** (+ Final Summary); **есть `[ ]` среди `[auto:deferred-*]` → Verification**; **есть `[ ]` среди `[hand]` → In Progress** (PR open не должен, фича не закончена); специальный case **Paused** — только по явному owner-решению «переключаюсь на другое».
     6. Коммитит изменения в `backlog/tasks/` отдельным коммитом, затем возвращает control для `gh pr create`.
   - PR description **должен** содержать строку `Backlog: task-N → <new status>` (и `pending AC: #X (auto:deferred-physical-device), #Y (auto:deferred-local-emulator)` если Verification).
   - Если AI пропускает этот шаг и сразу делает `gh pr create` — это **regression** (повторение incident'а PR #21 / #22, где TASK-3 и TASK-4 ушли в Done с 0/4 AC).
 - **`In Progress → Verification → Done` только через `pre-pr-backlog-sync`**:
-  - In Progress → Verification: PR merged, code-level + checklist AC `[x]`, есть `[ ]` среди `[auto:deferred-*]`.
+  - In Progress → Verification: PR merged, `[hand]` AC `[x]`, есть `[ ]` среди `[auto:deferred-*]`.
   - Verification → Done: все AC закрыты (включая manual прогоны на эмуляторе / физическом устройстве).
   - Никакого «merged = Done» автомата.
 - **Cleanup Done-карточек:** когда колонка Done разрастается (30+ задач) — `backlog cleanup` перемещает старые Done в `backlog/completed/`. Файлы остаются в git, доступны через Read tool / git log / grep. Контекст не теряется никогда.

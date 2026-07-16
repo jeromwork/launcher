@@ -14,6 +14,8 @@ This is a routing skill. It does not produce artifacts. It produces a **list of 
 - Path to a `spec.md` (or already-loaded content).
 - Optional: `plan.md` if it exists (catches things spec.md hides).
 
+**Note (ADR-011 §5 revised 2026-07-16)**: each `checklist-*` skill this routing decision returns is now **chat-only** — no persisted file under `specs/<id>/checklists/`. Grey items surfaced by a checklist land as edits to `spec.md` / `plan.md`. See individual skill Output sections.
+
 ---
 
 ## How to assess

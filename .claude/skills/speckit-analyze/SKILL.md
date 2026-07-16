@@ -41,9 +41,10 @@ Invoke `procedure-cross-artifact-trace`. Failures listed; user resolves before p
 ### Step 4 — Re-run all checklists
 
 For each checklist returned by Step 1 (always-on + triggered):
-1. Re-invoke. Compare against existing `specs/<id>/checklists/<name>.md`.
-2. Note new failures since clarify pass (drift signals).
-3. Note still-open items.
+1. Re-invoke skill fresh against current `spec.md` / `plan.md`. Chat-only red-only summary per ADR-011 §5 (no persisted file).
+2. Note failures + grey items in this analyze chat log — they must land as edits to `spec.md` / `plan.md` before implementation starts.
+3. If a checklist skill wrote a scratch buffer under `specs/<id>/checklists/`, delete it before Step 6 verdict. `.gitignore` (`specs/**/checklists/`) prevents accidental commit but scratch pollution during a session is still noise.
+4. No file-based comparison against prior runs — project truth lives in `spec.md` / `plan.md`, not in a checklist snapshot. Drift = differences between what the skill flags now and what current spec.md / plan.md say. Fix by editing spec/plan.
 
 ### Step 5 — Specific scans
 
@@ -77,15 +78,15 @@ CROSS-ARTIFACT TRACE:
   ✓ All contracts have roundtrip + backward-compat
   ⚠ "ADR-005" mentioned 4 times in spec, 1 link
 
-CHECKLISTS:
-  always-on/requirements-quality   : 16/16 ✓
-  always-on/meta-minimization      : 13/13 ✓
-  triggered/domain-isolation       : 16/16 ✓
-  triggered/wire-format            : 18/18 ✓
-  triggered/failure-recovery       : 16/17 ✓ (CHK-014 still open: corrupt-state recovery undefined)
-  triggered/state-management       : N/A (no lifecycle scope per spec §1)
-  triggered/security               : 22/24 ✓ (2 PII concerns)
-  triggered/performance            : 20/20 ✓
+CHECKLISTS (chat-only, no persisted files per ADR-011 §5):
+  checklist-requirements-quality   : 16/16 ✓
+  checklist-meta-minimization      : 13/13 ✓
+  checklist-domain-isolation       : 16/16 ✓
+  checklist-wire-format            : 18/18 ✓
+  checklist-failure-recovery       : 16/17 ✓ FAIL: CHK-014 (corrupt-state recovery undefined)
+  checklist-state-management       : N/A (no lifecycle scope per spec §1)
+  checklist-security               : 22/24 ✓ FAIL: CHK-019 (PII in logs), CHK-022 (Custom payload minimisation)
+  checklist-performance            : 20/20 ✓
 
 SCANS:
   ✓ No dangling deleted-file references

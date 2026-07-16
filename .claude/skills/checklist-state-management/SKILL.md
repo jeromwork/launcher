@@ -56,4 +56,6 @@ Reference: [`specs/002-whatsapp-tile-return/checklists/state-management.md`](spe
 
 ## Output
 
-Inline into `specs/<id>/checklists/state-management.md`.
+Chat only — one red-only summary line per ADR-011 §5:
+`checklist-state-management: N/Total ✓, FAIL: CHK-XXX (short why)`.
+Do NOT create `specs/<id>/checklists/state-management.md`. Scratch buffer permitted, must be deleted before returning. Grey items land as edits to `spec.md` / `plan.md`.
