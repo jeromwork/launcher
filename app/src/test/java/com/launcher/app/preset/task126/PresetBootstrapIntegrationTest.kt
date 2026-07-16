@@ -2,10 +2,15 @@ package com.launcher.app.preset.task126
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.launcher.api.FlowPreset
+import com.launcher.api.PresetRepository
 import com.launcher.app.di.presetModule
 import com.launcher.app.preset.task120.PresetBootstrap
 import com.launcher.app.wizard.WizardViewModel
 import com.launcher.preset.engine.ReconcileEngine
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertNotNull
@@ -16,6 +21,7 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
+import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -29,10 +35,28 @@ import org.robolectric.annotation.Config
  * Uses a bare `Application` (not `LauncherApplication`) so we start Koin
  * ourselves with only `presetModule` — the prod graph pulls Firebase / crypto
  * dependencies that aren't available in JVM unit tests.
+ *
+ * TASK-127: `PresetBootstrap` now also needs `PresetRepository` (to honour the
+ * preset the user picked). In production that binding comes from another module
+ * in the same container; here only `presetModule` is loaded, so [testOnlyModule]
+ * supplies an in-memory stand-in.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], manifest = Config.NONE, application = Application::class)
 class PresetBootstrapIntegrationTest {
+
+    private class InMemoryPresetRepository : PresetRepository {
+        private val state = MutableStateFlow<FlowPreset?>(null)
+        override suspend fun getActivePreset(): FlowPreset? = state.value
+        override suspend fun setActivePreset(preset: FlowPreset) { state.value = preset }
+        override suspend fun clear() { state.value = null }
+        override fun observeActivePreset(): Flow<FlowPreset?> = state.asStateFlow()
+    }
+
+    /** Stands in for the bindings that live outside `presetModule` in production. */
+    private val testOnlyModule = module {
+        single<PresetRepository> { InMemoryPresetRepository() }
+    }
 
     @After fun tearDown() {
         if (GlobalContext.getOrNull() != null) stopKoin()
@@ -43,7 +67,7 @@ class PresetBootstrapIntegrationTest {
         if (GlobalContext.getOrNull() != null) stopKoin()
         val koin = startKoin {
             androidContext(ApplicationProvider.getApplicationContext())
-            modules(presetModule)
+            modules(presetModule, testOnlyModule)
         }.koin
 
         val bootstrap = koin.get<PresetBootstrap>()
@@ -60,7 +84,7 @@ class PresetBootstrapIntegrationTest {
         if (GlobalContext.getOrNull() != null) stopKoin()
         val koin = startKoin {
             androidContext(ApplicationProvider.getApplicationContext())
-            modules(presetModule)
+            modules(presetModule, testOnlyModule)
         }.koin
         val bootstrap = koin.get<PresetBootstrap>()
 

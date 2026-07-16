@@ -159,6 +159,9 @@ val presetModule = module {
             validator = get(),
             factory = get(),
             store = get(),
+            // TASK-127 AC #8: without this the picker's choice was ignored and
+            // bootstrap always built the simple-launcher profile.
+            presetRepository = get(),
         )
     }
 

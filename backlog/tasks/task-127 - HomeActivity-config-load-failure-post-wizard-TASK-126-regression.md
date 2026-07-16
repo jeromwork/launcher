@@ -1,7 +1,7 @@
 ---
 id: TASK-127
 title: 'ECS foundation: entities, tags, query, hierarchy + HomeScreen rewire'
-status: Verification
+status: Done
 assignee: []
 created_date: '2026-07-13'
 updated_date: '2026-07-16 21:30'
@@ -139,7 +139,7 @@ ordinal: 127000
 - [x] #5 [hand] `ProfileBackedFlowRepository` реализован (все 4 метода порта, включая `loadFlows()` — путь регрессии), DI wire в mockBackend + realBackend. `HomeComponentLoadingStateTest` расширен сценарием `postManifestWizardReconcile_profileSeeded_homeReady` (+ ещё 3). Existing config-based сценарии зелёные.
 - [x] #6 [hand] `docs/architecture/preset-model.md` обновлён (AI-TLDR: три оси + модель «ECS ≈ таблица БД»). `Preset.kt` + `Component.kt` содержат doc-комментарии. `server-roadmap.md` содержит SRV-CONFIG-DEPRECATION.
 - [x] #7 [hand] **Иерархия работает**: `Entity.parentId` + `Workspace`/`Flow`/`ToolbarButton`; `flows()` по порядку, `tilesOf(flowId)` изолирует плитки, `toolbarButtons()` по порядку; сироты не роняют запрос. Одноуровневый профиль работает тем же кодом. Unit-тесты зелёные + иерархия подтверждена на устройстве (вкладка «Главная» = Flow-сущность).
-- [ ] #8 [hand] **Переключение вкладок на устройстве**: тап по кнопке тулбара показывает плитки соответствующего flow. **Блокировано вне scope**: `PresetBootstrap` всегда активирует `simple-launcher` (один flow) независимо от выбора в пикере — logcat `bootstrap outcome=Activated(presetId=simple-launcher)`, поле `defaultPresetId`. Двухвкладочный пресет `launcher` из UI недостижим. Механика покрыта тестами (`hierarchicalProfile_rendersFlowsAndSwitches`, `launcherPreset_assemblesIntoValidHierarchy_withTwoFlows`). Закрывается вместе с прокидыванием выбора пресета в bootstrap (путь TASK-126).
+- [x] #8 [hand] **Переключение вкладок на устройстве**: **ПРОВЕРЕНО 2026-07-16**. Выбран пресет «Лаунчер» → logcat `bootstrap outcome=Activated(presetId=launcher)` → экран показывает **две вкладки** («Главная», «Приложения»). Тап по «Приложения»: было «Главная: пока пусто» → стало «WhatsApp», Activity та же (`5aa8b8d`, без перезапуска). Заодно подтверждена изоляция вкладок — WhatsApp лежит в `flow-apps` и на «Главной» не показывался. Попутно закрыт блокер: `PresetBootstrap` игнорировал выбор пикера (всегда `defaultPresetId`) — теперь читает `PresetRepository.getActivePreset()`, куда пикер уже писал выбор; fallback на default остался для «ещё не выбирали».
 - [x] #9 [hand] **`Unverifiable` статус честен**: `NeedsUserConfirmation` → `Unverifiable`, а не `Applied`; `BootCheck` его не перепроверяет; `RunMode.Single` перепроверяет. `ReconcileEngineUnverifiableTest` зелёный.
 - [x] #10 [hand] **Валидация иерархии**: `DanglingParentRef`, `CircularParentRef` (включая самоссылку), `DanglingTargetRef` — типизированные ошибки. `ProfileFactoryHierarchyValidationTest` зелёный; `BundledPresetHierarchyTest` проверяет реальные bundled-ассеты.
 - [x] #11 [hand] **ECS-нейминг**: `ProfileComponent` → `Entity`, `ComponentDeclaration` → `Blueprint` (93 usages / 24 файла); сборка и все тесты зелёные; формат хранения не изменился.
@@ -203,17 +203,38 @@ Artifacts rebuilt accordingly; spec folder renamed to `specs/task-127-ecs-founda
 
 <!-- SECTION:DISCUSSION:END -->
 
-## Verification Pending
+## Final Summary
 
-<!-- SECTION:VERIFICATION_PENDING:BEGIN -->
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
 
-**Статус `Verification` с 2026-07-16.** Реализация завершена (35/35 задач), проверена на физическом Xiaomi Redmi Note 11 (`17f33878`): регрессия закрыта, строки локализованы. **10 из 11 AC зелёные.**
+**Done 2026-07-16.** 35/35 задач, **11/11 AC зелёные**, всё проверено на физическом Xiaomi Redmi Note 11 (`17f33878`).
 
-**Открыт AC #8** — переключение вкладок тулбара на устройстве. Причина **вне scope TASK-127**: `PresetBootstrap.defaultPresetId` всегда активирует `simple-launcher` (один flow), игнорируя выбор в пикере пресетов (logcat: `bootstrap outcome=Activated(presetId=simple-launcher)`). Двухвкладочный пресет `launcher` из UI недостижим, поэтому визуально проверить переключение нельзя. Сама механика покрыта тестами: `HomeComponentLoadingStateTest.hierarchicalProfile_rendersFlowsAndSwitches` (две вкладки, порядок, `selectFlow` без перезапуска Activity) и `BundledPresetHierarchyTest.launcherPreset_assemblesIntoValidHierarchy_withTwoFlows`.
+**Что чинили**: после мастера настройки главный экран показывал «Не удалось загрузить настройки». Причина — архитектурный разрыв: мастер писал `Profile` (модель TASK-120), а экран читал `ConfigDocument` (старую модель), которую никто не заполнял.
 
-**Что закроет AC #8**: прокидывание выбора пресета из пикера в `PresetBootstrap` — это путь TASK-126 (wizard/picker), не ECS-фундамент. Владельцу решить: отдельная задача или довесок к TASK-126.
+**Что сделали вместо моста**: достроили ECS-фундамент, пока формат хранения не у пользователей (решение владельца, Q7-Q10):
+- **Иерархия**: `Entity.parentId` + типы `Workspace` / `Flow` / `ToolbarButton`. Хранение плоское, дерево вычисляется запросами (как Bevy / Unity DOTS / Android Launcher3).
+- **Честный статус `Unverifiable`**: Android не даёт проверить, скрыта ли системная шторка — теперь модель не врёт «применено», а спрашивает человека; проверка при старте такие настройки не дёргает.
+- **ECS-нейминг**: `ProfileComponent` → `Entity`, `ComponentDeclaration` → `Blueprint` (93 правки).
+- **Query API** (теги + иерархия), render gating (мёртвые плитки не показываем), валидация иерархии (3 типизированные ошибки).
+- **Новый адаптер** `ProfileBackedFlowRepository` — все 4 метода порта; `loadFlows()` и был путём регрессии.
+- `schemaVersion` остался **2** — всё аддитивно, мигратор не нужен.
 
-<!-- SECTION:VERIFICATION_PENDING:END -->
+**Проверено на устройстве**:
+- Свежая установка → мастер → экран с плитками, без Error UI (SC-001).
+- Строки читаемы: «Шаг 1 из 7», «Размер шрифта», «Готово» (SC-002).
+- Пресет «Лаунчер» → две вкладки; тап по «Приложения» переключает содержимое без перезапуска Activity (SC-010).
+
+**4 бага, найденных прогоном на устройстве** (тесты их не ловили, ушли бы в релиз):
+1. Мастер показывал сырые ключи — резолвер читает `res/values`, а ключи лежали только в composeResources.
+2. «Шаг 1 из 7» — plural, а звался метод для обычных строк.
+3. Экран показывал `pool.tile.whatsapp.label` — профиль намеренно хранит ключи (иначе пресет привязан к языку), переводить надо на границе → через порт `StringResolver`.
+4. **`PresetBootstrap` игнорировал выбор пикера** — всегда активировал `simple-launcher`. Пикер писал выбор в `PresetRepository`, но bootstrap его не читал. Исправлено, покрыто тестами.
+
+**Отложено (Draft-задачи)**: TASK-130 (обновление пресет→профиль), **TASK-131 (снисходительный читатель — обязателен до обмена пресетами между устройствами)**, TASK-132 (валидация пресета при создании), TASK-133 (настраиваемый вид Wizard/Settings), TASK-134 (add-flow UX).
+
+**Известное ограничение**: старая версия приложения упадёт при чтении профиля с незнакомым тегом/типом. Безопасно, пока профиль не покидает устройство; зафиксировано тестами; снимается TASK-131.
+
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Definition of Done
 

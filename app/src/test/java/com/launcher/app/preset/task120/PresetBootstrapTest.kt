@@ -1,5 +1,7 @@
 package com.launcher.app.preset.task120
 
+import com.launcher.api.FlowPreset
+import com.launcher.api.PresetRepository
 import com.launcher.preset.engine.PresetValidator
 import com.launcher.preset.engine.ProfileFactory
 import com.launcher.preset.model.ActiveComponentEntry
@@ -70,6 +72,73 @@ class PresetBootstrapTest {
             PresetValidator(emptyContract), ProfileFactory(), store,
         )
         assertTrue(boot.bootstrap() is PresetBootstrap.BootstrapOutcome.AlreadyActive)
+    }
+
+    // ---- TASK-127 AC #8: the picker's choice must actually reach the profile ----
+
+    private val launcherPreset = Preset(
+        presetId = "launcher",
+        version = 1,
+        layoutKey = "layout.grid.2x3",
+        activeComponents = listOf(ActiveComponentEntry("font-tile")),
+    )
+
+    private val bothPresets = StubPresetSource(
+        mapOf("simple-launcher" to preset, "launcher" to launcherPreset),
+    )
+
+    private class FakePresetRepository(private var active: FlowPreset?) : PresetRepository {
+        override suspend fun getActivePreset(): FlowPreset? = active
+        override suspend fun setActivePreset(preset: FlowPreset) { active = preset }
+        override suspend fun clear() { active = null }
+        override fun observeActivePreset(): kotlinx.coroutines.flow.Flow<FlowPreset?> =
+            MutableStateFlow(active)
+    }
+
+    @Test
+    fun bootstrap_activatesThePresetTheUserPicked_notTheDefault() = runTest {
+        // The regression this closes: picking "Лаунчер" still produced the
+        // simple-launcher profile, so the picker had no visible effect.
+        val store = InMemoryProfileStore()
+        val boot = PresetBootstrap(
+            StubPoolSource(pool), bothPresets,
+            PresetValidator(emptyContract), ProfileFactory(), store,
+            presetRepository = FakePresetRepository(FlowPreset.LAUNCHER),
+        )
+
+        val outcome = boot.bootstrap()
+
+        assertEquals("launcher", (outcome as PresetBootstrap.BootstrapOutcome.Activated).presetId)
+        assertEquals("launcher", store.load()?.basedOnPreset)
+    }
+
+    @Test
+    fun bootstrap_fallsBackToDefault_whenNothingPickedYet() = runTest {
+        val store = InMemoryProfileStore()
+        val boot = PresetBootstrap(
+            StubPoolSource(pool), bothPresets,
+            PresetValidator(emptyContract), ProfileFactory(), store,
+            presetRepository = FakePresetRepository(null),
+        )
+
+        val outcome = boot.bootstrap()
+
+        assertEquals("simple-launcher", (outcome as PresetBootstrap.BootstrapOutcome.Activated).presetId)
+    }
+
+    @Test
+    fun bootstrap_honoursSimpleLauncherPick_explicitly() = runTest {
+        val store = InMemoryProfileStore()
+        val boot = PresetBootstrap(
+            StubPoolSource(pool), bothPresets,
+            PresetValidator(emptyContract), ProfileFactory(), store,
+            presetRepository = FakePresetRepository(FlowPreset.SIMPLE_LAUNCHER),
+        )
+
+        assertEquals(
+            "simple-launcher",
+            (boot.bootstrap() as PresetBootstrap.BootstrapOutcome.Activated).presetId,
+        )
     }
 
     @Test
