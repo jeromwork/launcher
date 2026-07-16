@@ -42,7 +42,7 @@ class StatusBarPolicyProviderTest {
             currentActivity = { activity },
             manufacturer = "Google",
         )
-        val outcome = provider.check(Component.StatusBarPolicy, profile)
+        val outcome = provider.check(Component.StatusBarPolicy(), profile)
         assertEquals(Outcome.NeedsApply, outcome)
     }
 
@@ -54,7 +54,7 @@ class StatusBarPolicyProviderTest {
             manufacturer = "Google",
         )
 
-        val outcome = provider.apply(Component.StatusBarPolicy, profile)
+        val outcome = provider.apply(Component.StatusBarPolicy(), profile)
 
         assertEquals(Outcome.Ok, outcome)
         val flags = activity.window.attributes.flags
@@ -73,7 +73,7 @@ class StatusBarPolicyProviderTest {
             manufacturer = "Xiaomi",
         )
 
-        val outcome = provider.apply(Component.StatusBarPolicy, profile)
+        val outcome = provider.apply(Component.StatusBarPolicy(), profile)
 
         assertEquals(Outcome.Ok, outcome)
         val flags = activity.window.attributes.flags
@@ -90,7 +90,7 @@ class StatusBarPolicyProviderTest {
             currentActivity = { null },
             manufacturer = "Google",
         )
-        val outcome = provider.apply(Component.StatusBarPolicy, profile)
+        val outcome = provider.apply(Component.StatusBarPolicy(), profile)
         // We only need to assert it's a Failed outcome — exact FailReason is
         // implementation detail; the important behaviour is that no crash occurs
         // when there's no foreground Activity.

@@ -27,7 +27,7 @@ Client-side encryption without server-side ignorance is insufficient: an ACL gra
 
 ## Checklist items
 
-Emit red-only summary in chat per ADR-011 (`checklist-zero-knowledge-server: N/Total ✓, FAIL: CHK-XXX (short why)`). Full table stays in `specs/<NNN>/checklists/zero-knowledge-server.md`.
+Emit red-only summary in chat per ADR-011 §5: `checklist-zero-knowledge-server: N/Total ✓, FAIL: CHK-XXX (short why)`. Chat line = only artefact. Do NOT create `specs/<NNN>/checklists/zero-knowledge-server.md`; scratch buffer permitted, must be deleted before returning. Grey items land as edits to `spec.md` / `plan.md`.
 
 ### Principle 1 — Sealed Server Default (Tier 0 unless justified)
 

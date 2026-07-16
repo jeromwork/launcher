@@ -25,7 +25,7 @@ import com.launcher.api.localization.StringResolver
 import com.launcher.preset.engine.ReconcileState
 import com.launcher.preset.model.Component
 import com.launcher.preset.model.Profile
-import com.launcher.preset.model.ProfileComponent
+import com.launcher.preset.model.Entity
 import com.launcher.ui.senior.primitives.SeniorButton
 import com.launcher.ui.senior.primitives.SeniorSecondaryButton
 import com.launcher.ui.senior.progress.WizardProgressIndicator
@@ -139,9 +139,13 @@ private fun InteractiveBody(
         WizardProgressIndicator(
             stepIndex = step.index,
             totalSteps = step.total.coerceAtLeast(1),
-            stepLabel = stringResolver.resolve(
-                "wizard_step_of",
-                mapOf(
+            // T127-030 (FR-008): "Шаг 1 из 4" is a plural resource (Russian has
+            // one/few/many/other), so it must go through resolvePlural — resolve()
+            // only looks at <string> and would render the raw key.
+            stepLabel = stringResolver.resolvePlural(
+                key = "wizard_step_of",
+                count = step.index + 1,
+                args = mapOf(
                     "current" to (step.index + 1).toString(),
                     "total" to step.total.coerceAtLeast(1).toString(),
                 ),
@@ -193,7 +197,7 @@ private fun ApplyingBody(
 @Composable
 private fun DeniedBody(
     stringResolver: StringResolver,
-    component: ProfileComponent,
+    component: Entity,
     onPickAnotherPreset: () -> Unit,
 ) {
     Column(
@@ -252,7 +256,7 @@ private fun FailedBody(
  * component id as a translation key with a fallback to the component subtype
  * simple name. Component-specific renderers land during Xiaomi smoke (T063).
  */
-private fun componentLabel(stringResolver: StringResolver, pc: ProfileComponent): String {
+private fun componentLabel(stringResolver: StringResolver, pc: Entity): String {
     val labelKey = "wizard_component_${pc.id}"
     val resolved = stringResolver.resolve(labelKey)
     if (resolved != labelKey) return resolved
@@ -261,9 +265,14 @@ private fun componentLabel(stringResolver: StringResolver, pc: ProfileComponent)
         is Component.FontSize -> stringResolver.resolve("wizard_component_font_size")
         is Component.Sos -> stringResolver.resolve("wizard_component_sos")
         is Component.Toolbar -> stringResolver.resolve("wizard_component_toolbar")
-        Component.LauncherRole -> stringResolver.resolve("wizard_component_launcher_role")
+        is Component.LauncherRole -> stringResolver.resolve("wizard_component_launcher_role")
         is Component.Theme -> stringResolver.resolve("wizard_component_theme")
         is Component.Language -> stringResolver.resolve("wizard_component_language")
-        Component.StatusBarPolicy -> stringResolver.resolve("wizard_component_status_bar_policy")
+        is Component.StatusBarPolicy -> stringResolver.resolve("wizard_component_status_bar_policy")
+        // T127-008: structural entities (screen skeleton) are never wizard steps —
+        // they carry no user-facing question. Labels exist only for completeness.
+        is Component.Workspace -> stringResolver.resolve("wizard_component_workspace")
+        is Component.Flow -> stringResolver.resolve(c.titleKey)
+        is Component.ToolbarButton -> stringResolver.resolve(c.labelKey)
     }
 }

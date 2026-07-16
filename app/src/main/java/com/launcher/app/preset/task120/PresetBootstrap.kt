@@ -1,5 +1,6 @@
 package com.launcher.app.preset.task120
 
+import com.launcher.api.PresetRepository
 import com.launcher.preset.engine.PresetValidator
 import com.launcher.preset.engine.ProfileFactory
 import com.launcher.preset.model.Preset
@@ -10,6 +11,15 @@ import com.launcher.preset.port.ProfileStore
 /**
  * T066 — application boot: load pool + bundled preset + activate.
  * Idempotent: if a Profile already exists in ProfileStore, does nothing.
+ *
+ * TASK-127 (AC #8 follow-up): honours the preset the user picked on the
+ * first-launch screen. [presetRepository] holds that choice (written by
+ * `FirstLaunchActivity.pick` → `setActivePreset`); [defaultPresetId] is only the
+ * fallback for when nothing has been picked yet.
+ *
+ * Before this, bootstrap always activated [defaultPresetId], so picking
+ * "Лаунчер" still produced the simple-launcher profile — the picker had no
+ * effect on what the home screen showed.
  */
 class PresetBootstrap(
     private val poolSource: PoolSource,
@@ -17,6 +27,7 @@ class PresetBootstrap(
     private val validator: PresetValidator,
     private val factory: ProfileFactory,
     private val store: ProfileStore,
+    private val presetRepository: PresetRepository? = null,
     private val defaultPresetId: String = "simple-launcher",
 ) {
 
@@ -26,8 +37,11 @@ class PresetBootstrap(
      */
     suspend fun bootstrap(): BootstrapOutcome {
         if (store.load() != null) return BootstrapOutcome.AlreadyActive
-        val preset: Preset = presetSource.loadPreset(defaultPresetId)
-            ?: return BootstrapOutcome.PresetNotFound(defaultPresetId)
+        // The user's pick wins; fall back to the default only when the picker has
+        // not run yet (or no repository is wired, e.g. in unit tests).
+        val presetId = presetRepository?.getActivePreset()?.slug ?: defaultPresetId
+        val preset: Preset = presetSource.loadPreset(presetId)
+            ?: return BootstrapOutcome.PresetNotFound(presetId)
         val pool = poolSource.loadPool()
         val errors = validator.validate(preset, pool)
         if (errors.isNotEmpty()) return BootstrapOutcome.ValidationFailed(errors.map { it.toI18nKey() })

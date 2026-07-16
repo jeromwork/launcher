@@ -1,7 +1,7 @@
 package com.launcher.preset.wire
 
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentDeclaration
+import com.launcher.preset.model.Blueprint
 import com.launcher.preset.model.Pool
 import com.launcher.preset.model.ShapeStyle
 import com.launcher.preset.model.TypographyScale
@@ -30,16 +30,16 @@ class PoolSchemaV2RoundtripTest {
         val pool = Pool(
             schemaVersion = 2,
             declarations = listOf(
-                ComponentDeclaration(
+                Blueprint(
                     id = "launcher-role",
-                    component = Component.LauncherRole,
+                    component = Component.LauncherRole(),
                     wizardBehavior = WizardBehavior.AutoApply,
                     critical = true,
                     descriptionKey = "pool_launcher_role_desc",
                     requires = null,
                     required = true,
                 ),
-                ComponentDeclaration(
+                Blueprint(
                     id = "app-tile-whatsapp",
                     component = Component.AppTile(
                         packageName = "com.whatsapp",
@@ -50,7 +50,7 @@ class PoolSchemaV2RoundtripTest {
                     requires = listOf("launcher-role"),
                     required = false,
                 ),
-                ComponentDeclaration(
+                Blueprint(
                     id = "theme-warm",
                     component = Component.Theme(
                         paletteSeedHex = "#FF7043",
@@ -62,14 +62,14 @@ class PoolSchemaV2RoundtripTest {
                     requires = null,
                     required = false,
                 ),
-                ComponentDeclaration(
+                Blueprint(
                     id = "language-system",
                     component = Component.Language(locale = "system"),
                     wizardBehavior = WizardBehavior.Interactive,
                 ),
-                ComponentDeclaration(
+                Blueprint(
                     id = "status-bar-hidden",
-                    component = Component.StatusBarPolicy,
+                    component = Component.StatusBarPolicy(),
                     wizardBehavior = WizardBehavior.AutoApply,
                     requires = listOf("launcher-role"),
                     required = false,

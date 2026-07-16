@@ -52,4 +52,6 @@ Enforces the **domain-from-infrastructure** boundary defined in [`CLAUDE.md`](CL
 
 ## Output
 
-Inline into `specs/<id>/checklists/domain-isolation.md`. Notable failures should also surface in `speckit-analyze` punch list.
+Chat only — one red-only summary line per ADR-011 §5:
+`checklist-domain-isolation: N/Total ✓, FAIL: CHK-XXX (short why)`.
+Do NOT create `specs/<id>/checklists/domain-isolation.md`. Scratch buffer permitted, must be deleted before returning. Notable failures also surface in `speckit-analyze` punch list. Grey items land as edits to `spec.md` / `plan.md`.

@@ -95,6 +95,141 @@ class HomeComponentLoadingStateTest {
         onResetData = onResetData,
     )
 
+    // ---- TASK-127 T127-027: the regression path, end-to-end ----
+    //
+    // These use the REAL ProfileBackedFlowRepository over a FakeProfileStore, so
+    // they exercise what actually broke: the wizard saved a Profile, the home
+    // screen read a ConfigDocument nobody filled, and HomeComponent rendered
+    // Error. A fake FlowRepository would prove nothing about that wiring.
+
+    private fun entity(
+        id: String,
+        component: com.launcher.preset.model.Component,
+        parentId: String? = null,
+    ) = com.launcher.preset.model.Entity(
+        id = id,
+        component = component,
+        wizardBehavior = com.launcher.preset.model.WizardBehavior.AutoApply,
+        critical = false,
+        status = com.launcher.preset.model.ComponentStatus.Applied,
+        parentId = parentId,
+    )
+
+    private fun profileOf(vararg entities: com.launcher.preset.model.Entity) =
+        com.launcher.preset.model.Profile(
+            basedOnPreset = "simple-launcher",
+            presetVersion = 2,
+            layoutKey = "grid",
+            components = entities.toList(),
+        )
+
+    @Test
+    fun postManifestWizardReconcile_profileSeeded_homeReady() = runTest(testDispatcher) {
+        // Exactly the fresh-install shape: the wizard has just saved a Profile.
+        val store = com.launcher.preset.fakes.FakeProfileStore(
+            profileOf(
+                entity(
+                    "tile-settings",
+                    com.launcher.preset.model.Component.AppTile(
+                        packageName = "com.android.settings",
+                        labelKey = "tile_settings",
+                    ),
+                ),
+            ),
+        )
+        val component = createComponent(
+            com.launcher.adapters.flow.ProfileBackedFlowRepository(store),
+        )
+
+        assertEquals(HomeLoadingState.Loading, component.loadingState.value)
+        advanceUntilIdle()
+
+        // Before TASK-127 this was Error("flows empty").
+        assertEquals(HomeLoadingState.Ready("default"), component.loadingState.value)
+        assertEquals(1, component.state.value.flows.single().slots.size)
+    }
+
+    @Test
+    fun hierarchicalProfile_rendersFlowsAndSwitches() = runTest(testDispatcher) {
+        val store = com.launcher.preset.fakes.FakeProfileStore(
+            profileOf(
+                entity("ws", com.launcher.preset.model.Component.Workspace()),
+                entity(
+                    "flow-calls",
+                    com.launcher.preset.model.Component.Flow(titleKey = "flow.calls", order = 0),
+                    parentId = "ws",
+                ),
+                entity(
+                    "flow-apps",
+                    com.launcher.preset.model.Component.Flow(titleKey = "flow.apps", order = 1),
+                    parentId = "ws",
+                ),
+                entity(
+                    "tile-wa",
+                    com.launcher.preset.model.Component.AppTile("com.whatsapp", "l"),
+                    parentId = "flow-calls",
+                ),
+                entity(
+                    "tile-settings",
+                    com.launcher.preset.model.Component.AppTile("com.android.settings", "l"),
+                    parentId = "flow-apps",
+                ),
+            ),
+        )
+        val component = createComponent(
+            com.launcher.adapters.flow.ProfileBackedFlowRepository(store),
+        )
+        advanceUntilIdle()
+
+        // Two tabs, ordered by Flow.order, each carrying only its own tile.
+        assertEquals(listOf("flow-calls", "flow-apps"), component.state.value.flows.map { it.id })
+        assertEquals(HomeLoadingState.Ready("flow-calls"), component.loadingState.value)
+
+        // Switching tabs is the existing TASK-52 mechanism — no Activity restart,
+        // no repository round-trip.
+        component.selectFlow("flow-apps")
+        advanceUntilIdle()
+
+        assertEquals("flow-apps", component.state.value.activeFlowId)
+        assertEquals(HomeLoadingState.Ready("flow-apps"), component.loadingState.value)
+    }
+
+    @Test
+    fun emptyProfileStore_staysLoading_thenTimesOut_ratherThanShowingEmptyScreen() = runTest(testDispatcher) {
+        val store = com.launcher.preset.fakes.FakeProfileStore(initial = null)
+        val component = createComponent(
+            com.launcher.adapters.flow.ProfileBackedFlowRepository(store),
+        )
+
+        // A transient null must not flash Error (SEQ-4)...
+        advanceTimeBy(1_000)
+        assertEquals(HomeLoadingState.Loading, component.loadingState.value)
+
+        // ...but a Profile that never arrives is a real failure, surfaced by the
+        // existing 3s timeout with Retry — not an infinite spinner.
+        advanceTimeBy(3_000)
+        assertEquals(HomeLoadingState.Error("timeout 3s"), component.loadingState.value)
+    }
+
+    @Test
+    fun profileArrivingLate_movesLoadingToReady() = runTest(testDispatcher) {
+        val store = com.launcher.preset.fakes.FakeProfileStore(initial = null)
+        val component = createComponent(
+            com.launcher.adapters.flow.ProfileBackedFlowRepository(store),
+        )
+        advanceTimeBy(500)
+        assertEquals(HomeLoadingState.Loading, component.loadingState.value)
+
+        store.save(
+            profileOf(
+                entity("tile", com.launcher.preset.model.Component.AppTile("com.a", "l")),
+            ),
+        )
+        advanceUntilIdle()
+
+        assertEquals(HomeLoadingState.Ready("default"), component.loadingState.value)
+    }
+
     @Test
     fun loading_to_ready_on_non_empty_flows() = runTest(testDispatcher) {
         val flows = List(6) { index -> createSampleFlow("flow-$index") }

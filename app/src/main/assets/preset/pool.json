@@ -45,6 +45,65 @@
       "wizardBehavior": "InitialDefault",
       "critical": false,
       "descriptionKey": "pool.toolbar.description"
+    },
+
+    {
+      "id": "ws-main",
+      "component": {
+        "type": "Workspace",
+        "layoutKey": "layout.workspace.single"
+      },
+      "wizardBehavior": "InitialDefault",
+      "critical": false,
+      "descriptionKey": "pool.workspace.description"
+    },
+    {
+      "id": "flow-main",
+      "component": {
+        "type": "Flow",
+        "titleKey": "pool.flow.main.title",
+        "layoutKey": "layout.grid.2x3",
+        "order": 0
+      },
+      "wizardBehavior": "InitialDefault",
+      "critical": false,
+      "descriptionKey": "pool.flow.main.description"
+    },
+    {
+      "id": "flow-apps",
+      "component": {
+        "type": "Flow",
+        "titleKey": "pool.flow.apps.title",
+        "layoutKey": "layout.grid.2x3",
+        "order": 1
+      },
+      "wizardBehavior": "InitialDefault",
+      "critical": false,
+      "descriptionKey": "pool.flow.apps.description"
+    },
+    {
+      "id": "btn-main",
+      "component": {
+        "type": "ToolbarButton",
+        "targetFlowId": "flow-main",
+        "labelKey": "pool.button.main.label",
+        "order": 0
+      },
+      "wizardBehavior": "InitialDefault",
+      "critical": false,
+      "descriptionKey": "pool.button.main.description"
+    },
+    {
+      "id": "btn-apps",
+      "component": {
+        "type": "ToolbarButton",
+        "targetFlowId": "flow-apps",
+        "labelKey": "pool.button.apps.label",
+        "order": 1
+      },
+      "wizardBehavior": "InitialDefault",
+      "critical": false,
+      "descriptionKey": "pool.button.apps.description"
     }
   ]
 }

@@ -69,4 +69,6 @@ For every event the spec routes to a **system push notification**:
 
 ## Output
 
-Inline into `specs/<id>/checklists/notification-minimization.md`.
+Chat only — one red-only summary line per ADR-011 §5:
+`checklist-notification-minimization: N/Total ✓, FAIL: CHK-XXX (short why)`.
+Do NOT create `specs/<id>/checklists/notification-minimization.md`. Scratch buffer permitted, must be deleted before returning. Grey items land as edits to `spec.md` / `plan.md`.

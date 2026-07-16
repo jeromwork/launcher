@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Russian strings for the preset/wizard runtime (TASK-120 keys + TASK-127
+  additions). Resolved via AndroidStringResolver (getIdentifier over
+  res/values-ru).
+
+  Owner-facing copy: plain Russian, senior-safe — short sentences, no jargon.
+  Base (EN) file: res/values/strings_preset_task120.xml.
+-->
+<resources>
+
+    <!-- pool.* — описания деталей в каталоге -->
+    <string name="pool_font_description">Размер шрифта</string>
+    <string name="pool_tile_whatsapp_label">WhatsApp</string>
+    <string name="pool_tile_whatsapp_description">Плитка WhatsApp</string>
+    <string name="pool_sos_description">Кнопка экстренного вызова</string>
+    <string name="pool_toolbar_description">Нижняя панель с быстрыми действиями</string>
+
+    <!-- TASK-127 — структурные детали (каркас экрана) -->
+    <string name="pool_workspace_description">Основа главного экрана</string>
+    <string name="pool_flow_main_title">Главная</string>
+    <string name="pool_flow_main_description">Главная страница с плитками</string>
+    <string name="pool_flow_apps_title">Приложения</string>
+    <string name="pool_flow_apps_description">Страница с приложениями</string>
+    <string name="pool_button_main_label">Главная</string>
+    <string name="pool_button_main_description">Кнопка панели: открыть главную страницу</string>
+    <string name="pool_button_apps_label">Приложения</string>
+    <string name="pool_button_apps_description">Кнопка панели: открыть страницу приложений</string>
+    <string name="layout_workspace_single">Один рабочий стол</string>
+
+    <!-- wizard.* — заголовки шагов мастера -->
+    <string name="wizard_font_title">Выберите размер шрифта</string>
+    <string name="wizard_font_intro">Подберите удобный размер текста</string>
+    <string name="wizard_sos_title">Экстренный вызов</string>
+    <string name="wizard_apptile_title">Добавить приложение</string>
+    <string name="wizard_toolbar_title">Нижняя панель</string>
+
+    <!-- settings.category.* -->
+    <string name="settings_category_vision">Зрение</string>
+    <string name="settings_category_safety">Безопасность</string>
+    <string name="settings_category_apps">Приложения</string>
+    <string name="settings_category_layout">Расположение</string>
+
+    <!-- layout.* -->
+    <string name="layout_grid_2x3">Сетка 2×3</string>
+    <string name="layout_toolbar_minimal">Простая панель</string>
+
+    <!-- outcome.failed.* -->
+    <string name="outcome_failed_permission_denied">Нет разрешения</string>
+    <string name="outcome_failed_policy_blocked">Запрещено настройками</string>
+    <string name="outcome_failed_network_unavailable">Нет интернета</string>
+    <string name="outcome_failed_cancelled">Отменено</string>
+    <string name="outcome_failed_pairing_not_established">Устройства не связаны</string>
+
+    <!-- validator.error.* -->
+    <string name="validator_error_capability_missing">Не выполнен предыдущий шаг</string>
+    <string name="validator_error_unknown_pool_ref">Неизвестная деталь</string>
+    <string name="validator_error_schema_version_unsupported">Нужна более новая версия приложения</string>
+    <string name="validator_error_circular_ordering">Шаги ссылаются друг на друга по кругу</string>
+    <string name="validator_error_requires_order_violation">Шаги идут в неверном порядке</string>
+    <string name="validator_error_unknown_component_id">Неизвестный элемент</string>
+    <string name="validator_error_null_locale">Язык не выбран</string>
+    <string name="validator_error_dangling_parent_ref">Элемент ссылается на несуществующего родителя</string>
+    <string name="validator_error_circular_parent_ref">Элементы ссылаются друг на друга по кругу</string>
+    <string name="validator_error_dangling_target_ref">Кнопка панели ведёт на несуществующую страницу</string>
+
+    <!-- Мастер настройки (runtime) -->
+    <string name="wizard_loading">Загрузка…</string>
+    <string name="wizard_applying">Применяем…</string>
+    <string name="wizard_confirm">Готово</string>
+    <string name="wizard_skip">Пропустить</string>
+    <string name="wizard_failed_title">Не удалось завершить настройку</string>
+    <string name="wizard_pick_another_preset">Выбрать другой вариант</string>
+    <string name="wizard_denied_required_title">Без «{component}» не обойтись</string>
+    <string name="wizard_denied_required_body">Для этого варианта нужен пункт «{component}». Можно выбрать другой вариант, где он не нужен.</string>
+
+    <!-- Названия шагов -->
+    <string name="wizard_component_font_size">Размер шрифта</string>
+    <string name="wizard_component_sos">Кнопка экстренного вызова</string>
+    <string name="wizard_component_toolbar">Нижняя панель</string>
+    <string name="wizard_component_launcher_role">Сделать это приложение главным экраном</string>
+    <string name="wizard_component_theme">Оформление</string>
+    <string name="wizard_component_language">Язык</string>
+    <string name="wizard_component_status_bar_policy">Скрыть верхнюю полоску</string>
+    <string name="wizard_component_workspace">Главный экран</string>
+
+</resources>

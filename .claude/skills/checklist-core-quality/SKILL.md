@@ -54,4 +54,6 @@ Verifies the spec aligns with [Google's Core App Quality](https://developer.andr
 
 ## Output
 
-Inline into `specs/<id>/checklists/core-quality.md`.
+Chat only — one red-only summary line per ADR-011 §5:
+`checklist-core-quality: N/Total ✓, FAIL: CHK-XXX (short why)`.
+Do NOT create `specs/<id>/checklists/core-quality.md`. Scratch buffer permitted, must be deleted before returning. Grey items land as edits to `spec.md` / `plan.md`.

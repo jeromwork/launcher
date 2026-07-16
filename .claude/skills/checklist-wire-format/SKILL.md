@@ -63,4 +63,6 @@ A "wire format" is anything that:
 
 ## Output
 
-Inline into `specs/<id>/checklists/wire-format.md`.
+Chat only — one red-only summary line per ADR-011 §5:
+`checklist-wire-format: N/Total ✓, FAIL: CHK-XXX (short why)`.
+Do NOT create `specs/<id>/checklists/wire-format.md`. Scratch buffer permitted, must be deleted before returning. Grey items land as edits to `spec.md` / `plan.md`.

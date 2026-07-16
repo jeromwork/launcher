@@ -11,6 +11,18 @@
     <string name="pool_sos_description">Emergency SOS button</string>
     <string name="pool_toolbar_description">Bottom toolbar with quick actions</string>
 
+    <!-- TASK-127 T127-025 — structural blueprints (screen skeleton) -->
+    <string name="pool_workspace_description">Home screen root</string>
+    <string name="pool_flow_main_title">Home</string>
+    <string name="pool_flow_main_description">Main page with tiles</string>
+    <string name="pool_flow_apps_title">Apps</string>
+    <string name="pool_flow_apps_description">Applications page</string>
+    <string name="pool_button_main_label">Home</string>
+    <string name="pool_button_main_description">Toolbar button opening the main page</string>
+    <string name="pool_button_apps_label">Apps</string>
+    <string name="pool_button_apps_description">Toolbar button opening the apps page</string>
+    <string name="layout_workspace_single">Single workspace</string>
+
     <!-- wizard.* — wizard step titles / intros -->
     <string name="wizard_font_title">Choose font size</string>
     <string name="wizard_font_intro">Pick a comfortable text size</string>
@@ -40,4 +52,39 @@
     <string name="validator_error_unknown_pool_ref">Unknown component reference</string>
     <string name="validator_error_schema_version_unsupported">Preset requires a newer app version</string>
     <string name="validator_error_circular_ordering">Circular step dependency</string>
+    <!-- TASK-127 T127-010 — hierarchy validation -->
+    <string name="validator_error_requires_order_violation">Steps are in the wrong order</string>
+    <string name="validator_error_unknown_component_id">Unknown component id</string>
+    <string name="validator_error_null_locale">Language is not set</string>
+    <string name="validator_error_dangling_parent_ref">Component points to a missing parent</string>
+    <string name="validator_error_circular_parent_ref">Components reference each other in a loop</string>
+    <string name="validator_error_dangling_target_ref">Toolbar button points to a missing page</string>
+
+    <!--
+      TASK-127 T127-030 (FR-008, US-3) — runtime wizard strings.
+
+      These are resolved through AndroidStringResolver (getIdentifier over the
+      app's res/values), which is a different mechanism from the Compose
+      Resources file core/.../composeResources/values/strings_wizard.xml. The
+      wizard rendered raw keys on the device precisely because its keys lived
+      only in the Compose file; they must exist here to resolve at runtime.
+    -->
+    <string name="wizard_loading">Loading…</string>
+    <string name="wizard_applying">Applying…</string>
+    <string name="wizard_confirm">Confirm</string>
+    <string name="wizard_skip">Skip</string>
+    <string name="wizard_failed_title">Setup could not finish</string>
+    <string name="wizard_pick_another_preset">Choose another setup</string>
+    <string name="wizard_denied_required_title">{component} is required</string>
+    <string name="wizard_denied_required_body">This setup needs {component}. You can pick another setup where it is not needed.</string>
+
+    <!-- Component step labels (fallback when no per-id key exists) -->
+    <string name="wizard_component_font_size">Font size</string>
+    <string name="wizard_component_sos">Emergency SOS button</string>
+    <string name="wizard_component_toolbar">Bottom toolbar</string>
+    <string name="wizard_component_launcher_role">Make this app the home screen</string>
+    <string name="wizard_component_theme">Appearance</string>
+    <string name="wizard_component_language">Language</string>
+    <string name="wizard_component_status_bar_policy">Hide the status bar</string>
+    <string name="wizard_component_workspace">Home screen</string>
 </resources>

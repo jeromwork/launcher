@@ -132,14 +132,18 @@ Until the trigger fires there is no catalog and no `INDEX.md`. `INDEX.md` is cre
 
 ### 5. Output discipline — token economy for the chat
 
-**Checklists in chat — red-only summary.**
+**Checklists in chat — red-only summary, no persisted files (revised 2026-07-16).**
 
 The AI emits one line per checklist:
 ```
 checklist-domain-isolation: 14/16 ✓, FAIL: CHK-7 (vendor SDK in port signature), CHK-12 (transport type in domain DTO)
 ```
 
-The full table stays in `specs/<NNN>/checklists/<name>.md`. Backlog AC holds counts via `[auto:checklist]`. Context is not lost — the owner can open the file at any time.
+The chat line is the **only** artefact of the run. No file is committed under `specs/<NNN>/checklists/`. If a skill needs a scratch buffer during evaluation it may write a temporary file there, but must delete it before returning control; `.gitignore` (`specs/**/checklists/`) is a safety net for missed cleanup.
+
+Grey items surfaced during the run land as edits to `spec.md` / `plan.md` — the fixed places where project truth lives — not in a separate checklist file that rots or duplicates context. Backlog AC no longer carries `[auto:checklist]` file-based counts; the concept is retired going forward (old `[auto:checklist]` lines in already-committed tasks stay as-is per «old branches / old artefacts untouched»).
+
+**Rationale**: earlier convention (write full table to `specs/<NNN>/checklists/<name>.md`, count from file) produced 200+ persisted files across specs 001-016 that never gave signal after the run — pure context pollution. Multiple owner sessions confirmed the files are noise. Re-run costs the same tokens as reading the stale file; project truth is `spec.md` / `plan.md`, not a checklist snapshot. Existing files under specs 001-016 stay for history; the rule applies from this commit forward.
 
 **Change reports — `file:line` markdown links, not diffs.**
 
@@ -159,7 +163,6 @@ Each artifact picks its language by primary audience:
   - `CLAUDE.md` — confirmed 2026-06-28, owner does not read it
   - ADRs (`docs/adr/*.md`)
   - `plan.md`, `tasks.md`, `contracts/`, `research.md`, `data-model.md`, `quickstart.md`, `analyze-report.md` inside specs
-  - checklists (`specs/<NNN>/checklists/*.md`)
   - skill `SKILL.md` files
   - code comments, commit bodies, PR descriptions (unless mentor-style requested)
 - **Russian** (owner reads these):
@@ -186,7 +189,7 @@ Each artifact picks its language by primary audience:
 - **Single source of truth per sequence** — no sync problem between `.md` and `.explained.md`.
 - **No catalog until real cross-spec reuse exists** — aligns with rule 4 (MVA).
 - **MENTOR-DETAIL marker saves tokens** — typical explanation block is 50-150 lines; AI skips them.
-- **Red-only checklist summaries save 5-10k tokens per `/speckit.analyze` run.**
+- **Red-only checklist summaries save 5-10k tokens per `/speckit.analyze` run** (and 2026-07-16 revision: no persisted checklist files means zero long-term context pollution — subsequent AI sessions never re-read stale checklist snapshots).
 - **`file:line` change reports save 1-5k tokens per substantial commit.**
 - **Dual projection** gives the owner a spec-view and the implementer a plan-view without a separate architecture brief per sequence.
 - **Language-by-audience** is a recurring saving across every AI-only artifact created from now on.

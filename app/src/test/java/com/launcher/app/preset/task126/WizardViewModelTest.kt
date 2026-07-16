@@ -9,7 +9,7 @@ import com.launcher.preset.engine.ReconcileState
 import com.launcher.preset.model.ActiveComponentEntry
 import com.launcher.preset.model.CapabilityFlag
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentDeclaration
+import com.launcher.preset.model.Blueprint
 import com.launcher.preset.model.HandlerKey
 import com.launcher.preset.model.Outcome
 import com.launcher.preset.model.Pool
@@ -69,13 +69,13 @@ class WizardViewModelTest {
 
     private val pool = Pool(
         declarations = listOf(
-            ComponentDeclaration(
+            Blueprint(
                 id = "font",
                 component = fontComponent,
                 wizardBehavior = WizardBehavior.Interactive,
                 critical = false,
             ),
-            ComponentDeclaration(
+            Blueprint(
                 id = "theme",
                 component = themeComponent,
                 wizardBehavior = WizardBehavior.Interactive,
@@ -147,9 +147,9 @@ class WizardViewModelTest {
     fun deny_critical_transitionsToDenied_andHalts() = runTest(dispatcher) {
         val criticalPool = Pool(
             declarations = listOf(
-                ComponentDeclaration(
+                Blueprint(
                     id = "role",
-                    component = Component.LauncherRole,
+                    component = Component.LauncherRole(),
                     wizardBehavior = WizardBehavior.Interactive,
                     critical = true,
                 ),

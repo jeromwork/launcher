@@ -39,8 +39,16 @@
   ],
   "activeComponents": [
     { "poolRef": "font-tile", "paramsOverride": { "scale": 1.2 } },
-    { "poolRef": "sos-main" },
-    { "poolRef": "tile-whatsapp" },
-    { "poolRef": "toolbar-minimal" }
+
+    { "poolRef": "ws-main" },
+    { "poolRef": "flow-main", "parentRef": "ws-main" },
+    { "poolRef": "flow-apps", "parentRef": "ws-main" },
+
+    { "poolRef": "sos-main", "parentRef": "flow-main" },
+    { "poolRef": "tile-whatsapp", "parentRef": "flow-apps" },
+
+    { "poolRef": "toolbar-minimal", "parentRef": "ws-main" },
+    { "poolRef": "btn-main", "parentRef": "toolbar-minimal" },
+    { "poolRef": "btn-apps", "parentRef": "toolbar-minimal" }
   ]
 }

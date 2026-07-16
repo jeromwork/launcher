@@ -7,7 +7,7 @@ import com.launcher.preset.engine.ReconcileEngine
 import com.launcher.preset.engine.ReconcileState
 import com.launcher.preset.model.Component
 import com.launcher.preset.model.Profile
-import com.launcher.preset.model.ProfileComponent
+import com.launcher.preset.model.Entity
 import com.launcher.preset.model.RunMode
 import com.launcher.preset.port.InteractionSink
 import com.launcher.preset.port.ProfileStore
@@ -53,7 +53,7 @@ class WizardViewModel(
     private var pendingAnswer: CompletableDeferred<Component?>? = null
 
     /** Snapshot of components at start of the current run — used to compute index/total. */
-    private var currentComponents: List<ProfileComponent> = emptyList()
+    private var currentComponents: List<Entity> = emptyList()
 
     /**
      * Kicks off bootstrap → engine.run(Wizard). Safe to call once per ViewModel instance;
@@ -72,10 +72,13 @@ class WizardViewModel(
     }
 
     fun start() {
+        android.util.Log.d(TAG, "start() called, current state=${_state.value::class.simpleName}")
         if (_state.value != ReconcileState.Idle) return
         _state.value = ReconcileState.Loading
         viewModelScope.launch {
-            when (val outcome = bootstrap.bootstrap()) {
+            val outcome = bootstrap.bootstrap()
+            android.util.Log.d(TAG, "bootstrap outcome=$outcome")
+            when (outcome) {
                 is PresetBootstrap.BootstrapOutcome.ValidationFailed -> {
                     _state.value = ReconcileState.Failed(
                         message = outcome.i18nKeys.joinToString(","),
@@ -95,12 +98,15 @@ class WizardViewModel(
                 }
             }
             val profile = store.load()
+            android.util.Log.d(TAG, "profile loaded, components=${profile?.components?.size}, ids=${profile?.components?.map { "${it.id}:${it.status}:${it.wizardBehavior}" }}")
             if (profile == null) {
                 _state.value = ReconcileState.Failed(message = "profile_missing")
                 return@launch
             }
             currentComponents = profile.components
+            android.util.Log.d(TAG, "calling engine.run(Wizard)")
             val finalProfile = engine.run(mode = RunMode.Wizard, sink = this@WizardViewModel)
+            android.util.Log.d(TAG, "engine.run returned, emitting Done")
             _state.value = ReconcileState.Done(finalProfile)
         }
     }
@@ -110,7 +116,9 @@ class WizardViewModel(
      * Interactive step. Resumes the engine.
      */
     fun respond(component: Component) {
-        pendingAnswer?.complete(component)
+        val d = pendingAnswer
+        android.util.Log.d(TAG, "respond(component=${component::class.simpleName}), pendingAnswer=${if (d == null) "NULL" else "present, active=${d.isActive}"}")
+        d?.complete(component)
         pendingAnswer = null
     }
 
@@ -122,12 +130,12 @@ class WizardViewModel(
      *   resuming the engine to emit [ReconcileState.Denied], which the UI renders as
      *   a blocking «try preset Y» screen (T053 / FR-006 CL-6).
      *
-     * The `required` flag lives on [com.launcher.preset.model.Pool.ComponentDeclaration],
-     * not directly on [ProfileComponent]. For Phase 2 v1 we approximate: `required=true`
-     * ≡ `ProfileComponent.critical`. Full pool lookup is a follow-up when Denial UX
+     * The `required` flag lives on [com.launcher.preset.model.Pool.Blueprint],
+     * not directly on [Entity]. For Phase 2 v1 we approximate: `required=true`
+     * ≡ `Entity.critical`. Full pool lookup is a follow-up when Denial UX
      * needs richer preset-suggestion copy (currently the copy is generic).
      */
-    fun deny(component: ProfileComponent) {
+    fun deny(component: Entity) {
         if (component.critical) {
             // Emit Denied and leave the engine's askUser suspended — the UI's «try
             // preset Y» button navigates back to the preset picker, which finishes
@@ -145,16 +153,21 @@ class WizardViewModel(
 
     // InteractionSink implementation --------------------------------------------------
 
-    override suspend fun askUser(component: ProfileComponent): Component? {
+    override suspend fun askUser(component: Entity): Component? {
         val idx = currentComponents.indexOfFirst { it.id == component.id }
         val total = currentComponents.size
+        android.util.Log.d(TAG, "askUser(id=${component.id}, idx=$idx, total=$total, critical=${component.critical}, behavior=${component.wizardBehavior})")
+        val deferred = CompletableDeferred<Component?>()
+        pendingAnswer = deferred
         _state.value = ReconcileState.Interactive(
             current = component,
             index = if (idx >= 0) idx else 0,
             total = total,
         )
-        val deferred = CompletableDeferred<Component?>()
-        pendingAnswer = deferred
-        return deferred.await()
+        val result = deferred.await()
+        android.util.Log.d(TAG, "askUser(id=${component.id}) resumed with result=${if (result == null) "null(skip)" else result::class.simpleName}")
+        return result
     }
+
+    companion object { private const val TAG = "WizardVM" }
 }

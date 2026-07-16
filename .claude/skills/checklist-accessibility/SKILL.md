@@ -70,4 +70,6 @@ Note: a separate `checklist-elderly-friendly` covers project-specific senior-use
 
 ## Output
 
-Inline into `specs/<id>/checklists/accessibility.md`.
+Chat only — one red-only summary line per ADR-011 §5:
+`checklist-accessibility: N/Total ✓, FAIL: CHK-XXX (short why)`.
+Do NOT create `specs/<id>/checklists/accessibility.md`. A scratch buffer under that path is permitted during evaluation but must be deleted before returning. `.gitignore` (`specs/**/checklists/`) is safety net. Grey items land as edits to `spec.md` / `plan.md`, not in a checklist file.

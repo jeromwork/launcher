@@ -24,7 +24,7 @@ Client-side hygiene is insufficient. Server must protect itself.
 
 ## Checklist items
 
-Emit red-only summary in chat per ADR-011 (`checklist-server-hardening: N/Total ✓, FAIL: CHK-XXX (short why)`). Full table stays in `specs/<NNN>/checklists/server-hardening.md`.
+Emit red-only summary in chat per ADR-011 §5: `checklist-server-hardening: N/Total ✓, FAIL: CHK-XXX (short why)`. Chat line = only artefact. Do NOT create `specs/<NNN>/checklists/server-hardening.md`; scratch buffer permitted, must be deleted before returning. Grey items land as edits to `spec.md` / `plan.md`.
 
 ### Authentication
 

@@ -3,7 +3,7 @@ package com.launcher.preset.engine
 import com.launcher.preset.fakes.FakeCapabilityContract
 import com.launcher.preset.model.ActiveComponentEntry
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentDeclaration
+import com.launcher.preset.model.Blueprint
 import com.launcher.preset.model.Pool
 import com.launcher.preset.model.Preset
 import com.launcher.preset.model.ValidationError
@@ -31,14 +31,14 @@ class PresetValidatorResultTest {
     private fun poolWithRequires(): Pool = Pool(
         schemaVersion = 2,
         declarations = listOf(
-            ComponentDeclaration(
+            Blueprint(
                 id = "launcher-role",
-                component = Component.LauncherRole,
+                component = Component.LauncherRole(),
                 wizardBehavior = WizardBehavior.AutoApply,
                 critical = true,
                 required = true,
             ),
-            ComponentDeclaration(
+            Blueprint(
                 id = "app-tile-whatsapp",
                 component = Component.AppTile(
                     packageName = "com.whatsapp",
@@ -140,7 +140,7 @@ class PresetValidatorResultTest {
         val pool = Pool(
             schemaVersion = 2,
             declarations = listOf(
-                ComponentDeclaration(
+                Blueprint(
                     id = "language-blank",
                     component = Component.Language(locale = ""),
                     wizardBehavior = WizardBehavior.Interactive,

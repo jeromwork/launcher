@@ -63,4 +63,6 @@ Reference: `docs/product/use-cases/12-ai-integration.md`.
 
 ## Output
 
-Inline into `specs/<id>/checklists/ai-readiness.md`.
+Chat only — one red-only summary line per ADR-011 §5:
+`checklist-ai-readiness: N/Total ✓, FAIL: CHK-XXX (short why)`.
+Do NOT create `specs/<id>/checklists/ai-readiness.md`. Scratch buffer permitted, must be deleted before returning. Grey items land as edits to `spec.md` / `plan.md`.

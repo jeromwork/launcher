@@ -1,6 +1,6 @@
 ---
 name: procedure-cross-artifact-trace
-description: Verify traceability across spec.md ↔ plan.md ↔ tasks.md ↔ contracts/ ↔ checklists/. Catches FRs without tasks, contracts without roundtrip tests, removed files referenced by other artifacts, US without acceptance criteria. Call from speckit-tasks (after generation) and from speckit-analyze (before implementation).
+description: Verify traceability across spec.md ↔ plan.md ↔ tasks.md ↔ contracts/. Catches FRs without tasks, contracts without roundtrip tests, removed files referenced by other artifacts, US without acceptance criteria. Checklists are chat-only per ADR-011 §5 (revised 2026-07-16) and are not part of the trace graph. Call from speckit-tasks (after generation) and from speckit-analyze (before implementation).
 ---
 
 # Procedure: cross-artifact-trace
@@ -40,7 +40,7 @@ For every file in `contracts/*.md`: there must be a task in `tasks.md` for **rou
 
 ### 5. Checklists → spec citations
 
-For each checklist `[CHK-NNN]` item: it must cite a section of `spec.md` (e.g. `Spec §FR-002`). Items without citations are "free-floating" and tend to drift.
+For each `[CHK-NNN]` item surfaced by a checklist skill run in the current session's chat log: it must cite a section of `spec.md` (e.g. `Spec §FR-002`). Items without citations are "free-floating" and tend to drift. Note: checklists no longer live in files per ADR-011 §5 revised — trace is against the chat log of the current session's checklist run, not against `specs/<id>/checklists/*.md`.
 
 - **WARN**: CHK-007 has no `Spec §...` citation.
 
