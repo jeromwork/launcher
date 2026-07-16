@@ -18,6 +18,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 /**
+ * TODO(config-deprecation, SRV-CONFIG-DEPRECATION): ConfigDocument stays for
+ * admin push (spec 009); remove entirely when unified Profile-sync ships.
+ *
+ * **No longer bound to [FlowRepository] as of TASK-127** — the home screen now
+ * reads the `Profile` the wizard writes, via
+ * [com.launcher.adapters.flow.ProfileBackedFlowRepository]. This class is kept
+ * (with its tests) because the admin-push path still speaks ConfigDocument.
+ *
  * Spec 010 ARCH-016 closure — production [FlowRepository] that reads
  * the home-screen layout from `/links/{linkId}/config/current` (spec 008
  * applied config), mapping each [com.launcher.api.config.Slot] to a fully-formed

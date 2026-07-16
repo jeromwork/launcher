@@ -294,7 +294,7 @@
 
 ## Phase 6 — Adapter
 
-### T127-020 — Implement ProfileBackedFlowRepository
+### T127-020 — [x] Implement ProfileBackedFlowRepository
 
 **Trace**: FR-006, US-1, US-4, data-model.md §ProfileBackedFlowRepository.
 
@@ -313,7 +313,7 @@
 
 ---
 
-### T127-021 — Write ProfileBackedFlowRepositoryTest
+### T127-021 — [x] Write ProfileBackedFlowRepositoryTest
 
 **Trace**: FR-006, NFR-002, SC-005, SC-009.
 
@@ -326,7 +326,7 @@
 
 ---
 
-### T127-022 — Mark ConfigBackedFlowRepository deprecated
+### T127-022 — [x] Mark ConfigBackedFlowRepository deprecated
 
 **Trace**: FR-007, FR-010.
 
@@ -341,7 +341,7 @@
 
 ## Phase 7 — DI + preset data
 
-### T127-023 — Rebind FlowRepository in androidMockBackend
+### T127-023 — [x] Rebind FlowRepository in androidMockBackend
 
 **Trace**: FR-007.
 
@@ -355,7 +355,7 @@
 
 ---
 
-### T127-024 — Rebind FlowRepository in androidRealBackend
+### T127-024 — [x] Rebind FlowRepository in androidRealBackend
 
 **Trace**: FR-007.
 
@@ -367,7 +367,7 @@
 
 ---
 
-### T127-025 — Add structural blueprints to bundled pool.json
+### T127-025 — [x] Add structural blueprints to bundled pool.json
 
 **Trace**: FR-013, plan §Risks R-10.
 
@@ -380,7 +380,7 @@
 
 ---
 
-### T127-026 — Make the default preset hierarchical
+### T127-026 — [x] Make the default preset hierarchical
 
 **Trace**: FR-013, US-4, plan §Risks R-10.
 

@@ -11,7 +11,7 @@ import cryptokit.pairing.api.EncryptedMediaStorage
 import com.launcher.adapters.apps.InstalledAppsCatalogAdapter
 import com.launcher.adapters.apps.OpenAppDispatcherAdapter
 import com.launcher.adapters.config.AndroidSqlDriverProvider
-import com.launcher.adapters.config.ConfigBackedFlowRepository
+import com.launcher.adapters.flow.ProfileBackedFlowRepository
 import com.launcher.adapters.config.DefaultConfigEditor
 import com.launcher.adapters.config.FirebaseConfigApplier
 import com.launcher.adapters.config.SqlDelightLocalConfigStore
@@ -267,17 +267,18 @@ val backendModule: Module = module {
 
     // ─── Spec 010 ARCH-016 closure — HomeScreen reads /config/current ─────
 
-    // FlowRepository → ConfigBackedFlowRepository (replaces deleted
-    // MockFlowRepository). Reads layout reactively from DefaultConfigEditor's
-    // observeAppliedConfig (SqlDelight-backed), mapping Slot → Action via
-    // SlotToActionMapper. No bundled flows_mock_*.json — admin pushes seed
-    // /config/current; preset picker seeds layout for unpaired devices.
+    // FlowRepository → ProfileBackedFlowRepository (TASK-127 T127-024, FR-007).
+    //
+    // Was ConfigBackedFlowRepository, which read ConfigDocument — a model the
+    // wizard stopped filling in TASK-126, so a fresh install landed on the
+    // TASK-52 Error UI instead of tiles. The home screen now reads the same
+    // Profile the wizard writes.
+    //
+    // ProfileStore is bound in presetModule (app) — same Koin container, so it
+    // resolves here. ConfigDocument keeps serving the admin-push path
+    // (SRV-CONFIG-DEPRECATION) until Profile-based sync replaces it.
     single<FlowRepository> {
-        ConfigBackedFlowRepository(
-            configEditor = get(),
-            linkRegistry = get(),
-            revocationStore = get(),
-        )
+        ProfileBackedFlowRepository(profileStore = get())
     }
 
     // ManagedDevicesRegistry → admin-side multi-link view via Firestore listener.

@@ -35,9 +35,14 @@ class BundledAssetsLoadTest {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val pool = BundledPoolSource(ctx).loadPool()
         assertEquals(1, pool.schemaVersion)
-        assertEquals(4, pool.declarations.size)
+        // 4 behavioural (font/whatsapp/sos/toolbar) + 5 structural blueprints
+        // added by TASK-127 T127-025 (workspace, 2 flows, 2 toolbar buttons).
+        assertEquals(9, pool.declarations.size)
         assertNotNull(pool.byId("font-tile"))
         assertNotNull(pool.byId("sos-main"))
+        assertNotNull(pool.byId("ws-main"))
+        assertNotNull(pool.byId("flow-main"))
+        assertNotNull(pool.byId("btn-main"))
     }
 
     @Test

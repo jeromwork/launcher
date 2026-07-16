@@ -1,6 +1,6 @@
 package com.launcher.di
 
-import com.launcher.adapters.config.ConfigBackedFlowRepository
+import com.launcher.adapters.flow.ProfileBackedFlowRepository
 import com.launcher.api.FlowRepository
 import com.launcher.api.apps.InstalledApp
 import com.launcher.api.apps.InstalledAppsCatalog
@@ -158,16 +158,17 @@ val backendModule: Module = module {
 
     // ─── Spec 010 ARCH-016 closure — HomeScreen reads /config/current ─────
 
-    // FlowRepository → ConfigBackedFlowRepository (replaces deleted
-    // MockFlowRepository). Reads layout reactively from FakeConfigEditor's
-    // observeAppliedConfig, mapping Slot → Action via SlotToActionMapper.
-    // No bundled flows_mock_*.json — empty until QA/test seeds applied config.
+    // FlowRepository → ProfileBackedFlowRepository (TASK-127 T127-023, FR-007).
+    //
+    // Was ConfigBackedFlowRepository, which read ConfigDocument — a model the
+    // wizard stopped filling in TASK-126, so a fresh install landed on the
+    // TASK-52 Error UI instead of tiles. The home screen now reads the same
+    // Profile the wizard writes.
+    //
+    // ProfileStore is bound in presetModule (app) — same Koin container, so it
+    // resolves here.
     single<FlowRepository> {
-        ConfigBackedFlowRepository(
-            configEditor = get(),
-            linkRegistry = get(),
-            revocationStore = get(),
-        )
+        ProfileBackedFlowRepository(profileStore = get())
     }
 
     // Spec 017 (F-4 AuthProvider) — mockBackend wires FakeAuthProvider.
