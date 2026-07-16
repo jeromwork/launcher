@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
  * Component — sealed hierarchy of what-is-configurable in the launcher.
  *
  * Each subtype declares its own parameter set. Instances of Component subtypes
- * are attached to `ProfileComponent` entries inside `Profile.components`.
+ * are attached to `Entity` entries inside `Profile.components`.
  *
  * Per TASK-127, each subtype MUST carry a `tags: Set<Tag>` field expressing
  * the **SEMANTIC dimension** — what the component is about (Presentation,

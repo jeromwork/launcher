@@ -5,7 +5,7 @@ import com.launcher.preset.engine.ProfileFactory
 import com.launcher.preset.model.ActiveComponentEntry
 import com.launcher.preset.model.CapabilityFlag
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentDeclaration
+import com.launcher.preset.model.Blueprint
 import com.launcher.preset.model.Pool
 import com.launcher.preset.model.Preset
 import com.launcher.preset.model.Profile
@@ -28,7 +28,7 @@ class PresetBootstrapTest {
 
     private val pool = Pool(
         declarations = listOf(
-            ComponentDeclaration(
+            Blueprint(
                 id = "font-tile",
                 component = Component.FontSize(1.6f),
                 wizardBehavior = WizardBehavior.Interactive,

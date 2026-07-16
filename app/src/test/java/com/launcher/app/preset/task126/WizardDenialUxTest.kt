@@ -9,7 +9,7 @@ import com.launcher.preset.engine.ReconcileState
 import com.launcher.preset.model.ActiveComponentEntry
 import com.launcher.preset.model.CapabilityFlag
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentDeclaration
+import com.launcher.preset.model.Blueprint
 import com.launcher.preset.model.ComponentStatus
 import com.launcher.preset.model.HandlerKey
 import com.launcher.preset.model.Outcome
@@ -73,8 +73,8 @@ class WizardDenialUxTest {
         val store = InMemoryProfileStore()
         val pool = Pool(
             declarations = listOf(
-                ComponentDeclaration("font", fontComponent, WizardBehavior.Interactive, critical = false),
-                ComponentDeclaration("role", Component.LauncherRole, WizardBehavior.Interactive, critical = false),
+                Blueprint("font", fontComponent, WizardBehavior.Interactive, critical = false),
+                Blueprint("role", Component.LauncherRole, WizardBehavior.Interactive, critical = false),
             ),
         )
         val preset = Preset(
@@ -104,8 +104,8 @@ class WizardDenialUxTest {
         val store = InMemoryProfileStore()
         val pool = Pool(
             declarations = listOf(
-                ComponentDeclaration("font", fontComponent, WizardBehavior.Interactive, critical = false),
-                ComponentDeclaration("role", Component.LauncherRole, WizardBehavior.Interactive, critical = true),
+                Blueprint("font", fontComponent, WizardBehavior.Interactive, critical = false),
+                Blueprint("role", Component.LauncherRole, WizardBehavior.Interactive, critical = true),
             ),
         )
         val preset = Preset(

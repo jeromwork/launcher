@@ -11,7 +11,7 @@ import kotlinx.serialization.Serializable
  *
  * @property hintId matches `HintDescriptor.hintId` in `hint-pool.json`; missing match
  *   → hint silently not rendered (hints are optional UX, not a correctness gate).
- * @property targetComponentId matches `ComponentDeclaration.id` in the pool — the wizard
+ * @property targetComponentId matches `Blueprint.id` in the pool — the wizard
  *   step next to which the hint appears.
  * @property textKey localization key used at render time.
  */

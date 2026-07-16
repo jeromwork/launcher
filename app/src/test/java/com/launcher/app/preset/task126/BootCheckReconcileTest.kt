@@ -9,7 +9,7 @@ import com.launcher.preset.model.Outcome
 import com.launcher.preset.model.Pool
 import com.launcher.preset.model.Preset
 import com.launcher.preset.model.Profile
-import com.launcher.preset.model.ProfileComponent
+import com.launcher.preset.model.Entity
 import com.launcher.preset.model.RunMode
 import com.launcher.preset.model.WizardBehavior
 import com.launcher.preset.port.CapabilityContract
@@ -44,14 +44,14 @@ class BootCheckReconcileTest {
             presetVersion = 1,
             layoutKey = "layout.grid.2x3",
             components = listOf(
-                ProfileComponent(
+                Entity(
                     id = "role",
                     component = Component.LauncherRole,
                     wizardBehavior = WizardBehavior.AutoApply,
                     critical = true,
                     status = ComponentStatus.Applied,
                 ),
-                ProfileComponent(
+                Entity(
                     id = "font",
                     component = fontComponent,
                     wizardBehavior = WizardBehavior.Interactive,
@@ -91,7 +91,7 @@ class BootCheckReconcileTest {
             presetVersion = 1,
             layoutKey = "layout.grid.2x3",
             components = listOf(
-                ProfileComponent(
+                Entity(
                     id = "role",
                     component = Component.LauncherRole,
                     wizardBehavior = WizardBehavior.AutoApply,

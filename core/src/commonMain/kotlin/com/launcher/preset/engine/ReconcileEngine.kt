@@ -5,7 +5,7 @@ import com.launcher.preset.model.Component
 import com.launcher.preset.model.ComponentStatus
 import com.launcher.preset.model.Outcome
 import com.launcher.preset.model.Profile
-import com.launcher.preset.model.ProfileComponent
+import com.launcher.preset.model.Entity
 import com.launcher.preset.model.RunMode
 import com.launcher.preset.model.WizardBehavior
 import com.launcher.preset.port.InteractionSink
@@ -95,7 +95,7 @@ class ReconcileEngine(
         for (change in changes) {
             profile = when (change) {
                 is ChangeItem.Added -> {
-                    val pc = ProfileComponent(
+                    val pc = Entity(
                         id = change.id,
                         component = change.component,
                         wizardBehavior = WizardBehavior.AutoApply,

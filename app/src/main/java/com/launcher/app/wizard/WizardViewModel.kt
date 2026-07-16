@@ -7,7 +7,7 @@ import com.launcher.preset.engine.ReconcileEngine
 import com.launcher.preset.engine.ReconcileState
 import com.launcher.preset.model.Component
 import com.launcher.preset.model.Profile
-import com.launcher.preset.model.ProfileComponent
+import com.launcher.preset.model.Entity
 import com.launcher.preset.model.RunMode
 import com.launcher.preset.port.InteractionSink
 import com.launcher.preset.port.ProfileStore
@@ -53,7 +53,7 @@ class WizardViewModel(
     private var pendingAnswer: CompletableDeferred<Component?>? = null
 
     /** Snapshot of components at start of the current run — used to compute index/total. */
-    private var currentComponents: List<ProfileComponent> = emptyList()
+    private var currentComponents: List<Entity> = emptyList()
 
     /**
      * Kicks off bootstrap → engine.run(Wizard). Safe to call once per ViewModel instance;
@@ -130,12 +130,12 @@ class WizardViewModel(
      *   resuming the engine to emit [ReconcileState.Denied], which the UI renders as
      *   a blocking «try preset Y» screen (T053 / FR-006 CL-6).
      *
-     * The `required` flag lives on [com.launcher.preset.model.Pool.ComponentDeclaration],
-     * not directly on [ProfileComponent]. For Phase 2 v1 we approximate: `required=true`
-     * ≡ `ProfileComponent.critical`. Full pool lookup is a follow-up when Denial UX
+     * The `required` flag lives on [com.launcher.preset.model.Pool.Blueprint],
+     * not directly on [Entity]. For Phase 2 v1 we approximate: `required=true`
+     * ≡ `Entity.critical`. Full pool lookup is a follow-up when Denial UX
      * needs richer preset-suggestion copy (currently the copy is generic).
      */
-    fun deny(component: ProfileComponent) {
+    fun deny(component: Entity) {
         if (component.critical) {
             // Emit Denied and leave the engine's askUser suspended — the UI's «try
             // preset Y» button navigates back to the preset picker, which finishes
@@ -153,7 +153,7 @@ class WizardViewModel(
 
     // InteractionSink implementation --------------------------------------------------
 
-    override suspend fun askUser(component: ProfileComponent): Component? {
+    override suspend fun askUser(component: Entity): Component? {
         val idx = currentComponents.indexOfFirst { it.id == component.id }
         val total = currentComponents.size
         android.util.Log.d(TAG, "askUser(id=${component.id}, idx=$idx, total=$total, critical=${component.critical}, behavior=${component.wizardBehavior})")

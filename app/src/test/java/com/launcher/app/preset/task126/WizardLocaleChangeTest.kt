@@ -9,7 +9,7 @@ import com.launcher.preset.engine.ReconcileState
 import com.launcher.preset.model.ActiveComponentEntry
 import com.launcher.preset.model.CapabilityFlag
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentDeclaration
+import com.launcher.preset.model.Blueprint
 import com.launcher.preset.model.HandlerKey
 import com.launcher.preset.model.Outcome
 import com.launcher.preset.model.Pool
@@ -95,7 +95,7 @@ class WizardLocaleChangeTest {
         val afterState = vm.state.value
 
         assertSame("VM state must be the same Interactive after config change", beforeState, afterState)
-        assertEquals("Same ProfileComponent must still be current", beforeStep.id, (afterState as ReconcileState.Interactive).current.id)
+        assertEquals("Same Entity must still be current", beforeStep.id, (afterState as ReconcileState.Interactive).current.id)
         val afterLabel = resources.resolve("wizard.step.font.title")
         assertEquals("RU:wizard.step.font.title", afterLabel)
         assertNotSame(beforeLabel, afterLabel)
@@ -104,7 +104,7 @@ class WizardLocaleChangeTest {
     private val fontComponent = Component.FontSize(1.4f)
     private val pool = Pool(
         declarations = listOf(
-            ComponentDeclaration(
+            Blueprint(
                 id = "font",
                 component = fontComponent,
                 wizardBehavior = WizardBehavior.Interactive,

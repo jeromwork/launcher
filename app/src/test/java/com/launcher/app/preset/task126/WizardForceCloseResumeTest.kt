@@ -9,7 +9,7 @@ import com.launcher.preset.engine.ReconcileState
 import com.launcher.preset.model.ActiveComponentEntry
 import com.launcher.preset.model.CapabilityFlag
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentDeclaration
+import com.launcher.preset.model.Blueprint
 import com.launcher.preset.model.ComponentStatus
 import com.launcher.preset.model.HandlerKey
 import com.launcher.preset.model.Outcome
@@ -72,9 +72,9 @@ class WizardForceCloseResumeTest {
     private val langComponent = Component.Language(locale = "en-US")
     private val pool = Pool(
         declarations = listOf(
-            ComponentDeclaration("font", fontComponent, WizardBehavior.Interactive, critical = false),
-            ComponentDeclaration("theme", themeComponent, WizardBehavior.Interactive, critical = false),
-            ComponentDeclaration("lang", langComponent, WizardBehavior.Interactive, critical = false),
+            Blueprint("font", fontComponent, WizardBehavior.Interactive, critical = false),
+            Blueprint("theme", themeComponent, WizardBehavior.Interactive, critical = false),
+            Blueprint("lang", langComponent, WizardBehavior.Interactive, critical = false),
         ),
     )
     private val preset = Preset(

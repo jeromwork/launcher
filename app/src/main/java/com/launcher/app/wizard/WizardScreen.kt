@@ -25,7 +25,7 @@ import com.launcher.api.localization.StringResolver
 import com.launcher.preset.engine.ReconcileState
 import com.launcher.preset.model.Component
 import com.launcher.preset.model.Profile
-import com.launcher.preset.model.ProfileComponent
+import com.launcher.preset.model.Entity
 import com.launcher.ui.senior.primitives.SeniorButton
 import com.launcher.ui.senior.primitives.SeniorSecondaryButton
 import com.launcher.ui.senior.progress.WizardProgressIndicator
@@ -193,7 +193,7 @@ private fun ApplyingBody(
 @Composable
 private fun DeniedBody(
     stringResolver: StringResolver,
-    component: ProfileComponent,
+    component: Entity,
     onPickAnotherPreset: () -> Unit,
 ) {
     Column(
@@ -252,7 +252,7 @@ private fun FailedBody(
  * component id as a translation key with a fallback to the component subtype
  * simple name. Component-specific renderers land during Xiaomi smoke (T063).
  */
-private fun componentLabel(stringResolver: StringResolver, pc: ProfileComponent): String {
+private fun componentLabel(stringResolver: StringResolver, pc: Entity): String {
     val labelKey = "wizard_component_${pc.id}"
     val resolved = stringResolver.resolve(labelKey)
     if (resolved != labelKey) return resolved

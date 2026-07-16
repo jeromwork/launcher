@@ -9,7 +9,7 @@ data class ProfileState(
 )
 
 @Serializable
-data class ProfileComponent(
+data class Entity(
     val id: String,
     val component: Component,
     val wizardBehavior: WizardBehavior,
@@ -23,7 +23,7 @@ data class Profile(
     val basedOnPreset: String,
     val presetVersion: Int,
     val layoutKey: String,
-    val components: List<ProfileComponent> = emptyList(),
+    val components: List<Entity> = emptyList(),
     val preWizardSnapshot: Profile? = null,
     val snapshotTimestamp: Long? = null,
     val unknownRefs: List<String> = emptyList(),

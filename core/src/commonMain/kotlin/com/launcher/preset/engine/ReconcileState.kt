@@ -1,7 +1,7 @@
 package com.launcher.preset.engine
 
 import com.launcher.preset.model.Profile
-import com.launcher.preset.model.ProfileComponent
+import com.launcher.preset.model.Entity
 
 /**
  * Observable state emitted by the wizard runtime while `ReconcileEngine.run(RunMode.Wizard)`
@@ -22,14 +22,14 @@ sealed class ReconcileState {
 
     /** Engine paused on an interactive component; UI collects and calls `respond()`. */
     data class Interactive(
-        val current: ProfileComponent,
+        val current: Entity,
         val index: Int,
         val total: Int,
     ) : ReconcileState()
 
     /** Provider.apply() in flight for `current`; UI can render a progress spinner. */
     data class Applying(
-        val current: ProfileComponent,
+        val current: Entity,
         val index: Int,
         val total: Int,
     ) : ReconcileState()
@@ -41,7 +41,7 @@ sealed class ReconcileState {
      * marks the step Skipped and proceeds.
      */
     data class Denied(
-        val component: ProfileComponent,
+        val component: Entity,
         val required: Boolean,
     ) : ReconcileState()
 

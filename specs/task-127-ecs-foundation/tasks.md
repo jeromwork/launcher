@@ -42,7 +42,7 @@
 
 ## Phase 1 — ECS rename (mechanical, one dedicated commit)
 
-### T127-002 — Rename ProfileComponent → Entity
+### T127-002 — [x] Rename ProfileComponent → Entity
 
 **Trace**: FR-015, research.md R-9.
 
@@ -55,7 +55,7 @@
 
 ---
 
-### T127-003 — Rename ComponentDeclaration → Blueprint
+### T127-003 — [x] Rename ComponentDeclaration → Blueprint
 
 **Trace**: FR-015, research.md R-9.
 

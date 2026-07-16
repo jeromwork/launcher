@@ -2,7 +2,7 @@ package com.launcher.preset.roundtrip
 
 import com.launcher.preset.model.ActiveComponentEntry
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentDeclaration
+import com.launcher.preset.model.Blueprint
 import com.launcher.preset.model.Pool
 import com.launcher.preset.model.Preset
 import com.launcher.preset.model.Sensitivity
@@ -15,14 +15,14 @@ import kotlinx.serialization.json.JsonPrimitive
 internal fun mvpPool(): Pool = Pool(
     schemaVersion = 1,
     declarations = listOf(
-        ComponentDeclaration(
+        Blueprint(
             id = "font-tile",
             component = Component.FontSize(scale = 1.6f),
             wizardBehavior = WizardBehavior.Interactive,
             critical = false,
             descriptionKey = "pool.font.description",
         ),
-        ComponentDeclaration(
+        Blueprint(
             id = "tile-whatsapp",
             component = Component.AppTile(
                 packageName = "com.whatsapp",
@@ -34,14 +34,14 @@ internal fun mvpPool(): Pool = Pool(
             critical = false,
             descriptionKey = "pool.tile.whatsapp.description",
         ),
-        ComponentDeclaration(
+        Blueprint(
             id = "sos-main",
             component = Component.Sos(shareLocation = true, autoAnswer = true),
             wizardBehavior = WizardBehavior.Interactive,
             critical = true,
             descriptionKey = "pool.sos.description",
         ),
-        ComponentDeclaration(
+        Blueprint(
             id = "toolbar-minimal",
             component = Component.Toolbar(
                 items = listOf("call", "sos", "clock"),

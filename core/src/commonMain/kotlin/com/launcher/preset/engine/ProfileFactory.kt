@@ -2,12 +2,12 @@ package com.launcher.preset.engine
 
 import com.launcher.preset.model.ActiveComponentEntry
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentDeclaration
+import com.launcher.preset.model.Blueprint
 import com.launcher.preset.model.ComponentStatus
 import com.launcher.preset.model.Pool
 import com.launcher.preset.model.Preset
 import com.launcher.preset.model.Profile
-import com.launcher.preset.model.ProfileComponent
+import com.launcher.preset.model.Entity
 import com.launcher.preset.model.WizardBehavior
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -23,7 +23,7 @@ class ProfileFactory(
 ) {
 
     fun create(preset: Preset, pool: Pool): Profile {
-        val components = mutableListOf<ProfileComponent>()
+        val components = mutableListOf<Entity>()
         val unknown = mutableListOf<String>()
         val entries = if (preset.activeComponents.isNotEmpty()) {
             preset.activeComponents
@@ -40,7 +40,7 @@ class ProfileFactory(
                 continue
             }
             val resolvedComponent = applyOverride(decl.component, entry.paramsOverride)
-            components += ProfileComponent(
+            components += Entity(
                 id = decl.id,
                 component = resolvedComponent,
                 wizardBehavior = decl.wizardBehavior,

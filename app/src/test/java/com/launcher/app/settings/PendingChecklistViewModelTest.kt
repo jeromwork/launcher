@@ -6,7 +6,7 @@ import com.launcher.preset.model.Component
 import com.launcher.preset.model.ComponentStatus
 import com.launcher.preset.model.Preset
 import com.launcher.preset.model.Profile
-import com.launcher.preset.model.ProfileComponent
+import com.launcher.preset.model.Entity
 import com.launcher.preset.model.SettingsMapEntry
 import com.launcher.preset.model.WizardBehavior
 import com.launcher.preset.port.PresetSource
@@ -28,7 +28,7 @@ import org.junit.Test
  *   ConfigKind.WizardManifest lookup end-to-end (no `ConfigSource` in the
  *   test doubles).
  * - Only Interactive components with `status != Applied` surface.
- * - `isRequired` mirrors `ProfileComponent.critical`.
+ * - `isRequired` mirrors `Entity.critical`.
  * - Missing settingsMap entry → fall back to component id as labelKey.
  * - Empty profile / missing preset → empty list, no crash.
  */
@@ -58,28 +58,28 @@ class PendingChecklistViewModelTest {
         presetVersion = 1,
         layoutKey = "layout.grid.2x3",
         components = listOf(
-            ProfileComponent(
+            Entity(
                 id = "font",
                 component = fontComponent,
                 wizardBehavior = WizardBehavior.Interactive,
                 critical = false,
                 status = ComponentStatus.Pending,
             ),
-            ProfileComponent(
+            Entity(
                 id = "role",
                 component = roleComponent,
                 wizardBehavior = WizardBehavior.Interactive,
                 critical = true,
                 status = ComponentStatus.Failed,
             ),
-            ProfileComponent(
+            Entity(
                 id = "silent",
                 component = fontComponent,
                 wizardBehavior = WizardBehavior.AutoApply,
                 critical = false,
                 status = ComponentStatus.Pending,
             ),
-            ProfileComponent(
+            Entity(
                 id = "already-done",
                 component = fontComponent,
                 wizardBehavior = WizardBehavior.Interactive,
@@ -125,7 +125,7 @@ class PendingChecklistViewModelTest {
     fun load_fallsBackToComponentId_whenSettingsMapMissing() = runTest {
         val profile = fullProfile.copy(
             components = listOf(
-                ProfileComponent(
+                Entity(
                     id = "orphan",
                     component = fontComponent,
                     wizardBehavior = WizardBehavior.Interactive,
