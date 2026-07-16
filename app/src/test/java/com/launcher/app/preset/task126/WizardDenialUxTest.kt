@@ -74,7 +74,7 @@ class WizardDenialUxTest {
         val pool = Pool(
             declarations = listOf(
                 Blueprint("font", fontComponent, WizardBehavior.Interactive, critical = false),
-                Blueprint("role", Component.LauncherRole, WizardBehavior.Interactive, critical = false),
+                Blueprint("role", Component.LauncherRole(), WizardBehavior.Interactive, critical = false),
             ),
         )
         val preset = Preset(
@@ -105,7 +105,7 @@ class WizardDenialUxTest {
         val pool = Pool(
             declarations = listOf(
                 Blueprint("font", fontComponent, WizardBehavior.Interactive, critical = false),
-                Blueprint("role", Component.LauncherRole, WizardBehavior.Interactive, critical = true),
+                Blueprint("role", Component.LauncherRole(), WizardBehavior.Interactive, critical = true),
             ),
         )
         val preset = Preset(

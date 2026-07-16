@@ -33,7 +33,7 @@ class PresetValidatorResultTest {
         declarations = listOf(
             Blueprint(
                 id = "launcher-role",
-                component = Component.LauncherRole,
+                component = Component.LauncherRole(),
                 wizardBehavior = WizardBehavior.AutoApply,
                 critical = true,
                 required = true,

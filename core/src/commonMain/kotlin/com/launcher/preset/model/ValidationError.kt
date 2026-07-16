@@ -32,6 +32,23 @@ sealed class ValidationError {
     /** T018 (FR-004): `Component.Language.locale` deserialized as null. */
     object NullLocale : ValidationError()
 
+    // ---- hierarchy validation (T127-010, FR-016) ----
+
+    /** [entityId] declares `parentId = missingParentId`, but no such entity exists. */
+    data class DanglingParentRef(
+        val entityId: String,
+        val missingParentId: String,
+    ) : ValidationError()
+
+    /** `parentId` chain loops back on itself (A → B → A). [cycle] lists the ids involved. */
+    data class CircularParentRef(val cycle: List<String>) : ValidationError()
+
+    /** [buttonId] is a `ToolbarButton` whose `targetFlowId` resolves to no Flow entity. */
+    data class DanglingTargetRef(
+        val buttonId: String,
+        val missingFlowId: String,
+    ) : ValidationError()
+
     fun toI18nKey(): String = when (this) {
         is CapabilityMissing -> "validator.error.capability_missing"
         is UnknownPoolRef -> "validator.error.unknown_pool_ref"
@@ -40,5 +57,8 @@ sealed class ValidationError {
         is RequiresOrderViolation -> "validator.error.requires_order_violation"
         is UnknownComponentId -> "validator.error.unknown_component_id"
         is NullLocale -> "validator.error.null_locale"
+        is DanglingParentRef -> "validator.error.dangling_parent_ref"
+        is CircularParentRef -> "validator.error.circular_parent_ref"
+        is DanglingTargetRef -> "validator.error.dangling_target_ref"
     }
 }

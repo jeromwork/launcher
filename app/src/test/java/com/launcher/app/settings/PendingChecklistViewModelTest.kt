@@ -35,7 +35,7 @@ import org.junit.Test
 class PendingChecklistViewModelTest {
 
     private val fontComponent = Component.FontSize(1.4f)
-    private val roleComponent = Component.LauncherRole
+    private val roleComponent = Component.LauncherRole()
 
     private val preset = Preset(
         presetId = "simple-launcher",

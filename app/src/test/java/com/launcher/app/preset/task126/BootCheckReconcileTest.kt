@@ -46,7 +46,7 @@ class BootCheckReconcileTest {
             components = listOf(
                 Entity(
                     id = "role",
-                    component = Component.LauncherRole,
+                    component = Component.LauncherRole(),
                     wizardBehavior = WizardBehavior.AutoApply,
                     critical = true,
                     status = ComponentStatus.Applied,
@@ -93,7 +93,7 @@ class BootCheckReconcileTest {
             components = listOf(
                 Entity(
                     id = "role",
-                    component = Component.LauncherRole,
+                    component = Component.LauncherRole(),
                     wizardBehavior = WizardBehavior.AutoApply,
                     critical = true,
                     status = ComponentStatus.Applied,

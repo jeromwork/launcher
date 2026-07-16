@@ -70,7 +70,7 @@
 
 ## Phase 2 — Domain types
 
-### T127-004 — Add Tag enum (13 values)
+### T127-004 — [x] Add Tag enum (13 values)
 
 **Trace**: FR-001, data-model.md §Tag.
 
@@ -82,7 +82,7 @@
 
 ---
 
-### T127-005 — Add ComponentStatus.Unverifiable + Outcome.NeedsUserConfirmation
+### T127-005 — [x] Add ComponentStatus.Unverifiable + Outcome.NeedsUserConfirmation
 
 **Trace**: FR-014, data-model.md §ComponentStatus / §Outcome.
 
@@ -95,7 +95,7 @@
 
 ---
 
-### T127-006 — Add abstract tags to Component + defaults on 8 existing subtypes
+### T127-006 — [x] Add abstract tags to Component + defaults on 8 existing subtypes
 
 **Trace**: FR-002, data-model.md §Component subtypes.
 
@@ -108,7 +108,7 @@
 
 ---
 
-### T127-007 — Convert LauncherRole + StatusBarPolicy: object → data class
+### T127-007 — [x] Convert LauncherRole + StatusBarPolicy: object → data class
 
 **Trace**: FR-002, FR-013 (objects cannot carry overridable constructor-defaults).
 
@@ -122,7 +122,7 @@
 
 ---
 
-### T127-008 — Add Workspace / Flow / ToolbarButton subtypes
+### T127-008 — [x] Add Workspace / Flow / ToolbarButton subtypes
 
 **Trace**: FR-013, data-model.md §Component subtypes.
 
@@ -136,7 +136,7 @@
 
 ---
 
-### T127-009 — Add Entity.parentId
+### T127-009 — [x] Add Entity.parentId
 
 **Trace**: FR-011, data-model.md §Entity.
 
@@ -150,7 +150,7 @@
 
 ---
 
-### T127-010 — Add hierarchy ValidationError variants
+### T127-010 — [x] Add hierarchy ValidationError variants
 
 **Trace**: FR-016, data-model.md §ValidationError.
 
@@ -239,7 +239,7 @@
 
 ## Phase 5 — Engine
 
-### T127-016 — ReconcileEngine: NeedsUserConfirmation → Unverifiable
+### T127-016 — [x] ReconcileEngine: NeedsUserConfirmation → Unverifiable
 
 **Trace**: FR-014, plan §Risks R-11.
 
@@ -252,7 +252,7 @@
 
 ---
 
-### T127-017 — ReconcileEngine: BootCheck skips Unverifiable
+### T127-017 — [x] ReconcileEngine: BootCheck skips Unverifiable
 
 **Trace**: FR-014.
 

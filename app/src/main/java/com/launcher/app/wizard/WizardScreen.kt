@@ -261,9 +261,14 @@ private fun componentLabel(stringResolver: StringResolver, pc: Entity): String {
         is Component.FontSize -> stringResolver.resolve("wizard_component_font_size")
         is Component.Sos -> stringResolver.resolve("wizard_component_sos")
         is Component.Toolbar -> stringResolver.resolve("wizard_component_toolbar")
-        Component.LauncherRole -> stringResolver.resolve("wizard_component_launcher_role")
+        is Component.LauncherRole -> stringResolver.resolve("wizard_component_launcher_role")
         is Component.Theme -> stringResolver.resolve("wizard_component_theme")
         is Component.Language -> stringResolver.resolve("wizard_component_language")
-        Component.StatusBarPolicy -> stringResolver.resolve("wizard_component_status_bar_policy")
+        is Component.StatusBarPolicy -> stringResolver.resolve("wizard_component_status_bar_policy")
+        // T127-008: structural entities (screen skeleton) are never wizard steps —
+        // they carry no user-facing question. Labels exist only for completeness.
+        is Component.Workspace -> stringResolver.resolve("wizard_component_workspace")
+        is Component.Flow -> stringResolver.resolve(c.titleKey)
+        is Component.ToolbarButton -> stringResolver.resolve(c.labelKey)
     }
 }

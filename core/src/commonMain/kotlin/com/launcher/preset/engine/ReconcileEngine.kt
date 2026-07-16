@@ -68,9 +68,17 @@ class ReconcileEngine(
         return profile
     }
 
+    /**
+     * T127-017 (FR-014): skips [ComponentStatus.Unverifiable] entities. The OS
+     * cannot confirm those settings, so re-checking them on every cold start would
+     * either re-nag the user forever or silently flip the status back and forth.
+     * They are re-verified only on an explicit Settings action ([RunMode.Single]).
+     */
     private suspend fun runBootCheck(initial: Profile): Profile {
         var profile = initial
-        for (pc in initial.components.filter { it.critical }) {
+        val candidates = initial.components
+            .filter { it.critical && it.status != ComponentStatus.Unverifiable }
+        for (pc in candidates) {
             val checkResult = dispatchCheck(profile, pc.id)
             if (checkResult is Outcome.NeedsApply) {
                 profile = dispatchApply(profile, pc.id)
@@ -121,11 +129,15 @@ class ReconcileEngine(
     private suspend fun dispatchApply(profile: Profile, id: String): Profile {
         val pc = profile.components.firstOrNull { it.id == id } ?: return profile
         val provider: Provider<Component> = registry.resolve(pc.component)
-        return when (val outcome = provider.apply(pc.component, profile)) {
+        return when (provider.apply(pc.component, profile)) {
             Outcome.Ok -> profile.mark(id, ComponentStatus.Applied)
             Outcome.NeedsApply -> profile.mark(id, ComponentStatus.Applied)
             is Outcome.Failed -> profile.mark(id, ComponentStatus.Failed)
             Outcome.Unsupported -> profile.mark(id, ComponentStatus.Skipped)
+            // T127-016 (FR-014): the OS gives no read-back, so we record the honest
+            // "cannot verify" rather than a fictional Applied. Only interactive paths
+            // (Wizard / RunMode.Single) reach here; BootCheck skips such entities.
+            Outcome.NeedsUserConfirmation -> profile.mark(id, ComponentStatus.Unverifiable)
         }
     }
 

@@ -32,7 +32,7 @@ class PoolSchemaV2RoundtripTest {
             declarations = listOf(
                 Blueprint(
                     id = "launcher-role",
-                    component = Component.LauncherRole,
+                    component = Component.LauncherRole(),
                     wizardBehavior = WizardBehavior.AutoApply,
                     critical = true,
                     descriptionKey = "pool_launcher_role_desc",
@@ -69,7 +69,7 @@ class PoolSchemaV2RoundtripTest {
                 ),
                 Blueprint(
                     id = "status-bar-hidden",
-                    component = Component.StatusBarPolicy,
+                    component = Component.StatusBarPolicy(),
                     wizardBehavior = WizardBehavior.AutoApply,
                     requires = listOf("launcher-role"),
                     required = false,

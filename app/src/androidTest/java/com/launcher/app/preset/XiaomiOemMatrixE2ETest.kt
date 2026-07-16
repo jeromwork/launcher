@@ -56,7 +56,7 @@ class XiaomiOemMatrixE2ETest {
     @Test
     fun launcherRoleProviderReturnsWellFormedOutcome() = runBlocking {
         val provider: LauncherRoleProvider = GlobalContext.get().get()
-        val outcome = provider.check(Component.LauncherRole, emptyProfile)
+        val outcome = provider.check(Component.LauncherRole(), emptyProfile)
         assertTrue(
             "LauncherRoleProvider.check must return Ok/NeedsApply, got $outcome",
             outcome is Outcome.Ok || outcome is Outcome.NeedsApply,

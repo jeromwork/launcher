@@ -51,7 +51,7 @@ class LauncherRoleProviderTest {
         rm.addHeldRole(RoleManager.ROLE_HOME)
 
         val provider = LauncherRoleProvider(context = context)
-        val outcome = provider.check(Component.LauncherRole, profile)
+        val outcome = provider.check(Component.LauncherRole(), profile)
 
         assertEquals(Outcome.Ok, outcome)
     }
@@ -60,7 +60,7 @@ class LauncherRoleProviderTest {
     fun check_returnsNeedsApply_whenAppIsNotDefault() = runTest {
         // Explicitly no role holder for ROLE_HOME.
         val provider = LauncherRoleProvider(context = context)
-        val outcome = provider.check(Component.LauncherRole, profile)
+        val outcome = provider.check(Component.LauncherRole(), profile)
 
         assertEquals(Outcome.NeedsApply, outcome)
     }
@@ -74,7 +74,7 @@ class LauncherRoleProviderTest {
             currentActivity = { activity },
         )
 
-        val outcome = provider.apply(Component.LauncherRole, profile)
+        val outcome = provider.apply(Component.LauncherRole(), profile)
 
         val started: Intent? = shadowOf(activity).nextStartedActivity
         assertTrue(

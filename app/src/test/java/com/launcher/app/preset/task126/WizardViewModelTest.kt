@@ -149,7 +149,7 @@ class WizardViewModelTest {
             declarations = listOf(
                 Blueprint(
                     id = "role",
-                    component = Component.LauncherRole,
+                    component = Component.LauncherRole(),
                     wizardBehavior = WizardBehavior.Interactive,
                     critical = true,
                 ),

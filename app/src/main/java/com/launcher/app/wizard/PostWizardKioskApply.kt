@@ -41,6 +41,11 @@ class PostWizardKioskApply(
                     current.mark(pc.id, ComponentStatus.Failed)
                 Outcome.Unsupported ->
                     current.mark(pc.id, ComponentStatus.Skipped)
+                // T127-016 (FR-014): status-bar hiding has no read-back on Android —
+                // the user was sent to system settings and confirmed by hand. Record
+                // the honest "cannot verify" instead of a fictional Applied.
+                Outcome.NeedsUserConfirmation ->
+                    current.mark(pc.id, ComponentStatus.Unverifiable)
             }
         }
         store.save(current)
