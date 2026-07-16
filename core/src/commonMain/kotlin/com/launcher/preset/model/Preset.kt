@@ -5,21 +5,26 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
 /**
- * Preset — shareable JSON template describing WHICH components to use and WHEN.
+ * Preset — shareable JSON template describing WHICH components to use, WHEN, and
+ * WHERE on the screen.
  *
- * The three list fields below (`wizardFlow` / `settingsMap` / `activeComponents`)
- * express the **LIFECYCLE dimension** of the model: they describe *when* a
- * component appears (during first-run wizard, in the Settings screen, or
- * currently applied at runtime).
+ * The model has **three orthogonal axes** — do NOT conflate them:
  *
- * This is orthogonal to the **SEMANTIC dimension** carried by `Component.tags`
- * which describes *what* a component is about (Presentation, Safety, Accessibility, …).
+ *  1. **Lifecycle** — the three list fields below (`wizardFlow` / `settingsMap` /
+ *     `activeComponents`): *when* a component appears (first-run wizard, Settings
+ *     screen, applied at runtime).
+ *  2. **Semantic** — `Component.tags`: *what* a component is about (Presentation,
+ *     Safety, Accessibility, …).
+ *  3. **Structural** — `ActiveComponentEntry.parentRef` → `Entity.parentId`:
+ *     *where* it hangs in the screen tree (Workspace → Flow → Tile, Toolbar →
+ *     ToolbarButton). Storage stays flat; the tree is computed by queries.
  *
- * Do NOT conflate the two — a component may appear in `wizardFlow` AND carry
- * tags `[Presentation, Communication]`; both facets are independently useful.
+ * A component may sit in `wizardFlow`, carry `[Presentation, Communication]`, and
+ * live under `flow-calls` — all three facets are independently useful.
  *
- * See `docs/architecture/preset-model.md` § "Two orthogonal dimensions" for full
- * discussion, and TASK-127 Decision block for the tag+query extension of TASK-120.
+ * See `docs/architecture/preset-model.md` (AI TL;DR first) for the full model and
+ * the ECS ≈ database-table mental model; TASK-127 Decision block for the
+ * tag + query + hierarchy extension of TASK-120.
  */
 @Serializable
 data class WizardFlowEntry(

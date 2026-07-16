@@ -27,7 +27,7 @@
 
 ## Phase 0 — Verify
 
-### T127-001 — Verify wizard-save + ProfileStore null contract
+### T127-001 — [x] Verify wizard-save + ProfileStore null contract
 
 **Trace**: Plan §Data flow, FR-006, spec §Assumptions.
 
@@ -454,7 +454,7 @@
 
 ## Phase 9 — Docs + smoke
 
-### T127-031 — Update docs/architecture/preset-model.md
+### T127-031 — [x] Update docs/architecture/preset-model.md
 
 **Trace**: FR-009, SC-006.
 
@@ -468,7 +468,7 @@
 
 ---
 
-### T127-032 — Doc-comments on Preset.kt / Component.kt
+### T127-032 — [x] Doc-comments on Preset.kt / Component.kt
 
 **Trace**: FR-009.
 
@@ -479,7 +479,7 @@
 
 ---
 
-### T127-033 — SRV-CONFIG-DEPRECATION entry in server-roadmap
+### T127-033 — [x] SRV-CONFIG-DEPRECATION entry in server-roadmap
 
 **Trace**: FR-010, SC-006.
 
