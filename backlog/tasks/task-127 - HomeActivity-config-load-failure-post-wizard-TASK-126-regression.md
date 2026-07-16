@@ -4,7 +4,7 @@ title: 'ECS foundation: entities, tags, query, hierarchy + HomeScreen rewire'
 status: Done
 assignee: []
 created_date: '2026-07-13'
-updated_date: '2026-07-16 21:30'
+updated_date: '2026-07-16 23:10'
 labels:
   - phase-2
   - home-screen
@@ -143,6 +143,8 @@ ordinal: 127000
 - [x] #9 [hand] **`Unverifiable` статус честен**: `NeedsUserConfirmation` → `Unverifiable`, а не `Applied`; `BootCheck` его не перепроверяет; `RunMode.Single` перепроверяет. `ReconcileEngineUnverifiableTest` зелёный.
 - [x] #10 [hand] **Валидация иерархии**: `DanglingParentRef`, `CircularParentRef` (включая самоссылку), `DanglingTargetRef` — типизированные ошибки. `ProfileFactoryHierarchyValidationTest` зелёный; `BundledPresetHierarchyTest` проверяет реальные bundled-ассеты.
 - [x] #11 [hand] **ECS-нейминг**: `ProfileComponent` → `Entity`, `ComponentDeclaration` → `Blueprint` (93 usages / 24 файла); сборка и все тесты зелёные; формат хранения не изменился.
+- [x] #12 [auto:deferred-physical-device] Physical device verification (T127-035). **Закрыто 2026-07-16** на Xiaomi Redmi Note 11, adb `17f33878`, commit `d1dc8c2`: fresh install (`pm clear`) → пикер → мастер → `HomeActivity` показывает плитки («WhatsApp», вкладка «Главная»), Error UI нет, в logcat нет `HomeLoadingState error` / `flows empty` / `timeout 3s` / `FATAL`. Строки локализованы («Шаг 1 из 7», «Размер шрифта», «Готово»). Пресет «Лаунчер» → `bootstrap outcome=Activated(presetId=launcher)` → две вкладки, тап по «Приложения» переключает содержимое без перезапуска Activity.
+- [N/A] #13 [auto:deferred-local-emulator] Emulator smoke (T127-034). **Не требуется**: проверено на физическом Xiaomi (AC #12) — более сильный гейт, эмулятор ничего не добавляет. Помечено SUPERSEDED в tasks.md T127-034.
 <!-- AC:END -->
 
 ## Discussion
