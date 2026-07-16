@@ -1,8 +1,8 @@
 # Feature Specification: ECS Tags Foundation + HomeScreen Query Rewire
 
-**Feature Branch**: `task-127-launcher-presentation-builder`
+**Feature Branch**: `task-127-home-config-load-fix`
 **Created**: 2026-07-14
-**Updated**: 2026-07-15 — scope rewritten after mentor session
+**Updated**: 2026-07-16 — deep pre-implement audit: artifacts reconciled with real code (schemaVersion stays 2; port surface corrected; render gating added)
 **Status**: Draft
 **Backlog task**: [task-127](../../backlog/tasks/task-127%20-%20HomeActivity-config-load-failure-post-wizard-TASK-126-regression.md)
 **Input**: TASK-127 Decision block (2026-07-15) — ECS Tags + Query pattern extending TASK-120.
@@ -16,8 +16,8 @@
 | # | Question | Resolution |
 |---|----------|------------|
 | 1 | `ProfileBackedFlowRepository.observeFlows()` при null Profile — что эмитит? | `filterNotNull` — stay in `Loading` пока Profile не появится. Fresh install покрывается wizard'ом (HomeScreen не показывается пока wizard идёт). HomeScreen null видит только в transient migration states. |
-| 2 | Pool schemaVersion bump нужен? | Нет. `pool.json` — build-time артефакт (bundled в APK, immutable до next build). `Component.tags` добавляется как optional override поле в `ComponentDeclaration` — dev fixtures десериализуются корректно (default tags из Component subtype через kotlinx.serialization). Никакой миграции не требуется. |
-| 6 | Profile migration writer v0→v1 нужен? (revised 2026-07-16) | **Нет**. MVP не релизнут, релизнутых Profile файлов не существует, dev `ProfileStore` можно сбросить. `schemaVersion: 1` — стартовая версия с первого коммита. Отсутствие `tags` в JSON обрабатывается через constructor-defaults на Component subtypes (единственный источник истины). Первый migration writer появится после production релиза при первом breaking change. Rule 4 (MVA): не писать миграцию без потребителя. |
+| 2 | Pool schemaVersion bump нужен? | Нет. `pool.json` — build-time артефакт (bundled в APK, immutable до next build). Override тегов идёт **через вложенный объект `component` внутри `ComponentDeclaration`** (никакого нового поля в `ComponentDeclaration` — audit 2026-07-16: `component: Component` уже встроен) — dev fixtures десериализуются корректно (default tags из Component subtype через kotlinx.serialization). Никакой миграции не требуется. |
+| 6 | Profile migration writer нужен? (revised 2026-07-16, **re-revised аудитом 2026-07-16**) | **Нет migration writer** — суть решения без изменений: MVP не релизнут, потребителя миграции нет (rule 4 MVA). Отсутствие `tags` в JSON обрабатывается через constructor-defaults на Component subtypes (единственный источник истины). **Поправка аудита**: `schemaVersion` **остаётся 2**, не «сбрасывается на 1» — код (`Profile.CURRENT_SCHEMA_VERSION = 2`) и immutable TASK-120 Decision уже говорят «2», а `tags` — аддитивное поле, bump не нужен. Первый migration writer появится после production релиза при первом breaking change (v2 → v3). |
 | 3 | `homeScreenTiles()` selector — как отличить плитку от Toolbar (оба Presentation)? | Ввести отдельный `Tag.Tile`. Начальный набор Tag enum — 10 значений: Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, **Tile**, **Toolbar**. `homeScreenTiles() = byAllTags(setOf(Tag.Presentation, Tag.Tile))`. Toolbar имеет `setOf(Tag.Presentation, Tag.Toolbar)` — в `homeScreenTiles()` не попадает, находится через `byTag(Tag.Toolbar).firstOrNull()`. |
 | 4 | Toolbar в MVP: конфликт `Tag.Presentation` vs homeScreenTiles filter | Закрывается Q3 через отдельные `Tag.Tile` + `Tag.Toolbar`. `Profile.toolbar()` реализован через `byTag(Tag.Toolbar).firstOrNull()` — чистая query-based выборка без `is Toolbar` type check (deep-audit 2026-07-16 flagged paradigm mix, устранён). |
 | 5 | Existing `ConfigBackedFlowRepository` тесты — что с ними? | Остаются зелёными (класс не удаляется, coverage сохраняется). `HomeComponentLoadingStateTest` расширяется НОВЫМ сценарием `postManifestWizardReconcile_profileSeeded_homeReady` для Profile-based path. Существующий config-based сценарий остаётся. |
@@ -42,7 +42,7 @@
 
 **Why this priority**: end-to-end путь «install → wizard → home» сейчас сломан на физическом Xiaomi Redmi Note 11. Без этого никакое ручное тестирование MVP невозможно; блокирует TASK-128 verification bucket #1/#2.
 
-**Independent Test**: Robolectric integration test — Profile с одним `Component.AppTile(tags = setOf(Tag.Presentation))` в `ProfileStore` → `ProfileBackedFlowRepository` возвращает `List<FlowDescriptor>` длины 1 → `HomeComponent.loadingState` эмитит `HomeLoadingState.Ready`.
+**Independent Test**: JVM integration test (commonTest) — Profile с одним `Component.AppTile(packageName = "com.android.settings", labelKey = "tile_settings")` (default tags `{Presentation, Tile}`) в `FakeProfileStore` → `ProfileBackedFlowRepository.loadFlows()` возвращает `List<FlowDescriptor>` длины 1 → `HomeComponent.loadingState` эмитит `HomeLoadingState.Ready`.
 
 **Acceptance Scenarios**:
 
@@ -174,7 +174,7 @@ sequenceDiagram
 
 **Removed 2026-07-16 per owner decision + Clarification Q6.**
 
-Изначально описывала миграцию `v2 → v3` `ProfileMigrationV2toV3`. Причина удаления: MVP не релизнут, релизнутых Profile файлов v0 не существует. Писать migration writer сейчас = solve-non-existing-problem per rule 4 (MVA). `schemaVersion: 1` — стартовая версия. Отсутствие `tags` поля в JSON обрабатывается через `kotlinx.serialization` constructor-defaults (единственный источник истины: `Component` subtype constructors). Никакого второго источника (migration writer's `defaultTagsFor()`) не существует.
+Изначально описывала миграцию `v2 → v3` `ProfileMigrationV2toV3`. Причина удаления: MVP не релизнут, релизнутых Profile файлов не существует. Писать migration writer сейчас = solve-non-existing-problem per rule 4 (MVA). `schemaVersion: 2` остаётся без изменений (`tags` — аддитивное поле, поправка аудита 2026-07-16). Отсутствие `tags` поля в JSON обрабатывается через `kotlinx.serialization` constructor-defaults (единственный источник истины: `Component` subtype constructors). Никакого второго источника (migration writer's `defaultTagsFor()`) не существует.
 
 Первая SEQ Profile-migration появится **после production релиза** при первом breaking change полей.
 
@@ -207,17 +207,13 @@ sequenceDiagram
   participant HR as ProfileBackedFlowRepository
   participant P as Profile (Query API)
   HUI->>HVM: init
-  HVM->>HR: observeFlows()
+  HVM->>HR: loadFlows() / observeFlows()
   HR->>P: homeScreenTiles()
-  P->>P: query { c.tags ⊇ {Presentation, Tile} }
+  P->>P: query { c.tags ⊇ {Presentation, Tile} } minus Failed/Skipped
   P-->>HR: [AppTile(Settings), AppTile(Phone), Sos]
-  HR-->>HVM: List<FlowDescriptor> (3 items)
-  HVM->>HR: observeToolbar()
-  HR->>P: toolbar()
-  P->>P: byTag(Tag.Toolbar).firstOrNull()
-  P-->>HR: Toolbar
-  HR-->>HVM: ToolbarDescriptor
-  HVM-->>HUI: HomeLoadingState.Ready(flows=3, toolbar=Toolbar)
+  HR-->>HVM: List<FlowDescriptor> (3 items) — Toolbar не входит
+  Note over P: Profile.toolbar() = byTag(Tag.Toolbar).firstOrNull() —<br/>селектор существует на query-уровне (unit-тест),<br/>HomeComponent его в TASK-127 НЕ вызывает
+  HVM-->>HUI: HomeLoadingState.Ready(flows)
 ```
 
 <!-- MENTOR-DETAIL:BEGIN -->
@@ -225,7 +221,8 @@ sequenceDiagram
 
 - **Ключевая идея тегов**: один компонент может иметь несколько тегов сразу. Кнопка SOS — это одновременно `Presentation` (её видно), `Tile` (это плитка на экране), `Safety` (относится к безопасности) и `Emergency` (экстренная ситуация). Мы не заставляем выбрать одну категорию — компонент участвует во всех запросах, к которым подходит.
 - **`homeScreenTiles()`** = «дай все компоненты у которых теги содержат И `Presentation` И `Tile` одновременно». `AppTile` и `Sos` подходят. `Toolbar` — нет (у неё только `Presentation`, без `Tile`), поэтому она не попадает в сетку плиток.
-- **`toolbar()`** = отдельный селектор для нижней панели. Ищет компонент с тегом `Toolbar` через `byTag(Tag.Toolbar).firstOrNull()`. Возвращает один объект (или `null`, если не задан). **Query-based, не `is Toolbar` type check** — оба разделения (плитка vs тулбар) через теги, консистентно.
+- **`toolbar()`** = отдельный селектор для нижней панели. Ищет компонент с тегом `Toolbar` через `byTag(Tag.Toolbar).firstOrNull()`. Возвращает один объект (или `null`, если не задан). **Query-based, не `is Toolbar` type check** — оба разделения (плитка vs тулбар) через теги, консистентно. **Важно (audit 2026-07-16)**: в TASK-127 селектор существует и тестируется на уровне query API, но главный экран его ещё не вызывает — рендеринг нижней панели через порт потребовал бы менять контракт `FlowRepository` и `HomeLoadingState` (TASK-52), это отдельная задача (см. Out of Scope).
+- **Плитка, которую устройство не смогло применить** (`status = Failed`) **или которую пользователь пропустил в мастере** (`Skipped`) — **не показывается** в сетке: пожилой пользователь не должен видеть мёртвую кнопку. Статус `Pending` (ещё не применялся) показывается.
 - **Почему такое разделение** — по clarification Q3/Q4: без отдельного тега `Tile` любой `Presentation`-компонент попадал бы в сетку плиток, включая Toolbar. Тег `Tile` — граница «это плитка», тег `Toolbar` — маркер «это нижняя панель».
 - **Terminology note (ADR-012)**: это **tagged-component-model, ECS-inspired**, не canonical ECS (Bevy / Flecs / Unity DOTS). У нас sealed hierarchy = discriminated union (один Component на entity), не multi-component composition. Для нашего масштаба (~20 компонентов, редкие правки) это ок. Если появится «любая плитка может получить Cooldown-маркер» — придётся рефакторить (месяцы). См. ADR-012 § latent one-way door.
 - Покрывает US-2 Acceptance Scenario 2 (multi-tag membership), FR-005, Clarifications Q3-Q4.
@@ -293,27 +290,33 @@ sequenceDiagram
 
 - **FR-001**: `Tag` enum объявлен в `core/preset/model/Enums.kt`. Начальный набор: `Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar`. Additive-only per rule 5.
 
-- **FR-002**: `Component.tags: Set<Tag>` — новое поле в sealed hierarchy. Multiple tags разрешены. Каждый existing subtype получает default value в конструкторе:
+- **FR-002**: `Component.tags: Set<Tag>` — новое поле в sealed hierarchy (abstract val + constructor-default в каждом subtype). Multiple tags разрешены. **Все 8 реальных subtypes** (audit 2026-07-16: `Language` и `StatusBarPolicy` раньше пропускались) получают default value:
   - `AppTile` → `setOf(Tag.Presentation, Tag.Tile)`
   - `FontSize` → `setOf(Tag.Appearance, Tag.Accessibility)`
   - `Sos` → `setOf(Tag.Presentation, Tag.Tile, Tag.Safety, Tag.Emergency)`
   - `Toolbar` → `setOf(Tag.Presentation, Tag.Toolbar)` (без Tag.Tile — рендерится как отдельная панель, не плитка; `Tag.Toolbar` даёт query-based access)
-  - `LauncherRole` → `setOf(Tag.System)`
+  - `LauncherRole` → `setOf(Tag.System)` — **object → data class** (wire-compatible, см. data-model.md)
   - `Theme` → `setOf(Tag.Appearance)`
+  - `Language` → `setOf(Tag.System)`
+  - `StatusBarPolicy` → `setOf(Tag.System)` — **object → data class**
 
-- **FR-003**: `ComponentDeclaration` в `pool.json` MUST поддерживать optional поле `"tags": [...]` для override дефолтов при декларации. При отсутствии — `kotlinx.serialization` подставляет constructor-default из соответствующего `Component` subtype.
+- **FR-003** (restated 2026-07-16): override тегов в `pool.json` идёт **через вложенный объект `component`** внутри существующего `ComponentDeclaration` (поле `component: Component` уже встроено — никакого нового поля не добавляется, rule 4 MVA). При отсутствии `"tags"` — `kotlinx.serialization` подставляет constructor-default из соответствующего `Component` subtype. Подтверждается тестом (T127-005).
 
-- **FR-004**: `Profile` wire-format содержит `schemaVersion: 1` с первого коммита (rule 5 — с schemaVersion полем с day one). **Никакой migration writer не пишется**: MVP ещё не релизнут, релизнутых v0-профилей не существует, dev `ProfileStore` можно сбросить. Отсутствие `tags` поля в JSON — обрабатывается через `kotlinx.serialization` defaults на конструкторах Component subtypes (единственный источник истины для tags-defaults). Пока не релизнемся, schemaVersion остаётся `1` — каждое breaking изменение = переписываем dev fixture'ы, не пишем миграцию. Первый migration writer появится после production релиза когда возникнет первый v1→v2 breaking change.
+- **FR-004** (revised 2026-07-16): `Profile` wire-format сохраняет **`schemaVersion: 2`** (значение из shipped кода `Profile.CURRENT_SCHEMA_VERSION = 2` и TASK-120 Decision; rule 5 — schemaVersion поле присутствует). Добавление `tags` — **аддитивное** изменение, bump не требуется. **Никакой migration writer не пишется** (Q6): MVP не релизнут, потребителя миграции нет; dev `ProfileStore` можно сбросить. Отсутствие `tags` поля в JSON — через `kotlinx.serialization` constructor-defaults (единственный источник истины). Первый migration writer появится post-release при первом breaking change (v2 → v3). **Честный forward-compat** (contracts/profile-v2.md): незнакомый JSON-ключ игнорируется; незнакомое значение `Tag` или незнакомый `type` компонента = fail-loud `SerializationException` у старого читателя — фиксируется контракт-тестами; lenient-читатель обязателен до появления cross-device артефактов (admin push / preset sharing).
 
 - **FR-005**: `Profile.query(predicate: (ProfileComponent) -> Boolean): List<ProfileComponent>` — базовый Query API. Convenience selectors:
   - `Profile.byTag(tag: Tag): List<ProfileComponent>`
   - `Profile.byAllTags(tags: Set<Tag>): List<ProfileComponent>` — все указанные теги должны присутствовать
   - `Profile.byAnyTag(tags: Set<Tag>): List<ProfileComponent>` — хотя бы один
-  - `Profile.byNotTag(tag: Tag): List<ProfileComponent>` — все компоненты БЕЗ этого тега (canonical ECS `Without<T>` / Flecs `!` / EnTT `exclude<>` эквивалент)
-  - `Profile.homeScreenTiles(): List<ProfileComponent>` = `byAllTags(setOf(Tag.Presentation, Tag.Tile))` — плитки, но не Toolbar
-  - `Profile.toolbar(): ProfileComponent?` = `byTag(Tag.Toolbar).firstOrNull()` — query-based выборка без `is Toolbar` type check
+  - `Profile.byNotTag(tag: Tag): List<ProfileComponent>` — все компоненты БЕЗ этого тега (обычный предикат-фильтр в стиле label selectors; формулировка «canonical ECS `Without<T>` эквивалент» снята аудитом 2026-07-16 — см. ADR-012)
+  - `Profile.homeScreenTiles(): List<ProfileComponent>` = `byAllTags(setOf(Tag.Presentation, Tag.Tile))` **минус компоненты со `status = Failed | Skipped`** (render gating: устройство не смогло применить / пользователь пропустил — плитка не показывается; `Pending` показывается) — плитки, но не Toolbar
+  - `Profile.toolbar(): ProfileComponent?` = `byTag(Tag.Toolbar).firstOrNull()` — query-based выборка без `is Toolbar` type check; **в TASK-127 существует на уровне query API (unit-тест), HomeComponent его не вызывает**
 
-- **FR-006**: `ProfileBackedFlowRepository : FlowRepository` — новая реализация в `core/adapters/`. Читает `ProfileStore`, применяет query, возвращает `List<FlowDescriptor>`. Observe-версия через `profileStore.observe().filterNotNull()` — при `null` Profile НЕ эмитит (HomeComponent остаётся в `Loading`, соответствует контракту TASK-52 HomeLoadingState). После первого non-null Profile — эмитит на каждом изменении.
+- **FR-006** (expanded 2026-07-16): `ProfileBackedFlowRepository : FlowRepository` — новая реализация в `core/adapters/flow/`, реализует **все четыре метода существующего порта** (порт не меняется):
+  - `loadFlows()` — **путь, где жила регрессия** (`HomeComponent.launchLoadFlows()`, one-shot с таймаутом 3с): ждёт первый non-null Profile (`observe().filterNotNull().first()`), возвращает `homeScreenTiles()` → `List<FlowDescriptor>`. Post-wizard Profile уже сохранён → возврат мгновенный. Если Profile так и не появился — suspend до таймаута caller'а → существующий `Error` + Retry (TASK-52 UX, без вечного Loading).
+  - `observeFlows()` — hot path через `profileStore.observe().filterNotNull()`: при `null` Profile НЕ эмитит (HomeComponent остаётся в `Loading`). После первого non-null Profile — эмитит на каждом изменении.
+  - `availableTemplates(presetId)` — существующая семантика статического каталога шаблонов (parity с `ConfigBackedFlowRepository`).
+  - `addFlow(templateId)` — `error(...)` (parity: единственная существующая реализация тоже кидает); Profile-based addFlow — отдельная будущая задача `TODO(profile-add-flow)`.
 
 - **FR-007**: DI MUST wire `ProfileBackedFlowRepository` как binding для `FlowRepository` в обоих flavor'ах (mockBackend, realBackend):
   ```kotlin
@@ -356,10 +359,11 @@ sequenceDiagram
 
 - Удаление `ConfigDocument` полностью из кодовой базы — отдельный будущий task per SRV-CONFIG-DEPRECATION запись в `docs/dev/server-roadmap.md`.
 - Переработка admin push пути (Profile-based вместо ConfigDocument-based) — отдельный будущий task после SRV-CONFIG-DEPRECATION.
-- Расщепление Toolbar Composite Component на отдельные button entities — отдельный будущий task (MVP: Toolbar остаётся Composite с `tags = setOf(Tag.Presentation)`).
+- Расщепление Toolbar Composite Component на отдельные button entities — отдельный будущий task (MVP: Toolbar остаётся Composite с `tags = setOf(Tag.Presentation, Tag.Toolbar)`).
+- **Рендеринг нижней панели (Toolbar) на HomeScreen** — селектор `Profile.toolbar()` создаётся и тестируется на query-уровне, но проводка в `HomeComponent`/UI потребовала бы изменения порта `FlowRepository` (новый метод) и контракта `HomeLoadingState` (TASK-52) — отдельная задача. Аудит 2026-07-16: ранняя версия артефактов молча добавляла `observeToolbar()` в порт, противореча заявлению «сигнатура не меняется» — убрано.
 - Query indexing / performance optimization — MVP scale (~20 Components) не требует; exit ramp в Decision block'е задачи.
 - Регистрация новых Tag values (кроме initial set) — additive change, не в scope этого spec.
-- **Corrupt Profile recovery** — детектирование битого / несериализуемого Profile в `ProfileStore` (например, migration writer упал, disk corruption). MVP: exception в migration writer покрыт roundtrip тестом; явный recovery flow (reset ProfileStore + rerun FirstLaunchActivity) — отдельный будущий task если понадобится по production feedback.
+- **Corrupt Profile recovery** — детектирование битого / несериализуемого Profile в `ProfileStore` (disk corruption, незнакомый тег/тип от будущей версии). MVP: fail-loud поведение зафиксировано контракт-тестами (contracts/profile-v2.md); явный recovery flow (reset ProfileStore + rerun FirstLaunchActivity) — отдельный будущий task если понадобится по production feedback.
 
 ---
 
@@ -378,22 +382,22 @@ sequenceDiagram
 
 ## Assumptions
 
-- `ProfileStore.observe()` возвращает `Flow<Profile?>`. `null` наблюдается при cold start до первого load и transient migration states. `ProfileBackedFlowRepository` filter'ит null → HomeComponent остаётся в Loading (см. FR-006).
-- Pool.json НЕ мигрируется. Bundled в APK, всегда shipped вместе с current app version. Persisted Profile также не мигрируется в TASK-127 (per Clarification Q6): MVP не релизнут, `schemaVersion: 1` стартовая, отсутствие `tags` в JSON = constructor-default. Первый migration writer появится post-release.
+- ~~Assumption~~ **VERIFIED 2026-07-16**: `ProfileStore.observe()` возвращает `Flow<Profile?>` ([ProfileStore.kt:7](../../core/src/commonMain/kotlin/com/launcher/preset/port/ProfileStore.kt#L7)); `DataStoreProfileStore` эмитит `null` пока ключ отсутствует. `ProfileBackedFlowRepository` filter'ит null → HomeComponent остаётся в Loading (см. FR-006).
+- Pool.json НЕ мигрируется. Bundled в APK, всегда shipped вместе с current app version. Persisted Profile также не мигрируется в TASK-127 (per Clarification Q6): MVP не релизнут, `schemaVersion: 2` остаётся (tags аддитивно), отсутствие `tags` в JSON = constructor-default. Первый migration writer появится post-release (v2 → v3).
 - Tag enum initial set: 10 значений (Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar). Additive-only per rule 5.
 - `ReconcileEngine.run(RunMode.Wizard)` уже сохраняет Profile в `ProfileStore` на завершении wizard'а — проверить в коде TASK-126 перед implementation.
 - `FakeConfigEditor` не трогается — путь через него больше не используется HomeScreen. Существующие тесты на `ConfigBackedFlowRepository` остаются зелёными (класс не удаляется).
-- Toolbar в MVP остаётся Composite Component с `tags = setOf(Tag.Presentation)` — расщепление отложено до отдельной задачи.
-- Единственный источник истины для «Component subtype → default tags» — constructor-defaults на sealed hierarchy. Никакого дублирующего mapping. `ComponentDeclaration` pool override — отдельный ongoing механизм (не путается с constructor-defaults).
-- `FlowRepository` port существует в существующем виде и его сигнатура не меняется — новый adapter реализует уже существующий interface.
+- Toolbar в MVP остаётся Composite Component с `tags = setOf(Tag.Presentation, Tag.Toolbar)` — расщепление и рендеринг панели отложены до отдельных задач.
+- Единственный источник истины для «Component subtype → default tags» — constructor-defaults на sealed hierarchy. Никакого дублирующего mapping. Pool override через вложенный `component` объект — отдельный ongoing механизм (не путается с constructor-defaults).
+- `FlowRepository` port ([api/FlowRepository.kt](../../core/src/commonMain/kotlin/com/launcher/api/FlowRepository.kt): `loadFlows` / `availableTemplates` / `observeFlows` / `addFlow`) существует в существующем виде и его сигнатура **не меняется** — новый adapter реализует все четыре метода уже существующего interface (audit 2026-07-16: ранний `observeToolbar()` из скетчей убран как противоречащий этому assumption).
 
 ---
 
 ## Local Test Path
 
-- **Unit tests:** `./gradlew :core:test --tests "*ProfileQueryTest*"` — проверяет Query API + Tag defaults. `./gradlew :core:test --tests "*ProfileWireFormatV1ContractTest*"` — roundtrip v1 + bonus case для отсутствующего `tags` (constructor-default).
-- **Fitness function:** `./gradlew :core:test --tests "*ComponentTagsFitnessTest*"` — проверяет что каждый Component subtype имеет non-empty default tags.
-- **Instrumented tests:** `./gradlew :core:connectedAndroidTest --tests "*HomeComponentLoadingStateTest*"` — включая новый сценарий `postManifestWizardReconcile_profileSeeded_homeReady`.
+- **Unit tests:** `./gradlew :core:test --tests "*ProfileQueryTest*"` — проверяет Query API + Tag defaults + render gating. `./gradlew :core:test --tests "*ProfileSchemaV2RoundtripTest*"` — roundtrip v2 + missing-tags case + fail-loud pins (незнакомый Tag / type).
+- **Fitness function:** `./gradlew :core:test --tests "*ComponentTagsFitnessTest*"` — проверяет что каждый из 8 Component subtypes имеет non-empty default tags.
+- **Integration test (JVM):** `./gradlew :core:test --tests "*HomeComponentLoadingStateTest*"` — существующий класс в `commonTest/ui/navigation/` (не connectedAndroidTest), включая новый сценарий `postManifestWizardReconcile_profileSeeded_homeReady`.
 - **Manual verification (эмулятор):** `./gradlew :app:installMockBackendDebug`; wizard flow до конца → HomeActivity показывает плитки; проверить wizard string localization (нет raw `wizard_*` keys в UI).
 - **Physical device verification:** Xiaomi Redmi Note 11 (adb id `17f33878`) — тот же flow. Требуется для закрытия SC-001 и SC-002.
 
@@ -412,17 +416,17 @@ sequenceDiagram
 **Суть.** Регрессия TASK-126: после wizard'а HomeActivity показывает Error UI вместо плиток. Root cause — архитектурный gap: wizard пишет `Profile` (модель TASK-120), а HomeScreen читает `ConfigDocument` (старая модель). Решение — не bridge, а **tagged-component-model расширение TASK-120 (ECS-inspired, не canonical ECS — см. [ADR-012](../../docs/adr/ADR-012-tagged-component-model-vs-canonical-ecs.md))**: добавить `Component.tags: Set<Tag>` + `Profile.query { predicate }`, переключить HomeScreen на чтение `Profile` напрямую через query API. `ConfigDocument` остаётся в кодовой базе для будущего admin push.
 
 **Конкретика, которую стоит запомнить:**
-- `Tag` enum — **10 значений**: `Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar`. Additive-only.
-- `Component.tags` дефолты: `AppTile → {Presentation, Tile}`, `Sos → {Presentation, Tile, Safety, Emergency}`, `Toolbar → {Presentation, Toolbar}`, `FontSize → {Appearance, Accessibility}`.
-- `Profile.homeScreenTiles() = byAllTags(setOf(Presentation, Tile))` — Toolbar не попадает; `Profile.toolbar() = byTag(Tag.Toolbar).firstOrNull()` — query-based, без `is Toolbar`.
-- Query API: `byTag`, `byAllTags`, `byAnyTag`, `byNotTag` (эквивалент canonical ECS `Without<T>`).
-- Wire-format `Profile` = `schemaVersion: 1` (стартовая версия). Никакого migration writer — MVP не релизнут, релизнутых профилей нет. Отсутствие `tags` в JSON = constructor-defaults на Component subtypes через kotlinx.serialization. Первый migration writer появится после production релиза (см. Clarification Q6).
-- `ProfileBackedFlowRepository` — новый adapter, читает `ProfileStore.observe().filterNotNull()` (при null Profile HomeComponent stays in Loading). Заменяет `ConfigBackedFlowRepository` в DI обоих flavor'ов.
+- `Tag` enum — **10 значений**: `Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar`. Additive-only (с честной оговоркой: старый читатель падает на незнакомом теге — lenient-читатель до cross-device обмена, см. FR-004).
+- `Component.tags` дефолты на **всех 8 подтипах**: `AppTile → {Presentation, Tile}`, `Sos → {Presentation, Tile, Safety, Emergency}`, `Toolbar → {Presentation, Toolbar}`, `FontSize → {Appearance, Accessibility}`, `LauncherRole → {System}`, `Theme → {Appearance}`, `Language → {System}`, `StatusBarPolicy → {System}`.
+- `Profile.homeScreenTiles() = byAllTags(setOf(Presentation, Tile))` минус `Failed`/`Skipped` (мёртвые кнопки не показываем) — Toolbar не попадает; `Profile.toolbar() = byTag(Tag.Toolbar).firstOrNull()` — query-based, без `is Toolbar`; HomeComponent его пока не вызывает (рендер панели — отдельная задача).
+- Query API: `byTag`, `byAllTags`, `byAnyTag`, `byNotTag` — стиль label selectors (Kubernetes), не canonical ECS.
+- Wire-format `Profile` = **`schemaVersion: 2`** (как в коде TASK-120; `tags` аддитивно — bump не нужен; раннее «reset to 1» отменено аудитом). Никакого migration writer — MVP не релизнут. Отсутствие `tags` в JSON = constructor-defaults на Component subtypes через kotlinx.serialization. Первый migration writer — post-release (v2 → v3, см. Clarification Q6).
+- `ProfileBackedFlowRepository` — новый adapter, реализует **все 4 метода** порта; `loadFlows()` = путь регрессии (ждёт первый non-null Profile), `observeFlows()` = hot path (при null Profile HomeComponent stays in Loading). Заменяет `ConfigBackedFlowRepository` в DI обоих flavor'ов (`BackendInit.kt` в core).
 - `wizard_step_of` — `<plurals>` ресурс (Russian one/few/many/other), не простой format string.
 - Новый `docs/architecture/preset-model.md` с AI-TLDR блоком объясняет две ортогональные дименсии: **lifecycle** (`wizardFlow` / `settingsMap` / `activeComponents`) vs **semantic** (`Component.tags`).
 
 **На что смотреть с осторожностью:**
 - Physical device verification (SC-001, SC-002) на Xiaomi Redmi Note 11 (adb id `17f33878`) — AI не может закрыть, только эмулятор доступен.
-- `schemaVersion: 1` с first commit — стартовая версия. Пока не релизнемся, каждое breaking изменение = сброс dev fixture'ов, не migration writer. После production релиза первый breaking change = первая migration.
+- `schemaVersion: 2` — не трогаем (уже в коде). Пока не релизнемся, каждое breaking изменение = сброс dev fixture'ов, не migration writer. После production релиза первый breaking change = первая migration (v2 → v3).
 - `ConfigBackedFlowRepository` остаётся в коде (не удаляется), просто не bind'ится в DI — inline TODO `SRV-CONFIG-DEPRECATION` на класс, иначе future confusion про два FlowRepository.
-- Corrupt Profile recovery явно out of scope — если ProfileSerializer упадёт на битом JSON, будет crash без graceful fallback (production feedback покажет нужно ли).
+- Corrupt Profile recovery явно out of scope — если десериализация упадёт на битом JSON (или на незнакомом теге/типе от будущей версии), будет crash без graceful fallback (production feedback покажет нужно ли).

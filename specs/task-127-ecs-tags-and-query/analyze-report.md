@@ -1,6 +1,8 @@
 # Analyze Report: ECS Tags Foundation + HomeScreen Query Rewire
 
-**Date**: 2026-07-16 | **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md) | **Tasks**: [tasks.md](tasks.md)
+**Date**: 2026-07-16 (updated same day after Deep Pre-Implement Audit #2) | **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md) | **Tasks**: [tasks.md](tasks.md) | **Contract**: [contracts/profile-v2.md](contracts/profile-v2.md)
+
+> **Reading order note**: sections below are chronological. §Constitution Check / §Cross-Artifact Trace were re-checked after audit #2; §"Deep ECS Industry Audit" and §"Q6 Remediation" are historical records of earlier waves — where they mention `profile-v3.md`, `profile-v1.md`, `schemaVersion 1`, or migration tasks T127-007/011/012/013, those artifacts no longer exist (see §Deep Pre-Implement Audit #2 for the current state).
 
 ---
 
@@ -12,11 +14,11 @@
 |------|--------|-------|
 | G-1 Architecture | **PASS** | Extension methods + one adapter in existing `core/preset/*` and `core/adapters/flow/`. No new gradle module. Port + implementation shape preserved. |
 | G-2 Core/System Integration | **N/A** | No new system events, no BroadcastReceiver, no lifecycle callbacks. Data-model + adapter change only. |
-| G-3 Configuration | **PASS** | `schemaVersion: 1` present in Profile v1 contract (rule 5 day-1 requirement). **No migration writer** per Clarification Q6 (MVP не релизнут; rule 4 MVA). Constructor-defaults на Component subtypes = единственный источник истины для tags. Roundtrip test scoped. Pool.json addition additive-only per Clarification Q2. |
+| G-3 Configuration | **PASS** (re-checked audit #2) | `schemaVersion: 2` — matches shipped code + TASK-120 Decision; `tags` additive, no bump (rule 5). **No migration writer** per Clarification Q6 (MVP не релизнут; rule 4 MVA). Constructor-defaults на Component subtypes = единственный источник истины для tags. Roundtrip + fail-loud pins scoped. Pool.json override via embedded component per Clarification Q2. |
 | G-4 Required Context Review | **PASS** | Links present: CLAUDE.md (rules 1, 4, 5, 9), ADR-011, constitution.md, preset-model.md, server-roadmap.md, TASK-120 Decision, task-49 precedent. No permissions change. |
 | G-5 Accessibility | **PASS** | US-3 (wizard localization) verifies readable strings for senior users (SC-002). No new UI below 56dp. `FontSize` Component carries `Tag.Accessibility`. |
 | G-6 Battery/Performance | **PASS** | Event-driven (`ProfileStore.observe()` on user edit). No polling. Никакой migration cost (нет migration writer). Perf target NFR-003 (< 1 ms) + SC-008 benchmark. Zero new deps. |
-| G-7 Testing | **PASS** | Contract (roundtrip v3, migration idempotency, backward-compat v2). Unit (Query API, ProfileBackedFlowRepository, ComponentTagsFitnessTest). Integration (HomeComponentLoadingStateTest). Fitness (reflection walk, benchmark). `FakeProfileStore` adapter. |
+| G-7 Testing | **PASS** (re-checked audit #2) | Contract (roundtrip v2 + missing-tags + fail-loud pins; no migration tests per Q6). Unit (Query API + render gating, ProfileBackedFlowRepository incl. loadFlows, ComponentTagsFitnessTest). Integration (HomeComponentLoadingStateTest, JVM commonTest). Fitness (reflection walk, benchmark). Existing `FakeProfileStore`. |
 | G-8 Simplicity | **PASS** | `ProfileQueryService` rejected (R-1). Migration writer rejected (R-2 revised per Q6 — constructor-defaults вместо). Linear scan over index (R-4). Rule 4 Test 1: inlining Query API loses type-safety — kept. Test 2: swap to member methods ~1 hour. |
 
 **OVERALL: 7 PASS, 1 N/A, 0 FAIL** — plan is **COMPLETE**.
@@ -31,8 +33,8 @@
 
 - **FR-001** (Tag enum) → T127-003 ✓
 - **FR-002** (Component.tags) → T127-004 ✓
-- **FR-003** (ComponentDeclaration override) → T127-005 ✓
-- **FR-004** (schemaVersion: 1 + constructor-defaults, no migration writer per Q6) → T127-004, T127-009 (bonus case), T127-021 ✓
+- **FR-003** (pool tags override via embedded component; restated audit #2) → T127-005 ✓
+- **FR-004** (schemaVersion: 2 unchanged + constructor-defaults, no migration writer per Q6) → T127-004, T127-009, T127-021 ✓
 - **FR-005** (Query API) → T127-006, T127-023 ✓
 - **FR-006** (ProfileBackedFlowRepository) → T127-014, T127-015 ✓
 - **FR-007** (DI wiring) → T127-017, T127-018 ✓
@@ -50,10 +52,10 @@
 
 **3/3 USs covered with test evidence** ✓
 
-### Contracts → Tests
+### Contracts → Tests (updated audit #2)
 
-- **profile-v3.md contract**: roundtrip (T127-009), backward-compat (T127-012), fixture (T127-010) ✓
-- **profile-v2.md (implicit)**: migration roundtrip (T127-011), fixture (T127-011) ✓
+- **profile-v2.md contract**: roundtrip (T127-009), missing-tags case (T127-009), fail-loud pins unknown-Tag/unknown-type (T127-009), fixtures (T127-010) ✓
+- ~~migration tests~~ — removed per Q6 ✓
 
 **All contracts have required tests** ✓
 
@@ -62,13 +64,13 @@
 - **NFR-001** (domain isolation) → T127-021 + checklist-domain-isolation ✓
 - **NFR-002** (emissions tracking) → T127-015 unit test ✓
 - **NFR-003** (query < 1 ms) → T127-022 benchmark ✓
-- **NFR-004** (migration idempotency) → T127-011, T127-012 ✓
+- **NFR-004** [REMOVED per Q6] — no migration, no idempotency ✓
 
 **All NFRs covered** ✓
 
-### Wire-format audit
+### Wire-format audit (updated audit #2)
 
-- `contracts/profile-v1.md` — has `schemaVersion: 1` field ✓
+- `contracts/profile-v2.md` — `schemaVersion: 2` matches `Profile.CURRENT_SCHEMA_VERSION` ✓
 - `data-model.md` — describes wire-format changes ✓
 - **No migration writer** per Clarification Q6 — constructor-defaults on Component subtypes verify tags on missing-JSON-field via T127-009 bonus test case ✓
 
@@ -81,9 +83,9 @@ All new files placed per plan.md §Module map:
 - `ProfileBackedFlowRepository` — `core/src/commonMain/` (adapter, zero Android imports) ✓
 - ~~`ProfileMigrationV2toV3`~~ — removed per Q6 ✓
 - Tests — `core/src/commonTest/` ✓
-- DI wiring — `app/src/main/` (Android module) ✓
+- DI wiring — `core/src/android{Mock,Real}Backend/kotlin/com/launcher/di/BackendInit.kt` (real binding sites; corrected by audit #2 — NOT `app/.../di/*Module.kt`) ✓
 
-**Placement consistent** ✓
+**Placement consistent after audit #2 path corrections** ✓
 
 ### Context link audit
 
@@ -140,8 +142,7 @@ Plan.md contains no "DELETE" list — pure additive change. ConfigBackedFlowRepo
 
 All T127-NNN tasks have valid forward dependencies:
 - T127-004 (Component.tags) requires T127-003 (Tag enum) ✓
-- T127-007 (migration skeleton) requires T127-003, T127-004 ✓
-- T127-013 (migration impl) requires T127-007, T127-011, T127-012 ✓
+- ~~T127-007 / T127-013 (migration)~~ — removed per Q6 ✓
 - T127-014 (ProfileBackedFlowRepository) requires T127-006 (Query API) ✓
 - All subsequent tasks respect phase boundaries ✓
 
@@ -224,7 +225,33 @@ Owner questioned необходимость `ProfileMigrationV2toV3`: «У на�
 
 **Total tasks now**: 23 active (was 27). **Total files removed**: 3 (ProfileMigrationV2toV3.kt, ProfileMigrationV2toV3RoundtripTest.kt, ProfileMigrationV2toV3BackwardCompatTest.kt + one v2 fixture).
 
-**Post-release plan**: first breaking change → first migration writer + `schemaVersion: 1 → 2`. Documented in contracts/profile-v1.md § "Migration policy (pre-release)".
+**Post-release plan**: first breaking change → first migration writer. Documented in contracts § "Migration policy (pre-release)".
+
+> **Superseded in part by audit #2 (below)**: the "reset schemaVersion to 1" element of this remediation was reversed — shipped code (`Profile.CURRENT_SCHEMA_VERSION = 2`) and the immutable TASK-120 Decision already say 2, and `tags` is additive (no bump needed). Contract renamed `profile-v1.md → profile-v2.md`. The core of Q6 (no migration writer, constructor-defaults as single source of truth) stands unchanged.
+
+---
+
+## Deep Pre-Implement Audit #2 (2026-07-16, four independent auditors)
+
+*Requested by owner before `/speckit.implement`: model map, layer isolation, ECS industry comparison, cross-platform portability — run as four independent subagent audits against artifacts + real code on the branch.*
+
+**Core finding: plan/data-model/contract were written against an imagined codebase.** The tagged-component architecture itself is sound (layers, ports, fakes, schemaVersion discipline, identity-free artifacts all confirmed); the artifacts diverged from the real `Component.kt` / `Profile.kt` / `FlowRepository` / DI wiring.
+
+| # | Finding | Severity | Fix applied |
+|---|---------|----------|-------------|
+| 1 | data-model/contract described fictional Component shapes (`AppTile(label)`, `Sos(targetPhone)` — PII in shareable artifact, `Toolbar(buttons)`, abstract `id`); missed `Language` + `StatusBarPolicy`; fixture used non-existent `presetId` top-level field; roundtrip fixture could not deserialize against real code | CRITICAL | data-model.md rewritten from real code (8 subtypes, real fields, ProfileComponent wrapper); contract fixtures regenerated; `LauncherRole`/`StatusBarPolicy` object → data class decision made explicit (T127-004) |
+| 2 | schemaVersion incoherence: artifacts said "reset to 1", code says 2 (`CURRENT_SCHEMA_VERSION`, `profile_json_v2` key), TASK-120 Decision (immutable) says 2; no task existed to change the constant | CRITICAL | schemaVersion **stays 2** (additive tags); contract renamed profile-v1.md → profile-v2.md; Q6 wording corrected in spec/plan/research |
+| 3 | Plan did not fix the actual regression: Error UI originates in `HomeComponent.launchLoadFlows()` → `loadFlows()` (one-shot, 3s timeout), but sketch implemented only `observeFlows()` | CRITICAL | FR-006 expanded: adapter implements all four port methods; `loadFlows()` = `.filterNotNull().first()`; absent-Profile → caller timeout → Error+Retry (no eternal Loading) |
+| 4 | Port contract silently changed: sketch declared `observeToolbar()` (not in port) while claiming "signature unchanged"; three real methods unspecified | HIGH | `observeToolbar()` removed; toolbar rendering moved to explicit Out of Scope; `availableTemplates`/`addFlow` behavior specified (parity) |
+| 5 | False forward-compat claim: "v1 readers deserialise future Tag values" — kotlinx.serialization throws on unknown enum values in collections (`ignoreUnknownKeys` covers keys only) | HIGH | Contract § Forward compat rewritten honestly (fail-loud); two contract-test pins added (T127-009); Risk R-8 with hard trigger (lenient serializer before admin push / preset sharing) |
+| 6 | Fictional file paths: `adapters/flow/FlowRepository.kt`, `ProfileSerializer.kt`, `app/.../di/{Mock,Real}BackendModule.kt`, `androidTest/.../home/` — none exist | HIGH | plan.md module map + tasks T127-016/017/018/020 re-pointed to real files (`api/FlowRepository.kt`, `adapters/config/`, `BackendInit.kt` per flavor, `commonTest/ui/navigation/`) |
+| 7 | No capability/status gating: query path answered "what is this component" but never "could this device apply it" — `Failed`/`Skipped` tiles would render as dead buttons | MAJOR (design hole) | Render gating policy added: `homeScreenTiles()` excludes `status = Failed/Skipped` (senior-UX default, preset-field candidate per rule 11 if segments diverge); tests T127-015/T127-023 |
+| 8 | FR-003 planned a redundant `tags` field on `ComponentDeclaration` — the embedded `component: Component` object already provides the override | MEDIUM | FR-003 restated; T127-005 became verify-by-test + doc-comment (rule 4 MVA) |
+| 9 | "canonical ECS `Without<T>`" framing overstated parity; correct industrial analog is Kubernetes label selectors | MINOR | Wording corrected in spec/data-model/research/tasks; ADR-012 framing confirmed as the right call |
+
+**Independent industry check** (Bevy / Flecs / Unity DOTS / EnTT / Kubernetes / kotlinx issues #1113, #3071): design is correctly labeled tagged-component model; best decision confirmed — queries are NOT persisted (only tags in wire format), sidestepping query-language versioning entirely. Confirmed-sound: commonMain purity, fake+real adapters per port, `BundledPoolSource`/`BundledPresetSource` behind ports (rule 9), identity-free Profile artifact, preset-vs-invariant separation (rule 11) — no hardcoded family assumptions found.
+
+**Known remaining risks (accepted, documented)**: legacy `ProfileEngine` (androidMain, `org.json`) is a parallel profile stack pending deprecation route (deferred — pre-existing, not touched by this task); closed Tag enum vs future community presets (ADR-012 exit ramp: namespaced string tags); corrupt-Profile recovery out of scope.
 
 ---
 
@@ -240,14 +267,13 @@ These close SC-001, SC-002 (Acceptance Criteria at backlog-task level). Pre-PR s
 
 ## Verdict
 
-**🟢 READY FOR IMPLEMENTATION**
+**🟢 READY FOR IMPLEMENTATION** *(re-issued after Deep Pre-Implement Audit #2 — the earlier verdict was premature: it rested on artifacts that diverged from real code; all 9 audit findings above are now remediated in the artifacts)*
 
 All checks pass:
-- Constitution Check: 7/8 (1 N/A)
-- Cross-artifact trace: 100% coverage (10 FRs, 3 USs, 4 contracts, all NFRs)
-- Checklists: 84/86+ items ✓ (all green)
-- Wire-format audit: schemaVersion present, migration documented
-- Source-set placement: correct (`commonMain` for domain, `app/` for DI)
+- Constitution Check: 7/8 (1 N/A) — G-3/G-7 re-checked after audit #2
+- Cross-artifact trace: 100% coverage (10 FRs, 3 USs, contract, all NFRs)
+- Wire-format audit: schemaVersion 2 matches code; fail-loud behavior pinned; migration policy documented
+- Source-set placement: corrected to real paths (`commonMain` for domain, `BackendInit.kt` for DI)
 - Context links: complete
 - Vague language: zero survivors
 - Task ordering: valid DAG
@@ -258,18 +284,18 @@ All checks pass:
 
 ## TL;DR (по-русски, для новичка и для будущего AI)
 
-**Суть.** Полный cross-artifact аудит + глубокая проверка ECS-нотации против индустриальных фреймворков (Bevy, Flecs, Unity DOTS, EnTT). Все 10 FRs, 3 USs, 4 контракта покрыты 27 задачами. Constitution 7 PASS / 1 N/A. Deep audit нашёл 4 недочёта — все исправлены (Tag.Toolbar добавлен, byNotTag добавлен, docs переформулированы, ADR-012 создан).
+**Суть.** Три волны проверки: (1) стандартный cross-artifact аудит; (2) deep ECS audit (Bevy, Flecs, Unity DOTS, EnTT) — 4 недочёта исправлены (Tag.Toolbar, byNotTag, терминология, ADR-012); (3) **Deep Pre-Implement Audit #2** (4 независимых субагента: карта модели, слои, индустрия, портируемость) — нашёл **9 расхождений артефактов с реальным кодом**, все исправлены. Итог: архитектура подтверждена здоровой, артефакты приведены к коду, вердикт READY переиздан честно.
 
 **Конкретика, которую стоит запомнить:**
-- **27 задач в tasks.md** — все топологически упорядочены.
-- **6 AC в backlog-task** — синхронизированы с [backlog]-маркерами spec.md.
+- **23 активные задачи в tasks.md** (4 удалены по Q6) — все топологически упорядочены, пути файлов реальные.
+- **Главные поправки аудита #2**: `schemaVersion` **остаётся 2** (не «сброс на 1»); контракт переименован в `profile-v2.md` и переписан по реальным `Component.kt`/`Profile.kt` (8 подтипов, включая `Language`/`StatusBarPolicy`); `ProfileBackedFlowRepository` реализует **все 4 метода** порта — `loadFlows()` и есть путь регрессии; `observeToolbar()` удалён (рендер панели — out of scope); render gating: `Failed`/`Skipped` плитки не показываются; honest forward-compat: незнакомый тег/тип = fail-loud, lenient-читатель обязателен до cross-device обмена (R-8).
 - **Два [deferred-*] маркера**: T127-026 [deferred-local-emulator], T127-027 [deferred-physical-device].
-- **Deep audit исправления**: `Tag` enum теперь **10 значений** (+`Toolbar`). Query API **7 функций** (+`byNotTag` = canonical `Without<T>`). `toolbar()` через `byTag(Tag.Toolbar).firstOrNull()`, БЕЗ `is Toolbar`.
-- **ADR-012 создан**: документирует что это «tagged-component model, ECS-inspired», не canonical ECS. С триггером и exit ramp'ом на будущий рефакторинг (8-16 недель если понадобится).
+- **ADR-012**: «tagged-component model, ECS-inspired», правильный аналог — Kubernetes label selectors. Лучшее решение дизайна — queries НЕ персистятся.
 - **После PR merge** — `pre-pr-backlog-sync` переведёт task в `Verification` (ждёт физический smoke на Xiaomi).
 
 **На что смотреть с осторожностью:**
 - Physical verification (T127-027) требует Xiaomi Redmi Note 11 реально — AI не может закрыть.
-- Constructor-defaults на Component subtypes (T127-004) — единственный источник истины. `ComponentTagsFitnessTest` (T127-021) через reflection гарантирует non-empty defaults. Проверить руками правильность дефолтов перед commit (особенно `Toolbar → {Presentation, Toolbar}`).
-- `schemaVersion: 2 → 3` — one-way door, downgrade невозможен.
+- Constructor-defaults на Component subtypes (T127-004) — единственный источник истины. `ComponentTagsFitnessTest` (T127-021) через reflection гарантирует non-empty defaults на всех 8 подтипах.
+- Post-release первый breaking change полей = one-way door: migration writer + bump `2 → 3` обязательны.
 - **Latent one-way door (ADR-012)**: первая же фича «любая плитка получает Cooldown-маркер» не работает — sealed hierarchy = один Component на entity. Триггер: PR с добавлением временного модификатора к существующему Component без смены типа. В этот момент — открываем decision-task на canonical ECS migration.
+- **Legacy `ProfileEngine`** (androidMain, `org.json`) — параллельный старый profile-стек, не тронут этой задачей; заслуживает deprecation-задачу (delete-if-analog-exists).

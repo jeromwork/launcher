@@ -39,26 +39,27 @@ Documents one-way-door decisions per CLAUDE.md §3 and rejected alternatives per
 - Option B ломает MVA + создаёт два источника истины (конструктор + `defaultTagsFor()` mapping) с co-location constraint, требующим reflection-теста. Больше кода, больше рисков рассинхрона, никакого пользователя миграции.
 - Option C проваливает NFR-003 (аллокация Set на каждый query call при 20 компонентах ~40 микросекунд, всё ещё под бюджетом, но не по причинам, а по случайности) + ломает `ComponentDeclaration` pool override (нельзя указать extra tags для конкретного instance).
 
-**Exit ramp**: После production релиза первый breaking change полей = первый migration writer появится в тот момент. Cost: ~1 день, точно тот же что сейчас, но с реальным пользователем. До релиза `schemaVersion: 1`, каждое breaking dev change = сброс dev `ProfileStore` (`adb uninstall`).
+**Exit ramp**: После production релиза первый breaking change полей = первый migration writer появится в тот момент. Cost: ~1 день, точно тот же что сейчас, но с реальным пользователем. До релиза `schemaVersion: 2` не меняется, каждое breaking dev change = сброс dev `ProfileStore` (`adb uninstall`).
 
 ---
 
-## R-3: `schemaVersion` value — 1 (starting fresh)
+## R-3: `schemaVersion` value — stays 2 (re-revised by deep audit 2026-07-16)
 
-**Nature**: rule 5 requires `schemaVersion` field с first commit — yes, у нас есть, значение `1`.
+**Nature**: rule 5 requires `schemaVersion` field с first commit — yes, поле есть; shipped значение `2` (`Profile.CURRENT_SCHEMA_VERSION = 2`, DataStore key `profile_json_v2`).
 
-**Choice (revised 2026-07-16 per owner)**: **`schemaVersion: 1` — стартовая версия**. Никаких bump'ов пока не релизнемся.
+**Choice (re-revised 2026-07-16, deep pre-implement audit)**: **`schemaVersion: 2` — не трогаем**. `tags` — аддитивное optional поле → bump не нужен. Никаких bump'ов пока не релизнемся.
 
 **Alternatives considered**:
-- **A. `schemaVersion: 3`** для continuity с TASK-120 history (если раньше был v2).
-- **B. `schemaVersion: 1`** — сбросить счётчик, старт от MVP. **(chosen)**
+- **A. `schemaVersion: 3`** для «нового поколения» формата — отвергнуто: `tags` аддитивно, bump без breaking change нарушает rule 5 семантику.
+- **B. `schemaVersion: 1`** — сбросить счётчик (выбор ранней ревизии Q6) — **отвергнуто аудитом**: противоречит shipped коду и immutable TASK-120 Decision (Profile v2); сброс потребовал бы code change без какой-либо выгоды.
+- **C. `schemaVersion: 2` — оставить как есть. (chosen)**
 
 **Rationale**:
-- MVP не релизнут → нет пользователей, для которых номер версии что-то значит. Continuity с dev-only историей бесполезна.
-- `1` — clean starting point для production релиза. Первый breaking change post-release = bump до `2`.
-- Rule 5 удовлетворено: schemaVersion field present с day 1.
+- Код и TASK-120 Decision уже фиксируют `2`; менять номер = трогать immutable Decision ради косметики.
+- MVP не релизнут → номер сам по себе пользователю ничего не значит; важно только соответствие код ↔ контракт.
+- Rule 5 удовлетворено: schemaVersion field present, аддитивные изменения без bump'а разрешены.
 
-**Exit ramp**: Post-release каждый breaking change полей Component = migration writer + bump `1 → 2 → 3...`. Пока pre-release — версия не растёт, dev fixture'ы переписываются на месте.
+**Exit ramp**: Post-release каждый breaking change полей Component = migration writer + bump `2 → 3 → ...`. Пока pre-release — версия не растёт, dev fixture'ы переписываются на месте.
 
 ---
 
@@ -128,10 +129,10 @@ Documents one-way-door decisions per CLAUDE.md §3 and rejected alternatives per
 ## TL;DR для владельца
 
 - **Query API как extension-функции** — не «сервис», не «класс запросов»; просто набор функций рядом с `Profile`. Ротация: если станут неудобны — перевесим горячие (`homeScreenTiles`, `toolbar`) на методы `Profile`. День работы, ничего не сломается.
-- **Никакой миграции сейчас** (решение владельца 2026-07-16): MVP не релизнут, нет релизнутых профилей = нет потребителя миграции. `schemaVersion: 1` — стартовая. Отсутствие `tags` в JSON = kotlinx.serialization подставляет constructor-default. Единственный источник истины — конструкторы Component subtypes. Первая migration появится post-release при первом breaking change.
-- **`schemaVersion: 1`** — clean старт. Каждое breaking dev-изменение = сброс dev `ProfileStore` (`adb uninstall`), не migration writer.
+- **Никакой миграции сейчас** (решение владельца 2026-07-16): MVP не релизнут, нет релизнутых профилей = нет потребителя миграции. Отсутствие `tags` в JSON = kotlinx.serialization подставляет constructor-default. Единственный источник истины — конструкторы Component subtypes. Первая migration появится post-release при первом breaking change.
+- **`schemaVersion: 2` остаётся** (поправка аудита 2026-07-16: `tags` аддитивно, код и TASK-120 Decision уже говорят «2»). Каждое breaking dev-изменение = сброс dev `ProfileStore` (`adb uninstall`), не migration writer.
 - **Линейный поиск по тегам** — по 20 компонентам это ~2 микросекунды. Индексация — когда будет 500+ компонентов (не MVP; хоть Phase-3+). Exit ramp есть.
 - **`ConfigBackedFlowRepository` не удаляем** — он нужен для будущего сценария «админ пушит настройки» (spec-009). Удалим когда админ-пуш переедет на Profile-based sync. Пометили `TODO(SRV-CONFIG-DEPRECATION)` в коде и в server-roadmap.
 - **Два маркер-тега — `Tag.Tile` и `Tag.Toolbar`** — чтобы обе выборки (плитки и тулбар) работали через теги, без `is Toolbar` в коде. Плитки: `byAllTags({Presentation, Tile})`; тулбар: `byTag(Toolbar).firstOrNull()`. Добавление любого нового Presentation-компонента (hint overlay в Phase-2) не требует правки query — только объявить нужный набор тегов.
-- **`byNotTag(tag)` в API** — эквивалент canonical ECS `Without<T>` / Flecs `!tag`. Добавлен сейчас (30 строк кода), чтобы будущие «презентационные без экстренных» запросы не изобретали велосипед.
+- **`byNotTag(tag)` в API** — обычный предикат-фильтр исключения (стиль label selectors; формулировка «canonical ECS `Without<T>`» снята аудитом — см. ADR-012). Добавлен сейчас (30 строк кода), чтобы будущие «презентационные без экстренных» запросы не изобретали велосипед.
 - **Terminology honesty**: это **tagged-component-model, ECS-inspired**, не canonical ECS. Sealed hierarchy = один Component на entity; canonical ECS = N компонентов на entity. Для нашего масштаба (~20 entities, редкие правки) ок. См. [ADR-012](../../docs/adr/ADR-012-tagged-component-model-vs-canonical-ecs.md) с latent one-way door risk.

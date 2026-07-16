@@ -1,16 +1,19 @@
-# Data Model: ECS Tags Foundation
+# Data Model: Tagged-Component Foundation (TASK-127)
 
 **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md)
 
 Describes new / modified types introduced by TASK-127. Complements `docs/architecture/preset-model.md` (two-dimensions doc) with concrete field shapes for implementation.
 
+**Rewritten 2026-07-16 (deep pre-implement audit)**: earlier revision sketched a fictional `Component` hierarchy (`AppTile(label)`, `Sos(targetPhone)`, `Toolbar(buttons)`, abstract `id` on Component) that never existed in code. This revision is generated from the real [Component.kt](../../core/src/commonMain/kotlin/com/launcher/preset/model/Component.kt) / [Profile.kt](../../core/src/commonMain/kotlin/com/launcher/preset/model/Profile.kt) on the branch.
+
 ---
 
 ## Tag (new enum)
 
-Location: `core/src/commonMain/kotlin/com/launcher/preset/model/Enums.kt` (existing file, add `Tag` enum).
+Location: `core/src/commonMain/kotlin/com/launcher/preset/model/Enums.kt` (existing file, add `Tag` enum, `@Serializable` like its neighbours).
 
 ```kotlin
+@Serializable
 enum class Tag {
     Presentation,    // visible to owner on some UI surface
     Appearance,      // visual override (fontScale, theme, ...)
@@ -25,65 +28,91 @@ enum class Tag {
 }
 ```
 
-**Additive-only** per rule 5 (wire-format versioning). Adding a new tag is a schemaVersion-safe change (existing v3 Profiles do not carry it in their `tags` field, so no data loss). Removing or renaming a tag = breaking change = requires migration.
+**Additive-only** per rule 5 — with an honest caveat (see contract § Forward compat): adding a value is safe for writers, but an *older reader* fails loud on an unknown enum name inside a `tags` array. Acceptable while the Profile is same-device/same-binary; lenient serializer required before cross-device artifacts ship. Removing or renaming a tag = breaking change = requires migration.
 
-**Closed set**: `enum class`, not free-form `String`. Freeform strings would drift into typo hell (`"presention"`, `"presentaion"`). Owner-visible tag names are not exposed; owner never types tags.
+**Closed set**: `enum class`, not free-form `String` — prevents typo drift. Known tension (ADR-012): a closed enum blocks third-party preset authors from minting semantic tags once rule-9 preset sharing lands; exit ramp = namespaced string tags (wire format already stores strings, so that is a lenient-serializer change, not a format break).
 
 ---
 
-## Component.tags (new field)
+## Component.tags (new field on the REAL hierarchy)
 
-Location: `core/src/commonMain/kotlin/com/launcher/preset/model/Component.kt` — existing sealed hierarchy.
+Location: `core/src/commonMain/kotlin/com/launcher/preset/model/Component.kt` — existing sealed hierarchy (8 subtypes, NOT 6). `Component` has **no `id`** — identity lives on the `ProfileComponent` wrapper.
 
 ```kotlin
+@Serializable
 sealed class Component {
-    abstract val id: ComponentId
-    abstract val tags: Set<Tag>       // NEW field, default per subtype
+    abstract val tags: Set<Tag>          // NEW abstract field, default per subtype
 
+    @Serializable @SerialName("AppTile")
     data class AppTile(
-        override val id: ComponentId,
         val packageName: String,
-        val label: String,
+        val labelKey: String,
+        val iconKey: String? = null,
+        val pinProtected: Boolean = false,
         override val tags: Set<Tag> = setOf(Tag.Presentation, Tag.Tile),
     ) : Component()
 
-    data class Sos(
-        override val id: ComponentId,
-        val targetPhone: String,
-        override val tags: Set<Tag> = setOf(Tag.Presentation, Tag.Tile, Tag.Safety, Tag.Emergency),
-    ) : Component()
-
-    data class Toolbar(
-        override val id: ComponentId,
-        val buttons: List<ToolbarButton>,
-        override val tags: Set<Tag> = setOf(Tag.Presentation, Tag.Toolbar),  // no Tile — separate panel; Tag.Toolbar enables query-based lookup
-    ) : Component()
-
+    @Serializable @SerialName("FontSize")
     data class FontSize(
-        override val id: ComponentId,
         val scale: Float,
         override val tags: Set<Tag> = setOf(Tag.Appearance, Tag.Accessibility),
     ) : Component()
 
+    @Serializable @SerialName("Sos")
+    data class Sos(
+        val shareLocation: Boolean = true,
+        val autoAnswer: Boolean = true,
+        override val tags: Set<Tag> = setOf(Tag.Presentation, Tag.Tile, Tag.Safety, Tag.Emergency),
+    ) : Component()
+
+    @Serializable @SerialName("Toolbar")
+    data class Toolbar(
+        val items: List<String>,
+        val layoutKey: String,
+        override val tags: Set<Tag> = setOf(Tag.Presentation, Tag.Toolbar),
+    ) : Component()
+
+    // WAS `object` — converted to data class so `tags` can be a constructor
+    // param (objects cannot carry overridable constructor-defaults; object
+    // properties are not part of kotlinx wire shape). Wire-compatible:
+    // old JSON `{"type":"LauncherRole"}` still reads (all params defaulted).
+    @Serializable @SerialName("LauncherRole")
     data class LauncherRole(
-        override val id: ComponentId,
-        val requested: Boolean,
         override val tags: Set<Tag> = setOf(Tag.System),
     ) : Component()
 
+    @Serializable @SerialName("Theme")
     data class Theme(
-        override val id: ComponentId,
-        val name: String,
+        val paletteSeedHex: String,
+        val typographyScale: TypographyScale,
+        val shapeStyle: ShapeStyle,
+        val darkMode: Boolean,
         override val tags: Set<Tag> = setOf(Tag.Appearance),
     ) : Component()
 
-    // ... any additional subtypes: same pattern, non-empty default tags.
+    @Serializable @SerialName("Language")
+    data class Language(
+        val locale: String,
+        override val tags: Set<Tag> = setOf(Tag.System),
+    ) : Component()
+
+    // WAS `object` — same conversion as LauncherRole.
+    @Serializable @SerialName("StatusBarPolicy")
+    data class StatusBarPolicy(
+        override val tags: Set<Tag> = setOf(Tag.System),
+    ) : Component()
 }
 ```
 
-**Design constraint**: every subtype MUST declare non-empty default `tags`. Enforced by `ComponentTagsFitnessTest` (reflection walk over sealed subclasses).
+Deltas vs the earlier fictional sketch (all corrected against real code):
+- **8 subtypes**, including `Language` and `StatusBarPolicy` (earlier revision missed both).
+- Real field names: `labelKey` (not `label`), `Sos(shareLocation, autoAnswer)` (not `targetPhone` — that would be PII in a shareable artifact, rule 9), `Toolbar(items, layoutKey)` (not `buttons`), `Theme` has 4 flat fields (not `name`).
+- No `ComponentId` / abstract `id` — `ProfileComponent.id` is the identity.
+- `LauncherRole` / `StatusBarPolicy` **object → data class conversion** is an explicit, wire-compatible task (T127-004).
 
-**Override**: `ComponentDeclaration` in `pool.json` supports optional `"tags": [...]` field. If provided, overrides the subtype default at pool-load time; if absent, subtype default applies. Enables preset authors to add extra semantic tags to a specific `AppTile` instance without touching Kotlin code (e.g., `AppTile(WhatsApp) → +Tag.Communication`).
+**Design constraint**: every subtype MUST declare a non-empty default `tags`. Enforced by `ComponentTagsFitnessTest` — reflection walk; for subtypes with required params (e.g. `AppTile.packageName`) the test supplies dummy values and asserts the `tags` default is non-empty.
+
+**Pool override — no ComponentDeclaration change needed**: [Pool.kt](../../core/src/commonMain/kotlin/com/launcher/preset/model/Pool.kt) `ComponentDeclaration` embeds `component: Component` directly, so a `pool.json` declaration overrides tags simply by including `"tags": [...]` inside its embedded component object. The earlier plan to add a separate `tags: List<String>?` field to `ComponentDeclaration` is dropped (rule 4 MVA — mechanism already exists). FR-003 restated accordingly.
 
 ---
 
@@ -108,92 +137,107 @@ fun Profile.byAllTags(tags: Set<Tag>): List<ProfileComponent> =
 fun Profile.byAnyTag(tags: Set<Tag>): List<ProfileComponent> =
     query { it.component.tags.any(tags::contains) }
 
-// Convenience: NOT — components lacking this tag (canonical ECS Without<T> / Flecs !tag / EnTT exclude<>)
+// Convenience: NOT — components lacking this tag
 fun Profile.byNotTag(tag: Tag): List<ProfileComponent> =
     query { tag !in it.component.tags }
 
-// HomeScreen: tiles (Presentation AND Tile — excludes Toolbar)
+// HomeScreen: tiles (Presentation AND Tile — excludes Toolbar).
+// Excludes ComponentStatus.Failed / Skipped — see § Render gating below.
 fun Profile.homeScreenTiles(): List<ProfileComponent> =
     byAllTags(setOf(Tag.Presentation, Tag.Tile))
+        .filterNot { it.status == ComponentStatus.Failed || it.status == ComponentStatus.Skipped }
 
-// HomeScreen: bottom Toolbar (query-based, no `is Toolbar` type check)
+// Bottom Toolbar lookup (query-based, no `is Toolbar` type check).
+// NOTE: selector exists at query-API level; HomeComponent does NOT consume it
+// in TASK-127 (toolbar rendering is out of scope — see spec § Out of Scope).
 fun Profile.toolbar(): ProfileComponent? =
     byTag(Tag.Toolbar).firstOrNull()
 ```
 
-**Extension functions** — not member methods on `Profile`. Rationale: keeps `Profile.kt` from growing; each selector is small and testable in isolation; new selectors can be added in feature-specific files (e.g., `SafetyQueries.kt` when Phase-2 safety features land) without touching core `Profile.kt`.
+**Mental model** (per ADR-012): this is a **label-selector system (Kubernetes-style `matchLabels`), not canonical ECS**. `byNotTag` is a plain predicate, not Bevy `Without<T>` archetype filtering — the earlier "canonical ECS equivalent" framing overstated parity and is dropped from docs.
 
-**Return type**: `List<ProfileComponent>` (not `Sequence`) — eager evaluation. MVP Profile size (~20 Components) makes eager+linear the right choice; laziness would be premature optimization.
+**Extension functions** — not member methods on `Profile`: keeps `Profile.kt` from growing; new selectors land in feature-specific files without touching core model.
 
-**Null semantics**: never returns `null` for list queries; returns empty list. `toolbar()` returns `ProfileComponent?` — Toolbar is optional UI element.
+**Return type**: `List<ProfileComponent>` (eager). MVP Profile ~20 Components — laziness would be premature optimization.
 
-**Performance target**: < 1 ms per call at MVP scale (NFR-003, SC-008). Verified by `ProfileQueryBenchmarkTest`.
+**Null semantics**: list queries never return `null` (empty list); `toolbar()` returns `ProfileComponent?`.
+
+**Performance target**: < 1 ms per call at MVP scale (NFR-003, SC-008), verified by `ProfileQueryBenchmarkTest`.
+
+### Render gating (capability / status policy — NEW, closes audit hole M1)
+
+Tags answer "*what is this component about*"; `ProfileComponent.status` answers "*did this device manage to apply it*" (`Pending / Applied / Failed / Skipped`, set by `ReconcileEngine` providers; `Outcome.Unsupported` on a NoOp fallback → `Failed`/`Skipped`). MVP policy: **`homeScreenTiles()` excludes `Failed` and `Skipped`** — a tile whose component this device could not apply (or the user declined in the wizard) does not render as a dead button (senior-UX: no tiles that do nothing). `Pending` renders (benign transient). One unit test pins this. If segments later need "render with tap-time fallback" instead — that is a preset field candidate per rule 11, revisit then.
 
 ---
 
-## Profile schemaVersion (starting at 1)
+## Profile schemaVersion (stays 2 — additive change)
 
-Location: `Profile.kt` — existing field, remains `schemaVersion: Int = 1`.
+Real state: `Profile.CURRENT_SCHEMA_VERSION = 2` ([Profile.kt:39](../../core/src/commonMain/kotlin/com/launcher/preset/model/Profile.kt#L39)), DataStore key `profile_json_v2`. The `tags` addition is **additive** (optional field, constructor-defaults) → **no bump, stays 2**. The earlier "reset to 1" wording (Q6 remediation commit b297979) touched only spec artifacts, contradicted shipped code and the immutable TASK-120 Decision, and is corrected in this revision.
 
-**Никакого migration writer в TASK-127**. Rationale:
+**No migration writer in TASK-127** (Q6 essence unchanged):
+- MVP unreleased — no consumer for a migration (rule 4 MVA).
+- Missing `tags` in JSON → kotlinx.serialization constructor-default (single source of truth).
+- First post-release breaking change = `ProfileMigrationV2toV3` + bump to 3.
 
-- MVP не релизнут. Релизнутых Profile файлов v0 в природе не существует.
-- Dev `ProfileStore` на устройствах разработчиков можно сбросить (`adb uninstall` / clear data).
-- Отсутствие `tags` в JSON = kotlinx.serialization подставляет constructor-default из `Component` subtype (единственный источник истины).
-- Rule 4 (MVA) запрещает писать миграцию без потребителя.
-
-**Единый источник истины для tags-defaults**: конструкторы `Component` subtypes. Никакого дублирующего `defaultTagsFor()` mapping в отдельном объекте — это устраняет R-1 risk (два источника рассинхрон).
-
-**Пока не релизнемся**: каждое breaking изменение полей Component = переписываем dev fixture'ы, `schemaVersion` остаётся `1`. После production релиза первый breaking change = первый migration writer + bump до `schemaVersion: 2`.
-
-**Fitness test**: `ComponentTagsFitnessTest` (см. FR-002 + T127-021) через reflection проверяет что каждый Component subtype имеет non-empty default tags. Это единственный gate — не нужен второй gate типа «migration writer matches defaults».
+**Fitness test**: `ComponentTagsFitnessTest` — every subtype has non-empty default tags. Single gate; no duplicate `defaultTagsFor()` mapping anywhere.
 
 ---
 
 ## ProfileBackedFlowRepository (new adapter)
 
-Location: `core/src/commonMain/kotlin/com/launcher/adapters/flow/ProfileBackedFlowRepository.kt` (new).
+Location: `core/src/commonMain/kotlin/com/launcher/adapters/flow/ProfileBackedFlowRepository.kt` (new; note the existing config adapter lives at `core/src/commonMain/kotlin/com/launcher/adapters/config/ConfigBackedFlowRepository.kt`).
+
+Implements the **existing, unchanged** [`FlowRepository`](../../core/src/commonMain/kotlin/com/launcher/api/FlowRepository.kt) port — all four methods (the earlier sketch invented `observeToolbar()` and omitted three real methods; corrected):
 
 ```kotlin
 class ProfileBackedFlowRepository(
     private val profileStore: ProfileStore,
 ) : FlowRepository {
 
+    // One-shot path — THIS is what HomeComponent.launchLoadFlows() calls with
+    // its 3s timeout; the actual TASK-52 regression fires here, not in observe.
+    // Awaits first non-null Profile: post-wizard it is already saved → returns
+    // immediately. Genuinely absent Profile → suspends → caller's 3s timeout
+    // → Error + Retry (existing TASK-52 UX, unchanged — no eternal Loading).
+    override suspend fun loadFlows(): List<FlowDescriptor> =
+        profileStore.observe().filterNotNull().first()
+            .homeScreenTiles().map(::toFlowDescriptor)
+
+    // Hot path — SEQ-4: null Profile → no emission → HomeComponent stays Loading.
     override fun observeFlows(): Flow<List<FlowDescriptor>> =
         profileStore.observe()
-            .filterNotNull()                            // SEQ-4: null Profile → stay in Loading
-            .map { profile -> profile.homeScreenTiles() }
-            .map { components -> components.map(::toFlowDescriptor) }
-
-    override fun observeToolbar(): Flow<ToolbarDescriptor?> =
-        profileStore.observe()
             .filterNotNull()
-            .map { profile -> profile.toolbar()?.let(::toToolbarDescriptor) }
+            .map { profile -> profile.homeScreenTiles().map(::toFlowDescriptor) }
 
-    private fun toFlowDescriptor(pc: ProfileComponent): FlowDescriptor = TODO("map ProfileComponent → FlowDescriptor")
-    private fun toToolbarDescriptor(pc: ProfileComponent): ToolbarDescriptor = TODO("map ProfileComponent → ToolbarDescriptor")
+    // Template catalogue — reuse the existing static catalogue semantics
+    // (same behaviour as ConfigBackedFlowRepository.availableTemplates).
+    override fun availableTemplates(presetId: String): List<FlowTemplate> = …
+
+    // Parity with the only existing impl (ConfigBackedFlowRepository.addFlow
+    // also throws). Profile-based addFlow = separate future task.
+    override suspend fun addFlow(templateId: String): FlowDescriptor =
+        error("ProfileBackedFlowRepository.addFlow not supported yet — TODO(profile-add-flow)")
+
+    private fun toFlowDescriptor(pc: ProfileComponent): FlowDescriptor = TODO("T127-014")
 }
 ```
 
-**Contract with `FlowRepository` port** unchanged — signatures match existing `ConfigBackedFlowRepository`. Callers (HomeComponent) do not change.
+**`filterNotNull` semantics** (SEQ-4): transient null (cold-start disk read) → `Loading`, never `Error`. Persistently absent Profile → `loadFlows()` suspends → HomeComponent's existing 3s timeout → `Error("timeout 3s")` with Retry — deliberate: no infinite-Loading watchdog gap.
 
-**`filterNotNull` semantics** (SEQ-4): when `ProfileStore.observe()` emits `null` (cold start, transient migration), no downstream emission occurs. `HomeComponent` stays in `HomeLoadingState.Loading` (default state). No `Error` emitted — closes TASK-52 regression.
-
-**Mapping to `FlowDescriptor`**: TODO in the sketch above — mapping logic details land in tasks.md (Phase 2), not plan.md.
+**Mapping to `FlowDescriptor`**: details in tasks.md (T127-014).
 
 ---
 
 ## Deprecated: ConfigBackedFlowRepository
 
-**Unchanged code**, but **unbound from `FlowRepository`** in DI. Marked with inline TODO:
+**Unchanged code** at `core/src/commonMain/kotlin/com/launcher/adapters/config/ConfigBackedFlowRepository.kt`, but **unbound from `FlowRepository`** in DI (real binding sites: `core/src/androidMockBackend/kotlin/com/launcher/di/BackendInit.kt` and `core/src/androidRealBackend/kotlin/com/launcher/di/BackendInit.kt` — NOT `app/.../di/{Mock,Real}BackendModule.kt`, which do not exist). Marked with inline TODO:
 
 ```kotlin
 // TODO(config-deprecation, SRV-CONFIG-DEPRECATION): ConfigDocument stays for
 // admin push (spec 009); remove entirely when unified Profile-sync ships.
-class ConfigBackedFlowRepository(...) : FlowRepository { ... }
 ```
 
-Existing tests (`ConfigBackedFlowRepositoryTest`) stay green (class not removed, coverage preserved).
+Existing `ConfigBackedFlowRepository` tests stay green (class not removed).
 
 ---
 
@@ -201,22 +245,21 @@ Existing tests (`ConfigBackedFlowRepositoryTest`) stay green (class not removed,
 
 ```
 Tag ──── (referenced by) ──── Component.tags: Set<Tag>
-Component ──── (contained in) ──── ProfileComponent ──── (contained in) ──── Profile
-Profile ──── (queried by) ──── query / byTag / byAllTags / byAnyTag / homeScreenTiles / toolbar
-ProfileStore ──── (observed by) ──── ProfileBackedFlowRepository ──── (implements) ──── FlowRepository
-FlowRepository ──── (consumed by) ──── HomeComponent ──── (renders in) ──── HomeActivity
-ProfileSerializer ──── (uses) ──── kotlinx.serialization constructor-defaults ──── (single source of truth for tags-defaults)
+Component ──── (wrapped by) ──── ProfileComponent{id, wizardBehavior, critical, status} ──── (contained in) ──── Profile
+Profile ──── (queried by) ──── query / byTag / byAllTags / byAnyTag / byNotTag / homeScreenTiles / toolbar
+ProfileStore (port) ──── (observed by) ──── ProfileBackedFlowRepository ──── (implements) ──── FlowRepository (port, UNCHANGED)
+FlowRepository ──── (consumed by) ──── HomeComponent (loadFlows + observeFlows) ──── (renders in) ──── HomeActivity
+DataStoreProfileStore (app adapter) / FakeProfileStore (commonTest) ──── (implement) ──── ProfileStore
 ```
 
 ---
 
 ## TL;DR для владельца
 
-- **`Tag`** — это ярлык на компоненте: «плитка», «безопасность», «внешний вид», всего **10 штук** (`Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar`).
-- **`Component.tags`** — множество ярлыков на одном компоненте. `SOS` = «показывается» + «плитка» + «безопасность» + «экстренная». `Toolbar` = «показывается» + «тулбар» (`Tag.Toolbar` — маркер отдельной панели).
-- **`Profile.query`** — «отдай все компоненты подходящие под условие». Удобные обёртки: `byTag`, `byAllTags`, `byAnyTag`, `byNotTag` (эквивалент canonical ECS `Without<T>`), `homeScreenTiles`, `toolbar`.
-- **`toolbar()`** реализован через `byTag(Tag.Toolbar).firstOrNull()` — чистый query, без `is Toolbar` type check. Одна парадигма — теги.
-- **Terminology (ADR-012)**: это **tagged-component-model, ECS-inspired**, не canonical ECS (Bevy / Flecs / Unity DOTS). Sealed hierarchy = один Component на entity, а не multi-component composition. Для MVP-масштаба (~20 компонентов) это ок.
-- **Миграция НЕ пишется** (по решению владельца 2026-07-16, Clarification Q6): MVP не релизнут, релизнутых Profile файлов нет. `schemaVersion: 1` — стартовая версия. Отсутствие `tags` в JSON = `kotlinx.serialization` подставляет constructor-default. Единственный источник истины для tags-defaults — конструкторы `Component` subtypes. Никакого дублирующего mapping в отдельном объекте.
-- **`ProfileBackedFlowRepository`** — новый переходник, читает `Profile` и отдаёт плитки на `HomeScreen`. Заменяет старый `ConfigBackedFlowRepository` в проводке (тот остаётся в коде для будущего сценария админ-пуш).
-- **Гарантия «не забыть теги»**: fitness-тест `ComponentTagsFitnessTest` пробегает по всем субтипам через reflection и проверяет что у каждого не пустой набор дефолтных тегов. Если разработчик добавит новый субтип и забудет теги — тест упадёт на билде.
+- **`Tag`** — ярлык на компоненте («плитка», «безопасность», «внешний вид»), всего **10 штук**. Закрытый список в коде.
+- **`Component.tags`** — множество ярлыков на одном компоненте. У SOS их четыре сразу: «показывается» + «плитка» + «безопасность» + «экстренная».
+- **Подтипов компонентов — 8** (в старой версии этого документа было выдумано 6 с несуществующими полями): плитка приложения, размер шрифта, SOS, тулбар, роль лаунчера, тема, язык, скрытие статус-бара. Два последних из «синглтонов» станут обычными классами — иначе на них нельзя навесить теги (совместимо со старыми данными).
+- **`Profile.query`** — «отдай компоненты по условию» + удобные обёртки. Правильная аналогия — **метки в Kubernetes**, не игровой ECS (мы это честно зафиксировали в ADR-012).
+- **Новое правило показа**: плитка, которую устройство не смогло применить (`Failed`) или которую пользователь пропустил в мастере (`Skipped`), **не рендерится** на главном экране — пожилой пользователь не увидит мёртвую кнопку. Это дефолт, его можно пересмотреть.
+- **`schemaVersion` остаётся 2** — как в коде. Добавление `tags` — аддитивно, номер не трогаем, миграцию не пишем (решение Q6 по сути сохранено).
+- **`ProfileBackedFlowRepository`** — новый переходник; реализует **все четыре** метода существующего порта (в старой версии документа был выдуман метод `observeToolbar`, а три настоящих пропущены). Чинит именно тот путь (`loadFlows`), где рождалась ошибка «Не удалось загрузить настройки».
