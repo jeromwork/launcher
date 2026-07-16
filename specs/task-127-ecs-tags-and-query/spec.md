@@ -17,8 +17,8 @@
 |---|----------|------------|
 | 1 | `ProfileBackedFlowRepository.observeFlows()` при null Profile — что эмитит? | `filterNotNull` — stay in `Loading` пока Profile не появится. Fresh install покрывается wizard'ом (HomeScreen не показывается пока wizard идёт). HomeScreen null видит только в transient migration states. |
 | 2 | Pool schemaVersion bump v2→v3 нужен? | Нет. `pool.json` — build-time артефакт (bundled в APK, immutable до next build). `Component.tags` добавляется как optional override поле в `ComponentDeclaration` — v2 fixtures десериализуются корректно (default tags из Component subtype). Только Profile v2→v3 требует migration writer. |
-| 3 | `homeScreenTiles()` selector — как отличить плитку от Toolbar (оба Presentation)? | Ввести отдельный `Tag.Tile`. Начальный набор Tag enum — 9 значений: Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, **Tile**. `homeScreenTiles() = byAllTags(setOf(Tag.Presentation, Tag.Tile))`. Toolbar имеет только `Tag.Presentation`, в результат `homeScreenTiles()` не попадает. |
-| 4 | Toolbar в MVP: конфликт `Tag.Presentation` vs homeScreenTiles filter | Закрывается Q3 через Tag.Tile. Toolbar tags = `setOf(Tag.Presentation)`, отдельный selector `Profile.toolbar()` для рендеринга нижней панели. |
+| 3 | `homeScreenTiles()` selector — как отличить плитку от Toolbar (оба Presentation)? | Ввести отдельный `Tag.Tile`. Начальный набор Tag enum — 10 значений: Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, **Tile**, **Toolbar**. `homeScreenTiles() = byAllTags(setOf(Tag.Presentation, Tag.Tile))`. Toolbar имеет `setOf(Tag.Presentation, Tag.Toolbar)` — в `homeScreenTiles()` не попадает, находится через `byTag(Tag.Toolbar).firstOrNull()`. |
+| 4 | Toolbar в MVP: конфликт `Tag.Presentation` vs homeScreenTiles filter | Закрывается Q3 через отдельные `Tag.Tile` + `Tag.Toolbar`. `Profile.toolbar()` реализован через `byTag(Tag.Toolbar).firstOrNull()` — чистая query-based выборка без `is Toolbar` type check (deep-audit 2026-07-16 flagged paradigm mix, устранён). |
 | 5 | Existing `ConfigBackedFlowRepository` тесты — что с ними? | Остаются зелёными (класс не удаляется, coverage сохраняется). `HomeComponentLoadingStateTest` расширяется НОВЫМ сценарием `postManifestWizardReconcile_profileSeeded_homeReady` для Profile-based path. Существующий config-based сценарий остаётся. |
 
 ---
@@ -28,7 +28,7 @@
 - TASK-52 закрыл класс багов «HomeActivity Error state» через детерминированную `HomeLoadingState` machine.
 - TASK-126 (wizard runtime migration) сломал путь wizard → HomeActivity: после прохождения wizard'а `HomeActivity` показывает Error UI вместо плиток.
 - Root cause: между TASK-120 фундаментом (`Profile` / `Provider` / `ReconcileEngine`) и HomeScreen-стеком (`ConfigDocument` / `ConfigBackedFlowRepository`) образовался архитектурный gap — wizard пишет `Profile`, HomeScreen читает `ConfigDocument`, между ними нет моста.
-- Mentor-сессия 2026-07-15: изначальный план «построить bridge через `LauncherPresentationBuilder` (Profile → ConfigDocument)» отброшен как построение моста на плохую архитектуру. Новое направление — **расширить TASK-120 в ECS-native направлении**: добавить `Component.tags: Set<Tag>` + `Profile.query { predicate }`, переключить HomeScreen на чтение `Profile` напрямую через query API.
+- Mentor-сессия 2026-07-15: изначальный план «построить bridge через `LauncherPresentationBuilder` (Profile → ConfigDocument)» отброшен как построение моста на плохую архитектуру. Новое направление — **расширить TASK-120 через tagged-component-model (ECS-inspired, не canonical ECS)**: добавить `Component.tags: Set<Tag>` + `Profile.query { predicate }`, переключить HomeScreen на чтение `Profile` напрямую через query API. См. [ADR-012](../../docs/adr/ADR-012-tagged-component-model-vs-canonical-ecs.md) — где мы намеренно отклоняемся от canonical ECS (Bevy / Flecs / Unity DOTS) и почему.
 - Preset lifecycle-категоризация (`wizardFlow` / `settingsMap` / `activeComponents`) сохраняется — ортогональна Tag semantic-категоризации. Обе дименсии сосуществуют.
 
 ---
@@ -267,7 +267,7 @@ sequenceDiagram
   HR-->>HVM: List<FlowDescriptor> (3 items)
   HVM->>HR: observeToolbar()
   HR->>P: toolbar()
-  P->>P: byTag(Presentation).firstOrNull { it is Toolbar }
+  P->>P: byTag(Tag.Toolbar).firstOrNull()
   P-->>HR: Toolbar
   HR-->>HVM: ToolbarDescriptor
   HVM-->>HUI: HomeLoadingState.Ready(flows=3, toolbar=Toolbar)
@@ -278,9 +278,9 @@ sequenceDiagram
 
 - **Ключевая идея тегов**: один компонент может иметь несколько тегов сразу. Кнопка SOS — это одновременно `Presentation` (её видно), `Tile` (это плитка на экране), `Safety` (относится к безопасности) и `Emergency` (экстренная ситуация). Мы не заставляем выбрать одну категорию — компонент участвует во всех запросах, к которым подходит.
 - **`homeScreenTiles()`** = «дай все компоненты у которых теги содержат И `Presentation` И `Tile` одновременно». `AppTile` и `Sos` подходят. `Toolbar` — нет (у неё только `Presentation`, без `Tile`), поэтому она не попадает в сетку плиток.
-- **`toolbar()`** = отдельный селектор для нижней панели. Ищет компонент типа `Toolbar` среди тех что имеют `Presentation`. Возвращает один объект (или `null`, если не задан).
-- **Почему такое разделение** — по clarification Q3/Q4: без отдельного тега `Tile` любой `Presentation`-компонент попадал бы в сетку плиток, включая Toolbar, — было бы дублирование (Toolbar и как плитка, и как панель). Тег `Tile` — граница.
-- **Стандартный ECS-паттерн** (Bevy Query, Unity DOTS, Flecs) — будущий разработчик сразу поймёт как это работает, объяснять не нужно.
+- **`toolbar()`** = отдельный селектор для нижней панели. Ищет компонент с тегом `Toolbar` через `byTag(Tag.Toolbar).firstOrNull()`. Возвращает один объект (или `null`, если не задан). **Query-based, не `is Toolbar` type check** — оба разделения (плитка vs тулбар) через теги, консистентно.
+- **Почему такое разделение** — по clarification Q3/Q4: без отдельного тега `Tile` любой `Presentation`-компонент попадал бы в сетку плиток, включая Toolbar. Тег `Tile` — граница «это плитка», тег `Toolbar` — маркер «это нижняя панель».
+- **Terminology note (ADR-012)**: это **tagged-component-model, ECS-inspired**, не canonical ECS (Bevy / Flecs / Unity DOTS). У нас sealed hierarchy = discriminated union (один Component на entity), не multi-component composition. Для нашего масштаба (~20 компонентов, редкие правки) это ок. Если появится «любая плитка может получить Cooldown-маркер» — придётся рефакторить (месяцы). См. ADR-012 § latent one-way door.
 - Покрывает US-2 Acceptance Scenario 2 (multi-tag membership), FR-005, Clarifications Q3-Q4.
 <!-- MENTOR-DETAIL:END -->
 
@@ -344,13 +344,13 @@ sequenceDiagram
 
 ### Functional Requirements
 
-- **FR-001**: `Tag` enum объявлен в `core/preset/model/Enums.kt`. Начальный набор: `Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile`. Additive-only per rule 5.
+- **FR-001**: `Tag` enum объявлен в `core/preset/model/Enums.kt`. Начальный набор: `Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar`. Additive-only per rule 5.
 
 - **FR-002**: `Component.tags: Set<Tag>` — новое поле в sealed hierarchy. Multiple tags разрешены. Каждый existing subtype получает default value в конструкторе:
   - `AppTile` → `setOf(Tag.Presentation, Tag.Tile)`
   - `FontSize` → `setOf(Tag.Appearance, Tag.Accessibility)`
   - `Sos` → `setOf(Tag.Presentation, Tag.Tile, Tag.Safety, Tag.Emergency)`
-  - `Toolbar` → `setOf(Tag.Presentation)` (без Tag.Tile — рендерится как отдельная панель, не плитка)
+  - `Toolbar` → `setOf(Tag.Presentation, Tag.Toolbar)` (без Tag.Tile — рендерится как отдельная панель, не плитка; `Tag.Toolbar` даёт query-based access)
   - `LauncherRole` → `setOf(Tag.System)`
   - `Theme` → `setOf(Tag.Appearance)`
 
@@ -362,8 +362,9 @@ sequenceDiagram
   - `Profile.byTag(tag: Tag): List<ProfileComponent>`
   - `Profile.byAllTags(tags: Set<Tag>): List<ProfileComponent>` — все указанные теги должны присутствовать
   - `Profile.byAnyTag(tags: Set<Tag>): List<ProfileComponent>` — хотя бы один
+  - `Profile.byNotTag(tag: Tag): List<ProfileComponent>` — все компоненты БЕЗ этого тега (canonical ECS `Without<T>` / Flecs `!` / EnTT `exclude<>` эквивалент)
   - `Profile.homeScreenTiles(): List<ProfileComponent>` = `byAllTags(setOf(Tag.Presentation, Tag.Tile))` — плитки, но не Toolbar
-  - `Profile.toolbar(): ProfileComponent?` — отдельный селектор для нижней панели (`byTag(Tag.Presentation).firstOrNull { it.component is Component.Toolbar }`)
+  - `Profile.toolbar(): ProfileComponent?` = `byTag(Tag.Toolbar).firstOrNull()` — query-based выборка без `is Toolbar` type check
 
 - **FR-006**: `ProfileBackedFlowRepository : FlowRepository` — новая реализация в `core/adapters/`. Читает `ProfileStore`, применяет query, возвращает `List<FlowDescriptor>`. Observe-версия через `profileStore.observe().filterNotNull()` — при `null` Profile НЕ эмитит (HomeComponent остаётся в `Loading`, соответствует контракту TASK-52 HomeLoadingState). После первого non-null Profile — эмитит на каждом изменении.
 
@@ -432,7 +433,7 @@ sequenceDiagram
 
 - `ProfileStore.observe()` возвращает `Flow<Profile?>`. `null` наблюдается при cold start до первого load и transient migration states. `ProfileBackedFlowRepository` filter'ит null → HomeComponent остаётся в Loading (см. FR-006).
 - Pool.json НЕ мигрируется. Bundled в APK, всегда shipped вместе с current app version. Только persisted Profile в ProfileStore требует migration writer v2→v3.
-- Tag enum initial set: 9 значений (Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile). Additive-only per rule 5.
+- Tag enum initial set: 10 значений (Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar). Additive-only per rule 5.
 - `ReconcileEngine.run(RunMode.Wizard)` уже сохраняет Profile в `ProfileStore` на завершении wizard'а — проверить в коде TASK-126 перед implementation.
 - `FakeConfigEditor` не трогается — путь через него больше не используется HomeScreen. Существующие тесты на `ConfigBackedFlowRepository` остаются зелёными (класс не удаляется).
 - Toolbar в MVP остаётся Composite Component с `tags = setOf(Tag.Presentation)` — расщепление отложено до отдельной задачи.
@@ -461,12 +462,13 @@ sequenceDiagram
 
 ## TL;DR (по-русски, для новичка и для будущего AI)
 
-**Суть.** Регрессия TASK-126: после wizard'а HomeActivity показывает Error UI вместо плиток. Root cause — архитектурный gap: wizard пишет `Profile` (модель TASK-120), а HomeScreen читает `ConfigDocument` (старая модель). Решение — не bridge, а **ECS-native расширение TASK-120**: добавить `Component.tags: Set<Tag>` + `Profile.query { predicate }`, переключить HomeScreen на чтение `Profile` напрямую через query API. `ConfigDocument` остаётся в кодовой базе для будущего admin push.
+**Суть.** Регрессия TASK-126: после wizard'а HomeActivity показывает Error UI вместо плиток. Root cause — архитектурный gap: wizard пишет `Profile` (модель TASK-120), а HomeScreen читает `ConfigDocument` (старая модель). Решение — не bridge, а **tagged-component-model расширение TASK-120 (ECS-inspired, не canonical ECS — см. [ADR-012](../../docs/adr/ADR-012-tagged-component-model-vs-canonical-ecs.md))**: добавить `Component.tags: Set<Tag>` + `Profile.query { predicate }`, переключить HomeScreen на чтение `Profile` напрямую через query API. `ConfigDocument` остаётся в кодовой базе для будущего admin push.
 
 **Конкретика, которую стоит запомнить:**
-- `Tag` enum — 9 значений: `Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile`. Additive-only.
-- `Component.tags` дефолты: `AppTile → {Presentation, Tile}`, `Sos → {Presentation, Tile, Safety, Emergency}`, `Toolbar → {Presentation}` (без `Tile`), `FontSize → {Appearance, Accessibility}`.
-- `Profile.homeScreenTiles() = byAllTags(setOf(Presentation, Tile))` — Toolbar в результат не попадает, для него `Profile.toolbar()`.
+- `Tag` enum — **10 значений**: `Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar`. Additive-only.
+- `Component.tags` дефолты: `AppTile → {Presentation, Tile}`, `Sos → {Presentation, Tile, Safety, Emergency}`, `Toolbar → {Presentation, Toolbar}`, `FontSize → {Appearance, Accessibility}`.
+- `Profile.homeScreenTiles() = byAllTags(setOf(Presentation, Tile))` — Toolbar не попадает; `Profile.toolbar() = byTag(Tag.Toolbar).firstOrNull()` — query-based, без `is Toolbar`.
+- Query API: `byTag`, `byAllTags`, `byAnyTag`, `byNotTag` (эквивалент canonical ECS `Without<T>`).
 - Wire-format bump `Profile` v2→v3 + migration writer (hardcoded mapping subtype → default tags). Pool.json НЕ мигрируется (bundled).
 - `ProfileBackedFlowRepository` — новый adapter, читает `ProfileStore.observe().filterNotNull()` (при null Profile HomeComponent stays in Loading). Заменяет `ConfigBackedFlowRepository` в DI обоих flavor'ов.
 - `wizard_step_of` — `<plurals>` ресурс (Russian one/few/many/other), не простой format string.

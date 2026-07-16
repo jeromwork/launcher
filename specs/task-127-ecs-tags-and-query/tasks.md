@@ -58,7 +58,7 @@
 
 **Acceptance**:
 - `core/src/commonMain/kotlin/com/launcher/preset/model/Enums.kt` modified.
-- `Tag` enum with 9 values: `Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile`.
+- `Tag` enum with **10 values**: `Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar`.
 - Compiles without Android imports.
 - `checklist-domain-isolation` passes on this enum (verified by running checklist in tasks-phase).
 
@@ -99,13 +99,14 @@
 **Trace**: Plan §Data model, FR-005.
 
 **Acceptance**:
-- `core/src/commonMain/kotlin/com/launcher/preset/query/ProfileQuery.kt` contains all 6 extension functions (identical to data-model.md § Query API):
+- `core/src/commonMain/kotlin/com/launcher/preset/query/ProfileQuery.kt` contains all **7 extension functions** (identical to data-model.md § Query API):
   - `query(predicate)`
   - `byTag(tag)`
   - `byAllTags(tags)`
   - `byAnyTag(tags)`
+  - `byNotTag(tag)` — canonical ECS `Without<T>` equivalent
   - `homeScreenTiles()`
-  - `toolbar()`
+  - `toolbar()` — implemented as `byTag(Tag.Toolbar).firstOrNull()`, **no `is Toolbar` type check**
 - No Android imports.
 - Compiles.
 - No tests yet (unit tests in separate Phase-2 task).
@@ -377,8 +378,9 @@
   - `byTag(Tag.Presentation)` returns only Presentation-tagged components.
   - `byAllTags(setOf(Tag.Presentation, Tag.Tile))` returns only components with both tags (homeScreenTiles equivalent).
   - `byAnyTag(setOf(Tag.Safety, Tag.Emergency))` returns components with at least one of these tags.
+  - `byNotTag(Tag.Toolbar)` returns all components except Toolbar-tagged ones.
   - `homeScreenTiles()` returns tiles but not Toolbar.
-  - `toolbar()` returns Toolbar or null.
+  - `toolbar()` returns Toolbar-tagged component or null; verified NO `is Toolbar` type check in implementation.
   - Empty result on unmatched tag.
   - Empty Profile returns empty results.
   - Multi-tag membership: Sos component found by all of {Tag.Presentation, Tag.Tile, Tag.Safety, Tag.Emergency}.
@@ -515,14 +517,14 @@ All forward dependencies valid. Task IDs in `requires:` point to earlier or same
 
 ## TL;DR (по-русски, для новичка и для будущего AI)
 
-**Суть.** 27 задач разложены в 8 фаз для реализации ECS-паттерна на `Profile`: добавить `Tag` enum (9 значений), поле `tags: Set<Tag>` на Components, query API (6 функций), новый `ProfileBackedFlowRepository` адаптер, миграцию v2→v3, локализованные строки wizard'а, тесты (contract, unit, integration, fitness).
+**Суть.** 27 задач разложены в 8 фаз для реализации tagged-component model (ECS-inspired) на `Profile`: добавить `Tag` enum (10 значений включая `Tag.Toolbar`), поле `tags: Set<Tag>` на Components, query API (7 функций включая `byNotTag` = canonical ECS `Without<T>`), новый `ProfileBackedFlowRepository` адаптер, миграцию v2→v3, локализованные строки wizard'а, тесты (contract, unit, integration, fitness). Terminology + latent one-way door задокументированы в [ADR-012](../../docs/adr/ADR-012-tagged-component-model-vs-canonical-ecs.md).
 
 **Конкретика, которую стоит запомнить:**
 - **27 задач** в 8 фазах: Foundation (2) → Domain types (6) → Wire format (5) → Adapters (3) → DI wiring (2) → Localization (1) → Integration (1) → Fitness (3) → Cleanup/docs (4).
 - **16 задач параллельные** (`[P]`), безопасно независимые, могут идти одновременно.
-- **`Tag` enum**: 9 значений (`Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile`), hardcoded в коде.
-- **`Component.tags` дефолты**: `AppTile → {Presentation, Tile}`, `Sos → {Presentation, Tile, Safety, Emergency}`, `Toolbar → {Presentation}` (без `Tile`), `FontSize → {Appearance, Accessibility}`, `LauncherRole → {System}`, `Theme → {Appearance}`.
-- **Query API** 6 функций: `query(predicate)`, `byTag`, `byAllTags`, `byAnyTag`, `homeScreenTiles`, `toolbar` — все extension-функции на `Profile`.
+- **`Tag` enum**: 10 значений (`Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar`), hardcoded в коде.
+- **`Component.tags` дефолты**: `AppTile → {Presentation, Tile}`, `Sos → {Presentation, Tile, Safety, Emergency}`, `Toolbar → {Presentation, Toolbar}`, `FontSize → {Appearance, Accessibility}`, `LauncherRole → {System}`, `Theme → {Appearance}`.
+- **Query API** 7 функций: `query(predicate)`, `byTag`, `byAllTags`, `byAnyTag`, `byNotTag` (canonical ECS `Without<T>` эквивалент), `homeScreenTiles`, `toolbar` — все extension-функции на `Profile`. `toolbar()` реализован через `byTag(Tag.Toolbar).firstOrNull()`, без `is Toolbar`.
 - **Migration v2→v3** — hardcoded mapping в `ProfileMigrationV2toV3.defaultTagsFor()`, идемпотентная (T127-011), backward-compat тест (T127-012).
 - **ProfileBackedFlowRepository** читает `ProfileStore.observe().filterNotNull()`, проецирует query результат, заменяет `ConfigBackedFlowRepository` в DI обоих flavor'ов.
 - **Тесты**: 3 контракта (roundtrip v3, migration roundtrip, backward-compat v2), 3 юнит (Query API, ProfileBackedFlowRepository, ComponentTagsFitnessTest), 1 интеграция (HomeComponentLoadingStateTest), 1 микробенчмарк (< 1 мс на query).

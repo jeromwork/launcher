@@ -94,20 +94,22 @@ Documents one-way-door decisions per CLAUDE.md §3 and rejected alternatives per
 
 ---
 
-## R-6: `Tag.Tile` separation — how to distinguish tile from Toolbar
+## R-6: `Tag.Tile` + `Tag.Toolbar` separation — how to distinguish tile from Toolbar
 
-**Choice**: Separate `Tag.Tile` value. `homeScreenTiles()` requires both `Presentation` AND `Tile`; `Toolbar` has only `Presentation` (no `Tile`).
+**Choice**: Two separate marker tags. `Tag.Tile` for HomeScreen tile-grid membership; `Tag.Toolbar` for bottom Toolbar panel marker. `homeScreenTiles() = byAllTags({Presentation, Tile})`; `toolbar() = byTag(Toolbar).firstOrNull()`. **Both queries are tag-based — zero `is Toolbar` type checks anywhere.**
 
-**Alternatives considered** (from Clarifications Q3/Q4):
-- **A. Rely on Component subtype check** — `homeScreenTiles = byTag(Presentation).filter { it.component !is Toolbar }`. No Tag.Tile.
-- **B. Separate Tag.Tile (chosen).**
+**Alternatives considered** (Clarifications Q3/Q4 + deep audit 2026-07-16):
+- **A. Rely on Component subtype check** — `homeScreenTiles = byTag(Presentation).filter { it.component !is Toolbar }`. No marker tags.
+- **B. Separate `Tag.Tile` only; `toolbar()` uses `is Toolbar` filter** (initial choice, later rejected).
+- **C. Separate `Tag.Tile` + `Tag.Toolbar`; both queries tag-based (chosen).**
 
 **Rationale**:
-- Option A hardcodes the "which subtypes are tiles" list at the query call site (or in a hardcoded exclusion). Adding a new non-tile Presentation Component (e.g., a floating hint overlay in Phase-2) requires editing every place that filters "tiles". Anti-ECS pattern.
-- Option B externalises "is a tile" as a data attribute. Adding a hint overlay: declare `tags = setOf(Tag.Presentation)` (no `Tile`) — automatically excluded from tile grid. No query call site edit.
-- Cost of option B: one extra Tag enum value + one extra tag on tile-shaped Components. Trivial.
+- Option A hardcodes the "which subtypes are tiles" list at every query call site. Adding a hint overlay in Phase-2 requires editing every filter. Rejected.
+- Option B fixes the tile-side (declarative tag) but leaves toolbar-side stuck on `is Toolbar` — **paradigm mix** flagged by deep-audit 2026-07-16 (industry ECS report). Every new Presentation-not-Tile component must document «I am/am not the toolbar» somewhere else. R-6 promise was to make additive changes touch only defaults; option B breaks that on the toolbar-side.
+- Option C completes the tag-based access story. `toolbar()` becomes a pure query. Adding a second-toolbar-like element (e.g., a floating panel) works additively — declare `Tag.Presentation` alone, no touch to `toolbar()`.
+- Cost of option C: **one extra Tag enum value + one extra tag on Toolbar Component**. Additive to migration writer (exhaustive `when` catches it). Trivial.
 
-**Exit ramp**: If `Tag.Tile` proves too fine-grained (e.g., we want "tile-grid tile" vs "toolbar-in-tile-grid tile"), split further (`Tag.HomeTile`, `Tag.OverlayTile`) — additive change. If `Tag.Tile` proves too coarse (need "row" / "column" grid positioning), that's UI layout metadata, not semantic tags — solved by a separate mechanism (Layout Preset).
+**Exit ramp**: If we later need multiple toolbars (top + bottom), promote to `Tag.TopToolbar` / `Tag.BottomToolbar` or use `Tag.Toolbar` + a positional field on Component. Additive change; existing `toolbar()` renames to `bottomToolbar()`. If `Tag.Tile` proves too coarse (need row/column grid positioning) — that's UI layout metadata, not semantic tags — solved by separate Layout Preset mechanism.
 
 ---
 
@@ -128,4 +130,6 @@ Documents one-way-door decisions per CLAUDE.md §3 and rejected alternatives per
 - **Bump v2 → v3** — необратимый шаг после релиза (стандартно для Android). Alternative "два файла на диске" — anti-pattern, atomicity boom.
 - **Линейный поиск по тегам** — по 20 компонентам это ~2 микросекунды. Индексация — когда будет 500+ компонентов (не MVP; хоть Phase-3+). Exit ramp есть.
 - **`ConfigBackedFlowRepository` не удаляем** — он нужен для будущего сценария «админ пушит настройки» (spec-009). Удалим когда админ-пуш переедет на Profile-based sync. Пометили `TODO(SRV-CONFIG-DEPRECATION)` в коде и в server-roadmap.
-- **Отдельный тег `Tag.Tile`** — чтобы Toolbar не попадал в сетку плиток, а любой будущий не-плиточный элемент (hint overlay в Phase-2) автоматически не попадал тоже. Без этого — каждый раз перебирать «какие Component-типы считаются плиткой» руками.
+- **Два маркер-тега — `Tag.Tile` и `Tag.Toolbar`** — чтобы обе выборки (плитки и тулбар) работали через теги, без `is Toolbar` в коде. Плитки: `byAllTags({Presentation, Tile})`; тулбар: `byTag(Toolbar).firstOrNull()`. Добавление любого нового Presentation-компонента (hint overlay в Phase-2) не требует правки query — только объявить нужный набор тегов.
+- **`byNotTag(tag)` в API** — эквивалент canonical ECS `Without<T>` / Flecs `!tag`. Добавлен сейчас (30 строк кода), чтобы будущие «презентационные без экстренных» запросы не изобретали велосипед.
+- **Terminology honesty**: это **tagged-component-model, ECS-inspired**, не canonical ECS. Sealed hierarchy = один Component на entity; canonical ECS = N компонентов на entity. Для нашего масштаба (~20 entities, редкие правки) ок. См. [ADR-012](../../docs/adr/ADR-012-tagged-component-model-vs-canonical-ecs.md) с latent one-way door risk.

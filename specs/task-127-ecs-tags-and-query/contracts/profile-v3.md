@@ -56,7 +56,7 @@ Each Component in `components` array carries a `"type"` discriminator and its ow
         { "kind": "Home" },
         { "kind": "Back" }
       ],
-      "tags": ["Presentation"]
+      "tags": ["Presentation", "Toolbar"]
     }
   ]
 }
@@ -64,9 +64,9 @@ Each Component in `components` array carries a `"type"` discriminator and its ow
 
 ### Tag values
 
-Closed set of 9 string names, must match `com.launcher.preset.model.Tag` enum:
+Closed set of 10 string names, must match `com.launcher.preset.model.Tag` enum:
 
-`"Presentation"`, `"Appearance"`, `"System"`, `"Safety"`, `"Capabilities"`, `"Communication"`, `"Accessibility"`, `"Emergency"`, `"Tile"`.
+`"Presentation"`, `"Appearance"`, `"System"`, `"Safety"`, `"Capabilities"`, `"Communication"`, `"Accessibility"`, `"Emergency"`, `"Tile"`, `"Toolbar"`.
 
 Serialisation: kotlinx.serialization `enum` default (name string). Additive-only — new values can be added in future schema versions.
 

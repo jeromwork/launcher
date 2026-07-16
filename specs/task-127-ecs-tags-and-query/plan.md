@@ -116,7 +116,7 @@ All new files in `core/preset/model/`, `core/preset/query/`, `core/preset/serial
 See [`data-model.md`](data-model.md).
 
 Key types:
-- `Tag` enum (9 values, additive-only per rule 5).
+- `Tag` enum (10 values including `Tag.Toolbar` for query-based Toolbar lookup, additive-only per rule 5).
 - `Component.tags: Set<Tag>` with per-subtype defaults.
 - `Profile` query API surface (extension functions or member methods — decision in research.md).
 - `ProfileMigrationV2toV3` mapping table.
@@ -196,6 +196,7 @@ Per CLAUDE.md rules §6 (mock-first) + §7 (fitness functions).
 
 - [CLAUDE.md](../../CLAUDE.md) — rules §1 (domain isolation), §4 (MVA), §5 (wire-format versioning), §9 (shareability-readiness).
 - [ADR-011](../../docs/adr/ADR-011-ai-owner-collaboration-conventions.md) — sequences + checklist-in-chat convention (used in this spec).
+- [ADR-012](../../docs/adr/ADR-012-tagged-component-model-vs-canonical-ecs.md) — vocabulary + design deviation from canonical ECS (Bevy/Flecs/Unity DOTS). Latent one-way door: single-component-per-entity model blocks future multi-component composition.
 - [.specify/memory/constitution.md](../../.specify/memory/constitution.md) — Article XI (meta-minimization), Article XVI (Constitution Check), Article XVII (deviations).
 - [docs/architecture/preset-model.md](../../docs/architecture/preset-model.md) — two-dimensions model (lifecycle vs semantic). Just merged into this branch.
 - [docs/dev/server-roadmap.md § SRV-CONFIG-DEPRECATION](../../docs/dev/server-roadmap.md) — future ConfigDocument removal path.
@@ -302,9 +303,9 @@ core/src/commonMain/composeResources/values/
 **Что делаем**: расширяем модель TASK-120 (Component / Profile) двумя ECS-паттернами — тегами и запросом по тегам, — и переключаем HomeScreen на чтение `Profile` напрямую (сейчас он читает старую модель `ConfigDocument`, отсюда и «Не удалось загрузить настройки» после мастера).
 
 **Что нового в коде**:
-- `Tag` enum (9 значений: `Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile`).
-- `Component.tags: Set<Tag>` — новое поле на компонентах, дефолты для каждого субтипа (плитка приложения → `{Presentation, Tile}`, кнопка SOS → `{Presentation, Tile, Safety, Emergency}`, тулбар → `{Presentation}` без `Tile`).
-- `Profile.query { ... }` + удобные селекторы (`byTag`, `homeScreenTiles`, `toolbar`).
+- `Tag` enum (10 значений: `Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar`).
+- `Component.tags: Set<Tag>` — новое поле на компонентах, дефолты для каждого субтипа (плитка приложения → `{Presentation, Tile}`, кнопка SOS → `{Presentation, Tile, Safety, Emergency}`, тулбар → `{Presentation, Toolbar}`).
+- `Profile.query { ... }` + удобные селекторы (`byTag`, `byAllTags`, `byAnyTag`, `byNotTag`, `homeScreenTiles`, `toolbar`). `toolbar()` реализован через `byTag(Tag.Toolbar).firstOrNull()` — query-based, без `is Toolbar`.
 - `ProfileBackedFlowRepository` — новый адаптер, читает `Profile` и отдаёт плитки на `HomeScreen`.
 - Миграция сохранённых профилей v2 → v3 (заполняет теги дефолтами, идемпотентная).
 - `ConfigBackedFlowRepository` **остаётся** в коде для будущего сценария «админ пушит настройки», но `HomeScreen` его больше не использует.

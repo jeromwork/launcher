@@ -149,6 +149,61 @@ All T127-NNN tasks have valid forward dependencies:
 
 ---
 
+## Deep ECS Industry Audit (2026-07-16)
+
+*Requested by owner after initial analyze; agent researched Bevy `bevy_ecs`, Flecs, Unity DOTS Entities, EnTT.*
+
+### Verdict from deep audit
+
+**adapted-but-legitimate** — the design is **tagged-component model, ECS-inspired**, NOT canonical ECS. Sealed hierarchy `Component` = one component per entity (discriminated union), not multi-component composition. Legitimate for MVP scale (~20 entities, user-triggered queries), but the "ECS-native" framing in initial docs was misleading.
+
+### Findings and remediation
+
+| # | Finding | Severity | Fix applied |
+|---|---------|----------|-------------|
+| 1 | `toolbar()` used `is Toolbar` type check — paradigm mix (tag-based tiles + type-based toolbar) | Red flag | Added `Tag.Toolbar` marker. `toolbar() = byTag(Tag.Toolbar).firstOrNull()`. Both queries now tag-based. Both tag and default for `Component.Toolbar` updated in spec.md, data-model.md, contracts/profile-v3.md, tasks.md T127-003, T127-023, migration mapping T127-013. |
+| 2 | Missing `Without` / `Not` predicate (canonical ECS has it: Bevy `Without<T>`, Flecs `!tag`, EnTT `exclude<>`) | Nice-to-have | Added `Profile.byNotTag(tag)` extension function. Documented in spec.md FR-005, data-model.md § Query API, tasks.md T127-006 + T127-023. |
+| 3 | Docs mis-labeled as "ECS-native" — misleads contributors familiar with Bevy/Flecs semantics | Vocabulary drift | Reframed to "tagged-component model, ECS-inspired" in spec.md (Context, MENTOR-DETAIL SEQ-3, TL;DR), data-model.md TL;DR, plan.md TL;DR, research.md TL;DR. |
+| 4 | Latent one-way door (composition pressure): single-component-per-entity blocks future "any tile can gain Cooldown/Disabled marker" without breaking refactor | Long-term risk | Created [ADR-012](../../docs/adr/ADR-012-tagged-component-model-vs-canonical-ecs.md) documenting deviation, trigger to watch for, and 8–16-week canonical-ECS migration exit ramp. |
+
+### Tag enum expansion (was 9, now 10)
+
+Added `Tag.Toolbar` to enable query-based toolbar lookup:
+
+```
+Presentation, Appearance, System, Safety, Capabilities,
+Communication, Accessibility, Emergency, Tile, Toolbar
+```
+
+Wire-format impact: additive only (existing v3 examples updated to include `Tag.Toolbar` in Toolbar defaults). Migration writer T127-013 updated: `Toolbar → setOf(Tag.Presentation, Tag.Toolbar)`.
+
+### Files modified in remediation
+
+- `specs/task-127-ecs-tags-and-query/spec.md` — 5 edits (Context ECS framing, Clarifications Q3/Q4, FR-001, FR-002 Toolbar default, FR-005 Query API + byNotTag, MENTOR-DETAIL SEQ-3, TL;DR)
+- `specs/task-127-ecs-tags-and-query/data-model.md` — 4 edits (Tag enum +Toolbar, Component.Toolbar default, Query API +byNotTag + tag-based toolbar(), migration mapping, TL;DR)
+- `specs/task-127-ecs-tags-and-query/contracts/profile-v3.md` — 2 edits (example Toolbar tags, closed set of 10 tag names)
+- `specs/task-127-ecs-tags-and-query/research.md` — 2 edits (R-6 rewritten for `Tag.Tile` + `Tag.Toolbar` two-marker choice with Option C rationale, TL;DR)
+- `specs/task-127-ecs-tags-and-query/plan.md` — 3 edits (Data model summary, TL;DR, Required Context Review + ADR-012 link)
+- `specs/task-127-ecs-tags-and-query/tasks.md` — 4 edits (T127-003 10-tag list, T127-006 7-function API, T127-023 unit tests for byNotTag + toolbar tag-based, TL;DR)
+- `docs/adr/ADR-012-tagged-component-model-vs-canonical-ecs.md` — **new file** documenting deviation
+
+### Cost
+
+Total edits: **~1.5 hours**, all additive, zero wire-format breaking impact (v3 schema unchanged, only Toolbar's default `tags` set expanded).
+
+### Post-remediation state
+
+- ✅ Zero paradigm mix (all queries tag-based, no `is Toolbar` in query code)
+- ✅ Canonical ECS query filter parity: `With` (byTag/byAllTags), `Or` (byAnyTag), `Without` (byNotTag)
+- ✅ Terminology honesty: docs say "tagged-component model, ECS-inspired" not "ECS-native"
+- ✅ Latent one-way door documented (ADR-012 § latent-one-way-door)
+
+### Overall risk after remediation
+
+**Low for 6–12 months** (MVP-scale usage is safe). **Moderate at 12–24 months** if composition pressure emerges (first PR that says "add temporary modifier to Component without changing its type"). Trigger + exit ramp documented in ADR-012.
+
+---
+
 ## Deferred Items
 
 No showstoppers. Two tasks marked `[deferred-physical-device]` (owner with Xiaomi):
@@ -179,16 +234,18 @@ All checks pass:
 
 ## TL;DR (по-русски, для новичка и для будущего AI)
 
-**Суть.** Полная cross-artifact аудит перед имплементацией. Все 10 FRs, 3 USs, 4 контракта покрыты задачами. Constitution Check 7 PASS / 1 N/A. Чеклисты все зелёные. Wire-format, source-set placement, context links, задачи — всё согласовано.
+**Суть.** Полный cross-artifact аудит + глубокая проверка ECS-нотации против индустриальных фреймворков (Bevy, Flecs, Unity DOTS, EnTT). Все 10 FRs, 3 USs, 4 контракта покрыты 27 задачами. Constitution 7 PASS / 1 N/A. Deep audit нашёл 4 недочёта — все исправлены (Tag.Toolbar добавлен, byNotTag добавлен, docs переформулированы, ADR-012 создан).
 
 **Конкретика, которую стоит запомнить:**
-- **27 задач в tasks.md** — все топологически упорядочены (no forward-refs).
-- **6 AC в backlog-task** — синхронизированы с [backlog]-маркированными SCs из spec.md.
+- **27 задач в tasks.md** — все топологически упорядочены.
+- **6 AC в backlog-task** — синхронизированы с [backlog]-маркерами spec.md.
 - **Два [deferred-*] маркера**: T127-026 [deferred-local-emulator], T127-027 [deferred-physical-device].
-- **Никаких блокирующих issues** — можно начинать имплементацию.
-- **После PR merge** — `pre-pr-backlog-sync` переведёт task в `Verification` (ждёт физического smoke на Xiaomi).
+- **Deep audit исправления**: `Tag` enum теперь **10 значений** (+`Toolbar`). Query API **7 функций** (+`byNotTag` = canonical `Without<T>`). `toolbar()` через `byTag(Tag.Toolbar).firstOrNull()`, БЕЗ `is Toolbar`.
+- **ADR-012 создан**: документирует что это «tagged-component model, ECS-inspired», не canonical ECS. С триггером и exit ramp'ом на будущий рефакторинг (8-16 недель если понадобится).
+- **После PR merge** — `pre-pr-backlog-sync` переведёт task в `Verification` (ждёт физический smoke на Xiaomi).
 
 **На что смотреть с осторожностью:**
-- Physical verification (T127-027) требует Xiaomi Redmi Note 11 реально — AI не может закрыть, только владелец.
-- Migration writer (T127-013) — sealed exhaustiveness поймёт, но проверить правильность дефолтов руками.
-- `schemaVersion: 2 → 3` — one-way door, downgrade невозможен (стандартно для Android).
+- Physical verification (T127-027) требует Xiaomi Redmi Note 11 реально — AI не может закрыть.
+- Migration writer (T127-013) — sealed exhaustiveness поймёт, но проверить правильность дефолтов руками (особенно новый `Toolbar → {Presentation, Toolbar}`).
+- `schemaVersion: 2 → 3` — one-way door, downgrade невозможен.
+- **Latent one-way door (ADR-012)**: первая же фича «любая плитка получает Cooldown-маркер» не работает — sealed hierarchy = один Component на entity. Триггер: PR с добавлением временного модификатора к существующему Component без смены типа. В этот момент — открываем decision-task на canonical ECS migration.

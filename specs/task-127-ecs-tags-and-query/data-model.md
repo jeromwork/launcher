@@ -21,6 +21,7 @@ enum class Tag {
     Accessibility,   // WCAG / TalkBack / senior-safe overrides
     Emergency,       // triggered in emergency (911, SOS, panic)
     Tile,            // renders in HomeScreen tile grid (excludes Toolbar)
+    Toolbar,         // marker for bottom Toolbar panel (query-based lookup, no `is` check)
 }
 ```
 
@@ -55,7 +56,7 @@ sealed class Component {
     data class Toolbar(
         override val id: ComponentId,
         val buttons: List<ToolbarButton>,
-        override val tags: Set<Tag> = setOf(Tag.Presentation),  // no Tile — separate panel
+        override val tags: Set<Tag> = setOf(Tag.Presentation, Tag.Toolbar),  // no Tile — separate panel; Tag.Toolbar enables query-based lookup
     ) : Component()
 
     data class FontSize(
@@ -107,13 +108,17 @@ fun Profile.byAllTags(tags: Set<Tag>): List<ProfileComponent> =
 fun Profile.byAnyTag(tags: Set<Tag>): List<ProfileComponent> =
     query { it.component.tags.any(tags::contains) }
 
+// Convenience: NOT — components lacking this tag (canonical ECS Without<T> / Flecs !tag / EnTT exclude<>)
+fun Profile.byNotTag(tag: Tag): List<ProfileComponent> =
+    query { tag !in it.component.tags }
+
 // HomeScreen: tiles (Presentation AND Tile — excludes Toolbar)
 fun Profile.homeScreenTiles(): List<ProfileComponent> =
     byAllTags(setOf(Tag.Presentation, Tag.Tile))
 
-// HomeScreen: bottom Toolbar (single Toolbar Component)
+// HomeScreen: bottom Toolbar (query-based, no `is Toolbar` type check)
 fun Profile.toolbar(): ProfileComponent? =
-    byTag(Tag.Presentation).firstOrNull { it.component is Component.Toolbar }
+    byTag(Tag.Toolbar).firstOrNull()
 ```
 
 **Extension functions** — not member methods on `Profile`. Rationale: keeps `Profile.kt` from growing; each selector is small and testable in isolation; new selectors can be added in feature-specific files (e.g., `SafetyQueries.kt` when Phase-2 safety features land) without touching core `Profile.kt`.
@@ -142,7 +147,7 @@ internal object ProfileMigrationV2toV3 {
     private fun defaultTagsFor(component: Component): Set<Tag> = when (component) {
         is Component.AppTile      -> setOf(Tag.Presentation, Tag.Tile)
         is Component.Sos          -> setOf(Tag.Presentation, Tag.Tile, Tag.Safety, Tag.Emergency)
-        is Component.Toolbar      -> setOf(Tag.Presentation)
+        is Component.Toolbar      -> setOf(Tag.Presentation, Tag.Toolbar)
         is Component.FontSize     -> setOf(Tag.Appearance, Tag.Accessibility)
         is Component.LauncherRole -> setOf(Tag.System)
         is Component.Theme        -> setOf(Tag.Appearance)
@@ -222,9 +227,11 @@ ProfileMigrationV2toV3 ──── (invoked by) ──── ProfileSerializer 
 
 ## TL;DR для владельца
 
-- **`Tag`** — это ярлык на компоненте: «плитка», «безопасность», «внешний вид», всего 9 штук.
-- **`Component.tags`** — множество ярлыков на одном компоненте. `SOS` = «плитка» + «безопасность» + «экстренная». `Toolbar` = только «показывается» (без «плитка», потому что это отдельная панель внизу).
-- **`Profile.query`** — «отдай все компоненты подходящие под условие». Удобные обёртки: `byTag`, `homeScreenTiles`, `toolbar`.
+- **`Tag`** — это ярлык на компоненте: «плитка», «безопасность», «внешний вид», всего **10 штук** (`Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar`).
+- **`Component.tags`** — множество ярлыков на одном компоненте. `SOS` = «показывается» + «плитка» + «безопасность» + «экстренная». `Toolbar` = «показывается» + «тулбар» (`Tag.Toolbar` — маркер отдельной панели).
+- **`Profile.query`** — «отдай все компоненты подходящие под условие». Удобные обёртки: `byTag`, `byAllTags`, `byAnyTag`, `byNotTag` (эквивалент canonical ECS `Without<T>`), `homeScreenTiles`, `toolbar`.
+- **`toolbar()`** реализован через `byTag(Tag.Toolbar).firstOrNull()` — чистый query, без `is Toolbar` type check. Одна парадигма — теги.
+- **Terminology (ADR-012)**: это **tagged-component-model, ECS-inspired**, не canonical ECS (Bevy / Flecs / Unity DOTS). Sealed hierarchy = один Component на entity, а не multi-component composition. Для MVP-масштаба (~20 компонентов) это ок.
 - **Миграция v2 → v3** — маленький файл `ProfileMigrationV2toV3.kt`, знает какие теги проставить каждому субтипу компонента. Компилятор Kotlin (sealed exhaustive) не даст забыть новый субтип.
 - **`ProfileBackedFlowRepository`** — новый переходник, читает `Profile` и отдаёт плитки на `HomeScreen`. Заменяет старый `ConfigBackedFlowRepository` в проводке (тот остаётся в коде для будущего сценария админ-пуш).
 - **Гарантия «не забыть теги»**: fitness-тест `ComponentTagsFitnessTest` пробегает по всем субтипам через reflection и проверяет что у каждого не пустой набор дефолтных тегов. Если разработчик добавит новый субтип и забудет теги — тест упадёт на билде.
