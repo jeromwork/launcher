@@ -46,6 +46,16 @@ data class ActiveComponentEntry(
     val poolRef: String,
     val paramsOverride: JsonObject? = null,
     val status: ComponentStatus = ComponentStatus.Pending,
+    /**
+     * T127-026 (FR-011/FR-013) — id of the parent entity in the assembled Profile
+     * (`null` = root). This is how a preset expresses the screen tree:
+     * `Workspace → Flow → Tile`, `Toolbar → ToolbarButton`.
+     *
+     * Additive optional field: presets written before TASK-127 omit it and produce
+     * a flat, all-roots profile (the simple-launcher case, US-1).
+     * Validated at assembly — see [ValidationError.DanglingParentRef].
+     */
+    val parentRef: String? = null,
 )
 
 @Serializable

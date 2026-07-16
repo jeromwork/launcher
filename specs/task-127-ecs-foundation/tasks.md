@@ -194,7 +194,7 @@
 
 ## Phase 4 — Query API
 
-### T127-013 — Implement ProfileQuery.kt (tag + hierarchy selectors)
+### T127-013 — [x] Implement ProfileQuery.kt (tag + hierarchy selectors)
 
 **Trace**: FR-005, FR-012, data-model.md §Query API.
 
@@ -210,7 +210,7 @@
 
 ---
 
-### T127-014 — Write ProfileQueryTest (tags + render gating)
+### T127-014 — [x] Write ProfileQueryTest (tags + render gating)
 
 **Trace**: FR-005, US-2, SC-004.
 
@@ -223,7 +223,7 @@
 
 ---
 
-### T127-015 — Write ProfileHierarchyQueryTest
+### T127-015 — [x] Write ProfileHierarchyQueryTest
 
 **Trace**: FR-012, US-4, SC-009.
 
@@ -265,7 +265,7 @@
 
 ---
 
-### T127-018 — Write ReconcileEngineUnverifiableTest
+### T127-018 — [x] Write ReconcileEngineUnverifiableTest
 
 **Trace**: FR-014, SC-011.
 
@@ -278,7 +278,7 @@
 
 ---
 
-### T127-019 — ProfileFactory + PresetValidator: hierarchy validation
+### T127-019 — [x] ProfileFactory + PresetValidator: hierarchy validation
 
 **Trace**: FR-016, SC-012, US-4 AS-4.
 
