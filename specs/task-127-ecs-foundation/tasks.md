@@ -165,7 +165,7 @@
 
 ## Phase 3 — Wire format
 
-### T127-011 — Write ProfileSchemaV2RoundtripTest (+ compat + fail-loud pins)
+### T127-011 — [x] Write ProfileSchemaV2RoundtripTest (+ compat + fail-loud pins)
 
 **Trace**: FR-004, contracts/profile-v2.md §Contract test surface.
 
@@ -179,7 +179,7 @@
 
 ---
 
-### T127-012 — Write profile-v2 fixtures
+### T127-012 — [x] Write profile-v2 fixtures → FOLDED INTO T127-011 (JSON built inline in the test, matching the existing PoolSchemaV2RoundtripTest/PresetSchemaV2RoundtripTest style; separate resource files would add a loader with no benefit)
 
 **Trace**: contracts/profile-v2.md §Examples.
 
@@ -396,7 +396,7 @@
 
 ## Phase 8 — Integration + fitness
 
-### T127-027 — Extend HomeComponentLoadingStateTest
+### T127-027 — [x] Extend HomeComponentLoadingStateTest
 
 **Trace**: US-1 AS-1, US-4 AS-2, SC-005, SC-010.
 
@@ -410,7 +410,7 @@
 
 ---
 
-### T127-028 — Write ComponentTagsFitnessTest
+### T127-028 — [x] Write ComponentTagsFitnessTest
 
 **Trace**: FR-002, NFR-001, SC-003.
 
@@ -424,7 +424,7 @@
 
 ---
 
-### T127-029 — Write ProfileQueryBenchmarkTest
+### T127-029 — [x] Write ProfileQueryBenchmarkTest
 
 **Trace**: NFR-003, NFR-005, SC-008.
 
