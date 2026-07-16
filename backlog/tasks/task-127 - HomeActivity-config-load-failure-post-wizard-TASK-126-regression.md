@@ -1,7 +1,7 @@
 ---
 id: TASK-127
 title: 'ECS foundation: entities, tags, query, hierarchy + HomeScreen rewire'
-status: In Progress
+status: Verification
 assignee: []
 created_date: '2026-07-13'
 updated_date: '2026-07-16 21:30'
@@ -132,17 +132,17 @@ ordinal: 127000
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Fresh install + wizard на Xiaomi Redmi Note 11 (adb id `17f33878`) → HomeActivity показывает плитки, не Error UI. Требуется физическая верификация.
-- [ ] #2 Wizard runtime строки локализованы через `core/composeResources/values/strings_wizard.xml` (нет raw `wizard_*` ключей в UI). Проверяется на эмуляторе или физическом устройстве.
-- [ ] #3 `Component.tags: Set<Tag>` добавлен (13 тегов), constructor-defaults покрывают все 11 subtypes. Roundtrip тест иерархической фикстуры (Profile → JSON → Profile, schemaVersion 2) зелёный. `ComponentTagsFitnessTest` (reflection) подтверждает non-empty defaults.
-- [ ] #4 `Profile.query` + селекторы по тегам (`byTag`, `byAllTags`, `byAnyTag`, `byNotTag`, `homeScreenTiles`, `toolbar`) объявлены. Unit-тесты: query по одному тегу, по комбинации тегов (AND/OR/NOT), empty result, tag-not-present, render gating (`Failed`/`Skipped` не попадают в плитки).
-- [ ] #5 `ProfileBackedFlowRepository` реализован (все 4 метода порта, включая `loadFlows()` — путь регрессии), DI wire в mockBackend + realBackend flavor. `HomeComponentLoadingStateTest` расширен НОВЫМ сценарием `postManifestWizardReconcile_profileSeeded_homeReady`. Existing config-based сценарии остаются зелёными (ConfigBackedFlowRepository не удаляется).
-- [ ] #6 `docs/architecture/preset-model.md` обновлён с AI-TLDR блоком (три оси: lifecycle / semantic tags / structural hierarchy). `Preset.kt` + `Component.kt` содержат doc-комментарии с ссылкой. `docs/dev/server-roadmap.md` содержит SRV-CONFIG-DEPRECATION запись.
-- [ ] #7 **Иерархия работает**: `Entity.parentId` + типы `Workspace`/`Flow`/`ToolbarButton`; профиль с workspace + 3 flow + тулбаром с 3 кнопками корректно раскладывается запросами (`flows()` по порядку, `tilesOf(flowId)` изолирует плитки своей вкладки, `toolbarButtons()` по порядку). Одноуровневый профиль (один flow, без тулбара) работает тем же кодом. Unit-тесты зелёные.
-- [ ] #8 **Переключение вкладок на экране**: тап по кнопке тулбара показывает плитки соответствующего flow без перезапуска Activity (проверяется на эмуляторе/устройстве).
-- [ ] #9 **`Unverifiable` статус честен**: компонент без read-back API (`StatusBarPolicy`) после подтверждения пользователем получает `Unverifiable`, а не `Applied`; `BootCheck` его не перепроверяет. Unit-тест зелёный.
-- [ ] #10 **Валидация иерархии**: `DanglingParentRef`, `CircularParentRef`, `DanglingTargetRef` возвращаются как типизированные ошибки на битых фикстурах. Unit-тесты зелёные.
-- [ ] #11 **ECS-нейминг**: `ProfileComponent` → `Entity`, `ComponentDeclaration` → `Blueprint` по всей кодовой базе; сборка и все существующие тесты зелёные; формат хранения не изменился.
+- [x] #1 [hand] Fresh install + wizard на Xiaomi Redmi Note 11 (adb id `17f33878`) → HomeActivity показывает плитки, не Error UI. **ПРОВЕРЕНО 2026-07-16**: экран показывает «WhatsApp» + вкладку «Главная»; в logcat нет `HomeLoadingState error` / `flows empty` / `timeout 3s` / `FATAL`.
+- [x] #2 [hand] Wizard runtime строки локализованы (нет raw `wizard_*` ключей в UI). **ПРОВЕРЕНО 2026-07-16**: «Шаг 1 из 7», «Размер шрифта», «Готово», «Пропустить». Ключи добавлены в `res/values` + `res/values-ru` (резолвер читает их, а не composeResources — это и было причиной сырых ключей).
+- [x] #3 [hand] `Component.tags: Set<Tag>` добавлен (13 тегов), constructor-defaults покрывают все 11 subtypes. Roundtrip иерархической фикстуры (schemaVersion 2) зелёный. `ComponentTagsFitnessTest` подтверждает non-empty defaults.
+- [x] #4 [hand] `Profile.query` + селекторы по тегам объявлены. Unit-тесты: один тег, AND/OR/NOT, empty result, tag-not-present, render gating (`Failed`/`Skipped` не попадают в плитки; `Pending`/`Unverifiable` попадают).
+- [x] #5 [hand] `ProfileBackedFlowRepository` реализован (все 4 метода порта, включая `loadFlows()` — путь регрессии), DI wire в mockBackend + realBackend. `HomeComponentLoadingStateTest` расширен сценарием `postManifestWizardReconcile_profileSeeded_homeReady` (+ ещё 3). Existing config-based сценарии зелёные.
+- [x] #6 [hand] `docs/architecture/preset-model.md` обновлён (AI-TLDR: три оси + модель «ECS ≈ таблица БД»). `Preset.kt` + `Component.kt` содержат doc-комментарии. `server-roadmap.md` содержит SRV-CONFIG-DEPRECATION.
+- [x] #7 [hand] **Иерархия работает**: `Entity.parentId` + `Workspace`/`Flow`/`ToolbarButton`; `flows()` по порядку, `tilesOf(flowId)` изолирует плитки, `toolbarButtons()` по порядку; сироты не роняют запрос. Одноуровневый профиль работает тем же кодом. Unit-тесты зелёные + иерархия подтверждена на устройстве (вкладка «Главная» = Flow-сущность).
+- [ ] #8 [hand] **Переключение вкладок на устройстве**: тап по кнопке тулбара показывает плитки соответствующего flow. **Блокировано вне scope**: `PresetBootstrap` всегда активирует `simple-launcher` (один flow) независимо от выбора в пикере — logcat `bootstrap outcome=Activated(presetId=simple-launcher)`, поле `defaultPresetId`. Двухвкладочный пресет `launcher` из UI недостижим. Механика покрыта тестами (`hierarchicalProfile_rendersFlowsAndSwitches`, `launcherPreset_assemblesIntoValidHierarchy_withTwoFlows`). Закрывается вместе с прокидыванием выбора пресета в bootstrap (путь TASK-126).
+- [x] #9 [hand] **`Unverifiable` статус честен**: `NeedsUserConfirmation` → `Unverifiable`, а не `Applied`; `BootCheck` его не перепроверяет; `RunMode.Single` перепроверяет. `ReconcileEngineUnverifiableTest` зелёный.
+- [x] #10 [hand] **Валидация иерархии**: `DanglingParentRef`, `CircularParentRef` (включая самоссылку), `DanglingTargetRef` — типизированные ошибки. `ProfileFactoryHierarchyValidationTest` зелёный; `BundledPresetHierarchyTest` проверяет реальные bundled-ассеты.
+- [x] #11 [hand] **ECS-нейминг**: `ProfileComponent` → `Entity`, `ComponentDeclaration` → `Blueprint` (93 usages / 24 файла); сборка и все тесты зелёные; формат хранения не изменился.
 <!-- AC:END -->
 
 ## Discussion
@@ -202,6 +202,18 @@ Revision note (2026-07-16 a): Decision synced with final artifacts after deep pr
 Artifacts rebuilt accordingly; spec folder renamed to `specs/task-127-ecs-foundation/`; tasks 23 → **35 across 9 phases**; Constitution Check re-run: 7 PASS / 1 N/A / 0 FAIL.
 
 <!-- SECTION:DISCUSSION:END -->
+
+## Verification Pending
+
+<!-- SECTION:VERIFICATION_PENDING:BEGIN -->
+
+**Статус `Verification` с 2026-07-16.** Реализация завершена (35/35 задач), проверена на физическом Xiaomi Redmi Note 11 (`17f33878`): регрессия закрыта, строки локализованы. **10 из 11 AC зелёные.**
+
+**Открыт AC #8** — переключение вкладок тулбара на устройстве. Причина **вне scope TASK-127**: `PresetBootstrap.defaultPresetId` всегда активирует `simple-launcher` (один flow), игнорируя выбор в пикере пресетов (logcat: `bootstrap outcome=Activated(presetId=simple-launcher)`). Двухвкладочный пресет `launcher` из UI недостижим, поэтому визуально проверить переключение нельзя. Сама механика покрыта тестами: `HomeComponentLoadingStateTest.hierarchicalProfile_rendersFlowsAndSwitches` (две вкладки, порядок, `selectFlow` без перезапуска Activity) и `BundledPresetHierarchyTest.launcherPreset_assemblesIntoValidHierarchy_withTwoFlows`.
+
+**Что закроет AC #8**: прокидывание выбора пресета из пикера в `PresetBootstrap` — это путь TASK-126 (wizard/picker), не ECS-фундамент. Владельцу решить: отдельная задача или довесок к TASK-126.
+
+<!-- SECTION:VERIFICATION_PENDING:END -->
 
 ## Definition of Done
 
