@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TASK-127 T127-030 — русские формы для прогресса мастера.
+
+  Русский различает one / few / many / other. Здесь счёт идёт по номеру шага
+  («Шаг 1 из 4»), поэтому во всех формах текст одинаков — но формы объявлены
+  явно, чтобы Android не падал на отсутствующей форме при других значениях.
+-->
+<resources>
+
+    <plurals name="wizard_step_of">
+        <item quantity="one">Шаг {current} из {total}</item>
+        <item quantity="few">Шаг {current} из {total}</item>
+        <item quantity="many">Шаг {current} из {total}</item>
+        <item quantity="other">Шаг {current} из {total}</item>
+    </plurals>
+
+</resources>

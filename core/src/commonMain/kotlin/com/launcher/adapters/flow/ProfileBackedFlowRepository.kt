@@ -7,6 +7,7 @@ import com.launcher.api.SlotDescriptor
 import com.launcher.api.action.Action
 import com.launcher.api.action.ActionPayload
 import com.launcher.api.action.ProviderId
+import com.launcher.api.localization.StringResolver
 import com.launcher.preset.model.Component
 import com.launcher.preset.model.Entity
 import com.launcher.preset.model.Profile
@@ -41,6 +42,18 @@ import kotlinx.coroutines.flow.map
  */
 class ProfileBackedFlowRepository(
     private val profileStore: ProfileStore,
+    /**
+     * Turns the `labelKey` / `titleKey` carried by a Component into display text.
+     *
+     * The Profile stores **keys**, not translated strings — that is what keeps a
+     * preset shareable across locales (rule 9) and identity-free. Resolution
+     * therefore has to happen on the way out, here at the boundary.
+     *
+     * [StringResolver] is a domain port (`api/localization`), not an Android type,
+     * so this adapter stays platform-free (rule 1). Defaults to a pass-through so
+     * tests and non-localized callers keep working with raw keys.
+     */
+    private val strings: StringResolver = PassThroughStringResolver,
 ) : FlowRepository {
 
     /**
@@ -100,10 +113,11 @@ class ProfileBackedFlowRepository(
             )
         }
         return flowEntities.map { flowEntity ->
+            val titleKey = (flowEntity.component as? Component.Flow)?.titleKey.orEmpty()
             FlowDescriptor(
                 schemaVersion = schemaVersion,
                 id = flowEntity.id,
-                name = (flowEntity.component as? Component.Flow)?.titleKey.orEmpty(),
+                name = if (titleKey.isEmpty()) "" else strings.resolve(titleKey),
                 templateId = DEFAULT_TEMPLATE_ID,
                 slots = tilesOf(flowEntity.id).map { it.toSlot() },
             )
@@ -118,7 +132,7 @@ class ProfileBackedFlowRepository(
     private fun Entity.toSlot(): SlotDescriptor = when (val c = component) {
         is Component.AppTile -> SlotDescriptor(
             id = id,
-            label = c.labelKey,
+            label = strings.resolve(c.labelKey),
             iconRef = c.iconKey.orEmpty(),
             action = Action(
                 providerId = ProviderId.APP,
@@ -134,6 +148,13 @@ class ProfileBackedFlowRepository(
             iconRef = "",
             action = null,
         )
+    }
+
+    /** Returns the key unchanged — used when no resolver is supplied (tests, previews). */
+    private object PassThroughStringResolver : StringResolver {
+        override fun resolve(key: String, args: Map<String, Any>): String = key
+        override fun resolvePlural(key: String, count: Int, args: Map<String, Any>): String = key
+        override fun currentLocaleTag(): String = "en"
     }
 
     private companion object {

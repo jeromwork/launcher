@@ -278,7 +278,7 @@ val backendModule: Module = module {
     // resolves here. ConfigDocument keeps serving the admin-push path
     // (SRV-CONFIG-DEPRECATION) until Profile-based sync replaces it.
     single<FlowRepository> {
-        ProfileBackedFlowRepository(profileStore = get())
+        ProfileBackedFlowRepository(profileStore = get(), strings = get())
     }
 
     // ManagedDevicesRegistry → admin-side multi-link view via Firestore listener.

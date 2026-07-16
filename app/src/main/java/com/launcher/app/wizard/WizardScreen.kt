@@ -139,9 +139,13 @@ private fun InteractiveBody(
         WizardProgressIndicator(
             stepIndex = step.index,
             totalSteps = step.total.coerceAtLeast(1),
-            stepLabel = stringResolver.resolve(
-                "wizard_step_of",
-                mapOf(
+            // T127-030 (FR-008): "Шаг 1 из 4" is a plural resource (Russian has
+            // one/few/many/other), so it must go through resolvePlural — resolve()
+            // only looks at <string> and would render the raw key.
+            stepLabel = stringResolver.resolvePlural(
+                key = "wizard_step_of",
+                count = step.index + 1,
+                args = mapOf(
                     "current" to (step.index + 1).toString(),
                     "total" to step.total.coerceAtLeast(1).toString(),
                 ),

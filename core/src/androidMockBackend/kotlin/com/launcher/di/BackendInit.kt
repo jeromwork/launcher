@@ -168,7 +168,7 @@ val backendModule: Module = module {
     // ProfileStore is bound in presetModule (app) — same Koin container, so it
     // resolves here.
     single<FlowRepository> {
-        ProfileBackedFlowRepository(profileStore = get())
+        ProfileBackedFlowRepository(profileStore = get(), strings = get())
     }
 
     // Spec 017 (F-4 AuthProvider) — mockBackend wires FakeAuthProvider.

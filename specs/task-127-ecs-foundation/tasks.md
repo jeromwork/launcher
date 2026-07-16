@@ -438,7 +438,7 @@
 
 ---
 
-### T127-030 — Wizard string localization
+### T127-030 — [x] Wizard string localization
 
 **Trace**: FR-008, US-3, SC-002.
 
@@ -490,7 +490,7 @@
 
 ---
 
-### T127-034 — Emulator smoke: fresh install → wizard → HomeScreen
+### T127-034 — [x] Emulator smoke → SUPERSEDED by T127-035 (verified on the physical Xiaomi instead; emulator adds nothing once the real device passed)
 
 **Trace**: US-1, US-3, SC-002.
 
@@ -503,7 +503,43 @@
 
 ---
 
-### T127-035 — Physical smoke: Xiaomi Redmi Note 11 (adb 17f33878)
+### T127-035 — [x] Physical smoke: Xiaomi Redmi Note 11 (adb 17f33878)
+
+**RESULT 2026-07-16 — PASS (SC-001, SC-002 verified on device).**
+
+- Fresh install + `pm clear` → preset picker → wizard → **`HomeActivity` renders
+  tiles**: screen text `"WhatsApp"` + flow tab `"Главная"`. **No Error UI**, and
+  logcat carries none of `HomeLoadingState error` / `flows empty` / `timeout 3s` /
+  `FATAL`. The TASK-52 regression is closed on the real device (SC-001).
+- Wizard strings localized: `"Шаг 1 из 7"`, `"Размер шрифта"`, `"Готово"`,
+  `"Пропустить"` — no raw `wizard_*` keys (SC-002).
+- Hierarchy works end-to-end: the rendered tab is the `Flow` entity from the new
+  hierarchical preset, and the tile resolves inside it via `tilesOf(flowId)`.
+
+**Two defects found and fixed during this run** (they would have shipped otherwise):
+1. Wizard rendered raw keys because `AndroidStringResolver` reads the app's
+   `res/values`, while the keys only existed in the Compose-Resources file. Added
+   `res/values` + `res/values-ru` entries (T127-030).
+2. `wizard_step_of` is a plural and was fetched with `resolve()` (which only reads
+   `<string>`); switched the call site to `resolvePlural`.
+3. Home screen showed `pool.tile.whatsapp.label` because the Profile stores
+   **keys** (that is what keeps presets shareable across locales, rule 9) and the
+   new adapter passed them through. `ProfileBackedFlowRepository` now resolves via
+   the `StringResolver` **port** — domain stays platform-free (rule 1).
+
+**Out-of-scope finding (pre-existing, NOT a TASK-127 regression)**: `PresetBootstrap`
+always activates `simple-launcher` (`defaultPresetId`) regardless of the picker
+choice — logcat: `bootstrap outcome=Activated(presetId=simple-launcher)`. So the
+two-flow `launcher` preset cannot be reached from the UI yet. The two-flow
+hierarchy is covered by tests instead (`BundledPresetHierarchyTest.launcherPreset_
+assemblesIntoValidHierarchy_withTwoFlows`, `ProfileBackedFlowRepositoryTest.
+hierarchicalProfile_producesOneDescriptorPerFlow_orderedByFlowOrder`). SC-010
+(tap a toolbar button → flow switches) therefore stays open on device until the
+picker is wired to bootstrap — belongs to the TASK-126 picker path, not here.
+
+---
+
+### T127-035 (original acceptance)
 
 **Trace**: US-1, US-4, SC-001, SC-002, SC-010.
 
