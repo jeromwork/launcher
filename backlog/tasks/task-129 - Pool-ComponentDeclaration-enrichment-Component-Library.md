@@ -1,10 +1,10 @@
 ---
 id: TASK-129
-title: 'Pool ComponentDeclaration enrichment — Component Library canonical UI metadata'
-status: Draft
+title: Pool ComponentDeclaration enrichment — Component Library canonical UI metadata
+status: In Progress
 assignee: []
 created_date: '2026-07-14'
-updated_date: '2026-07-14'
+updated_date: '2026-07-16 13:55'
 labels:
   - phase-2
   - foundation
@@ -14,6 +14,8 @@ labels:
 milestone: m-1
 dependencies:
   - TASK-120
+references:
+  - specs/task-129-pool-component-declaration/
 priority: medium
 ordinal: 129000
 ---
