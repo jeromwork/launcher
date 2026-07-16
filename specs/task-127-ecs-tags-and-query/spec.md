@@ -93,6 +93,253 @@
 
 ---
 
+## Sequences
+
+Sequence diagrams elaborate critical flows from User Stories. Each sequence has:
+- Pre/Post conditions and reuse pointer.
+- Spec-level diagram (behaviour, owner-readable).
+- Plan-level diagram (architecture, plan.md cites these lifelines).
+- MENTOR-DETAIL block (plain-Russian explanation for non-developer owner).
+
+Per [CLAUDE.md «Sequences in spec.md»](../../CLAUDE.md) section and [ADR-011](../../docs/adr/ADR-011-ai-owner-collaboration-conventions.md).
+
+**Skip note**: US-3 (Wizard localization) — no runtime sequence written. Localization is compile-time XML resource resolution with a single actor (Compose renderer reading `strings_wizard.xml`); no interesting interaction to diagram. Verified via manual grep + build check per US-3 Independent Test.
+
+**US-2 note** (developer adds Component with tags) — dev-time authoring flow, not runtime. Query behaviour (which the new Component participates in) is covered by SEQ-3.
+
+---
+
+### SEQ-1: Wizard finish → HomeScreen Ready
+
+Pre: fresh install completed, `WizardHostActivity` running, blank `ProfileStore`, local mode. Owner tapped through all wizard steps.
+Post: `HomeActivity` visible, `HomeLoadingState.Ready`, tile list rendered.
+Used-in: spec/task-127-ecs-tags-and-query.
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  U->>S: Tap "Confirm" on last wizard step
+  S->>S: Reconcile Profile from wizard answers
+  S->>S: Persist Profile to storage
+  S->>S: Open HomeActivity
+  S->>S: Load flows from Profile
+  S-->>U: Show tiles (not Error UI)
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant UI as WizardHostActivity
+  participant VM as WizardViewModel
+  participant UC as ReconcileEngine (RunMode.Wizard)
+  participant R as ProfileStore
+  participant HUI as HomeActivity
+  participant HVM as HomeComponent
+  participant HR as ProfileBackedFlowRepository
+  UI->>VM: onConfirmLastStep()
+  VM->>UC: run(mode=Wizard, sink=this)
+  UC->>R: save(finalProfile)
+  R-->>UC: ok
+  UC-->>VM: finalProfile
+  VM-->>UI: ReconcileState.Done(finalProfile)
+  UI->>HUI: startActivity(HomeActivity)
+  HUI->>HVM: init
+  HVM->>HR: observeFlows()
+  HR->>R: observe()
+  R-->>HR: Profile (non-null)
+  HR->>HR: profile.homeScreenTiles()
+  HR-->>HVM: List<FlowDescriptor>
+  HVM-->>HUI: HomeLoadingState.Ready(flows)
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- **WizardHostActivity** — экран мастера настройки. Показывает шаги («Размер шрифта», «Кнопка SOS» и т.д.).
+- **WizardViewModel** — держит состояние мастера между поворотами экрана. При нажатии «Готово» на последнем шаге зовёт «движок примирения» (`ReconcileEngine`), который собирает финальный `Profile` из ответов пользователя.
+- **ProfileStore** — локальное хранилище настроек на устройстве. `Profile` сохраняется туда единственный раз, сразу становится источником правды.
+- **HomeActivity** — главный экран лаунчера. Открывается после `WizardHostActivity`. `HomeComponent` (стейт-машина TASK-52: `Loading → Ready / Error`) подписывается на `ProfileStore.observe()` через новый адаптер `ProfileBackedFlowRepository`.
+- **Ключевой момент фикса**: раньше `HomeComponent` читал `ConfigDocument` (старая модель), которую мастер не заполнял → HomeScreen шёл в `Error`. Теперь `HomeComponent` читает `Profile` напрямую через `ProfileBackedFlowRepository` — тот же объект, который мастер сохранил → HomeScreen идёт в `Ready`. Мост Profile↔ConfigDocument не строится, `ConfigDocument` из HomeScreen-пути удаляется.
+- Покрывает US-1, Acceptance Scenario 1-2.
+<!-- MENTOR-DETAIL:END -->
+
+---
+
+### SEQ-2: Profile v2 → v3 migration on cold start
+
+Pre: user upgrades APK; `ProfileStore` on disk contains `Profile` serialized as `schemaVersion=2` (no `tags` field on Components). App just launched.
+Post: `Profile` in memory has `schemaVersion=3` with `tags` populated from Component-subtype defaults. Disk write of migrated Profile happens on next `ProfileStore.save()` (lazy).
+Used-in: spec/task-127-ecs-tags-and-query.
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  U->>S: Launch app (post-upgrade)
+  S->>S: Read Profile from disk (v2 JSON)
+  S->>S: Detect schemaVersion=2
+  S->>S: Migrate v2 → v3 (fill tags defaults)
+  S->>S: Load HomeScreen from migrated Profile
+  S-->>U: Show tiles (same content as before upgrade)
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant HUI as HomeActivity
+  participant HVM as HomeComponent
+  participant HR as ProfileBackedFlowRepository
+  participant R as ProfileStore
+  participant SER as ProfileSerializer
+  participant MIG as ProfileMigrationV2toV3
+  HUI->>HVM: init
+  HVM->>HR: observeFlows()
+  HR->>R: observe()
+  R->>R: readFromDisk()
+  R->>SER: deserialize(json)
+  SER->>SER: parse schemaVersion
+  alt schemaVersion == 2
+    SER->>MIG: migrate(v2Profile)
+    MIG->>MIG: for each Component subtype → default tags
+    MIG-->>SER: v3Profile (tags populated)
+  else schemaVersion == 3
+    SER-->>SER: pass-through
+  end
+  SER-->>R: Profile (v3 in memory)
+  R-->>HR: Profile
+  HR->>HR: profile.homeScreenTiles()
+  HR-->>HVM: List<FlowDescriptor>
+  HVM-->>HUI: HomeLoadingState.Ready(flows)
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- **Что мигрирует** — только `Profile` в `ProfileStore` (личные настройки пользователя на диске). Каталог компонентов `pool.json` НЕ мигрируется — он лежит внутри APK и обновляется вместе с обновлением приложения.
+- **Migration writer** — маленький модуль `ProfileMigrationV2toV3`, знает по субтипу компонента какие теги проставить (`AppTile → {Presentation, Tile}`, `Sos → {Presentation, Tile, Safety, Emergency}` и т.д.). Это hardcoded map, не читается ниоткуда.
+- **Идемпотентность (FR-004 / NFR-004)**: если вдруг запустить миграцию на уже-v3-профиле — она ничего не изменит. Проверяется roundtrip тестом.
+- **Ленивая запись**: мигрированный Profile сначала живёт в памяти. На диск v3 запишется при следующем `ProfileStore.save()` (например, когда пользователь что-то поменяет в Settings). Это чтобы не делать disk-write на каждом cold start.
+- **One-way door (rule 5)**: bump v2 → v3 — необратимый шаг. После него старая версия приложения не сможет прочитать v3-профиль. Exit ramp — версионирование строгое, downgrade не поддерживается (стандартная практика для Android приложений).
+- **Что видит владелец**: ничего. Плитки на месте после обновления, экран как был. Миграция — под капотом.
+- Покрывает FR-004, NFR-004, Edge Case «Migration v2 → v3».
+<!-- MENTOR-DETAIL:END -->
+
+---
+
+### SEQ-3: Query resolution — homeScreenTiles vs toolbar
+
+Pre: `Profile` loaded, contains four Components: `AppTile(Settings)`, `AppTile(Phone)`, `Sos`, `Toolbar`. Each with default tags per FR-002.
+Post: HomeScreen renders 3 tiles (Settings, Phone, Sos) in tile grid; Toolbar renders in bottom panel — no overlap.
+Used-in: spec/task-127-ecs-tags-and-query.
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  U->>S: HomeActivity opens with populated Profile
+  S->>S: Ask Profile: "which components are tiles?"
+  S->>S: Ask Profile: "which component is toolbar?"
+  S-->>U: Render tile grid (3 tiles) + bottom Toolbar
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant HUI as HomeActivity
+  participant HVM as HomeComponent
+  participant HR as ProfileBackedFlowRepository
+  participant P as Profile (Query API)
+  HUI->>HVM: init
+  HVM->>HR: observeFlows()
+  HR->>P: homeScreenTiles()
+  P->>P: query { c.tags ⊇ {Presentation, Tile} }
+  P-->>HR: [AppTile(Settings), AppTile(Phone), Sos]
+  HR-->>HVM: List<FlowDescriptor> (3 items)
+  HVM->>HR: observeToolbar()
+  HR->>P: toolbar()
+  P->>P: byTag(Presentation).firstOrNull { it is Toolbar }
+  P-->>HR: Toolbar
+  HR-->>HVM: ToolbarDescriptor
+  HVM-->>HUI: HomeLoadingState.Ready(flows=3, toolbar=Toolbar)
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- **Ключевая идея тегов**: один компонент может иметь несколько тегов сразу. Кнопка SOS — это одновременно `Presentation` (её видно), `Tile` (это плитка на экране), `Safety` (относится к безопасности) и `Emergency` (экстренная ситуация). Мы не заставляем выбрать одну категорию — компонент участвует во всех запросах, к которым подходит.
+- **`homeScreenTiles()`** = «дай все компоненты у которых теги содержат И `Presentation` И `Tile` одновременно». `AppTile` и `Sos` подходят. `Toolbar` — нет (у неё только `Presentation`, без `Tile`), поэтому она не попадает в сетку плиток.
+- **`toolbar()`** = отдельный селектор для нижней панели. Ищет компонент типа `Toolbar` среди тех что имеют `Presentation`. Возвращает один объект (или `null`, если не задан).
+- **Почему такое разделение** — по clarification Q3/Q4: без отдельного тега `Tile` любой `Presentation`-компонент попадал бы в сетку плиток, включая Toolbar, — было бы дублирование (Toolbar и как плитка, и как панель). Тег `Tile` — граница.
+- **Стандартный ECS-паттерн** (Bevy Query, Unity DOTS, Flecs) — будущий разработчик сразу поймёт как это работает, объяснять не нужно.
+- Покрывает US-2 Acceptance Scenario 2 (multi-tag membership), FR-005, Clarifications Q3-Q4.
+<!-- MENTOR-DETAIL:END -->
+
+---
+
+### SEQ-4: Null Profile edge case — Loading contract
+
+Pre: `HomeActivity` starting; `ProfileStore.observe()` первым эмитит `null` (cold start до первого disk read completes; или transient migration state). Owner в этот момент видит splash / loading indicator.
+Post: HomeComponent **не** переходит в Error state. Остаётся в Loading. При первом non-null Profile — переходит в Ready.
+Used-in: spec/task-127-ecs-tags-and-query.
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  U->>S: Open app (cold start)
+  S->>S: Start reading Profile from disk
+  S->>S: Show HomeActivity in Loading state
+  Note over S: Profile not yet ready (null)
+  S->>S: Disk read completes
+  S->>S: Profile non-null
+  S-->>U: Show tiles (Loading → Ready)
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant HUI as HomeActivity
+  participant HVM as HomeComponent
+  participant HR as ProfileBackedFlowRepository
+  participant R as ProfileStore
+  HUI->>HVM: init
+  HVM->>HR: observeFlows()
+  HR->>R: observe()
+  R-->>HR: null (transient)
+  HR->>HR: filterNotNull() — drop null, do not emit
+  Note over HVM: HomeLoadingState stays in Loading (no emission yet)
+  R-->>HR: Profile (disk read done)
+  HR->>HR: profile.homeScreenTiles()
+  HR-->>HVM: List<FlowDescriptor>
+  HVM-->>HUI: HomeLoadingState.Ready(flows)
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- **Проблема, которую закрываем**: раньше при холодном старте, если Profile ещё не прочитан с диска, старый `ConfigBackedFlowRepository` мог случайно эмитить пустое состояние — и HomeComponent переключался в `Error UI`. Это было проявление регрессии TASK-52.
+- **Решение**: новый `ProfileBackedFlowRepository` использует `filterNotNull()` — оператор из Kotlin Flow, который просто «пропускает» `null`-эмиссии дальше. Пока Profile не появился — HomeComponent ничего не эмитит и остаётся в `Loading` (это стейт по умолчанию).
+- **Как только Profile появился** (диск дочитан, миграция закончилась) — эмитим `Ready` со списком плиток. Никакого `Error` в промежутке.
+- **Контракт TASK-52** (`HomeLoadingState` state machine: `Loading → Ready / Error`) сохраняется. `Error` теперь — только для настоящих сбоев (например, битый Profile который не удалось десериализовать). Пустое / отсутствующее Profile — это `Loading`, не `Error`.
+- **Что видит владелец**: на очень старых устройствах может проскочить splash / loading indicator в 100-200мс между запуском приложения и появлением плиток. На современных Xiaomi — почти незаметно.
+- Покрывает FR-006, Edge Case «`ProfileStore.observe()` эмитит null».
+<!-- MENTOR-DETAIL:END -->
+
+---
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements

@@ -4,7 +4,7 @@ title: 'HomeActivity config load: ECS Tags foundation + Query pattern'
 status: In Progress
 assignee: []
 created_date: '2026-07-13'
-updated_date: '2026-07-16'
+updated_date: '2026-07-16 14:35'
 labels:
   - phase-2
   - home-screen
@@ -143,25 +143,12 @@ ordinal: 127000
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 [hand] Fresh install + wizard на Xiaomi Redmi Note 11 (adb id 17f33878) → HomeActivity показывает preset content (плитки), не Error UI. Regression от TASK-52 закрыт.
-- [ ] #2 [hand] Wizard runtime строки локализованы через `core/composeResources/values/strings_wizard.xml` (нет raw keys `wizard_*` в UI).
-- [ ] #3 [hand] `Component.tags: Set<Tag>` field добавлен, serialization зелёная. Migration writer v2→v3 покрыт roundtrip тестом (v2 Profile читается, tags заполнены defaults по типу Component).
-- [ ] #4 [hand] `Profile.query { predicate }` API + convenience selectors (`presentation()`, `safety()`, `homeScreenTiles()`) объявлены. Unit-тесты: query по одному тегу, по комбинации тегов, empty result.
-- [ ] #5 [hand] `ProfileBackedFlowRepository : FlowRepository` реализован в `core/`. DI wire в mockBackend + realBackend: HomeScreen path получает эту реализацию, не ConfigBackedFlowRepository. `HomeComponentLoadingStateTest` расширен: Profile с одним AppTile → HomeLoadingState.Ready.
-- [ ] #6 [hand] `docs/architecture/preset-model.md` создан с AI-TLDR блоком, объясняет две ортогональные дименсии. `Preset.kt` + `Component.kt` содержат doc-комментарии с ссылкой на этот файл. `docs/dev/server-roadmap.md` содержит SRV-CONFIG-DEPRECATION запись.
-- [ ] #7 [auto:checklist] checklists/requirements-quality.md: 15/16 CHK [x]
-- [ ] #8 [auto:checklist] checklists/meta-minimization.md: 13/13 CHK [x]
-- [ ] #9 [auto:checklist] checklists/dev-experience.md: 20/22 CHK [x]
-- [ ] #10 [auto:checklist] checklists/domain-isolation.md: 16/16 CHK [x]
-- [ ] #11 [auto:checklist] checklists/wire-format.md: 18/18 CHK [x]
-- [ ] #12 [auto:checklist] checklists/state-management.md: 16/17 CHK [x]
-- [ ] #13 [auto:checklist] checklists/failure-recovery.md: 17/17 CHK [x]
-- [ ] #14 [auto:checklist] checklists/ux-quality.md: 22/22 CHK [x]
-- [ ] #15 [auto:checklist] checklists/localization.md: 20/20 CHK [x]
-- [ ] #16 [auto:checklist] checklists/localization-ui.md: 17/19 CHK [x]
-- [ ] #17 [auto:checklist] checklists/elderly-friendly.md: 21/22 CHK [x]
-- [ ] #18 [auto:checklist] checklists/preset-readiness.md: 16/20 CHK [x]
-- [ ] #19 [auto:checklist] checklists/modular-delivery.md: 17/18 CHK [x]
+- [ ] #1 Fresh install + wizard на Xiaomi Redmi Note 11 (adb id `17f33878`) → HomeActivity показывает плитки, не Error UI. Требуется физическая верификация.
+- [ ] #2 Wizard runtime строки локализованы через `core/composeResources/values/strings_wizard.xml` (нет raw `wizard_*` ключей в UI). Проверяется на эмуляторе или физическом устройстве.
+- [ ] #3 `Component.tags: Set<Tag>` добавлен + migration writer v2 → v3 реализован. Roundtrip тест (v2 fixture → read → assert tags populated by defaults) зелёный.
+- [ ] #4 `Profile.query` + convenience selectors (`byTag`, `byAllTags`, `byAnyTag`, `homeScreenTiles`) объявлены. Unit-тесты: query по одному тегу, по комбинации тегов (AND/OR), empty result, tag-not-present.
+- [ ] #5 `ProfileBackedFlowRepository` реализован, DI wire в mockBackend + realBackend flavor. `HomeComponentLoadingStateTest` расширен НОВЫМ сценарием `postManifestWizardReconcile_profileSeeded_homeReady` — verifies Profile с одним AppTile → HomeLoadingState.Ready. Existing config-based сценарии в тесте остаются зелёными (ConfigBackedFlowRepository не удаляется).
+- [ ] #6 `docs/architecture/preset-model.md` создан с AI-TLDR блоком. `Preset.kt` + `Component.kt` содержат doc-комментарии с ссылкой на этот файл. `docs/dev/server-roadmap.md` содержит SRV-CONFIG-DEPRECATION запись.
 <!-- AC:END -->
 
 ## Discussion
