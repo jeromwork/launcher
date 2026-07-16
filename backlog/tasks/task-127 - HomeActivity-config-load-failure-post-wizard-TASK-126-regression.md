@@ -1,22 +1,25 @@
 ---
 id: TASK-127
-title: HomeActivity config-load failure post-wizard (TASK-126 regression)
-status: Paused
+title: 'HomeActivity config load: ECS Tags foundation + Query pattern'
+status: In Progress
 assignee: []
 created_date: '2026-07-13'
-updated_date: '2026-07-13 06:36'
+updated_date: '2026-07-15 12:00'
 labels:
   - phase-2
   - home-screen
   - bug
   - regression
-  - blocker
+  - architecture
+  - ecs
 milestone: m-1
 dependencies:
   - TASK-126
+  - TASK-120
 references:
   - verification-evidence/task-128-xiaomi-fresh-07.png
   - verification-evidence/task-128-xiaomi-blocker-logcat.txt
+  - specs/task-127-ecs-tags-and-query/
 priority: high
 ordinal: 127000
 ---
@@ -25,70 +28,185 @@ ordinal: 127000
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 
+> **Версии описания.** Создан 2026-07-13 как узкая bug-fix задача «bridge Profile → ConfigDocument через LauncherPresentationBuilder». Пересобран 2026-07-15 после mentor-сессии владельца: изначальный подход отброшен, новый scope — ECS-native расширение TASK-120 (Tags + Query pattern).
+
 ## Что это простыми словами
 
-Регрессия TASK-52 (ранее закрыт Done): после прохождения wizard'а на реальном устройстве Xiaomi Redmi Note 11 (Android, MIUI, adb id `17f33878`) `HomeActivity` НЕ загружает preset config и показывает Error UI «Не удалось загрузить настройки» с кнопками «Попробовать снова» / «Сбросить настройки и пройти заново».
+**Регрессия**: после прохождения wizard'а на реальном устройстве Xiaomi Redmi Note 11 (adb id `17f33878`) `HomeActivity` показывает Error UI «Не удалось загрузить настройки» вместо плиток. TASK-126 (Wizard runtime migration) сломал end-to-end путь «install → wizard → usable home screen».
 
-TASK-52 закрыл этот класс багов через детерминированную state machine `HomeLoadingState` (Loading/Ready/Error) в `HomeComponent`. TASK-126 (Wizard runtime migration to Preset composition foundation) сломал контракт между новым wizard runtime и existing HomeActivity/HomeComponent — активный preset не поставлен или FlowRepository не получает config к моменту загрузки Home.
+**Root cause**: между TASK-120 фундаментом (`Profile` / `Provider` / `ReconcileEngine`) и HomeScreen-стеком (`ConfigDocument` / `ConfigBackedFlowRepository`) образовался архитектурный gap. Никто не соединил их правильно: wizard пишет `Profile`, HomeScreen читает `ConfigDocument` — а между ними нет моста.
 
-**Repro шаги (2026-07-13, ветка `task-126-wizard-runtime-migration`, commit f8a4d8b):**
-1. `adb uninstall com.launcher.app.mock`
-2. `./gradlew :app:installMockBackendDebug` — success.
-3. Запустить app → FirstLaunchActivity → выбрать «Лаунчер для пожилого».
-4. Auth choice step → «Настроить с нуля» (blank profile, local mode).
-5. HOME role step → «Позже».
-6. Новый wizard runtime показывает 4 шага с **нелокализованными** ключами: `wizard_step_of`, `wizard_component_font_size`, `wizard_component_sos`, `wizard_confirm`. Тапаем «wizard_confirm» через каждый шаг.
-7. HomeActivity открывается → **Error UI «Не удалось загрузить настройки»** мгновенно, не Loading→Ready.
+**Что решаем (mentor-сессия 2026-07-15)**:
+1. Изначальный план был построить bridge — новый порт `LauncherPresentationBuilder`, который конвертирует `Profile` → `ConfigDocument`.
+2. Владелец задал вопрос: «А не следует ли делать это в ECS-нотации, раз TASK-120 явно к ней тяготеет?».
+3. Discovery: TASK-120 сессия 2 явно упоминает ECS-inspiration (sealed `Component` hierarchy = entities с компонентами). Но недостают два стандартных ECS-паттерна — **category tags** (multiple тегов на entity) и **query API** (`world.query<Predicate>()`).
+4. **Новое решение**: не строить bridge на плохую архитектуру, а **расширить TASK-120 в ECS-native направлении**. Добавить `Component.tags: Set<Tag>`, добавить `Profile.query { predicate }`, переключить HomeScreen на чтение `Profile` напрямую через query. `ConfigDocument` остаётся в кодовой базе для будущего admin push, но HomeScreen path его больше не использует.
 
-**Evidence:**
-- `verification-evidence/task-128-xiaomi-fresh-07.png` — Error UI на Xiaomi.
-- `verification-evidence/task-128-xiaomi-blocker-logcat.txt` — full logcat (43k строк).
-
-**Side finding (отдельный от блокера, но зафиксировать):** новый wizard runtime показывает raw string keys вместо локализованных строк (`wizard_step_of`, `wizard_component_font_size`, `wizard_component_sos`, `wizard_confirm`). Локализация manifest-driven wizard'а не подключена — вероятно нужен entry в `strings_wizard.xml` или другой resource path.
+**Как это работает пошагово (после fix)**:
+1. Wizard заполняет `Profile` через существующий TASK-120 `Provider` API.
+2. `Profile` реконсилится через `ReconcileEngine`, применяется как активный.
+3. Новый `ProfileBackedFlowRepository` (реализация существующего `FlowRepository` порта) читает `Profile` напрямую, вызывает `profile.query { it.hasTag(Tag.Presentation) }`, проецирует результат в `HomeState`.
+4. `HomeActivity` рендерит плитки — Error UI больше не показывается.
 
 ## Зачем
 
-Блокирует TASK-128 verification bucket #1 и #2 (item #2 недостижим без прохождения через HomeActivity в Settings). Блокирует merge TASK-126 в main — фича «wizard runtime migration» формально работает (wizard steps проходятся), но end-to-end путь «install → wizard → usable home screen» сломан. Повторяет паттерн TASK-52.
+- **Разблокировать физическое тестирование** на Xiaomi Redmi Note 11 (сейчас Error UI блокирует TASK-128 verification bucket #1 и #2).
+- **Устранить архитектурный дубликат**: `Profile` + `ConfigDocument` как два параллельных источника правды — long-term maintenance boom.
+- **Заложить ECS-нотацию** для будущих UI-фич (кнопки тулбара, экраны, hint-overlays, safety indicators): tags дают ортогональную категоризацию без forced single-category выбора.
+- **Стандартный паттерн**: ECS Query — well-understood индустрией (Bevy, Unity DOTS, Flecs). Future maintainers сразу узнают.
 
 ## Что входит технически (для AI-агента)
 
-- **Диагностика:** grep logcat на `com.launcher.app` тэгах между FirstLaunchActivity finish и HomeActivity Error state; определить куда именно попадает загрузка config'а (`ConfigBackedFlowRepository`, `PresetRepository.getActivePreset()`, `HomeComponent.loadingState`).
-- **Возможные root causes** (нужно уточнить через logs):
-  - (а) новый `WizardViewModel.finish()` (TASK-126 T054/T055) НЕ вызывает `presetRepository.setActivePreset(...)` перед `startActivity(HomeActivity)`;
-  - (б) manifest-driven wizard не создаёт ConfigDocument в `/config/current`;
-  - (в) reconcile применил preset в неполной форме (`ReconcileState` неверно закоммитил);
-  - (г) HomeComponent init читает preset до того как wizard-transaction commit'нулся.
-- **Fix**: обеспечить что после `WizardHostActivity` completion — active preset persisted, ConfigDocument seeded (classic-6 или соответствующий для senior preset), HomeComponent Loading → Ready.
-- **Локализация wizard'а**: отдельный AC — все user-visible строки нового wizard runtime резолвятся через `strings_wizard.xml` (не raw keys).
+### Phase 1 — Tag enum + Component.tags
 
-**Затронутые файлы (predicted):**
-- `app/src/main/java/com/launcher/app/wizard/WizardHostActivity.kt` (создан в TASK-126 phase 2)
-- `core/src/commonMain/kotlin/com/launcher/ui/wizard/WizardViewModel.kt` (TASK-126 T001/T050/T051)
-- `core/src/commonMain/kotlin/com/launcher/domain/ReconcileState.kt`
-- `core/src/commonMain/kotlin/com/launcher/adapters/config/ConfigBackedFlowRepository.kt`
+- **Новый** `core/preset/model/Tag.kt` (pure Kotlin, zero Android imports):
+  ```kotlin
+  enum class Tag {
+      Presentation,        // видно на HomeScreen
+      Appearance,          // визуальные overrides (fontScale, theme)
+      System,              // системные (rotation lock, kiosk)
+      Safety,              // SOS, emergency call
+      Capabilities,        // permissions, features
+      Communication,       // call, sms, messenger
+      Accessibility,       // large-text, high-contrast
+      Emergency,           // panic mode, medical alert
+  }
+  ```
+- **Component.tags: Set<Tag>** — новое поле на sealed класс `Component` (TASK-120). Каждый variant (`AppTile`, `Sos`, `FontSize`, `Toolbar`, ...) объявляет свой tag-set в defaults.
+- **schemaVersion bump v2 → v3** в wire-format `Profile`. Migration writer читает v2 (без tags), заполняет defaults по типу Component.
+- **Roundtrip тест**: `write(v3) → read(v3) → assertEqual`.
+- **Backward-compat тест**: `read(v2 fixture) → assertTagsPopulated`.
+
+### Phase 2 — Profile.query + selectors
+
+- **Новый API** на `Profile`:
+  ```kotlin
+  fun query(predicate: (Component) -> Boolean): List<Component>
+  ```
+- **Convenience selectors** (top-level extension functions или методы):
+  ```kotlin
+  fun Profile.presentation(): List<Component> = query { it.hasTag(Tag.Presentation) }
+  fun Profile.safety(): List<Component>
+  fun Profile.homeScreenTiles(): List<AppTile>
+  ```
+- **Unit-тесты**: single-tag query, multi-tag combination, empty result, tag-not-present.
+
+### Phase 3 — ProfileBackedFlowRepository
+
+- **Новый adapter** `core/adapters/preset/ProfileBackedFlowRepository.kt`, реализует существующий `FlowRepository` порт из HomeScreen path.
+- Читает `Profile` из `ProfileStore` (TASK-120), проецирует через `profile.homeScreenTiles()` → `Flow` / `Slot` DTOs, эмитит через `Flow<HomeState>`.
+- **DI rewire**: заменить `ConfigBackedFlowRepository` на `ProfileBackedFlowRepository` в обоих backend'ах (`mockBackend`, `realBackend`).
+- **`HomeComponentLoadingStateTest`** расширить: Profile с одним `AppTile(tags = [Presentation])` → `HomeLoadingState.Ready`.
+
+### Phase 4 — Wizard string localization (side-fix)
+
+- `core/composeResources/values/strings_wizard.xml`: добавить недостающие ключи, найденные grep'ом по TASK-126 wizard code:
+  - `wizard_step_of`
+  - `wizard_component_font_size`
+  - `wizard_component_sos`
+  - `wizard_confirm`
+  - (+ любые другие всплывающие при grep'е `wizard_*` в UI слое)
+
+### Phase 5 — Documentation
+
+- **Новый** `docs/architecture/preset-model.md` с `<!-- AI-TLDR:BEGIN ... AI-TLDR:END -->` блоком (~60 строк). Объясняет две ортогональные дименсии:
+  - **Lifecycle dimension** (Preset three-field structure: `wizardFlow` / `settingsMap` / `activeComponents`) — как presets применяются.
+  - **Semantic dimension** (`Component.tags`) — по каким категориям компоненты группируются для UI-запросов.
+- **Comment headers** в `Preset.kt` + `Component.kt`: doc-комментарий с ссылкой на `docs/architecture/preset-model.md`.
+- **`docs/dev/server-roadmap.md`**: новая запись **SRV-CONFIG-DEPRECATION** — план удаления `ConfigDocument` из HomeScreen path (сейчас dead-code-like, останется для admin push scenarios в будущем).
+- **Inline TODOs** в местах где `ConfigDocument` ещё используется: `// TODO(config-deprecation): SRV-CONFIG-DEPRECATION — remove after admin push migrated to Profile push.`
+
+### Затронутые файлы
+
+- `core/preset/model/Tag.kt` (новый)
+- `core/preset/model/Component.kt` — добавить `tags: Set<Tag>` в sealed класс + defaults per variant
+- `core/preset/model/Profile.kt` — добавить `query` API + comment header
+- `core/preset/model/Preset.kt` — только comment header про две дименсии
+- `core/preset/serialization/ProfileSerializer.kt` — schemaVersion v2→v3 + migration writer
+- `core/adapters/preset/ProfileBackedFlowRepository.kt` (новый)
+- `app/di/{mock,real}Backend*.kt` — rewire `FlowRepository` binding
+- `core/composeResources/values/strings_wizard.xml` — новые ключи
+- `docs/architecture/preset-model.md` (новый)
+- `docs/dev/server-roadmap.md` — SRV-CONFIG-DEPRECATION запись
+- `HomeComponentLoadingStateTest.kt` — расширенный сценарий
+
+## Про роли в этой задаче
+
+Не применяется — TASK-127 внутренний архитектурный fix. Роли `primary user` / `remote administrator` / `restricted caregiver` не отличаются в этом контексте.
+
+## Состояние
+
+**In Progress** с 2026-07-15 после mentor-сессии владельца. Изначальный подход (`LauncherPresentationBuilder` bridge Profile → ConfigDocument) **отброшен** как построение моста на плохую архитектуру. Новый подход — **ECS-native расширение TASK-120** через Tags + Query pattern. Далее — `/speckit.specify` для `specs/task-127-ecs-tags-and-query/`.
+
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 [hand] Fresh install + wizard on Xiaomi Redmi Note 11 → HomeActivity показывает preset content (плитки), не Error UI. Regression от TASK-52 закрыт для нового wizard runtime.
-- [ ] #2 [hand] Wizard runtime строки локализованы через `strings_wizard.xml` (нет raw keys `wizard_*` в UI).
-- [ ] #3 [hand] `HomeComponentLoadingStateTest` расширен новым сценарием: post-manifest-wizard reconcile → Ready state (не Error), покрывает регрессию.
+- [ ] #1 [hand] Fresh install + wizard на Xiaomi Redmi Note 11 (adb id 17f33878) → HomeActivity показывает preset content (плитки), не Error UI. Regression от TASK-52 закрыт.
+- [ ] #2 [hand] Wizard runtime строки локализованы через `core/composeResources/values/strings_wizard.xml` (нет raw keys `wizard_*` в UI).
+- [ ] #3 [hand] `Component.tags: Set<Tag>` field добавлен, serialization зелёная. Migration writer v2→v3 покрыт roundtrip тестом (v2 Profile читается, tags заполнены defaults по типу Component).
+- [ ] #4 [hand] `Profile.query { predicate }` API + convenience selectors (`presentation()`, `safety()`, `homeScreenTiles()`) объявлены. Unit-тесты: query по одному тегу, по комбинации тегов, empty result.
+- [ ] #5 [hand] `ProfileBackedFlowRepository : FlowRepository` реализован в `core/`. DI wire в mockBackend + realBackend: HomeScreen path получает эту реализацию, не ConfigBackedFlowRepository. `HomeComponentLoadingStateTest` расширен: Profile с одним AppTile → HomeLoadingState.Ready.
+- [ ] #6 [hand] `docs/architecture/preset-model.md` создан с AI-TLDR блоком, объясняет две ортогональные дименсии. `Preset.kt` + `Component.kt` содержат doc-комментарии с ссылкой на этот файл. `docs/dev/server-roadmap.md` содержит SRV-CONFIG-DEPRECATION запись.
+- [ ] #7 [auto:checklist] checklists/requirements-quality.md: 15/16 CHK [x]
+- [ ] #8 [auto:checklist] checklists/meta-minimization.md: 13/13 CHK [x]
+- [ ] #9 [auto:checklist] checklists/dev-experience.md: 20/22 CHK [x]
+- [ ] #10 [auto:checklist] checklists/domain-isolation.md: 16/16 CHK [x]
+- [ ] #11 [auto:checklist] checklists/wire-format.md: 18/18 CHK [x]
+- [ ] #12 [auto:checklist] checklists/state-management.md: 16/17 CHK [x]
+- [ ] #13 [auto:checklist] checklists/failure-recovery.md: 17/17 CHK [x]
+- [ ] #14 [auto:checklist] checklists/ux-quality.md: 22/22 CHK [x]
+- [ ] #15 [auto:checklist] checklists/localization.md: 20/20 CHK [x]
+- [ ] #16 [auto:checklist] checklists/localization-ui.md: 17/19 CHK [x]
+- [ ] #17 [auto:checklist] checklists/elderly-friendly.md: 21/22 CHK [x]
+- [ ] #18 [auto:checklist] checklists/preset-readiness.md: 16/20 CHK [x]
+- [ ] #19 [auto:checklist] checklists/modular-delivery.md: 17/18 CHK [x]
 <!-- AC:END -->
+
+## Discussion
+
+<!-- SECTION:DISCUSSION:BEGIN -->
+
+### Session 1 (2026-07-15, mentor-сессия владельца) — краткая сводка
+
+- **Стартовая позиция**: TASK-127 был bug-fix'ом с узким scope'ом — новый порт `LauncherPresentationBuilder`, конвертирующий `Profile.activeComponents` → `ConfigDocument`, чтобы `ConfigBackedFlowRepository` мог читать HomeScreen-контент.
+- **Владелец спросил**: «TASK-120 задумывался ECS-inspired (Component как sealed hierarchy). Не выглядит ли `LauncherPresentationBuilder` как bridge на плохую архитектуру вместо расширения хорошей?».
+- **Discovery**: TASK-120 Session 2 notes упоминают ECS-inspiration явно. Но не хватает двух канонических паттернов — **category tags** (multiple tags per entity, ортогональная категоризация) и **query API** (`world.query<Predicate>()` для проекций).
+- **Альтернативы обсуждены**:
+  - **A**. Bridge через `LauncherPresentationBuilder` (изначальный план). Дёшево, но фиксирует two-sources-of-truth (Profile + ConfigDocument).
+  - **B**. Убить `ConfigDocument` полностью, HomeScreen читает Profile через ad-hoc getters. Быстро, но не ECS-native, приведёт к N ad-hoc getters по мере роста UI-фич.
+  - **C**. Расширить TASK-120 через Tag+Query, HomeScreen читает Profile через query API. ConfigDocument остаётся для admin push (отдельная задача deprecation). **Выбрано.**
+- **Adjacent concerns**:
+  - schemaVersion bump v2→v3 — one-way door для wire-format (rule 5). Migration writer обязателен.
+  - Preset three-field structure (`wizardFlow` / `settingsMap` / `activeComponents`) сохраняется — это lifecycle dimension, ортогональна semantic tags. Нужен doc, иначе future confusion.
+  - `ConfigDocument` deprecation — отдельная задача (SRV-CONFIG-DEPRECATION в server-roadmap), не в scope TASK-127.
+
+### Decision (English) 🔒
+
+**Choice**: Extend TASK-120 Component model with ECS-standard tag+query patterns. Add `Component.tags: Set<Tag>` field (multiple tags per component, serialized, schemaVersion=3). Add `Profile.query(predicate)` selector API with convenience selectors (`presentation()`, `safety()`, `homeScreenTiles()`). Rewire HomeScreen from `ConfigBackedFlowRepository` to a new `ProfileBackedFlowRepository` which reads `Profile` directly and projects via query. `ConfigDocument` stays in codebase for future admin push scenarios but is no longer used by HomeScreen path. Preset three-field structure (`wizardFlow` / `settingsMap` / `activeComponents`) preserved — describes lifecycle dimension, orthogonal to `Component.tags` semantic-domain dimension.
+
+**Rationale**:
+1. TASK-120 was already ECS-inspired per Session 2 notes; adding Tag+Query completes the pattern rather than introducing a foreign paradigm.
+2. Multiple tags per component allow orthogonal categorization without forcing single-category choice (an SOS component is both `Safety` and `Emergency` and `Presentation`).
+3. Profile-as-source-of-truth eliminates ConfigDocument duplication in the HomeScreen path — one source, one migration story.
+4. Standard ECS pattern (Bevy Query, Unity EntityQuery, Flecs) — well-understood by future maintainers; no bespoke abstraction to explain.
+5. Additive to TASK-120, not superseding — sealed hierarchy unchanged, just new field. TASK-120 Decision block remains valid.
+
+**Applies to**: `core/preset/model/{Component,Profile,Tag,Preset}.kt`, `core/preset/serialization/ProfileSerializer.kt`, `core/adapters/preset/ProfileBackedFlowRepository.kt` (new), `app/di/{mock,real}Backend*.kt` (DI rewire), `core/composeResources/values/strings_wizard.xml`, `docs/architecture/preset-model.md` (new), `docs/dev/server-roadmap.md` (SRV-CONFIG-DEPRECATION entry).
+
+**Trade-offs accepted**:
+1. schemaVersion bump v2→v3 requires migration writer + backward-compat test (one-way door per rule 5).
+2. Two orthogonal dimensions (lifecycle Preset fields + semantic Component tags) may confuse readers — mitigated by explicit `docs/architecture/preset-model.md` + inline doc-comments on both files.
+3. `ConfigDocument` code stays temporarily, becoming dead-code-like for HomeScreen path; SRV-CONFIG-DEPRECATION queued in server-roadmap for cleanup.
+4. Tags enumerated as closed set (enum, not free-form strings) — adding new tag requires code change. Accepted: freeform strings would drift into typo hell.
+
+**Exit ramp**: If Tag+Query proves insufficient at scale (e.g., tag combinations need indexing beyond linear scan), keep the Tag data model and replace linear query with indexed lookup — additive change, no wire-format break. If the Preset three-field structure conflicts with Tag semantics later, add a fourth Preset field or promote tags to Preset level — both additive. If ECS-native direction turns out wrong entirely (unlikely — pattern is battle-tested industry-wide), revert `FlowRepository` binding to `ConfigBackedFlowRepository`, keep Tag+Query as pure metadata on Component (unused by HomeScreen path). Estimated cost of any exit ~2-3 days.
+
+Revision note (2026-07-15): initial scope replaced with ECS Tags+Query per owner mentor session — see Decision above.
+
+<!-- SECTION:DISCUSSION:END -->
 
 ## Definition of Done
 
-`In Progress → Done` через `pre-pr-backlog-sync` после fix + verification на Xiaomi 11 (тот же adb id `17f33878`, свежая установка).
-
-<!-- SECTION:PAUSE_REASON:BEGIN -->
-## Pause reason (2026-07-13)
-
-Owner decision: приоритет — F-CRYPTO wave (TASK-122). Bug обнаружен во время TASK-126 physical verification, задокументирован, evidence сохранён — но fix отложен. Не блокирует internal development (F-CRYPTO не касается HomeActivity), блокирует только user-facing smoke test на Xiaomi.
-
-**Resume conditions**:
-- F-CRYPTO wave завершится (TASK-122 → TASK-123 → TASK-124), ИЛИ
-- Понадобится показать MVP кому-то (пользователю или инвестору) → visible bug должен быть закрыт.
-
-**Где сохранена частичная работа**: только backlog файл + evidence в `verification-evidence/task-128-xiaomi-*` (screenshots, logcat). Никакого код-WIP нет.
-
-<!-- SECTION:PAUSE_REASON:END -->
+`In Progress → Verification/Done` через `pre-pr-backlog-sync` после fix + verification на Xiaomi Redmi Note 11 (тот же adb id `17f33878`, свежая установка). AC #3-#6 verifiable via unit/Robolectric — не требуют physical device. AC #1-#2 требуют физический smoke test.
