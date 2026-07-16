@@ -3,7 +3,7 @@
 **Status**: Accepted
 **Date**: 2026-07-16
 **Source**: TASK-127 deep architecture audit (industry ECS research: Bevy, Flecs, Unity DOTS, EnTT)
-**Related**: [TASK-127 spec.md](../../specs/task-127-ecs-tags-and-query/spec.md), [TASK-127 research.md § R-6](../../specs/task-127-ecs-tags-and-query/research.md), [TASK-120 Decision](../../backlog/tasks/task-120%20-%20Decision-Component-Preset-Profile-foundational-model.md)
+**Related**: [TASK-127 spec.md](../../specs/task-127-ecs-foundation/spec.md), [TASK-127 research.md § R-6](../../specs/task-127-ecs-foundation/research.md), [TASK-120 Decision](../../backlog/tasks/task-120%20-%20Decision-Component-Preset-Profile-foundational-model.md)
 
 ---
 

@@ -180,12 +180,12 @@ Wire-format impact: additive only (existing v1 examples updated to include `Tag.
 
 ### Files modified in remediation
 
-- `specs/task-127-ecs-tags-and-query/spec.md` — 5 edits (Context ECS framing, Clarifications Q3/Q4, FR-001, FR-002 Toolbar default, FR-005 Query API + byNotTag, MENTOR-DETAIL SEQ-3, TL;DR)
-- `specs/task-127-ecs-tags-and-query/data-model.md` — 4 edits (Tag enum +Toolbar, Component.Toolbar default, Query API +byNotTag + tag-based toolbar(), migration mapping, TL;DR)
-- `specs/task-127-ecs-tags-and-query/contracts/profile-v3.md` — 2 edits (example Toolbar tags, closed set of 10 tag names)
-- `specs/task-127-ecs-tags-and-query/research.md` — 2 edits (R-6 rewritten for `Tag.Tile` + `Tag.Toolbar` two-marker choice with Option C rationale, TL;DR)
-- `specs/task-127-ecs-tags-and-query/plan.md` — 3 edits (Data model summary, TL;DR, Required Context Review + ADR-012 link)
-- `specs/task-127-ecs-tags-and-query/tasks.md` — 4 edits (T127-003 10-tag list, T127-006 7-function API, T127-023 unit tests for byNotTag + toolbar tag-based, TL;DR)
+- `specs/task-127-ecs-foundation/spec.md` — 5 edits (Context ECS framing, Clarifications Q3/Q4, FR-001, FR-002 Toolbar default, FR-005 Query API + byNotTag, MENTOR-DETAIL SEQ-3, TL;DR)
+- `specs/task-127-ecs-foundation/data-model.md` — 4 edits (Tag enum +Toolbar, Component.Toolbar default, Query API +byNotTag + tag-based toolbar(), migration mapping, TL;DR)
+- `specs/task-127-ecs-foundation/contracts/profile-v3.md` — 2 edits (example Toolbar tags, closed set of 10 tag names)
+- `specs/task-127-ecs-foundation/research.md` — 2 edits (R-6 rewritten for `Tag.Tile` + `Tag.Toolbar` two-marker choice with Option C rationale, TL;DR)
+- `specs/task-127-ecs-foundation/plan.md` — 3 edits (Data model summary, TL;DR, Required Context Review + ADR-012 link)
+- `specs/task-127-ecs-foundation/tasks.md` — 4 edits (T127-003 10-tag list, T127-006 7-function API, T127-023 unit tests for byNotTag + toolbar tag-based, TL;DR)
 - `docs/adr/ADR-012-tagged-component-model-vs-canonical-ecs.md` — **new file** documenting deviation
 
 ### Cost
@@ -255,6 +255,33 @@ Owner questioned необходимость `ProfileMigrationV2toV3`: «У на�
 
 ---
 
+## Scope Expansion Pass (2026-07-16, Q7-Q10) — artifacts rebuilt
+
+*After audit #2 the owner reviewed the model end-to-end (workspace → flows → tiles + toolbar; preset sharing; Settings; admin push) and concluded the one-level model would force a rewrite. Scope expanded from «tags + query» to **full ECS foundation**, deliberately before implementation.*
+
+**Rationale (owner, verbatim intent)**: «Если это так, значит, надо переписать это… мы должны сделать правильную архитектуру, выверенную с упором на ECS-подходы». Everything added is **wire-format-affecting** → free pre-release, each costs a migration writer post-release (rule 5). Direct application of the owner's meta-rule: defer only what later becomes *appending*, not *rewriting*.
+
+**What changed**:
+
+| # | Addition | Clarification | Why now |
+|---|---|---|---|
+| 1 | **Hierarchy** — `Entity.parentId`, flat storage + computed tree (`Workspace → Flow → Tile`, `Toolbar → ToolbarButton`) | Q7 | Target screen (US-4) needs 3 flows + toolbar; one-level model cannot express it. Pattern: Bevy/Unity DOTS `Parent`, Android Launcher3 `favorites.container` (research R-7). |
+| 2 | **Three structural subtypes** — `Workspace`, `Flow(titleKey, layoutKey, order)`, `ToolbarButton(targetFlowId, …)`; `layoutKey` moves onto `Flow` | Q7 | New `type` discriminators = wire format. |
+| 3 | **`ComponentStatus.Unverifiable` + `Outcome.NeedsUserConfirmation`** | Q8 | Android exposes no read-back for status-bar hiding; the 4-value enum forced a lying `Applied`. New enum value = wire format. |
+| 4 | **ECS rename** — `ProfileComponent` → `Entity`, `ComponentDeclaration` → `Blueprint` (93 usages / ~25 files) | Q9 | «component» meant three different things — the owner and a prior AI session both stumbled on it. Cheap now, noisy later. |
+| 5 | **Hierarchy validation** — `DanglingParentRef`, `CircularParentRef`, `DanglingTargetRef` | Q7/FR-016 | A broken preset must fail at assembly, not silently render half a screen. |
+| 6 | **Profile references preset; both stored/shipped together** | Q10 | Owner's call; format already supports it (`basedOnPreset` + `presetVersion`). |
+
+**Artifacts rebuilt**: spec.md (Q7-Q10, US-4, SEQ-5, FR-011..016, SC-009..012), research.md (R-7 hierarchy, R-8 Unverifiable, R-9 naming), data-model.md (regenerated), contracts/profile-v2.md (hierarchical fixture, 13 tags, 11 types, 5 statuses), tasks.md (23 → **35 tasks / 9 phases**, rename as a dedicated first phase). Spec folder renamed `task-127-ecs-tags-and-query` → **`task-127-ecs-foundation`**.
+
+**Constitution Check re-run** against the expanded plan: **7 PASS, 1 N/A, 0 FAIL**. Notable: G-5 Accessibility PASS because there are **no new UI surfaces** — `BottomFlowBar` + `HomeComponent.selectFlow` already exist ([HomeScreen.kt:62-69](../../core/src/commonMain/kotlin/com/launcher/ui/screens/HomeScreen.kt#L62)) and render gating actively *improves* senior UX. G-8 Simplicity PASS with an Article XI note: the expansion is not speculative — each item has a current consumer, and each is wire-format-affecting.
+
+**Key verification that de-risked the expansion**: the UI contract is **already hierarchical** — `FlowDescriptor(id, name, templateId, slots: List<SlotDescriptor>)` with `SlotDescriptor.action: Action?` (null = placeholder «плюсик») has existed since spec 005, and `ConfigBackedFlowRepository` already maps `flows.map { … slots … }`. So `Workspace → Flow → Tile` projects onto the existing port with **no port change and no UI change** — `observeToolbar()` remains unnecessary.
+
+**Deferred, recorded as Draft backlog tasks**: TASK-130 (preset→profile update), TASK-131 (lenient reader — hard trigger before cross-device exchange), TASK-132 (pre-share preset validation), TASK-133 (configurable Wizard/Settings presentation via JSON), TASK-134 (add-flow UX / empty slots — industry check says do NOT model empty slots as entities: Launcher3/SpringBoard treat absence as absence).
+
+---
+
 ## Deferred Items
 
 No showstoppers. Two tasks marked `[deferred-physical-device]` (owner with Xiaomi):
@@ -267,11 +294,11 @@ These close SC-001, SC-002 (Acceptance Criteria at backlog-task level). Pre-PR s
 
 ## Verdict
 
-**🟢 READY FOR IMPLEMENTATION** *(re-issued after Deep Pre-Implement Audit #2 — the earlier verdict was premature: it rested on artifacts that diverged from real code; all 9 audit findings above are now remediated in the artifacts)*
+**🟢 READY FOR IMPLEMENTATION** *(re-issued 2026-07-16 after the scope expansion. History: verdict #1 was premature — it rested on artifacts that diverged from real code; audit #2 remediated all 9 findings; the expansion pass then rebuilt the artifacts for the full ECS foundation and re-ran the gates.)*
 
 All checks pass:
-- Constitution Check: 7/8 (1 N/A) — G-3/G-7 re-checked after audit #2
-- Cross-artifact trace: 100% coverage (10 FRs, 3 USs, contract, all NFRs)
+- Constitution Check: 7 PASS / 1 N/A / 0 FAIL — re-run against the **expanded** scope
+- Cross-artifact trace: 100% coverage (**16 FRs, 4 USs**, contract, all NFRs) across **35 tasks / 9 phases**
 - Wire-format audit: schemaVersion 2 matches code; fail-loud behavior pinned; migration policy documented
 - Source-set placement: corrected to real paths (`commonMain` for domain, `BackendInit.kt` for DI)
 - Context links: complete

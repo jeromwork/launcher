@@ -116,6 +116,76 @@ Documents one-way-door decisions per CLAUDE.md §3 and rejected alternatives per
 
 ---
 
+## R-7: Hierarchy representation — flat + parent reference vs nested containers
+
+**Nature**: one-way door (wire format). Owner's target screen is `Workspace → 3 × Flow → tiles` plus `Toolbar → 3 × ToolbarButton` where each button switches a flow. The MVP model stored a flat tile list only.
+
+**Choice**: **flat storage + `Entity.parentId: String?`**. Tree is *computed* by queries, never stored nested.
+
+**Alternatives considered**:
+- **A. Nested containers** — `Flow` holds `tiles: List<Component>`, `Workspace` holds `flows: List<Flow>`. Intuitive to read as JSON.
+- **B. Flat list + `parentId` reference (chosen).**
+- **C. Defer hierarchy; ship one-level tiles now** (original TASK-127 scope).
+
+**Rationale**:
+- Option A breaks cross-cutting queries: "all Safety components anywhere" becomes a recursive walk instead of one filter; moving a tile between flows becomes remove-from-array + insert-into-array instead of one field write; every new container type adds a new nesting level to every reader. It also fights the ECS/database model the whole design rests on (a table has no nested rows).
+- Option C was rejected by the owner: hierarchy is a **wire-format change**, so deferring means a migration writer for every installed profile the moment a second flow appears. Pre-release it is free. This is a direct application of the owner's own meta-rule: defer only what later becomes *appending*, not *rewriting*.
+- Option B is what the industry does for exactly this problem:
+  - **Bevy** — `Parent`/`Children` components on flat entity storage ([Bevy hierarchy](https://docs.rs/bevy/latest/bevy/hierarchy/index.html)).
+  - **Unity DOTS** — `Parent` component + `LocalToParent`; entities stay in flat archetype chunks.
+  - **Android Launcher3** — `favorites` table with a `container` column (desktop / hotseat / folder-id) + `screen`/`cellX`/`cellY`. A folder does not *contain* icons; icons *reference* the folder. This is the closest real-world analogue: our `Toolbar` ≈ hotseat, `Flow` ≈ screen, `AppTile` ≈ favorite.
+  - **Relational DBs** — adjacency list (`parent_id`) is the standard for shallow trees; nested sets only pay off for deep read-heavy trees.
+- Cost of B: one nullable field + three query helpers. Cost of A: rewrite of every reader when a level is added. Cost of C: migration writer post-release.
+
+**Depth**: MVP is depth 3 (`Workspace → Flow → Tile`; `Workspace → Toolbar → ToolbarButton`). Queries do not hardcode depth — `children(id)` works at any level.
+
+**Exit ramp**: If arbitrary cell placement is needed (drag tile to cell 5), add `cellPosition: Int?` on `AppTile` — additive, no format break (ordering today is `order` field within a flow). If deep trees appear (folders inside folders inside flows) and linear scans hurt, build a `Map<parentId, List<Entity>>` index at load — additive, no wire change.
+
+---
+
+## R-8: `Unverifiable` status — settings Android cannot read back
+
+**Nature**: model gap surfaced by the owner (system status-bar hiding).
+
+**Problem**: some settings have no read-back API. Hiding the system status bar on stock Android is a chain of intents through system settings screens; the OS exposes no "is it hidden?" query. Current `ComponentStatus` (`Pending / Applied / Failed / Skipped`) forces such a component to claim `Applied` — the model lies, and `BootCheck` either re-nags forever or trusts a fiction.
+
+**Choice**: add **`ComponentStatus.Unverifiable`** + **`Outcome.NeedsUserConfirmation`**.
+
+**Industry patterns surveyed** (kiosk launchers, MDM/EMM agents, Android enterprise):
+1. **Indirect verification** — verify what the API *does* expose (is the permission granted? is the role held?) rather than the end state. Used wherever a proxy signal exists.
+2. **Human as the source of truth** — "Settings will open. Turn on X, come back, tap 'I did it'." Standard in kiosk-provisioning wizards where no API exists.
+3. **Verify by consequence** — if the setting changes observable behaviour, probe the behaviour.
+4. **Honest unknown state** — record that we asked and cannot confirm, instead of asserting success.
+
+**Rules adopted** (FR-014):
+- `check()` returning `NeedsUserConfirmation` MUST NOT yield `Applied`.
+- `BootCheck` skips `Unverifiable` entities — otherwise every cold start nags the elderly user about a setting we cannot read.
+- Re-verification only on explicit Settings action (`RunMode.Single`).
+
+**Why now**: `ComponentStatus` is a wire-format enum. Adding a value pre-release is free; post-release it is a format change (and the alternative — shipping a lying `Applied` — poisons `BootCheck` semantics for every such setting).
+
+**Exit ramp**: If a future OEM/API exposes a real read-back (Samsung Knox, device-owner mode), the provider simply starts returning `Ok`/`NeedsApply` and the status resolves to `Applied` naturally — no format change, no migration.
+
+---
+
+## R-9: ECS naming alignment
+
+**Nature**: two-way door (pure rename, no wire impact) — but cheap now, noisy later.
+
+**Problem**: "component" denoted three different things: `Component` (data), `ComponentDeclaration` (catalogue entry), `ProfileComponent` (device instance). The owner stumbled on exactly this while reading the model; so did an earlier AI session (audit #2 finding #1 invented fields partly because the wrappers blur together).
+
+**Choice**: `ProfileComponent` → **`Entity`**, `ComponentDeclaration` → **`Blueprint`**. Keep `Component`, `Tag`, `Profile`, `Pool`.
+
+**Rationale**:
+- `Entity` is the canonical ECS term for "id + data + state" and it now also carries `parentId` — exactly an ECS entity.
+- `Blueprint` is the established term for "template an instance is spawned from" (Unreal Blueprints; Unity prefab/authoring; flecs prefabs). `ComponentDeclaration` said "declaration of a component" which is not what it is — it is a spawn template with lifecycle metadata.
+- `Profile`/`Pool` kept deliberately: `World`/`BlueprintLibrary` would be more ECS-pure, but `Profile` is owner-facing vocabulary across specs/backlog, and `Pool` is unambiguous in context. Renaming them buys purity at the cost of churn across every artifact — rejected per rule 4 reasoning.
+- Wire format untouched: Kotlin class names never appear in JSON here; `@SerialName` discriminators live on `Component` subtypes and stay.
+
+**Exit ramp**: Rename is mechanical (IDE refactor + fixtures unaffected). Reverting is equally mechanical.
+
+---
+
 ## Cross-references
 
 - ADR-011 §5 (chat-only checklists): plan.md and this research.md are English (AI-only artefacts) per language-by-audience rule.
@@ -135,4 +205,7 @@ Documents one-way-door decisions per CLAUDE.md §3 and rejected alternatives per
 - **`ConfigBackedFlowRepository` не удаляем** — он нужен для будущего сценария «админ пушит настройки» (spec-009). Удалим когда админ-пуш переедет на Profile-based sync. Пометили `TODO(SRV-CONFIG-DEPRECATION)` в коде и в server-roadmap.
 - **Два маркер-тега — `Tag.Tile` и `Tag.Toolbar`** — чтобы обе выборки (плитки и тулбар) работали через теги, без `is Toolbar` в коде. Плитки: `byAllTags({Presentation, Tile})`; тулбар: `byTag(Toolbar).firstOrNull()`. Добавление любого нового Presentation-компонента (hint overlay в Phase-2) не требует правки query — только объявить нужный набор тегов.
 - **`byNotTag(tag)` в API** — обычный предикат-фильтр исключения (стиль label selectors; формулировка «canonical ECS `Without<T>`» снята аудитом — см. ADR-012). Добавлен сейчас (30 строк кода), чтобы будущие «презентационные без экстренных» запросы не изобретали велосипед.
-- **Terminology honesty**: это **tagged-component-model, ECS-inspired**, не canonical ECS. Sealed hierarchy = один Component на entity; canonical ECS = N компонентов на entity. Для нашего масштаба (~20 entities, редкие правки) ок. См. [ADR-012](../../docs/adr/ADR-012-tagged-component-model-vs-canonical-ecs.md) с latent one-way door risk.
+- **Terminology honesty**: это **tagged-component-model, ECS-inspired**, не canonical ECS. Sealed hierarchy = один Component на entity; canonical ECS = N компонентов на entity. Для нашего масштаба (~20-40 entities, редкие правки) ок. См. [ADR-012](../../docs/adr/ADR-012-tagged-component-model-vs-canonical-ecs.md) с latent one-way door risk.
+- **Иерархия — плоско + ссылка на родителя** (R-7, решение 2026-07-16): профиль остаётся плоской таблицей, у каждой строки есть колонка «родитель» (`parentId`). Дерево (`Workspace → Flow → плитки`, `Toolbar → кнопки`) **вычисляется запросом**, а не хранится вложенно. Так делают Bevy, Unity DOTS и сам Android (Launcher3 хранит иконки плоской таблицей с колонкой «контейнер»: рабочий стол / панель / папка). Вложенность выглядит понятнее в JSON, но ломает сквозные запросы («дай все компоненты безопасности со всех экранов» стало бы рекурсивным обходом) и перенос плитки между экранами. Делаем сейчас, потому что это изменение формата: pre-release бесплатно, post-release = переселенец для профилей всех пользователей.
+- **`Unverifiable` — честный статус «не знаю»** (R-8): у Android нет способа спросить «скрыта ли системная шторка» — это цепочка интентов без обратной связи. Раньше такая настройка была бы вынуждена соврать `Applied`. Теперь: провайдер говорит «спроси человека», мастер показывает «откроются настройки, включите X, вернитесь, нажмите "Я включил"», статус становится `Unverifiable`. Проверка при каждом старте (`BootCheck`) такие настройки пропускает — иначе пожилого пользователя дёргало бы вечно.
+- **Переименование под ECS** (R-9): `ProfileComponent` → `Entity` (строка таблицы), `ComponentDeclaration` → `Blueprint` (заготовка в каталоге). Слово «component» значило три разные вещи — на этом спотыкались и владелец, и прошлая AI-сессия. `Component` / `Tag` / `Profile` / `Pool` не трогаем: первые два уже канонично, вторые два понятны и однозначны. Формат хранения не затрагивается — имена классов в JSON не участвуют.

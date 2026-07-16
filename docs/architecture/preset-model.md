@@ -226,4 +226,4 @@ Backlog:
 Specs:
 
 - `specs/task-120-preset-composition-foundation/`
-- `specs/task-127-ecs-tags-and-query/`
+- `specs/task-127-ecs-foundation/`

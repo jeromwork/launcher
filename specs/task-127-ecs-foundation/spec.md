@@ -1,8 +1,8 @@
-# Feature Specification: ECS Tags Foundation + HomeScreen Query Rewire
+# Feature Specification: ECS Foundation (Entities, Tags, Query, Hierarchy) + HomeScreen Rewire
 
 **Feature Branch**: `task-127-home-config-load-fix`
 **Created**: 2026-07-14
-**Updated**: 2026-07-16 — deep pre-implement audit: artifacts reconciled with real code (schemaVersion stays 2; port surface corrected; render gating added)
+**Updated**: 2026-07-16 — scope expanded to full ECS foundation (Q7): parent/children hierarchy, Workspace/Flow/ToolbarButton entity types, `Unverifiable` status, ECS naming. Earlier same-day: deep pre-implement audit reconciled artifacts with real code.
 **Status**: Draft
 **Backlog task**: [task-127](../../backlog/tasks/task-127%20-%20HomeActivity-config-load-failure-post-wizard-TASK-126-regression.md)
 **Input**: TASK-127 Decision block (2026-07-15) — ECS Tags + Query pattern extending TASK-120.
@@ -22,6 +22,15 @@
 | 4 | Toolbar в MVP: конфликт `Tag.Presentation` vs homeScreenTiles filter | Закрывается Q3 через отдельные `Tag.Tile` + `Tag.Toolbar`. `Profile.toolbar()` реализован через `byTag(Tag.Toolbar).firstOrNull()` — чистая query-based выборка без `is Toolbar` type check (deep-audit 2026-07-16 flagged paradigm mix, устранён). |
 | 5 | Existing `ConfigBackedFlowRepository` тесты — что с ними? | Остаются зелёными (класс не удаляется, coverage сохраняется). `HomeComponentLoadingStateTest` расширяется НОВЫМ сценарием `postManifestWizardReconcile_profileSeeded_homeReady` для Profile-based path. Существующий config-based сценарий остаётся. |
 
+### 2026-07-16 — Scope expansion pass (после разбора модели с владельцем)
+
+| # | Question | Resolution |
+|---|----------|------------|
+| 7 | Одноуровневая модель (плоский список плиток) vs иерархия (workspace → flows → tiles + toolbar с кнопками-ссылками)? | **Иерархия, в этом же task'е.** Владелец описал целевой сценарий: workspace содержит 3 flow, тулбар с 3 кнопками, каждая кнопка переключает на свой flow; внутри flow — плитки (приложения, контакты, календарь). Одноуровневая модель это не вмещает → релиз с ней = migration writer для всех установленных профилей при добавлении иерархии. Pre-release добавление бесплатно. Владелец: «Если это так, значит, надо переписать это… мы должны сделать правильную архитектуру, выверенную с упором на ECS-подходы». **Реализация — flat storage + parent-ссылка** (канонический ECS-паттерн `Parent`/`Children`: Bevy `Parent`, Unity DOTS `Parent`, Android Launcher3 `favorites.container`): хранение остаётся плоским списком (rule: ECS ≈ таблица БД), дерево вычисляется запросом по `parentId`. Никакой вложенности в wire-формате. |
+| 8 | Статус для настроек, которые физически нельзя проверить через API (системная шторка: цепочка интентов, Android не даёт read-back)? | **Добавить `ComponentStatus.Unverifiable`** + `Outcome.NeedsUserConfirmation`. Существующие 4 статуса (`Pending/Applied/Failed/Skipped`) заставляют такую настройку врать (`Applied` без оснований). Паттерн из индустрии (киоск-лаунчеры, MDM): (а) косвенная проверка того, что API отдаёт (permission выдана?), (б) подтверждение человеком — «откроются настройки, включите X, вернитесь, нажмите "Я включил"», (в) честный статус «не знаю». `BootCheck` НЕ перепроверяет `Unverifiable` на каждом старте (иначе вечное дёрганье пользователя) — только по явному действию в Settings. |
+| 9 | Naming: `Component` значит три разных вещи (`Component` / `ComponentDeclaration` / `ProfileComponent`) — владелец споткнулся при чтении. | **Переименовать в канонический ECS-словарь**: `ProfileComponent` → **`Entity`** (сущность: id + данные + состояние + parent), `ComponentDeclaration` → **`Blueprint`** (заготовка в каталоге). `Component` остаётся (это и есть данные). `Profile` / `Pool` остаются (понятны владельцу, не двусмысленны). Pre-release переименование дешёвое: wire-формат не затрагивается (имена Kotlin-классов в JSON не участвуют; `@SerialName` дискриминаторы внутри `Component` сохраняются). Владелец: «желательно следовать ECS-паттерну, чтобы сразу было понятно, о чём идёт речь». |
+| 10 | Профиль самодостаточен (копирует wizardFlow/settingsMap) или ссылается на пресет? | **Ссылается + оба хранятся/отправляются вместе.** Профиль остаётся «состоянием устройства» (`basedOnPreset` + `presetVersion` + entities), пресет — источником lifecycle-структуры. При admin-push отправляются оба. Владелец: «давай сейчас для точности возьмём, что оба отправляем… и храним оба». Будущее разделение профиля на части или вложение пресета в поле профиля — не принципиально, формат к обоим готов (аддитивно). |
+
 ---
 
 ## Context
@@ -31,6 +40,8 @@
 - Root cause: между TASK-120 фундаментом (`Profile` / `Provider` / `ReconcileEngine`) и HomeScreen-стеком (`ConfigDocument` / `ConfigBackedFlowRepository`) образовался архитектурный gap — wizard пишет `Profile`, HomeScreen читает `ConfigDocument`, между ними нет моста.
 - Mentor-сессия 2026-07-15: изначальный план «построить bridge через `LauncherPresentationBuilder` (Profile → ConfigDocument)» отброшен как построение моста на плохую архитектуру. Новое направление — **расширить TASK-120 через tagged-component-model (ECS-inspired, не canonical ECS)**: добавить `Component.tags: Set<Tag>` + `Profile.query { predicate }`, переключить HomeScreen на чтение `Profile` напрямую через query API. См. [ADR-012](../../docs/adr/ADR-012-tagged-component-model-vs-canonical-ecs.md) — где мы намеренно отклоняемся от canonical ECS (Bevy / Flecs / Unity DOTS) и почему.
 - Preset lifecycle-категоризация (`wizardFlow` / `settingsMap` / `activeComponents`) сохраняется — ортогональна Tag semantic-категоризации. Обе дименсии сосуществуют.
+- **Scope expansion 2026-07-16 (Clarifications Q7-Q10)**: разбор целевой модели с владельцем показал, что одноуровневого списка плиток недостаточно — реальный экран это `Workspace → N × Flow → tiles` + `Toolbar → N × ToolbarButton` (каждая кнопка переключает flow). Task расширен с «теги + запросы» до **полного ECS-фундамента**: entities с иерархией (`parentId`), новые entity-типы, честный статус `Unverifiable`, канонический ECS-нейминг. Обоснование: всё перечисленное — изменения wire-формата; pre-release они бесплатны, post-release каждое требует migration writer'а (rule 5). Это прямое применение мета-правила владельца «откладываем только то, что потом = дописывание, а не переписывание».
+- **Ключевой инсайт**: UI-слой уже иерархичен — `FlowDescriptor(id, name, slots: List<SlotDescriptor>)` с `SlotDescriptor.action: Action?` (null = placeholder-плитка, «плюсик») существует со спеки 005. Не хватало представления этой иерархии в самой доменной модели профиля. Расширение сводит модель и UI к одной форме, а не изобретает новую.
 
 ---
 
@@ -82,9 +93,31 @@
 
 ---
 
+---
+
+### User Story 4 — Экран с несколькими flow и тулбаром (Priority: P0, foundational)
+
+Пресет описывает workspace с тремя flow («Звонки», «Приложения», «Инфо») и нижним тулбаром из трёх кнопок — каждая кнопка переключает на свой flow. Внутри каждого flow — свои плитки (приложения, контакты, календарь). Пользователь тапает кнопку тулбара → показывается соответствующий flow со своими плитками.
+
+**Why this priority**: это **целевая форма экрана** (сценарий владельца 2026-07-16). Если модель не умеет хранить `Workspace → Flow → Tile` + `Toolbar → Button → (ссылка на Flow)`, то релиз одноуровневой модели = migration writer для всех установленных профилей при первом же добавлении второго flow. Pre-release это бесплатно (Clarification Q7). Одноуровневый экран (US-1) — вырожденный случай той же модели: один Workspace, один Flow, ноль кнопок.
+
+**Independent Test**: unit — Profile с `Workspace(ws-main)` + 3 × `Flow(parent=ws-main)` + плитками (`parent=flow-*`) + `Toolbar(parent=ws-main)` + 3 × `ToolbarButton(parent=toolbar-main, targetFlowId=flow-*)`. Запросы: `roots()` → workspace; `children(ws-main)` byTag Flow → 3 flow; `tilesOf(flow-calls)` → только плитки этого flow; `toolbarButtons()` → 3 кнопки, каждая с валидным `targetFlowId`.
+
+**Acceptance Scenarios**:
+
+1. **Given** Profile содержит workspace с тремя flow и тулбаром из трёх кнопок, **When** HomeScreen загружается, **Then** отображается первый (или последний активный) flow со своими плитками + тулбар с тремя кнопками; плитки чужих flow не показываются.
+2. **Given** отображён flow «Звонки», **When** пользователь тапает кнопку тулбара «Приложения», **Then** отображаются плитки flow «Приложения», тулбар остаётся; переключение не требует перезапуска Activity.
+3. **Given** пресет описывает один flow без тулбара (простой лаунчер, US-1), **When** HomeScreen загружается, **Then** отображаются плитки единственного flow, тулбар отсутствует — тот же код, вырожденный случай (иерархия глубиной 2).
+4. **Given** `ToolbarButton.targetFlowId` указывает на несуществующий flow, **When** пресет валидируется при создании профиля, **Then** валидатор возвращает типизированную ошибку (`DanglingParentRef` / `DanglingTargetRef`), профиль не собирается молча сломанным.
+
+---
+
 ### Edge Cases
 
 - **Profile с 0 tiles-компонентов**: если пресет наполнил defaults (например Settings tile) — flows список non-empty, HomeLoadingState.Ready с default-плитками. Если пресет пустой и defaults не сработали — Ready с пустым экраном (валидное состояние), не Error.
+- **Entity с `parentId`, указывающим на несуществующую entity**: валидатор ловит при сборке профиля (`DanglingParentRef`). Runtime-запрос `children(id)` просто не вернёт сироту — молчаливый skip, не crash.
+- **Цикл в parent-ссылках** (A → B → A): валидатор ловит (`CircularParentRef`); механизм уже есть — `ValidationError.CircularOrdering` для `requires`, добавляется аналог для `parentId`.
+- **Настройка, которую нельзя проверить через API** (системная шторка): `check()` возвращает `Outcome.NeedsUserConfirmation`, статус становится `Unverifiable` после подтверждения пользователем («Я включил»). `BootCheck` такие компоненты не перепроверяет (Clarification Q8).
 - **Profile JSON без `tags` поля на Components**: обрабатывается автоматически через `kotlinx.serialization` constructor-defaults. Никакого явного migration writer. MVP не релизнут → нет релизнутых dev-профилей → нет потребителя миграции (см. Clarification Q6).
 - Component с `tags = emptySet()` — не находится ни одним селектором (валидно как deprecated marker; правило: MVP всегда указывает default tags не пустые). Fitness function: unit test проверяет что каждый Component subtype имеет non-empty default tags.
 - Toolbar с `Tag.Presentation` (без `Tag.Tile`) — не попадает в `homeScreenTiles()`, но попадает в общий `byTag(Tag.Presentation)`. Рендерится через отдельный `Profile.toolbar()` selector.
@@ -114,7 +147,7 @@ Per [CLAUDE.md «Sequences in spec.md»](../../CLAUDE.md) section and [ADR-011](
 
 Pre: fresh install completed, `WizardHostActivity` running, blank `ProfileStore`, local mode. Owner tapped through all wizard steps.
 Post: `HomeActivity` visible, `HomeLoadingState.Ready`, tile list rendered.
-Used-in: spec/task-127-ecs-tags-and-query.
+Used-in: spec/task-127-ecs-foundation.
 
 #### Spec-level (behavior)
 
@@ -184,7 +217,7 @@ sequenceDiagram
 
 Pre: `Profile` loaded, contains four Components: `AppTile(Settings)`, `AppTile(Phone)`, `Sos`, `Toolbar`. Each with default tags per FR-002.
 Post: HomeScreen renders 3 tiles (Settings, Phone, Sos) in tile grid; Toolbar renders in bottom panel — no overlap.
-Used-in: spec/task-127-ecs-tags-and-query.
+Used-in: spec/task-127-ecs-foundation.
 
 #### Spec-level (behavior)
 
@@ -234,7 +267,7 @@ sequenceDiagram
 
 Pre: `HomeActivity` starting; `ProfileStore.observe()` первым эмитит `null` (cold start до первого disk read completes; или transient migration state). Owner в этот момент видит splash / loading indicator.
 Post: HomeComponent **не** переходит в Error state. Остаётся в Loading. При первом non-null Profile — переходит в Ready.
-Used-in: spec/task-127-ecs-tags-and-query.
+Used-in: spec/task-127-ecs-foundation.
 
 #### Spec-level (behavior)
 
@@ -284,11 +317,74 @@ sequenceDiagram
 
 ---
 
+### SEQ-5: Иерархия — workspace, три flow, переключение по тулбару
+
+Pre: `Profile` содержит `Workspace(ws-main)`, три `Flow` (`parent=ws-main`, order 0..2), плитки (`parent=flow-*`), `Toolbar(parent=ws-main)` и три `ToolbarButton(parent=toolbar-main, targetFlowId=flow-*)`.
+Post: экран показывает плитки активного flow + тулбар; тап по кнопке меняет активный flow без перезапуска Activity.
+Used-in: spec/task-127-ecs-foundation.
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  U->>S: Открывает главный экран
+  S->>S: Спросить: какой workspace? какие flow у него?
+  S->>S: Спросить: какие плитки у активного flow?
+  S->>S: Спросить: какие кнопки у тулбара?
+  S-->>U: Показать плитки активного flow + тулбар (3 кнопки)
+  U->>S: Тап по кнопке «Приложения»
+  S->>S: Активный flow := целевой flow кнопки
+  S->>S: Спросить: какие плитки у нового активного flow?
+  S-->>U: Показать плитки flow «Приложения» (тулбар на месте)
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant HUI as HomeActivity
+  participant HVM as HomeComponent
+  participant HR as ProfileBackedFlowRepository
+  participant P as Profile (Query API)
+  HUI->>HVM: init
+  HVM->>HR: loadFlows() / observeFlows()
+  HR->>P: workspace()
+  P-->>HR: Entity(Workspace ws-main)
+  HR->>P: flows()  «byTag(Flow), sorted by order»
+  P-->>HR: [flow-calls, flow-apps, flow-info]
+  loop для каждого flow
+    HR->>P: tilesOf(flowId)  «parentId == flowId, minus Failed/Skipped»
+    P-->>HR: [Entity(AppTile), …]
+  end
+  HR->>P: toolbarButtons()  «byTag(ToolbarButton), sorted by order»
+  P-->>HR: [btn-calls, btn-apps, btn-info]
+  HR-->>HVM: List<FlowDescriptor> (3 flow со слотами)
+  HVM-->>HUI: HomeLoadingState.Ready(flows)
+  Note over HVM: переключение вкладки = selectFlow(flowId) —<br/>существующий механизм TASK-52 (flowSlot),<br/>без перезапуска Activity и без обращения к диску
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- **Ключевая идея — дерево, но без вложенности.** Профиль остаётся плоской таблицей: каждая строка = один объект (workspace, flow, плитка, тулбар, кнопка). У каждой строки есть колонка «родитель» (`parentId`). Дерево не хранится — оно **вычисляется запросом**: «дай всех, у кого родитель = flow-calls». Ровно так устроен обычный Android-лаунчер: плоская таблица иконок с колонкой «на каком экране / в какой папке лежит».
+- **Почему не вложенность.** Вложенные объекты («flow содержит массив плиток») выглядят интуитивнее, но ломают всё остальное: запрос «дай все плитки безопасности со всех экранов» пришлось бы писать рекурсивным обходом, а не одной строчкой; перенос плитки между flow стал бы «вырезать из одного массива, вставить в другой» вместо «поменять одно поле». Плоскость + ссылка — это то, как делают и ECS-движки (Bevy, Unity DOTS), и базы данных (внешний ключ), и сам Android.
+- **Что видит пользователь.** Внизу тулбар с тремя кнопками. Каждая кнопка привязана к своему flow (`targetFlowId`). Тап — показались плитки этого flow. Никакой перезагрузки: механизм переключения вкладок уже есть с TASK-52 (`selectFlow`), мы просто наполняем его данными из профиля.
+- **Простой лаунчер — тот же код.** Пресет «simple launcher» = один workspace, один flow, ноль кнопок тулбара. Экран покажет плитки единственного flow и не покажет тулбар. Отдельной ветки кода для «простого» случая не существует — это вырожденное дерево.
+- **Почему это делаем сейчас, а не потом.** Добавление колонки «родитель» и новых типов объектов меняет формат хранения. Пока приложение не выпущено — это бесплатно (сбросили тестовые данные и всё). После выпуска — пришлось бы писать программу-переселенец для профилей всех живых пользователей. Это то же ваше правило: откладываем только то, что потом будет *дописыванием*, а не *переписыванием*.
+- Покрывает US-4, FR-011 — FR-013, FR-016.
+<!-- MENTOR-DETAIL:END -->
+
+---
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: `Tag` enum объявлен в `core/preset/model/Enums.kt`. Начальный набор: `Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar`. Additive-only per rule 5.
+> **Scope note (2026-07-16, Q7-Q10)**: FR-001..FR-010 — исходный tags+query scope. FR-011..FR-016 — расширение до ECS-фундамента (иерархия, entity-типы, статус, нейминг). Все они — изменения wire-формата, поэтому делаются одним заходом pre-release.
+
+- **FR-001**: `Tag` enum объявлен в `core/preset/model/Enums.kt`. Начальный набор — **13 значений**: `Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar` + **`Workspace, Flow, ToolbarButton`** (структурные маркеры, добавлены per Q7 для запросов по иерархии). Additive-only per rule 5.
 
 - **FR-002**: `Component.tags: Set<Tag>` — новое поле в sealed hierarchy (abstract val + constructor-default в каждом subtype). Multiple tags разрешены. **Все 8 реальных subtypes** (audit 2026-07-16: `Language` и `StatusBarPolicy` раньше пропускались) получают default value:
   - `AppTile` → `setOf(Tag.Presentation, Tag.Tile)`
@@ -300,17 +396,19 @@ sequenceDiagram
   - `Language` → `setOf(Tag.System)`
   - `StatusBarPolicy` → `setOf(Tag.System)` — **object → data class**
 
+  Плюс три новых subtype per FR-011: `Workspace` → `setOf(Tag.Presentation, Tag.Workspace)`, `Flow` → `setOf(Tag.Presentation, Tag.Flow)`, `ToolbarButton` → `setOf(Tag.Presentation, Tag.ToolbarButton)`.
+
 - **FR-003** (restated 2026-07-16): override тегов в `pool.json` идёт **через вложенный объект `component`** внутри существующего `ComponentDeclaration` (поле `component: Component` уже встроено — никакого нового поля не добавляется, rule 4 MVA). При отсутствии `"tags"` — `kotlinx.serialization` подставляет constructor-default из соответствующего `Component` subtype. Подтверждается тестом (T127-005).
 
 - **FR-004** (revised 2026-07-16): `Profile` wire-format сохраняет **`schemaVersion: 2`** (значение из shipped кода `Profile.CURRENT_SCHEMA_VERSION = 2` и TASK-120 Decision; rule 5 — schemaVersion поле присутствует). Добавление `tags` — **аддитивное** изменение, bump не требуется. **Никакой migration writer не пишется** (Q6): MVP не релизнут, потребителя миграции нет; dev `ProfileStore` можно сбросить. Отсутствие `tags` поля в JSON — через `kotlinx.serialization` constructor-defaults (единственный источник истины). Первый migration writer появится post-release при первом breaking change (v2 → v3). **Честный forward-compat** (contracts/profile-v2.md): незнакомый JSON-ключ игнорируется; незнакомое значение `Tag` или незнакомый `type` компонента = fail-loud `SerializationException` у старого читателя — фиксируется контракт-тестами; lenient-читатель обязателен до появления cross-device артефактов (admin push / preset sharing).
 
-- **FR-005**: `Profile.query(predicate: (ProfileComponent) -> Boolean): List<ProfileComponent>` — базовый Query API. Convenience selectors:
-  - `Profile.byTag(tag: Tag): List<ProfileComponent>`
-  - `Profile.byAllTags(tags: Set<Tag>): List<ProfileComponent>` — все указанные теги должны присутствовать
-  - `Profile.byAnyTag(tags: Set<Tag>): List<ProfileComponent>` — хотя бы один
-  - `Profile.byNotTag(tag: Tag): List<ProfileComponent>` — все компоненты БЕЗ этого тега (обычный предикат-фильтр в стиле label selectors; формулировка «canonical ECS `Without<T>` эквивалент» снята аудитом 2026-07-16 — см. ADR-012)
-  - `Profile.homeScreenTiles(): List<ProfileComponent>` = `byAllTags(setOf(Tag.Presentation, Tag.Tile))` **минус компоненты со `status = Failed | Skipped`** (render gating: устройство не смогло применить / пользователь пропустил — плитка не показывается; `Pending` показывается) — плитки, но не Toolbar
-  - `Profile.toolbar(): ProfileComponent?` = `byTag(Tag.Toolbar).firstOrNull()` — query-based выборка без `is Toolbar` type check; **в TASK-127 существует на уровне query API (unit-тест), HomeComponent его не вызывает**
+- **FR-005**: `Profile.query(predicate: (Entity) -> Boolean): List<Entity>` — базовый Query API. Convenience selectors:
+  - `Profile.byTag(tag: Tag): List<Entity>`
+  - `Profile.byAllTags(tags: Set<Tag>): List<Entity>` — все указанные теги должны присутствовать
+  - `Profile.byAnyTag(tags: Set<Tag>): List<Entity>` — хотя бы один
+  - `Profile.byNotTag(tag: Tag): List<Entity>` — все компоненты БЕЗ этого тега (обычный предикат-фильтр в стиле label selectors; формулировка «canonical ECS `Without<T>` эквивалент» снята аудитом 2026-07-16 — см. ADR-012)
+  - `Profile.homeScreenTiles(flowId: String? = null): List<Entity>` = плитки (`{Presentation, Tile}`) **минус `status = Failed | Skipped`** (render gating: устройство не смогло применить / пользователь пропустил — мёртвая кнопка не показывается; `Pending` показывается). При переданном `flowId` — только плитки этого flow (`parentId == flowId`); без него — плитки активного/единственного flow (см. FR-012).
+  - `Profile.toolbar(): Entity?` = `byTag(Tag.Toolbar).firstOrNull()` — query-based выборка без `is Toolbar` type check
 
 - **FR-006** (expanded 2026-07-16): `ProfileBackedFlowRepository : FlowRepository` — новая реализация в `core/adapters/flow/`, реализует **все четыре метода существующего порта** (порт не меняется):
   - `loadFlows()` — **путь, где жила регрессия** (`HomeComponent.launchLoadFlows()`, one-shot с таймаутом 3с): ждёт первый non-null Profile (`observe().filterNotNull().first()`), возвращает `homeScreenTiles()` → `List<FlowDescriptor>`. Post-wizard Profile уже сохранён → возврат мгновенный. Если Profile так и не появился — suspend до таймаута caller'а → существующий `Error` + Retry (TASK-52 UX, без вечного Loading).
@@ -336,20 +434,65 @@ sequenceDiagram
 
 - **FR-010** (server-roadmap): `docs/dev/server-roadmap.md` MUST содержать новую запись **SRV-CONFIG-DEPRECATION** — план удаления `ConfigDocument` из HomeScreen path в будущей задаче (сейчас dead-code-like для HomeScreen path, остаётся для admin push scenarios). Inline TODO `// TODO(config-deprecation): SRV-CONFIG-DEPRECATION` MUST быть добавлен в местах где `ConfigDocument` ещё используется (ConfigEditor callers).
 
+### ECS Foundation requirements (FR-011..FR-016, добавлены 2026-07-16 per Q7-Q10)
+
+- **FR-011** (entity hierarchy): `Entity` (бывш. `ProfileComponent`) MUST нести поле **`parentId: String? = null`** (`null` = корень). Хранение остаётся **плоским списком** `Profile.components` — иерархия выражается ссылкой, не вложенностью (канонический ECS `Parent`/`Children`: Bevy, Unity DOTS; ср. Android Launcher3 `favorites.container`). Wire-формат: аддитивное optional поле → `schemaVersion` остаётся 2. Дерево вычисляется запросами (FR-012), никогда не хранится вложенно.
+
+- **FR-012** (hierarchy query API): в `ProfileQuery.kt` добавляются селекторы:
+  - `Profile.children(parentId: String): List<Entity>` — прямые дети.
+  - `Profile.roots(): List<Entity>` — entities без родителя.
+  - `Profile.workspace(): Entity?` = `byTag(Tag.Workspace).firstOrNull()`.
+  - `Profile.flows(): List<Entity>` = `byTag(Tag.Flow)`, упорядоченные по `order` (см. FR-013).
+  - `Profile.tilesOf(flowId: String): List<Entity>` = плитки с `parentId == flowId`, минус `Failed`/`Skipped` (render gating).
+  - `Profile.toolbarButtons(): List<Entity>` = `byTag(Tag.ToolbarButton)`, упорядоченные по `order`, с `parentId` = id тулбара.
+  Все — extension-функции, линейный проход (MVP scale ~20-40 entities; NFR-003 < 1 мс сохраняется).
+
+- **FR-013** (new Component subtypes): в sealed hierarchy `Component` добавляются три подтипа (аддитивно, `@SerialName` дискриминаторы):
+  - `Workspace(layoutKey: String)` — корень экрана; теги `{Presentation, Workspace}`.
+  - `Flow(titleKey: String, layoutKey: String, order: Int = 0)` — одна вкладка/страница; теги `{Presentation, Flow}`. **`layoutKey` переезжает сюда** — сетка задаётся на уровне flow, а не всего профиля (Q7).
+  - `ToolbarButton(targetFlowId: String, labelKey: String, iconKey: String? = null, order: Int = 0)` — кнопка тулбара, ссылается на flow; теги `{Presentation, ToolbarButton}`.
+  `Profile.layoutKey` (существующее поле) сохраняется как fallback для профилей без `Workspace`/`Flow` (вырожденный US-1 случай) — deprecated-путь, помечается TODO.
+
+- **FR-014** (`Unverifiable` status): `ComponentStatus` MUST получить пятое значение **`Unverifiable`** — «применение запрошено, пользователь подтвердил, но система не даёт read-back». `Outcome` MUST получить **`NeedsUserConfirmation`** — провайдер сообщает «интент запущен, достоверно проверить нельзя, спроси человека». Правила:
+  - `check()`, возвращающий `NeedsUserConfirmation`, НЕ имеет права ставить `Applied`.
+  - `ReconcileEngine` в `RunMode.BootCheck` **пропускает** entities со статусом `Unverifiable` (иначе пользователь получает бесконечное дёрганье при каждом старте).
+  - Перепроверка `Unverifiable` — только по явному действию в Settings (`RunMode.Single`).
+  - Применение: настройки без read-back API (системная шторка `StatusBarPolicy` — цепочка интентов; Android не даёт запросить состояние).
+  Wire-формат: аддитивное значение enum → `schemaVersion` остаётся 2 (с оговоркой fail-loud из FR-004).
+
+- **FR-015** (ECS naming): переименование к каноническому ECS-словарю (pure rename, wire-формат не затрагивается — Kotlin-имена классов в JSON не участвуют, `@SerialName` внутри `Component` сохраняются):
+  - `ProfileComponent` → **`Entity`** (id + component + parentId + status + wizardBehavior + critical).
+  - `ComponentDeclaration` → **`Blueprint`** (каталожная заготовка).
+  - `Component`, `Tag`, `Profile`, `Pool` — **без изменений** (`Component` уже канонично; `Profile`/`Pool` понятны владельцу и не двусмысленны).
+  Обоснование (Q9): слово «component» означало три разные вещи, что путало и владельца, и AI-сессии.
+
+- **FR-016** (hierarchy validation): `ValidationError` MUST получить типизированные варианты для иерархии:
+  - `DanglingParentRef(entityId, missingParentId)` — `parentId` указывает на несуществующую entity.
+  - `CircularParentRef(cycle: List<String>)` — цикл в parent-ссылках.
+  - `DanglingTargetRef(buttonId, missingFlowId)` — `ToolbarButton.targetFlowId` указывает на несуществующий flow.
+  Проверки выполняются при сборке профиля из пресета (`ProfileFactory`) и доступны для authoring-time валидации (TASK-132). Runtime-запросы к сиротам не падают — `children()` просто их не вернёт.
+
 ### Non-Functional Requirements
 
 - **NFR-001**: Все новые типы (`Tag` enum, `Query API` методы на `Profile`) MUST быть pure Kotlin, zero Android imports. Проверяется существующим `checklist-domain-isolation`.
 - **NFR-002**: `ProfileBackedFlowRepository.observeFlows()` MUST эмитить новое значение при любом изменении Profile через `ProfileStore.observe()`. Проверяется unit-тестом (`FakeProfileStore` эмитит два Profile последовательно → repository эмитит два `FlowDescriptor` списка).
-- **NFR-003**: Query API performance на MVP scale (~20 Components в Profile) — под 1мс на query. Linear scan приемлем; indexing — будущая оптимизация под exit ramp.
+- **NFR-003**: Query API performance на MVP scale (~20-40 entities в Profile, включая структурные Workspace/Flow/ToolbarButton) — под 1мс на query, включая иерархические селекторы (`children`, `tilesOf`). Linear scan приемлем; indexing — будущая оптимизация под exit ramp.
+- **NFR-005** (иерархия): максимальная глубина дерева в MVP — 3 (`Workspace → Flow → Tile`; `Workspace → Toolbar → ToolbarButton`). Алгоритмы запросов не должны предполагать фиксированную глубину (обход по `parentId` работает на любой), но валидация цикла обязана завершаться на любых входных данных.
 - **NFR-004**: [REMOVED] Migration idempotency — no migration exists. Constructor-defaults на Component subtypes покрывают отсутствие `tags` в JSON. Fitness test `ComponentTagsFitnessTest` (NFR-001) гарантирует non-empty defaults.
 
 ---
 
 ## Key Entities
 
-- **`Tag`**: enum, semantic-domain marker для Components. Closed set, additive-only per wire-format rules. Ортогонален lifecycle-категоризации Preset'а.
-- **`Component.tags: Set<Tag>`**: новое поле на sealed hierarchy Component. Default per subtype; overridable в `ComponentDeclaration` (`pool.json`). Multiple tags на один Component разрешены.
-- **Query API**: predicate-based selector (`Profile.query`) + convenience selectors (`byTag`, `byAllTags`, `byAnyTag`, `homeScreenTiles`). Живёт на `Profile` как extension или методы.
+> **Ментальная модель (ECS ≈ таблица БД)**: `Profile` = таблица (ECS «World»); `Entity` = строка (id + данные + состояние + ссылка на родителя); `Component` = колонки строки (данные); `Tag` = метка для `WHERE`; `query` = `SELECT … WHERE`; `parentId` = внешний ключ (дерево вычисляется, не хранится вложенно); `ReconcileEngine` + `Provider` = «системы» ECS (единственные, кто меняет мир).
+
+- **`Tag`**: enum, semantic + структурный marker для Components. Closed set (13 значений), additive-only per wire-format rules. Ортогонален lifecycle-категоризации Preset'а.
+- **`Component.tags: Set<Tag>`**: новое поле на sealed hierarchy Component. Default per subtype; overridable через вложенный `component` объект в `Blueprint` (`pool.json`). Multiple tags на один Component разрешены.
+- **`Entity`** (бывш. `ProfileComponent`, FR-015): строка таблицы профиля — `id`, `component`, **`parentId: String?`** (FR-011), `status`, `wizardBehavior`, `critical`.
+- **`Blueprint`** (бывш. `ComponentDeclaration`, FR-015): каталожная заготовка в пуле, из которой рождается `Entity`.
+- **`Workspace` / `Flow` / `ToolbarButton`** (FR-013): структурные Component-подтипы. `Workspace` — корень экрана; `Flow` — вкладка со своей сеткой (`layoutKey`) и порядком; `ToolbarButton` — кнопка со ссылкой `targetFlowId` на flow.
+- **Query API**: predicate-based selector (`Profile.query`) + tag-селекторы (`byTag`, `byAllTags`, `byAnyTag`, `byNotTag`) + иерархические (`children`, `roots`, `workspace`, `flows`, `tilesOf`, `toolbar`, `toolbarButtons`). Extension-функции на `Profile`.
+- **`ComponentStatus.Unverifiable`** (FR-014): пятый статус для настроек без read-back API; `BootCheck` их не перепроверяет.
 - **`ProfileBackedFlowRepository`**: новый adapter, реализация существующего `FlowRepository` порта. Читает `Profile` через `ProfileStore`, проецирует query result в `FlowDescriptor` список. Заменяет `ConfigBackedFlowRepository` в DI wiring HomeScreen path.
 - **`ConfigBackedFlowRepository`**: existing implementation, остаётся в коде для будущего admin push scenario, но не bind'ится к `FlowRepository` в HomeScreen DI wiring. Помечен `// TODO(config-deprecation): SRV-CONFIG-DEPRECATION`.
 
@@ -359,9 +502,11 @@ sequenceDiagram
 
 - Удаление `ConfigDocument` полностью из кодовой базы — отдельный будущий task per SRV-CONFIG-DEPRECATION запись в `docs/dev/server-roadmap.md`.
 - Переработка admin push пути (Profile-based вместо ConfigDocument-based) — отдельный будущий task после SRV-CONFIG-DEPRECATION.
-- Расщепление Toolbar Composite Component на отдельные button entities — отдельный будущий task (MVP: Toolbar остаётся Composite с `tags = setOf(Tag.Presentation, Tag.Toolbar)`).
-- **Рендеринг нижней панели (Toolbar) на HomeScreen** — селектор `Profile.toolbar()` создаётся и тестируется на query-уровне, но проводка в `HomeComponent`/UI потребовала бы изменения порта `FlowRepository` (новый метод) и контракта `HomeLoadingState` (TASK-52) — отдельная задача. Аудит 2026-07-16: ранняя версия артефактов молча добавляла `observeToolbar()` в порт, противореча заявлению «сигнатура не меняется» — убрано.
-- Query indexing / performance optimization — MVP scale (~20 Components) не требует; exit ramp в Decision block'е задачи.
+- ~~Расщепление Toolbar на отдельные button entities~~ — **вошло в scope per Q7** (FR-013): `ToolbarButton` = отдельная entity с `parentId` = тулбар.
+- ~~Рендеринг нижней панели~~ — **вошло в scope per Q7** (US-4, SEQ-5): тулбар и переключение flow проецируются через существующий порт `FlowRepository` (`List<FlowDescriptor>` уже иерархичен: flow → slots) и существующий механизм вкладок `HomeComponent.selectFlow` (TASK-52). Порт по-прежнему **не меняется** — `observeToolbar()` не нужен.
+- **Drag-and-drop перестановка плиток / папки** — отдельная задача (TASK-134 add-flow UX).
+- **Явные координаты ячеек** (`cellPosition` на AppTile) — не в scope: порядок внутри flow задаётся полем `order`, произвольная расстановка по ячейкам — при необходимости аддитивное поле позже (research R-9).
+- Query indexing / performance optimization — MVP scale (~20-40 entities) не требует; exit ramp в research.md.
 - Регистрация новых Tag values (кроме initial set) — additive change, не в scope этого spec.
 - **Corrupt Profile recovery** — детектирование битого / несериализуемого Profile в `ProfileStore` (disk corruption, незнакомый тег/тип от будущей версии). MVP: fail-loud поведение зафиксировано контракт-тестами (contracts/profile-v2.md); явный recovery flow (reset ProfileStore + rerun FirstLaunchActivity) — отдельный будущий task если понадобится по production feedback.
 
@@ -371,8 +516,12 @@ sequenceDiagram
 
 - **SC-001 [backlog]**: Fresh install + wizard на Xiaomi Redmi Note 11 (adb id `17f33878`) → HomeActivity показывает плитки, не Error UI. Требуется физическая верификация.
 - **SC-002 [backlog]**: Wizard runtime строки локализованы через `core/composeResources/values/strings_wizard.xml` (нет raw `wizard_*` ключей в UI). Проверяется на эмуляторе или физическом устройстве.
-- **SC-003 [backlog]**: `Component.tags: Set<Tag>` добавлен, constructor-defaults покрывают все subtypes. Roundtrip тест (Profile → JSON → Profile byte-equal) зелёный. `ComponentTagsFitnessTest` (reflection) подтверждает non-empty defaults.
-- **SC-004 [backlog]**: `Profile.query` + convenience selectors (`byTag`, `byAllTags`, `byAnyTag`, `homeScreenTiles`) объявлены. Unit-тесты: query по одному тегу, по комбинации тегов (AND/OR), empty result, tag-not-present.
+- **SC-003 [backlog]**: `Component.tags: Set<Tag>` добавлен, constructor-defaults покрывают все 11 subtypes (8 существующих + Workspace/Flow/ToolbarButton). Roundtrip тест (Profile → JSON → Profile) зелёный. `ComponentTagsFitnessTest` (reflection) подтверждает non-empty defaults.
+- **SC-004 [backlog]**: `Profile.query` + tag-селекторы (`byTag`, `byAllTags`, `byAnyTag`, `byNotTag`, `homeScreenTiles`) объявлены. Unit-тесты: query по одному тегу, по комбинации тегов (AND/OR/NOT), empty result, tag-not-present, render gating.
+- **SC-009 [backlog]**: **Иерархия работает** — Profile с `Workspace` + 3 × `Flow` + плитками + `Toolbar` с 3 × `ToolbarButton` корректно раскладывается запросами: `flows()` → 3 flow в заданном порядке, `tilesOf(flowId)` → только плитки своего flow, `toolbarButtons()` → 3 кнопки с валидными `targetFlowId`. Одноуровневый профиль (один flow, без тулбара) работает тем же кодом.
+- **SC-010 [backlog]**: **Переключение flow на экране** — тап по кнопке тулбара показывает плитки соответствующего flow без перезапуска Activity (проверяется на эмуляторе/устройстве).
+- **SC-011 [backlog]**: **`Unverifiable` статус честен** — компонент без read-back API (`StatusBarPolicy`) после подтверждения пользователем получает `Unverifiable`, а не `Applied`; `BootCheck` его не перепроверяет (unit-тест).
+- **SC-012**: Валидация иерархии — `DanglingParentRef`, `CircularParentRef`, `DanglingTargetRef` возвращаются как типизированные ошибки на битых фикстурах (unit-тесты).
 - **SC-005 [backlog]**: `ProfileBackedFlowRepository` реализован, DI wire в mockBackend + realBackend flavor. `HomeComponentLoadingStateTest` расширен НОВЫМ сценарием `postManifestWizardReconcile_profileSeeded_homeReady` — verifies Profile с одним AppTile → HomeLoadingState.Ready. Existing config-based сценарии в тесте остаются зелёными (ConfigBackedFlowRepository не удаляется).
 - **SC-006 [backlog]**: `docs/architecture/preset-model.md` создан с AI-TLDR блоком. `Preset.kt` + `Component.kt` содержат doc-комментарии с ссылкой на этот файл. `docs/dev/server-roadmap.md` содержит SRV-CONFIG-DEPRECATION запись.
 - **SC-007**: Fitness function — `checklist-domain-isolation` зелёный на новых типах (`Tag`, Query API, `ProfileBackedFlowRepository` при условии что adapter не тянет Android). Проверяется автоматически.
@@ -384,10 +533,11 @@ sequenceDiagram
 
 - ~~Assumption~~ **VERIFIED 2026-07-16**: `ProfileStore.observe()` возвращает `Flow<Profile?>` ([ProfileStore.kt:7](../../core/src/commonMain/kotlin/com/launcher/preset/port/ProfileStore.kt#L7)); `DataStoreProfileStore` эмитит `null` пока ключ отсутствует. `ProfileBackedFlowRepository` filter'ит null → HomeComponent остаётся в Loading (см. FR-006).
 - Pool.json НЕ мигрируется. Bundled в APK, всегда shipped вместе с current app version. Persisted Profile также не мигрируется в TASK-127 (per Clarification Q6): MVP не релизнут, `schemaVersion: 2` остаётся (tags аддитивно), отсутствие `tags` в JSON = constructor-default. Первый migration writer появится post-release (v2 → v3).
-- Tag enum initial set: 10 значений (Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar). Additive-only per rule 5.
-- `ReconcileEngine.run(RunMode.Wizard)` уже сохраняет Profile в `ProfileStore` на завершении wizard'а — проверить в коде TASK-126 перед implementation.
+- Tag enum initial set: **13 значений** (Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar + Workspace, Flow, ToolbarButton per Q7). Additive-only per rule 5.
+- ~~Assumption~~ **VERIFIED 2026-07-16**: `ReconcileEngine.run(RunMode.Wizard)` сохраняет Profile в `ProfileStore` после каждого компонента ([ReconcileEngine.kt:67](../../core/src/commonMain/kotlin/com/launcher/preset/engine/ReconcileEngine.kt#L67) — `store.save(profile)` внутри цикла) и возвращает финальный Profile. Profile-as-source-of-truth путь работоспособен.
+- **VERIFIED 2026-07-16**: UI-модель уже иерархична — `FlowDescriptor(id, name, templateId, slots: List<SlotDescriptor>)`, `SlotDescriptor.action: Action?` (null = placeholder «плюсик») ([FlowModels.kt](../../core/src/commonMain/kotlin/com/launcher/api/FlowModels.kt)). Проекция `Workspace → Flow → Tile` в `List<FlowDescriptor>` не требует изменений UI-контракта.
 - `FakeConfigEditor` не трогается — путь через него больше не используется HomeScreen. Существующие тесты на `ConfigBackedFlowRepository` остаются зелёными (класс не удаляется).
-- Toolbar в MVP остаётся Composite Component с `tags = setOf(Tag.Presentation, Tag.Toolbar)` — расщепление и рендеринг панели отложены до отдельных задач.
+- ~~Toolbar остаётся Composite~~ **отменено Q7**: `Toolbar` становится контейнером (`parentId` = workspace), его кнопки — отдельные entities `ToolbarButton` с `parentId` = id тулбара. Это и есть «расщепление», которое раньше откладывалось — делается сейчас, т.к. затрагивает wire-формат.
 - Единственный источник истины для «Component subtype → default tags» — constructor-defaults на sealed hierarchy. Никакого дублирующего mapping. Pool override через вложенный `component` объект — отдельный ongoing механизм (не путается с constructor-defaults).
 - `FlowRepository` port ([api/FlowRepository.kt](../../core/src/commonMain/kotlin/com/launcher/api/FlowRepository.kt): `loadFlows` / `availableTemplates` / `observeFlows` / `addFlow`) существует в существующем виде и его сигнатура **не меняется** — новый adapter реализует все четыре метода уже существующего interface (audit 2026-07-16: ранний `observeToolbar()` из скетчей убран как противоречащий этому assumption).
 
@@ -413,20 +563,33 @@ sequenceDiagram
 
 ## TL;DR (по-русски, для новичка и для будущего AI)
 
-**Суть.** Регрессия TASK-126: после wizard'а HomeActivity показывает Error UI вместо плиток. Root cause — архитектурный gap: wizard пишет `Profile` (модель TASK-120), а HomeScreen читает `ConfigDocument` (старая модель). Решение — не bridge, а **tagged-component-model расширение TASK-120 (ECS-inspired, не canonical ECS — см. [ADR-012](../../docs/adr/ADR-012-tagged-component-model-vs-canonical-ecs.md))**: добавить `Component.tags: Set<Tag>` + `Profile.query { predicate }`, переключить HomeScreen на чтение `Profile` напрямую через query API. `ConfigDocument` остаётся в кодовой базе для будущего admin push.
+**Суть.** Два дела в одном заходе: (1) **починить** регрессию TASK-126 (после wizard'а HomeActivity показывает Error вместо плиток — wizard пишет `Profile`, а HomeScreen читал старую модель `ConfigDocument`); (2) **достроить ECS-фундамент** модели, пока формат не у пользователей. Второе — по решению владельца 2026-07-16 (Q7-Q10): всё перечисленное меняет формат хранения, pre-release это бесплатно, post-release каждое = программа-переселенец для профилей живых пользователей.
 
-**Конкретика, которую стоит запомнить:**
-- `Tag` enum — **10 значений**: `Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar`. Additive-only (с честной оговоркой: старый читатель падает на незнакомом теге — lenient-читатель до cross-device обмена, см. FR-004).
-- `Component.tags` дефолты на **всех 8 подтипах**: `AppTile → {Presentation, Tile}`, `Sos → {Presentation, Tile, Safety, Emergency}`, `Toolbar → {Presentation, Toolbar}`, `FontSize → {Appearance, Accessibility}`, `LauncherRole → {System}`, `Theme → {Appearance}`, `Language → {System}`, `StatusBarPolicy → {System}`.
-- `Profile.homeScreenTiles() = byAllTags(setOf(Presentation, Tile))` минус `Failed`/`Skipped` (мёртвые кнопки не показываем) — Toolbar не попадает; `Profile.toolbar() = byTag(Tag.Toolbar).firstOrNull()` — query-based, без `is Toolbar`; HomeComponent его пока не вызывает (рендер панели — отдельная задача).
-- Query API: `byTag`, `byAllTags`, `byAnyTag`, `byNotTag` — стиль label selectors (Kubernetes), не canonical ECS.
-- Wire-format `Profile` = **`schemaVersion: 2`** (как в коде TASK-120; `tags` аддитивно — bump не нужен; раннее «reset to 1» отменено аудитом). Никакого migration writer — MVP не релизнут. Отсутствие `tags` в JSON = constructor-defaults на Component subtypes через kotlinx.serialization. Первый migration writer — post-release (v2 → v3, см. Clarification Q6).
-- `ProfileBackedFlowRepository` — новый adapter, реализует **все 4 метода** порта; `loadFlows()` = путь регрессии (ждёт первый non-null Profile), `observeFlows()` = hot path (при null Profile HomeComponent stays in Loading). Заменяет `ConfigBackedFlowRepository` в DI обоих flavor'ов (`BackendInit.kt` в core).
-- `wizard_step_of` — `<plurals>` ресурс (Russian one/few/many/other), не простой format string.
-- Новый `docs/architecture/preset-model.md` с AI-TLDR блоком объясняет две ортогональные дименсии: **lifecycle** (`wizardFlow` / `settingsMap` / `activeComponents`) vs **semantic** (`Component.tags`).
+**Ментальная модель (главное, что стоит понять): ECS — это таблица базы данных.**
+
+| База данных | ECS | У нас |
+|---|---|---|
+| таблица | World | `Profile` |
+| строка | Entity | запись в `Profile.components` |
+| колонки | Components | `AppTile(packageName, labelKey)` |
+| `WHERE tag='Tile'` | Query | `byTag(Tag.Tile)` |
+| внешний ключ | Parent/Children | **`Entity.parentId`** |
+| хранимая процедура | System | `ReconcileEngine` + `Provider` |
+
+**Конкретика:**
+- **Иерархия без вложенности** (FR-011/012): профиль остаётся **плоским списком**; дерево `Workspace → Flow → Tile` и `Toolbar → ToolbarButton` выражается ссылкой `parentId` и вычисляется запросами (`children`, `tilesOf`, `flows`, `toolbarButtons`). Так делают Bevy, Unity DOTS и сам Android (Launcher3 хранит иконки плоской таблицей с колонкой «контейнер»).
+- **Три новых типа** (FR-013): `Workspace(layoutKey)`, `Flow(titleKey, layoutKey, order)`, `ToolbarButton(targetFlowId, labelKey, order)`. `layoutKey` (сетка 2×3) переезжает на `Flow` — у каждой вкладки своя сетка.
+- `Tag` enum — **13 значений** (10 прежних + `Workspace`, `Flow`, `ToolbarButton`). Дефолты на **11 подтипах**.
+- **`Unverifiable` статус** (FR-014): для настроек, которые Android не даёт проверить (системная шторка = цепочка интентов без read-back). Провайдер отвечает `NeedsUserConfirmation` → пользователь подтверждает «Я включил» → статус `Unverifiable`, а не враньё `Applied`. `BootCheck` такие не дёргает на каждом старте.
+- **ECS-нейминг** (FR-015): `ProfileComponent` → **`Entity`**, `ComponentDeclaration` → **`Blueprint`**. Слово «component» означало три разные вещи. `Component`/`Tag`/`Profile`/`Pool` не трогаем.
+- **Валидация иерархии** (FR-016): `DanglingParentRef`, `CircularParentRef`, `DanglingTargetRef` — типизированные ошибки, ловятся при сборке профиля.
+- Wire-format `Profile` = **`schemaVersion: 2`** без изменений: `parentId`, новые типы и новый статус — всё **аддитивно**. Никакого migration writer (MVP не релизнут).
+- `ProfileBackedFlowRepository` реализует **все 4 метода** существующего порта (порт **не меняется**); `loadFlows()` = путь регрессии. UI-контракт тоже не меняется — `FlowDescriptor(id, name, slots)` уже иерархичен.
+- Простой лаунчер (один flow, без тулбара) — **тот же код**, вырожденный случай дерева.
 
 **На что смотреть с осторожностью:**
-- Physical device verification (SC-001, SC-002) на Xiaomi Redmi Note 11 (adb id `17f33878`) — AI не может закрыть, только эмулятор доступен.
-- `schemaVersion: 2` — не трогаем (уже в коде). Пока не релизнемся, каждое breaking изменение = сброс dev fixture'ов, не migration writer. После production релиза первый breaking change = первая migration (v2 → v3).
-- `ConfigBackedFlowRepository` остаётся в коде (не удаляется), просто не bind'ится в DI — inline TODO `SRV-CONFIG-DEPRECATION` на класс, иначе future confusion про два FlowRepository.
-- Corrupt Profile recovery явно out of scope — если десериализация упадёт на битом JSON (или на незнакомом теге/типе от будущей версии), будет crash без graceful fallback (production feedback покажет нужно ли).
+- Physical verification (SC-001, SC-002, SC-010) на Xiaomi Redmi Note 11 (adb id `17f33878`).
+- `schemaVersion: 2` — не трогаем. Post-release первый breaking change = первая migration (v2 → v3).
+- Старый читатель падает на незнакомом теге/типе (честно зафиксировано тестами) — lenient-читатель обязателен до cross-device обмена (TASK-131).
+- `ConfigBackedFlowRepository` остаётся в коде (не удаляется), просто не bind'ится в DI — inline TODO `SRV-CONFIG-DEPRECATION`.
+- Corrupt Profile recovery — out of scope (crash без graceful fallback).

@@ -1,6 +1,6 @@
 ---
 id: TASK-127
-title: 'HomeActivity config load: ECS Tags foundation + Query pattern'
+title: 'ECS foundation: entities, tags, query, hierarchy + HomeScreen rewire'
 status: In Progress
 assignee: []
 created_date: '2026-07-13'
@@ -19,7 +19,7 @@ dependencies:
 references:
   - verification-evidence/task-128-xiaomi-fresh-07.png
   - verification-evidence/task-128-xiaomi-blocker-logcat.txt
-  - specs/task-127-ecs-tags-and-query/
+  - specs/task-127-ecs-foundation/
 priority: high
 ordinal: 127000
 ---
@@ -57,7 +57,7 @@ ordinal: 127000
 
 ## Что входит технически (для AI-агента)
 
-> **Актуальная техническая правда — в спеке** (`specs/task-127-ecs-tags-and-query/`: spec.md FR-001..FR-010, data-model.md, contracts/profile-v2.md, tasks.md — синхронизированы с реальным кодом аудитом 2026-07-16). Ниже — обновлённая сводка.
+> **Актуальная техническая правда — в спеке** (`specs/task-127-ecs-foundation/`: spec.md FR-001..FR-010, data-model.md, contracts/profile-v2.md, tasks.md — синхронизированы с реальным кодом аудитом 2026-07-16). Ниже — обновлённая сводка.
 
 ### Phase 1 — Tag enum + Component.tags
 
@@ -117,7 +117,7 @@ ordinal: 127000
 
 **In Progress**. Изначальный подход (`LauncherPresentationBuilder` bridge Profile → ConfigDocument) **отброшен** после mentor-сессии 2026-07-15 как построение моста на плохую архитектуру. Новый подход — **расширение TASK-120 через tagged-component model** (Tags + Query, label-selector стиль per ADR-012).
 
-**2026-07-16 — deep pre-implement audit (4 независимых аудитора: карта модели, слои, индустриальные ECS, портируемость)**. Вывод: **архитектура здоровая, артефакты расходились с реальным кодом**. Найдено 9 расхождений, все исправлены в спеке (детали — `specs/task-127-ecs-tags-and-query/analyze-report.md` § Deep Pre-Implement Audit #2):
+**2026-07-16 — deep pre-implement audit (4 независимых аудитора: карта модели, слои, индустриальные ECS, портируемость)**. Вывод: **архитектура здоровая, артефакты расходились с реальным кодом**. Найдено 9 расхождений, все исправлены в спеке (детали — `specs/task-127-ecs-foundation/analyze-report.md` § Deep Pre-Implement Audit #2):
 
 - 3 критических: (а) data-model/контракт описывали несуществующие формы `Component` (в т.ч. `Sos(targetPhone)` — PII в shareable-артефакте) и пропускали 2 подтипа; (б) `schemaVersion` — артефакты «1», код и TASK-120 Decision «2» (решено: **остаётся 2**, `tags` аддитивно); (в) план чинил только `observeFlows()`, а ошибка на экране рождается в `loadFlows()`.
 - 3 серьёзных: молчаливое изменение порта (`observeToolbar()` при заявлении «сигнатура не меняется» — убрано, рендер тулбара → out of scope); ложное обещание forward-compat по тегам (переписано честно + fail-loud тесты + R-8 с жёстким триггером); выдуманные пути файлов (перенаправлены на реальные).
@@ -134,10 +134,15 @@ ordinal: 127000
 <!-- AC:BEGIN -->
 - [ ] #1 Fresh install + wizard на Xiaomi Redmi Note 11 (adb id `17f33878`) → HomeActivity показывает плитки, не Error UI. Требуется физическая верификация.
 - [ ] #2 Wizard runtime строки локализованы через `core/composeResources/values/strings_wizard.xml` (нет raw `wizard_*` ключей в UI). Проверяется на эмуляторе или физическом устройстве.
-- [ ] #3 `Component.tags: Set<Tag>` добавлен, constructor-defaults покрывают все 8 subtypes. Roundtrip тест (Profile → JSON → Profile, schemaVersion 2) зелёный. `ComponentTagsFitnessTest` (reflection) подтверждает non-empty defaults.
-- [ ] #4 `Profile.query` + convenience selectors (`byTag`, `byAllTags`, `byAnyTag`, `byNotTag`, `homeScreenTiles`, `toolbar`) объявлены. Unit-тесты: query по одному тегу, по комбинации тегов (AND/OR/NOT), empty result, tag-not-present, render gating (`Failed`/`Skipped` не попадают в плитки).
-- [ ] #5 `ProfileBackedFlowRepository` реализован (все 4 метода порта, включая `loadFlows()` — путь регрессии), DI wire в mockBackend + realBackend flavor. `HomeComponentLoadingStateTest` расширен НОВЫМ сценарием `postManifestWizardReconcile_profileSeeded_homeReady` — verifies Profile с одним AppTile → HomeLoadingState.Ready. Existing config-based сценарии в тесте остаются зелёными (ConfigBackedFlowRepository не удаляется).
-- [ ] #6 `docs/architecture/preset-model.md` создан с AI-TLDR блоком. `Preset.kt` + `Component.kt` содержат doc-комментарии с ссылкой на этот файл. `docs/dev/server-roadmap.md` содержит SRV-CONFIG-DEPRECATION запись.
+- [ ] #3 `Component.tags: Set<Tag>` добавлен (13 тегов), constructor-defaults покрывают все 11 subtypes. Roundtrip тест иерархической фикстуры (Profile → JSON → Profile, schemaVersion 2) зелёный. `ComponentTagsFitnessTest` (reflection) подтверждает non-empty defaults.
+- [ ] #4 `Profile.query` + селекторы по тегам (`byTag`, `byAllTags`, `byAnyTag`, `byNotTag`, `homeScreenTiles`, `toolbar`) объявлены. Unit-тесты: query по одному тегу, по комбинации тегов (AND/OR/NOT), empty result, tag-not-present, render gating (`Failed`/`Skipped` не попадают в плитки).
+- [ ] #5 `ProfileBackedFlowRepository` реализован (все 4 метода порта, включая `loadFlows()` — путь регрессии), DI wire в mockBackend + realBackend flavor. `HomeComponentLoadingStateTest` расширен НОВЫМ сценарием `postManifestWizardReconcile_profileSeeded_homeReady`. Existing config-based сценарии остаются зелёными (ConfigBackedFlowRepository не удаляется).
+- [ ] #6 `docs/architecture/preset-model.md` обновлён с AI-TLDR блоком (три оси: lifecycle / semantic tags / structural hierarchy). `Preset.kt` + `Component.kt` содержат doc-комментарии с ссылкой. `docs/dev/server-roadmap.md` содержит SRV-CONFIG-DEPRECATION запись.
+- [ ] #7 **Иерархия работает**: `Entity.parentId` + типы `Workspace`/`Flow`/`ToolbarButton`; профиль с workspace + 3 flow + тулбаром с 3 кнопками корректно раскладывается запросами (`flows()` по порядку, `tilesOf(flowId)` изолирует плитки своей вкладки, `toolbarButtons()` по порядку). Одноуровневый профиль (один flow, без тулбара) работает тем же кодом. Unit-тесты зелёные.
+- [ ] #8 **Переключение вкладок на экране**: тап по кнопке тулбара показывает плитки соответствующего flow без перезапуска Activity (проверяется на эмуляторе/устройстве).
+- [ ] #9 **`Unverifiable` статус честен**: компонент без read-back API (`StatusBarPolicy`) после подтверждения пользователем получает `Unverifiable`, а не `Applied`; `BootCheck` его не перепроверяет. Unit-тест зелёный.
+- [ ] #10 **Валидация иерархии**: `DanglingParentRef`, `CircularParentRef`, `DanglingTargetRef` возвращаются как типизированные ошибки на битых фикстурах. Unit-тесты зелёные.
+- [ ] #11 **ECS-нейминг**: `ProfileComponent` → `Entity`, `ComponentDeclaration` → `Blueprint` по всей кодовой базе; сборка и все существующие тесты зелёные; формат хранения не изменился.
 <!-- AC:END -->
 
 ## Discussion
@@ -169,7 +174,7 @@ ordinal: 127000
 4. Queries are NOT persisted (only tags are in the wire format) — sidesteps query-language versioning entirely.
 5. Additive to TASK-120, not superseding — sealed hierarchy unchanged (plus two object→data class conversions that keep wire shape). TASK-120 Decision block remains valid, including Profile `schemaVersion=2`.
 
-**Applies to**: `core/src/commonMain/kotlin/com/launcher/preset/model/{Enums,Component,Preset}.kt`, `core/src/commonMain/kotlin/com/launcher/preset/query/ProfileQuery.kt` (new), `core/src/commonMain/kotlin/com/launcher/adapters/flow/ProfileBackedFlowRepository.kt` (new), `core/src/android{Mock,Real}Backend/kotlin/com/launcher/di/BackendInit.kt` (DI rewire), `core/src/commonMain/composeResources/values/strings_wizard.xml` (extend existing), `docs/architecture/preset-model.md`, `docs/dev/server-roadmap.md` (SRV-CONFIG-DEPRECATION entry). Contract: `specs/task-127-ecs-tags-and-query/contracts/profile-v2.md`.
+**Applies to**: `core/src/commonMain/kotlin/com/launcher/preset/model/{Enums,Component,Preset}.kt`, `core/src/commonMain/kotlin/com/launcher/preset/query/ProfileQuery.kt` (new), `core/src/commonMain/kotlin/com/launcher/adapters/flow/ProfileBackedFlowRepository.kt` (new), `core/src/android{Mock,Real}Backend/kotlin/com/launcher/di/BackendInit.kt` (DI rewire), `core/src/commonMain/composeResources/values/strings_wizard.xml` (extend existing), `docs/architecture/preset-model.md`, `docs/dev/server-roadmap.md` (SRV-CONFIG-DEPRECATION entry). Contract: `specs/task-127-ecs-foundation/contracts/profile-v2.md`.
 
 **Trade-offs accepted**:
 1. No migration writer pre-release (rule 4 MVA); first post-release breaking change = mandatory `ProfileMigrationV2toV3` + bump (one-way door per rule 5).
@@ -182,7 +187,19 @@ ordinal: 127000
 **Exit ramp**: If Tag+Query proves insufficient at scale, keep the Tag data model and replace linear query with indexed lookup — additive, no wire-format break. If the Preset three-field structure conflicts with Tag semantics later, add a fourth Preset field or promote tags to Preset level — both additive. If the tagged-component direction turns out wrong entirely, revert `FlowRepository` binding to `ConfigBackedFlowRepository`, keep Tag+Query as pure metadata (unused by HomeScreen path). Estimated cost of any exit ~2-3 days. Latent one-way door (single Component per entity blocks composition) documented in ADR-012 with 8–16-week canonical-ECS migration estimate and a concrete trigger.
 
 Revision note (2026-07-15): initial scope replaced with ECS Tags+Query per owner mentor session.
-Revision note (2026-07-16): Decision synced with final artifacts after deep pre-implement audit #2 (four independent auditors) — schemaVersion stays 2 (was: bump to 3 + migration writer, dropped per Q6 + audit); 10-value Tag enum (was 8); selectors renamed to final API; real file paths; all-four-port-methods surface incl. `loadFlows()` regression path; render gating added; honest forward-compat limitation recorded; framing corrected to tagged-component/label-selector per ADR-012.
+Revision note (2026-07-16 a): Decision synced with final artifacts after deep pre-implement audit #2 (four independent auditors) — schemaVersion stays 2 (was: bump to 3 + migration writer, dropped per Q6 + audit); 10-value Tag enum (was 8); selectors renamed to final API; real file paths; all-four-port-methods surface incl. `loadFlows()` regression path; render gating added; honest forward-compat limitation recorded; framing corrected to tagged-component/label-selector per ADR-012.
+
+**Revision note (2026-07-16 b) — SCOPE EXPANDED to full ECS foundation** (Clarifications Q7-Q10, owner decision after end-to-end model review). Everything added is wire-format-affecting → free pre-release, migration writer post-release (rule 5); owner's meta-rule «defer only what later becomes appending, not rewriting» applied:
+
+- **Hierarchy (Q7)**: `Entity.parentId: String?` — flat storage, tree computed by queries. Enables the target screen: `Workspace → N × Flow → tiles` + `Toolbar → N × ToolbarButton` (each button switches a flow). Pattern per Bevy/Unity DOTS `Parent` + Android Launcher3 `favorites.container` (research R-7). New query selectors: `children`, `roots`, `workspace`, `flows`, `tilesOf`, `toolbar`, `toolbarButtons`.
+- **Three structural subtypes (Q7)**: `Workspace(layoutKey)`, `Flow(titleKey, layoutKey, order)`, `ToolbarButton(targetFlowId, labelKey, order)`. `layoutKey` moves onto `Flow` (each tab owns its grid); `Profile.layoutKey` kept as legacy fallback. `Tag` enum grows to **13** (+ `Workspace`, `Flow`, `ToolbarButton`); tags-defaults on **11** subtypes.
+- **`ComponentStatus.Unverifiable` + `Outcome.NeedsUserConfirmation` (Q8)**: honest state for settings Android cannot read back (status-bar hiding = intent chain, no query API). Provider says «ask the human» → wizard shows «open settings, turn on X, come back, tap "I did it"» → status `Unverifiable`, never a lying `Applied`. `BootCheck` skips these (no infinite re-nagging); re-verification only via explicit Settings action.
+- **ECS rename (Q9)**: `ProfileComponent` → **`Entity`**, `ComponentDeclaration` → **`Blueprint`** (93 usages / ~25 files, dedicated first commit). `Component`/`Tag`/`Profile`/`Pool` kept. Wire format untouched.
+- **Hierarchy validation (Q10/FR-016)**: `DanglingParentRef`, `CircularParentRef`, `DanglingTargetRef` — typed errors at profile assembly.
+- **Profile ↔ Preset (Q10)**: profile references the preset (`basedOnPreset` + `presetVersion`); both stored and shipped together for admin push.
+- **Unchanged by the expansion**: `schemaVersion` stays **2** (all additions are additive), no migration writer, `FlowRepository` port signature, and the UI — `BottomFlowBar` + `HomeComponent.selectFlow` already exist (TASK-52), and `FlowDescriptor(id, name, slots)` is already hierarchical, so the projection needs no port/UI change.
+
+Artifacts rebuilt accordingly; spec folder renamed to `specs/task-127-ecs-foundation/`; tasks 23 → **35 across 9 phases**; Constitution Check re-run: 7 PASS / 1 N/A / 0 FAIL.
 
 <!-- SECTION:DISCUSSION:END -->
 
@@ -194,11 +211,15 @@ Revision note (2026-07-16): Decision synced with final artifacts after deep pre-
 
 Возобновлена после закрытия TASK-122 (F-CRYPTO Foundation → Done, PR #50 merged) и merge ECS scope (branch `origin/task-127-launcher-presentation-builder` merged 2026-07-16). Owner переключился на этот blocker — блокирует merge TASK-126 и TASK-128 verification bucket.
 
-**Speckit stage**: полный цикл пройден (specify → clarify → scenarios → plan → tasks → analyze). 2026-07-16 проведён **deep pre-implement audit** (4 независимых аудитора) по запросу владельца — фича краеугольная, нужна была проверка перед реализацией. Артефакты приведены в соответствие с реальным кодом (9 findings исправлены). **Следующий шаг — `/speckit.implement`** по `specs/task-127-ecs-tags-and-query/tasks.md` (23 активные задачи, 8 фаз).
+**Speckit stage**: полный цикл пройден дважды. 2026-07-16 (а) **deep pre-implement audit** (4 независимых аудитора) — артефакты приведены в соответствие с реальным кодом (9 findings). 2026-07-16 (б) **scope expansion** после разбора модели с владельцем — задача расширена с «теги + запросы» до полного ECS-фундамента; spec/research правлены руками, plan/data-model/contract/tasks пересобраны, Constitution Check перепрогнан (7 PASS / 1 N/A / 0 FAIL). **Следующий шаг — `/speckit.implement`** по `specs/task-127-ecs-foundation/tasks.md` (**35 задач, 9 фаз**).
 
 **Что важно знать реализатору**:
-- Начинать с T127-003/T127-004 (Tag enum → Component.tags на 8 подтипах, включая object → data class для `LauncherRole`/`StatusBarPolicy`).
-- `schemaVersion` **не трогать** — остаётся 2.
-- Главный фикс регрессии — `loadFlows()` в новом адаптере, не только `observeFlows()`.
+- **Фаза 1 — переименование отдельным коммитом** (T127-002/003): `ProfileComponent` → `Entity`, `ComponentDeclaration` → `Blueprint` (93 usages). Сначала оно, потом смысловые изменения — иначе ревью нечитаемо.
+- `schemaVersion` **не трогать** — остаётся 2; всё новое (`tags`, `parentId`, 3 типа, статус `Unverifiable`) аддитивно.
+- Главный фикс регрессии — **`loadFlows()`** в новом адаптере, не только `observeFlows()`.
+- **UI не трогать**: `BottomFlowBar` + `HomeComponent.selectFlow` уже существуют (TASK-52), `FlowDescriptor(id, name, slots)` уже иерархичен — проекция ложится на существующий порт без изменений.
 - Пути файлов в tasks.md проверены против ветки; DI — в `core/src/android{Mock,Real}Backend/.../BackendInit.kt`, не в `app/`.
-- Открытый вопрос реализации (T127-017): `ProfileStore` сейчас байндится в `app` `PresetModule` — проверить видимость из core backend-модуля, при необходимости перенести/прокинуть binding.
+- Открытый вопрос (T127-023): `ProfileStore` байндится в `app` `PresetModule` — проверить видимость из core backend-модуля.
+- Открытый вопрос (T127-026): как `ProfileFactory` проставляет `parentId` — новое опциональное поле в записи пресета или соглашение по blueprint'у. Выбрать аддитивный вариант, задокументировать в PR.
+
+**Отложено в Draft-задачи**: TASK-130 (обновление пресет→профиль), TASK-131 (снисходительный читатель — жёсткий триггер до cross-device обмена), TASK-132 (валидация пресета при создании), TASK-133 (настраиваемый вид Wizard/Settings через JSON), TASK-134 (add-flow UX / пустые слоты).
