@@ -8,7 +8,7 @@
 
 ## Summary
 
-Extend TASK-120 domain model with ECS-standard tag+query patterns (add `Component.tags: Set<Tag>` + `Profile.query`), replace HomeScreen's `ConfigBackedFlowRepository` binding with a new `ProfileBackedFlowRepository` that reads `Profile` directly through the query API. Fixes the TASK-52 regression introduced by TASK-126 (wizard writes `Profile`, HomeScreen reads `ConfigDocument` — architectural gap → Error UI). Migration writer v2 → v3 fills tags defaults from Component subtype; `ConfigDocument` code stays for future admin push scenarios but is no longer bound to `FlowRepository`.
+Extend TASK-120 domain model with tagged-component-model patterns (add `Component.tags: Set<Tag>` + `Profile.query`), replace HomeScreen's `ConfigBackedFlowRepository` binding with a new `ProfileBackedFlowRepository` that reads `Profile` directly through the query API. Fixes the TASK-52 regression introduced by TASK-126 (wizard writes `Profile`, HomeScreen reads `ConfigDocument` — architectural gap → Error UI). **Никакого migration writer**: MVP не релизнут, `schemaVersion: 1` — starting version, tags-defaults живут только в constructor-defaults на Component subtypes (per Clarification Q6, rule 4 MVA). `ConfigDocument` code stays for future admin push scenarios but is no longer bound to `FlowRepository`.
 
 ---
 
@@ -21,7 +21,7 @@ Extend TASK-120 domain model with ECS-standard tag+query patterns (add `Componen
 **Target Platform**: Android (minSdk 24, target 34). Zero Android imports in Query API / Tag / `ProfileBackedFlowRepository` per rule 1 (domain isolation).
 **Project Type**: Mobile app (Android launcher). This spec touches `core` KMP module + `app` Android DI wiring.
 **Performance Goals**: `profile.query(...)` under 1 ms at MVP scale (~20 Components in Profile). Linear scan; indexing deferred (see research.md).
-**Constraints**: Wire-format bump v2→v3 is one-way door per rule 5 — migration writer + backward-compat roundtrip test mandatory. Zero Android imports in domain layer.
+**Constraints**: `schemaVersion: 1` starting version per Clarification Q6 (MVP не релизнут — нет потребителя миграции per rule 4 MVA). Rule 5 schemaVersion field present с day 1. Migration writer добавляется post-release при первом breaking change. Zero Android imports in domain layer.
 **Scale/Scope**: MVP Profile ~10-20 Components. HomeScreen renders 3-8 tiles + 1 Toolbar. Query invoked on every Profile emission (rare — user edits) + on cold start.
 
 ---
@@ -39,8 +39,7 @@ core/                                    (KMP module, commonMain)
 │   │   ├── Preset.kt                    [MODIFIED] doc-comment ref preset-model.md
 │   │   └── Profile.kt                   [MODIFIED] add query API extensions
 │   ├── serialization/
-│   │   ├── ProfileSerializer.kt         [MODIFIED] add v2→v3 migration hook
-│   │   └── ProfileMigrationV2toV3.kt    [NEW] hardcoded subtype→tags mapping
+│   │   └── ProfileSerializer.kt         [MODIFIED] handle `tags` field optional (kotlinx.serialization default)
 │   └── query/
 │       └── ProfileQuery.kt              [NEW] extension functions on Profile
 └── adapters/
@@ -117,15 +116,15 @@ See [`data-model.md`](data-model.md).
 
 Key types:
 - `Tag` enum (10 values including `Tag.Toolbar` for query-based Toolbar lookup, additive-only per rule 5).
-- `Component.tags: Set<Tag>` with per-subtype defaults.
-- `Profile` query API surface (extension functions or member methods — decision in research.md).
-- `ProfileMigrationV2toV3` mapping table.
+- `Component.tags: Set<Tag>` with per-subtype defaults (single source of truth: constructors).
+- `Profile` query API surface (extension functions).
+- **No migration writer** — per Clarification Q6 (MVP не релизнут, `schemaVersion: 1` начальный).
 
 ---
 
 ## Wire formats
 
-- [`contracts/profile-v3.md`](contracts/profile-v3.md) — Profile serialized JSON schemaVersion=3. Documents new `tags` field per Component, migration path from v2, backward-compat guarantees.
+- [`contracts/profile-v1.md`](contracts/profile-v1.md) — Profile serialized JSON `schemaVersion: 1` (стартовая версия). Documents `tags` field per Component, constructor-defaults для отсутствующего поля, forward-compat через `ignoreUnknownKeys`. **Никакой migration writer**: MVP не релизнут, отложено до post-release breaking change.
 
 Not touched:
 - `pool.json` — bundled build-time artefact, additive optional `tags` field on `ComponentDeclaration`; no schemaVersion bump (per Clarification Q2).
@@ -147,9 +146,8 @@ Per CLAUDE.md rules §6 (mock-first) + §7 (fitness functions).
 
 ### Contract tests (`core/src/commonTest/`)
 
-- **`ProfileWireFormatV3ContractTest`**: roundtrip Profile v3 → JSON → Profile v3 (byte-equal serialization stable). Uses fixture in `core/src/commonTest/resources/fixtures/profile-v3-sample.json`.
-- **`ProfileMigrationV2toV3RoundtripTest`**: read v2 fixture → migrate → assert tags populated per subtype defaults. Re-apply migration on result → assert unchanged (idempotency, NFR-004).
-- **`ProfileMigrationV2toV3BackwardCompatTest`**: v2 fixture read succeeds without exception; migration writer produces valid v3.
+- **`ProfileWireFormatV1ContractTest`**: roundtrip Profile v1 → JSON → Profile v1 (byte-equal serialization stable). Uses fixture in `core/src/commonTest/resources/fixtures/profile-v1-sample.json`.
+- **REMOVED**: `ProfileMigrationV2toV3RoundtripTest` + `ProfileMigrationV2toV3BackwardCompatTest` — нет migration writer, нечего тестировать. Constructor-defaults покрыты через `ComponentTagsFitnessTest` (см. Fitness functions).
 
 ### Unit tests
 
@@ -183,12 +181,13 @@ Per CLAUDE.md rules §6 (mock-first) + §7 (fitness functions).
 
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|------|-----------|--------|------------|
-| R-1 | v2 → v3 migration writer has a subtype we forgot → migrated Profile has `tags = emptySet()` → Component invisible to queries | Medium | High | `ComponentTagsFitnessTest` (reflection walk) catches this at build time; migration writer + fitness function share subtype list (co-located). |
-| R-2 | Existing v2 Profile on disk from earlier dev builds → user upgrades, migration runs, disk write racing with wizard save | Low | Medium | Migration is read-side only (lazy write on next `ProfileStore.save()`); no concurrent writes at cold start (single reader). |
+| R-1 | Component subtype declared without `tags` default (empty set) → invisible to queries | Medium | High | `ComponentTagsFitnessTest` (reflection walk) catches this at build time. **Single source of truth** — constructor-defaults, no separate migration mapping to keep in sync. |
+| R-2 | ~~Migration writer race~~ | — | — | **REMOVED**: нет migration writer. `schemaVersion: 1` — стартовая версия. |
 | R-3 | `ProfileStore.observe()` semantic differs from assumption (`Flow<Profile?>` — nulls on cold start) → `filterNotNull` starves HomeComponent | Low | Medium | Verify in TASK-126 code before implementation (Assumption from spec.md `## Assumptions`). If contract differs, adapt `ProfileBackedFlowRepository` (may become `Flow<Profile>` directly). |
 | R-4 | Query linear scan performance degrades if Profile grows past MVP scale (100+ Components) | Low (MVP) | Low (MVP) | Documented exit ramp in research.md § "Query indexing" — indexed lookup as additive change; no wire-format break required. |
 | R-5 | Xiaomi MIUI kills HomeActivity between wizard finish and HomeComponent init | Low | High | `HomeComponent` reads `Profile` from disk on init (not from in-memory hand-off) — surviving process death by design (state-management pattern from TASK-52). |
 | R-6 | `Toolbar` Component in Profile but `Profile.toolbar()` returns null (e.g., someone sets `tags = emptySet()`) | Low | Low | Covered by `ComponentTagsFitnessTest`; runtime null tolerated (Toolbar is optional UI element). |
+| R-7 | Post-release breaking change полей Component без migration writer → users lose data on upgrade | High | High | **Deferred to post-release**: pre-release (сейчас) — `schemaVersion: 1`, каждое breaking change = сброс dev `ProfileStore`. Первый post-release breaking change = обязательный migration writer + bump `schemaVersion`. Owner аware через Clarification Q6. |
 
 ---
 
@@ -215,12 +214,12 @@ Run by `procedure-constitution-check` 2026-07-16 against this plan.
 |------|--------|---------------|
 | G-1 Architecture | **PASS** | Extension methods + one new adapter class in existing `core/preset/*` and `core/adapters/flow/`. No new gradle module — Article V §3 criteria none apply (ownership / build-isolation / independent enable / stable API / testability all N/A for extension functions + one adapter). Port + implementation shape preserved. |
 | G-2 Core / System Integration | **N/A** | No new system events, no `BroadcastReceiver`, no lifecycle callbacks. Feature is data-model + adapter change. |
-| G-3 Configuration | **PASS** | Wire-format bump v2 → v3 explicit; `schemaVersion` field present in Profile v3 contract; migration writer + backward-compat roundtrip test scoped (`ProfileMigrationV2toV3RoundtripTest`, `ProfileMigrationV2toV3BackwardCompatTest`, `ProfileWireFormatV3ContractTest`). Pool.json addition is additive optional per Clarification Q2. |
+| G-3 Configuration | **PASS** | `schemaVersion: 1` field present in Profile v1 contract с day 1 (rule 5 требование). Migration writer **отсутствует** per Clarification Q6 (MVP не релизнут, нет потребителя миграции; rule 4 MVA). Roundtrip test scoped (`ProfileWireFormatV1ContractTest`). Constructor-defaults на Component subtypes покрывают отсутствие `tags` в JSON — единственный источник истины, R-1 risk устранён. Pool.json addition is additive optional per Clarification Q2. Post-release breaking change plan: R-7 в Risks. |
 | G-4 Required Context Review | **PASS** | Links present: CLAUDE.md (rules 1, 4, 5, 9), ADR-011, constitution.md (XI, XVI, XVII), preset-model.md, server-roadmap.md, TASK-120 Decision, task-49 as precedent. No permissions change (no compliance doc needed). |
 | G-5 Accessibility | **PASS** | US-3 (wizard localization) → readable strings for senior users; SC-002 verifies. No new UI surfaces below 56dp — only existing HomeScreen (senior-safe per TASK-52) + wizard (senior-safe per TASK-126). `FontSize` Component carries `Tag.Accessibility` — fitness function verifies. |
-| G-6 Battery / Performance | **PASS** | Event-driven (`ProfileStore.observe()` emission on user edit); no polling. One-time migration cost on v2→v3 (lazy write, SEQ-2). Perf target NFR-003 (< 1 ms) + SC-008 benchmark. Zero new deps. |
+| G-6 Battery / Performance | **PASS** | Event-driven (`ProfileStore.observe()` emission on user edit); no polling. Никакой migration cost (нет migration writer). Perf target NFR-003 (< 1 ms) + SC-008 benchmark. Zero new deps. |
 | G-7 Testing | **PASS** | Contract (roundtrip v3, migration idempotency, backward-compat v2 read); unit (Query API, Profile-backed repo, fitness); integration (`HomeComponentLoadingStateTest` extended); fitness function (`ComponentTagsFitnessTest` reflection walk); micro-benchmark. `FakeProfileStore` for adapter testing. |
-| G-8 Simplicity | **PASS** | `ProfileQueryService` explicitly rejected (research.md R-1). Migration writer justified over `@Serializable` default (R-2). Linear scan over index (R-4). Rule 4 Test 1: inlining Query API loses closed-set Tag type-safety + convenience selectors — kept. Test 2: swap to member methods = ~1 hour. |
+| G-8 Simplicity | **PASS** | `ProfileQueryService` explicitly rejected (research.md R-1). Migration writer rejected in favour of kotlinx.serialization constructor-defaults per Clarification Q6 (R-2 revised 2026-07-16). Linear scan over index (R-4). Rule 4 Test 1: inlining Query API loses closed-set Tag type-safety + convenience selectors — kept. Test 2: swap to member methods = ~1 hour. |
 
 **OVERALL: 7 PASS, 1 N/A, 0 FAIL — plan is COMPLETE.**
 
@@ -239,7 +238,7 @@ specs/task-127-ecs-tags-and-query/
 ├── research.md          # Phase 0 output (query indexing exit ramp, migration writer approach)
 ├── data-model.md        # Phase 1 output (Tag / Component.tags / migration mapping)
 ├── contracts/
-│   └── profile-v3.md    # Phase 1 output (Profile wire-format schemaVersion=3)
+│   └── profile-v1.md    # Phase 1 output (Profile wire-format schemaVersion=1, no migration writer per Q6)
 └── tasks.md             # Phase 2 output (/speckit.tasks — NOT created here)
 ```
 
@@ -248,18 +247,17 @@ specs/task-127-ecs-tags-and-query/
 ```
 core/src/commonMain/kotlin/com/launcher/
 ├── preset/model/            [Component.kt, Preset.kt, Profile.kt, Enums.kt modified]
-├── preset/serialization/    [ProfileSerializer.kt modified; ProfileMigrationV2toV3.kt new]
+├── preset/serialization/    [ProfileSerializer.kt modified — handle optional tags field via kotlinx.serialization]
 ├── preset/query/            [ProfileQuery.kt new]
 └── adapters/flow/           [ConfigBackedFlowRepository.kt annotated; ProfileBackedFlowRepository.kt new]
 
 core/src/commonTest/kotlin/com/launcher/
 ├── preset/query/            [ProfileQueryTest.kt, ComponentTagsFitnessTest.kt]
-├── preset/serialization/    [ProfileMigrationV2toV3RoundtripTest.kt, ProfileWireFormatV3ContractTest.kt, ProfileMigrationV2toV3BackwardCompatTest.kt]
+├── preset/serialization/    [ProfileWireFormatV1ContractTest.kt]
 └── adapters/flow/           [ProfileBackedFlowRepositoryTest.kt]
 
 core/src/commonTest/resources/fixtures/
-├── profile-v2-sample.json   [new — v2 baseline for migration test]
-└── profile-v3-sample.json   [new — v3 roundtrip fixture]
+└── profile-v1-sample.json   [new — v1 roundtrip fixture]
 
 core/src/androidTest/kotlin/com/launcher/
 └── home/                    [HomeComponentLoadingStateTest.kt extended with postManifestWizardReconcile scenario]
@@ -290,7 +288,7 @@ core/src/commonMain/composeResources/values/
 
 1. **Build gates**: `./gradlew :core:test` green, `./gradlew :app:assembleMockBackendDebug` green.
 2. **Fitness gates**: `ComponentTagsFitnessTest` (subtypes with non-empty tags), `ProfileQueryBenchmarkTest` (p95 < 1 ms), source-set placement compile check.
-3. **Contract gate**: `ProfileWireFormatV3ContractTest` byte-equal roundtrip + `ProfileMigrationV2toV3RoundtripTest` idempotent.
+3. **Contract gate**: `ProfileWireFormatV1ContractTest` byte-equal roundtrip.
 4. **Integration gate**: `HomeComponentLoadingStateTest.postManifestWizardReconcile_profileSeeded_homeReady` green.
 5. **Emulator smoke**: pixel_5_api_34 AVD — fresh install → wizard → HomeScreen shows tiles + localized wizard strings.
 6. **Physical smoke**: Xiaomi Redmi Note 11 (adb id `17f33878`) — same flow. Closes SC-001 + SC-002.
@@ -307,7 +305,7 @@ core/src/commonMain/composeResources/values/
 - `Component.tags: Set<Tag>` — новое поле на компонентах, дефолты для каждого субтипа (плитка приложения → `{Presentation, Tile}`, кнопка SOS → `{Presentation, Tile, Safety, Emergency}`, тулбар → `{Presentation, Toolbar}`).
 - `Profile.query { ... }` + удобные селекторы (`byTag`, `byAllTags`, `byAnyTag`, `byNotTag`, `homeScreenTiles`, `toolbar`). `toolbar()` реализован через `byTag(Tag.Toolbar).firstOrNull()` — query-based, без `is Toolbar`.
 - `ProfileBackedFlowRepository` — новый адаптер, читает `Profile` и отдаёт плитки на `HomeScreen`.
-- Миграция сохранённых профилей v2 → v3 (заполняет теги дефолтами, идемпотентная).
+- **Никакой миграции сейчас** (решение владельца 2026-07-16): MVP не релизнут, `schemaVersion: 1` — стартовая версия. Отсутствие `tags` в JSON = kotlinx.serialization подставляет constructor-default из Component subtype (единственный источник истины).
 - `ConfigBackedFlowRepository` **остаётся** в коде для будущего сценария «админ пушит настройки», но `HomeScreen` его больше не использует.
 
 **Что новых зависимостей**: ноль. Всё чистый Kotlin. Никаких новых gradle-модулей.
@@ -317,7 +315,7 @@ core/src/commonMain/composeResources/values/
 - Robolectric-тест `HomeComponentLoadingStateTest` с новым сценарием «после мастера → плитки видны».
 - Ручной smoke на эмуляторе + физический Xiaomi (обязателен для закрытия SC-001 / SC-002).
 
-**Что «one-way door»**: bump `schemaVersion` профиля с 2 на 3 — необратимый (после релиза старая версия приложения не сможет прочитать v3). Стандартная практика; exit ramp — миграция идемпотентная, downgrade не поддерживается.
+**Что «one-way door»**: пока pre-release — none (можем менять formats свободно, сбрасывая dev `ProfileStore`). Post-release каждое breaking change полей = one-way door + migration writer + schemaVersion bump. Сейчас закладываем `schemaVersion: 1` с day 1 (rule 5 требование) — это как раз обеспечивает возможность будущей миграции.
 
 **Что откладываем**:
 - Удаление `ConfigDocument` полностью — отдельная задача SRV-CONFIG-DEPRECATION в server-roadmap.

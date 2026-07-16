@@ -131,37 +131,22 @@ fun Profile.toolbar(): ProfileComponent? =
 
 ---
 
-## ProfileMigrationV2toV3 (new)
+## Profile schemaVersion (starting at 1)
 
-Location: `core/src/commonMain/kotlin/com/launcher/preset/serialization/ProfileMigrationV2toV3.kt` (new).
+Location: `Profile.kt` — existing field, remains `schemaVersion: Int = 1`.
 
-```kotlin
-internal object ProfileMigrationV2toV3 {
-    fun migrate(v2Profile: ProfileV2): ProfileV3 = ProfileV3(
-        schemaVersion = 3,
-        components = v2Profile.components.map { component ->
-            component.withTags(defaultTagsFor(component))
-        },
-    )
+**Никакого migration writer в TASK-127**. Rationale:
 
-    private fun defaultTagsFor(component: Component): Set<Tag> = when (component) {
-        is Component.AppTile      -> setOf(Tag.Presentation, Tag.Tile)
-        is Component.Sos          -> setOf(Tag.Presentation, Tag.Tile, Tag.Safety, Tag.Emergency)
-        is Component.Toolbar      -> setOf(Tag.Presentation, Tag.Toolbar)
-        is Component.FontSize     -> setOf(Tag.Appearance, Tag.Accessibility)
-        is Component.LauncherRole -> setOf(Tag.System)
-        is Component.Theme        -> setOf(Tag.Appearance)
-        // exhaustive when: adding a new subtype forces adding a case here
-        // (Kotlin sealed exhaustiveness check catches missed subtypes at compile time).
-    }
-}
-```
+- MVP не релизнут. Релизнутых Profile файлов v0 в природе не существует.
+- Dev `ProfileStore` на устройствах разработчиков можно сбросить (`adb uninstall` / clear data).
+- Отсутствие `tags` в JSON = kotlinx.serialization подставляет constructor-default из `Component` subtype (единственный источник истины).
+- Rule 4 (MVA) запрещает писать миграцию без потребителя.
 
-**Idempotency (NFR-004)**: applying `migrate()` to a `ProfileV3` (via ProfileSerializer path) is a no-op because the serializer skips migration when `schemaVersion == 3`. Roundtrip test verifies.
+**Единый источник истины для tags-defaults**: конструкторы `Component` subtypes. Никакого дублирующего `defaultTagsFor()` mapping в отдельном объекте — это устраняет R-1 risk (два источника рассинхрон).
 
-**Co-location constraint (R-1 mitigation)**: default `tags` values on `Component` subtypes (see `Component.tags` section above) and mapping in `defaultTagsFor` MUST match. Enforced by `ComponentTagsFitnessTest` (which reflects on `Component` subtypes and reads their default `tags`, then verifies migration writer produces the same values).
+**Пока не релизнемся**: каждое breaking изменение полей Component = переписываем dev fixture'ы, `schemaVersion` остаётся `1`. После production релиза первый breaking change = первый migration writer + bump до `schemaVersion: 2`.
 
-**Exhaustiveness**: `when` block over sealed hierarchy — Kotlin compiler enforces coverage. Adding a new `Component` subtype forces compilation failure until migration writer is updated.
+**Fitness test**: `ComponentTagsFitnessTest` (см. FR-002 + T127-021) через reflection проверяет что каждый Component subtype имеет non-empty default tags. Это единственный gate — не нужен второй gate типа «migration writer matches defaults».
 
 ---
 
@@ -220,7 +205,7 @@ Component ──── (contained in) ──── ProfileComponent ────
 Profile ──── (queried by) ──── query / byTag / byAllTags / byAnyTag / homeScreenTiles / toolbar
 ProfileStore ──── (observed by) ──── ProfileBackedFlowRepository ──── (implements) ──── FlowRepository
 FlowRepository ──── (consumed by) ──── HomeComponent ──── (renders in) ──── HomeActivity
-ProfileMigrationV2toV3 ──── (invoked by) ──── ProfileSerializer ──── (used by) ──── ProfileStore.readFromDisk()
+ProfileSerializer ──── (uses) ──── kotlinx.serialization constructor-defaults ──── (single source of truth for tags-defaults)
 ```
 
 ---
@@ -232,6 +217,6 @@ ProfileMigrationV2toV3 ──── (invoked by) ──── ProfileSerializer 
 - **`Profile.query`** — «отдай все компоненты подходящие под условие». Удобные обёртки: `byTag`, `byAllTags`, `byAnyTag`, `byNotTag` (эквивалент canonical ECS `Without<T>`), `homeScreenTiles`, `toolbar`.
 - **`toolbar()`** реализован через `byTag(Tag.Toolbar).firstOrNull()` — чистый query, без `is Toolbar` type check. Одна парадигма — теги.
 - **Terminology (ADR-012)**: это **tagged-component-model, ECS-inspired**, не canonical ECS (Bevy / Flecs / Unity DOTS). Sealed hierarchy = один Component на entity, а не multi-component composition. Для MVP-масштаба (~20 компонентов) это ок.
-- **Миграция v2 → v3** — маленький файл `ProfileMigrationV2toV3.kt`, знает какие теги проставить каждому субтипу компонента. Компилятор Kotlin (sealed exhaustive) не даст забыть новый субтип.
+- **Миграция НЕ пишется** (по решению владельца 2026-07-16, Clarification Q6): MVP не релизнут, релизнутых Profile файлов нет. `schemaVersion: 1` — стартовая версия. Отсутствие `tags` в JSON = `kotlinx.serialization` подставляет constructor-default. Единственный источник истины для tags-defaults — конструкторы `Component` subtypes. Никакого дублирующего mapping в отдельном объекте.
 - **`ProfileBackedFlowRepository`** — новый переходник, читает `Profile` и отдаёт плитки на `HomeScreen`. Заменяет старый `ConfigBackedFlowRepository` в проводке (тот остаётся в коде для будущего сценария админ-пуш).
 - **Гарантия «не забыть теги»**: fitness-тест `ComponentTagsFitnessTest` пробегает по всем субтипам через reflection и проверяет что у каждого не пустой набор дефолтных тегов. Если разработчик добавит новый субтип и забудет теги — тест упадёт на билде.

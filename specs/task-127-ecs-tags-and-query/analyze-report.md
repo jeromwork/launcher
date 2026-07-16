@@ -12,12 +12,12 @@
 |------|--------|-------|
 | G-1 Architecture | **PASS** | Extension methods + one adapter in existing `core/preset/*` and `core/adapters/flow/`. No new gradle module. Port + implementation shape preserved. |
 | G-2 Core/System Integration | **N/A** | No new system events, no BroadcastReceiver, no lifecycle callbacks. Data-model + adapter change only. |
-| G-3 Configuration | **PASS** | Wire-format schemaVersion bump v2→v3 explicit; `schemaVersion` field present in Profile v3 contract. Migration writer + roundtrip test scoped. Pool.json addition additive-only per Clarification Q2. |
+| G-3 Configuration | **PASS** | `schemaVersion: 1` present in Profile v1 contract (rule 5 day-1 requirement). **No migration writer** per Clarification Q6 (MVP не релизнут; rule 4 MVA). Constructor-defaults на Component subtypes = единственный источник истины для tags. Roundtrip test scoped. Pool.json addition additive-only per Clarification Q2. |
 | G-4 Required Context Review | **PASS** | Links present: CLAUDE.md (rules 1, 4, 5, 9), ADR-011, constitution.md, preset-model.md, server-roadmap.md, TASK-120 Decision, task-49 precedent. No permissions change. |
 | G-5 Accessibility | **PASS** | US-3 (wizard localization) verifies readable strings for senior users (SC-002). No new UI below 56dp. `FontSize` Component carries `Tag.Accessibility`. |
-| G-6 Battery/Performance | **PASS** | Event-driven (`ProfileStore.observe()` on user edit). No polling. One-time v2→v3 migration cost (lazy write). Perf target NFR-003 (< 1 ms) + SC-008 benchmark. Zero new deps. |
+| G-6 Battery/Performance | **PASS** | Event-driven (`ProfileStore.observe()` on user edit). No polling. Никакой migration cost (нет migration writer). Perf target NFR-003 (< 1 ms) + SC-008 benchmark. Zero new deps. |
 | G-7 Testing | **PASS** | Contract (roundtrip v3, migration idempotency, backward-compat v2). Unit (Query API, ProfileBackedFlowRepository, ComponentTagsFitnessTest). Integration (HomeComponentLoadingStateTest). Fitness (reflection walk, benchmark). `FakeProfileStore` adapter. |
-| G-8 Simplicity | **PASS** | `ProfileQueryService` rejected (R-1). Migration writer justified (R-2). Linear scan over index (R-4). Rule 4 Test 1: inlining Query API loses type-safety — kept. Test 2: swap to member methods ~1 hour. |
+| G-8 Simplicity | **PASS** | `ProfileQueryService` rejected (R-1). Migration writer rejected (R-2 revised per Q6 — constructor-defaults вместо). Linear scan over index (R-4). Rule 4 Test 1: inlining Query API loses type-safety — kept. Test 2: swap to member methods ~1 hour. |
 
 **OVERALL: 7 PASS, 1 N/A, 0 FAIL** — plan is **COMPLETE**.
 
@@ -32,7 +32,7 @@
 - **FR-001** (Tag enum) → T127-003 ✓
 - **FR-002** (Component.tags) → T127-004 ✓
 - **FR-003** (ComponentDeclaration override) → T127-005 ✓
-- **FR-004** (Migration v2→v3 + schemaVersion) → T127-007, T127-011, T127-012, T127-013 ✓
+- **FR-004** (schemaVersion: 1 + constructor-defaults, no migration writer per Q6) → T127-004, T127-009 (bonus case), T127-021 ✓
 - **FR-005** (Query API) → T127-006, T127-023 ✓
 - **FR-006** (ProfileBackedFlowRepository) → T127-014, T127-015 ✓
 - **FR-007** (DI wiring) → T127-017, T127-018 ✓
@@ -68,9 +68,9 @@
 
 ### Wire-format audit
 
-- `contracts/profile-v3.md` — has `schemaVersion: 3` field ✓
+- `contracts/profile-v1.md` — has `schemaVersion: 1` field ✓
 - `data-model.md` — describes wire-format changes ✓
-- Migration writer (`ProfileMigrationV2toV3`) documented in tasks.md (T127-013) ✓
+- **No migration writer** per Clarification Q6 — constructor-defaults on Component subtypes verify tags on missing-JSON-field via T127-009 bonus test case ✓
 
 **No missing schemaVersion fields** ✓
 
@@ -79,7 +79,7 @@
 All new files placed per plan.md §Module map:
 - `Tag`, `Component.tags`, `Profile.query` — `core/src/commonMain/` (pure Kotlin, zero Android) ✓
 - `ProfileBackedFlowRepository` — `core/src/commonMain/` (adapter, zero Android imports) ✓
-- `ProfileMigrationV2toV3` — `core/src/commonMain/` ✓
+- ~~`ProfileMigrationV2toV3`~~ — removed per Q6 ✓
 - Tests — `core/src/commonTest/` ✓
 - DI wiring — `app/src/main/` (Android module) ✓
 
@@ -110,11 +110,11 @@ Grep spec.md + plan.md for: "intuitive", "smooth", "fast", "simple", "should be"
 
 ### checklist-domain-isolation
 
-**16/16 ✓** — All new types (`Tag`, `Component.tags`, Query API, `ProfileBackedFlowRepository`, `ProfileMigrationV2toV3`) zero Android imports. Verified: `commonMain` source-set placement, pure Kotlin.
+**16/16 ✓** — All new types (`Tag`, `Component.tags`, Query API, `ProfileBackedFlowRepository`) zero Android imports. Verified: `commonMain` source-set placement, pure Kotlin.
 
 ### checklist-wire-format
 
-**18/18 ✓** — Profile v3 has `schemaVersion` field. Migration writer idempotent + backward-compat roundtrip. Serialization stable. No free-form identifiers (Tag = closed enum, not free-form String). Pool.json override additive-only.
+**18/18 ✓** — Profile v1 has `schemaVersion` field с day 1 (rule 5). No migration writer per Q6 — constructor-defaults on Component subtypes cover missing `tags` field. Serialization stable (roundtrip test T127-009). No free-form identifiers (Tag = closed enum, not free-form String). Pool.json override additive-only.
 
 ### checklist-meta-minimization
 
@@ -122,11 +122,11 @@ Grep spec.md + plan.md for: "intuitive", "smooth", "fast", "simple", "should be"
 
 ### checklist-performance
 
-**20/20 ✓** — Query API target < 1 ms (NFR-003, SC-008, T127-022 benchmark). Migration writer one-time cost (lazy write). No polling. Event-driven `ProfileStore.observe()`. No new background work. Startup impact controlled.
+**20/20 ✓** — Query API target < 1 ms (NFR-003, SC-008, T127-022 benchmark). No migration cost (нет migration writer). No polling. Event-driven `ProfileStore.observe()`. No new background work. Startup impact controlled.
 
 ### checklist-failure-recovery
 
-**17/17 ✓** — Profile null handling (SEQ-4): `filterNotNull()` keeps HomeComponent in `Loading`, not `Error`. Migration writer + roundtrip test prevent data loss. Corrupt Profile path scoped (recovery flow noted as out-of-scope in spec §Out of Scope).
+**17/17 ✓** — Profile null handling (SEQ-4): `filterNotNull()` keeps HomeComponent in `Loading`, not `Error`. Pre-release: dev `ProfileStore` reset acceptable for breaking dev-changes. Post-release: R-7 tracks migration-writer-mandatory rule. Corrupt Profile path scoped (recovery flow noted as out-of-scope in spec §Out of Scope).
 
 ---
 
@@ -175,7 +175,7 @@ Presentation, Appearance, System, Safety, Capabilities,
 Communication, Accessibility, Emergency, Tile, Toolbar
 ```
 
-Wire-format impact: additive only (existing v3 examples updated to include `Tag.Toolbar` in Toolbar defaults). Migration writer T127-013 updated: `Toolbar → setOf(Tag.Presentation, Tag.Toolbar)`.
+Wire-format impact: additive only (existing v1 examples updated to include `Tag.Toolbar` in Toolbar defaults).
 
 ### Files modified in remediation
 
@@ -201,6 +201,30 @@ Total edits: **~1.5 hours**, all additive, zero wire-format breaking impact (v3 
 ### Overall risk after remediation
 
 **Low for 6–12 months** (MVP-scale usage is safe). **Moderate at 12–24 months** if composition pressure emerges (first PR that says "add temporary modifier to Component without changing its type"). Trigger + exit ramp documented in ADR-012.
+
+---
+
+## Q6 Remediation (2026-07-16 late) — Removed migration writer
+
+Owner questioned необходимость `ProfileMigrationV2toV3`: «У нас же нету никаких потребителей. Зачем нужно прописывать отдельный?».
+
+**Verdict**: правильно. Rule 4 (MVA) запрещает писать миграцию без потребителя.
+
+**Applied changes**:
+
+1. **`schemaVersion` reset**: `3` → `1` (starting fresh, MVP not released). Contract file renamed: `profile-v3.md` → `profile-v1.md`.
+2. **Removed 4 tasks**: T127-007 (migration skeleton), T127-011 (migration roundtrip test), T127-012 (backward-compat test), T127-013 (implement mapping). Marked as `[REMOVED]` inline in tasks.md with reasoning.
+3. **Removed 2 files that would have been created**: `ProfileMigrationV2toV3.kt`, `profile-v2-sample.json` fixture.
+4. **Single source of truth for tags-defaults**: constructor-defaults on `Component` subtypes. No parallel `defaultTagsFor()` mapping to keep in sync. R-1 risk (mapping-vs-constructor drift) eliminated.
+5. **Added bonus test case to T127-009**: `ProfileWireFormatV1ContractTest` also verifies that JSON without `tags` field deserializes with constructor-default tags (kotlinx.serialization defaults kicking in).
+6. **NFR-004 removed**: no migration → no idempotency to prove.
+7. **R-2 removed** from Risks (was: "migration race with wizard save"). **R-7 added**: post-release breaking change без migration writer = data loss for released users. Owner aware; будущий post-release breaking change обязан включать migration writer.
+8. **spec.md § Clarifications** — Q6 added (2026-07-16): «Profile migration writer нужен? — No, MVP не релизнут».
+9. **spec.md § Sequences** — SEQ-2 (v2→v3 migration) marked `[REMOVED]` with rationale.
+
+**Total tasks now**: 23 active (was 27). **Total files removed**: 3 (ProfileMigrationV2toV3.kt, ProfileMigrationV2toV3RoundtripTest.kt, ProfileMigrationV2toV3BackwardCompatTest.kt + one v2 fixture).
+
+**Post-release plan**: first breaking change → first migration writer + `schemaVersion: 1 → 2`. Documented in contracts/profile-v1.md § "Migration policy (pre-release)".
 
 ---
 
@@ -246,6 +270,6 @@ All checks pass:
 
 **На что смотреть с осторожностью:**
 - Physical verification (T127-027) требует Xiaomi Redmi Note 11 реально — AI не может закрыть.
-- Migration writer (T127-013) — sealed exhaustiveness поймёт, но проверить правильность дефолтов руками (особенно новый `Toolbar → {Presentation, Toolbar}`).
+- Constructor-defaults на Component subtypes (T127-004) — единственный источник истины. `ComponentTagsFitnessTest` (T127-021) через reflection гарантирует non-empty defaults. Проверить руками правильность дефолтов перед commit (особенно `Toolbar → {Presentation, Toolbar}`).
 - `schemaVersion: 2 → 3` — one-way door, downgrade невозможен.
 - **Latent one-way door (ADR-012)**: первая же фича «любая плитка получает Cooldown-маркер» не работает — sealed hierarchy = один Component на entity. Триггер: PR с добавлением временного модификатора к существующему Component без смены типа. В этот момент — открываем decision-task на canonical ECS migration.

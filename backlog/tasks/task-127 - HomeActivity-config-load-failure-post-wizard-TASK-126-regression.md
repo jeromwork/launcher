@@ -4,7 +4,7 @@ title: 'HomeActivity config load: ECS Tags foundation + Query pattern'
 status: In Progress
 assignee: []
 created_date: '2026-07-13'
-updated_date: '2026-07-16 14:35'
+updated_date: '2026-07-16 16:00'
 labels:
   - phase-2
   - home-screen
@@ -145,7 +145,7 @@ ordinal: 127000
 <!-- AC:BEGIN -->
 - [ ] #1 Fresh install + wizard на Xiaomi Redmi Note 11 (adb id `17f33878`) → HomeActivity показывает плитки, не Error UI. Требуется физическая верификация.
 - [ ] #2 Wizard runtime строки локализованы через `core/composeResources/values/strings_wizard.xml` (нет raw `wizard_*` ключей в UI). Проверяется на эмуляторе или физическом устройстве.
-- [ ] #3 `Component.tags: Set<Tag>` добавлен + migration writer v2 → v3 реализован. Roundtrip тест (v2 fixture → read → assert tags populated by defaults) зелёный.
+- [ ] #3 `Component.tags: Set<Tag>` добавлен, constructor-defaults покрывают все subtypes. Roundtrip тест (Profile → JSON → Profile byte-equal) зелёный. `ComponentTagsFitnessTest` (reflection) подтверждает non-empty defaults.
 - [ ] #4 `Profile.query` + convenience selectors (`byTag`, `byAllTags`, `byAnyTag`, `homeScreenTiles`) объявлены. Unit-тесты: query по одному тегу, по комбинации тегов (AND/OR), empty result, tag-not-present.
 - [ ] #5 `ProfileBackedFlowRepository` реализован, DI wire в mockBackend + realBackend flavor. `HomeComponentLoadingStateTest` расширен НОВЫМ сценарием `postManifestWizardReconcile_profileSeeded_homeReady` — verifies Profile с одним AppTile → HomeLoadingState.Ready. Existing config-based сценарии в тесте остаются зелёными (ConfigBackedFlowRepository не удаляется).
 - [ ] #6 `docs/architecture/preset-model.md` создан с AI-TLDR блоком. `Preset.kt` + `Component.kt` содержат doc-комментарии с ссылкой на этот файл. `docs/dev/server-roadmap.md` содержит SRV-CONFIG-DEPRECATION запись.

@@ -10,7 +10,7 @@
 |-------|-----------|-------|
 | **0. Foundation** | Gradle/DI setup, no behaviour | T127-001 — T127-002 |
 | **1. Domain types** | Pure-Kotlin enums, models, ports | T127-003 — T127-008 |
-| **2. Wire format** | Serializers, contracts, tests | T127-009 — T127-013 |
+| **2. Wire format** | Serializers, contracts, tests | T127-009 — T127-010 (T127-011..T127-013 removed) |
 | **3. Adapters** | ProfileBackedFlowRepository + tests | T127-014 — T127-016 |
 | **4. DI wiring** | Rebind FlowRepository in both flavors | T127-017 — T127-018 |
 | **5. Localization** | strings_wizard.xml keys | T127-019 |
@@ -18,7 +18,7 @@
 | **7. Fitness** | Reflection walk, benchmarks | T127-021 — T127-023 |
 | **8. Cleanup & docs** | doc-comments, server-roadmap, smoke | T127-024 — T127-027 |
 
-**Total tasks**: 27 | **Parallel-safe tasks**: 16 marked `[P]`
+**Total tasks**: 23 active (4 removed per Clarification Q6: no migration writer) | **Parallel-safe tasks**: 14 marked `[P]`
 
 ---
 
@@ -115,18 +115,9 @@
 
 ---
 
-### T127-007 — Add ProfileMigrationV2toV3 object skeleton
+### T127-007 — [REMOVED] ProfileMigrationV2toV3
 
-**Trace**: Plan §Data model, FR-004.
-
-**Acceptance**:
-- `core/src/commonMain/kotlin/com/launcher/preset/serialization/ProfileMigrationV2toV3.kt` created.
-- `ProfileMigrationV2toV3.migrate(v2Profile): ProfileV3` signature declared.
-- `defaultTagsFor(component): Set<Tag>` signature declared (hardcoded when block per data-model.md).
-- Exhaustive sealed-when (Kotlin compiler verifies).
-- TODO placeholders OK at this stage.
-
-**Dependencies**: T127-003, T127-004 | **[P]**
+**Removed 2026-07-16 per Clarification Q6**: MVP не релизнут, нет релизнутых Profile файлов, миграция не пишется. Constructor-defaults на `Component` subtypes покрывают отсутствие `tags` в JSON (единственный источник истины). Первый migration writer появится post-release при первом breaking change.
 
 ---
 
@@ -145,75 +136,51 @@
 
 ## Phase 2 — Wire format + Contracts
 
-### T127-009 — Write ProfileWireFormatV3ContractTest (roundtrip)
+### T127-009 — Write ProfileWireFormatV1ContractTest (roundtrip)
 
-**Trace**: Plan §Wire formats, FR-004, contracts/profile-v3.md.
+**Trace**: Plan §Wire formats, FR-004, contracts/profile-v1.md.
 
 **Acceptance**:
-- Test file: `core/src/commonTest/kotlin/com/launcher/preset/serialization/ProfileWireFormatV3ContractTest.kt`.
-- Test reads `core/src/commonTest/resources/fixtures/profile-v3-sample.json`.
-- Fixture contains v3 Profile with `schemaVersion=3`, multiple Components with `tags` fields.
+- Test file: `core/src/commonTest/kotlin/com/launcher/preset/serialization/ProfileWireFormatV1ContractTest.kt`.
+- Test reads `core/src/commonTest/resources/fixtures/profile-v1-sample.json`.
+- Fixture contains v1 Profile with `schemaVersion=1`, multiple Components with `tags` fields.
 - Deserialize → serialize → deserialize → assert byte-equal (roundtrip guarantee).
+- **Bonus test case**: deserialize JSON where Component omits `"tags"` field → assert result equals Component с constructor-default tags (verifies kotlinx.serialization defaults kick in).
 - Test passes (green).
 
 **Dependencies**: T127-004, T127-006 | **[P]**
 
 ---
 
-### T127-010 — Write profile-v3-sample.json fixture
+### T127-010 — Write profile-v1-sample.json fixture
 
-**Trace**: Plan §Wire formats, contracts/profile-v3.md.
+**Trace**: Plan §Wire formats, contracts/profile-v1.md.
 
 **Acceptance**:
-- File: `core/src/commonTest/resources/fixtures/profile-v3-sample.json`.
-- Contains valid v3 Profile JSON with `schemaVersion=3`, at least 3 Components (AppTile, Sos, Toolbar), each with `"tags"` array.
-- Matches example in contracts/profile-v3.md.
+- File: `core/src/commonTest/resources/fixtures/profile-v1-sample.json`.
+- Contains valid v1 Profile JSON with `schemaVersion=1`, at least 3 Components (AppTile, Sos, Toolbar), each with `"tags"` array.
+- Matches example in contracts/profile-v1.md.
 - No parse errors when read by ProfileSerializer.
 
 **Dependencies**: T127-004 | **[P]**
 
 ---
 
-### T127-011 — Write ProfileMigrationV2toV3RoundtripTest + profile-v2-sample.json fixture
+### T127-011 — [REMOVED] ProfileMigrationV2toV3RoundtripTest
 
-**Trace**: Plan §Wire formats, FR-004, contracts/profile-v3.md.
-
-**Acceptance**:
-- Test file: `core/src/commonTest/kotlin/com/launcher/preset/serialization/ProfileMigrationV2toV3RoundtripTest.kt`.
-- Fixture file: `core/src/commonTest/resources/fixtures/profile-v2-sample.json` (v2 Profile, no `tags` fields).
-- Test: deserialize v2 fixture → migrate to v3 → serialize → deserialize → assert equals migrated v3 (idempotency proof per NFR-004).
-- Test passes (green).
-
-**Dependencies**: T127-004, T127-007 | **[P]**
+**Removed 2026-07-16 per Clarification Q6**: нет migration writer, нечего тестировать. Constructor-defaults покрыты через bonus test case в T127-009 (пропущенный `tags` field → constructor-default подставлен).
 
 ---
 
-### T127-012 — Write ProfileMigrationV2toV3BackwardCompatTest
+### T127-012 — [REMOVED] ProfileMigrationV2toV3BackwardCompatTest
 
-**Trace**: Plan §Wire formats, FR-004, contracts/profile-v3.md.
-
-**Acceptance**:
-- Test file: `core/src/commonTest/kotlin/com/launcher/preset/serialization/ProfileMigrationV2toV3BackwardCompatTest.kt`.
-- Test: deserialize v2 fixture → no exception thrown.
-- Migration writer produces valid v3 Profile (no null fields, tags populated).
-- Verify tags match expected defaults for each Component subtype.
-- Test passes (green).
-
-**Dependencies**: T127-004, T127-007 | **[P]**
+**Removed 2026-07-16 per Clarification Q6**: нет migration writer, нет backward-compat test. Единственный источник истины — constructor-defaults, проверяются через `ComponentTagsFitnessTest` (T127-021).
 
 ---
 
-### T127-013 — Implement ProfileMigrationV2toV3 hardcoded mapping
+### T127-013 — [REMOVED] Implement ProfileMigrationV2toV3 hardcoded mapping
 
-**Trace**: Plan §Data model, FR-004.
-
-**Acceptance**:
-- `defaultTagsFor()` when block filled with all 6 existing subtypes (AppTile, Sos, Toolbar, FontSize, LauncherRole, Theme).
-- Each case returns correct tags per data-model.md.
-- `migrate()` function compiles (Kotlin sealed exhaustiveness enforced).
-- T127-011 and T127-012 tests pass.
-
-**Dependencies**: T127-007, T127-011, T127-012
+**Removed 2026-07-16 per Clarification Q6**: нет migration writer вообще. Constructor-defaults на Component subtypes (T127-004) — единственный источник истины для tags-defaults.
 
 ---
 
@@ -464,7 +431,7 @@
 - **FR-001**: Tag enum — T127-003 ✓
 - **FR-002**: Component.tags — T127-004 ✓
 - **FR-003**: ComponentDeclaration pool override — T127-005 ✓
-- **FR-004**: Migration writer + wire-format v2→v3 — T127-007, T127-011, T127-012, T127-013 ✓
+- **FR-004**: schemaVersion: 1 + constructor-defaults (no migration writer) — T127-004 (constructor defaults), T127-009 (roundtrip + bonus case for missing tags field), T127-021 (fitness verifies non-empty defaults) ✓
 - **FR-005**: Query API — T127-006, T127-023 ✓
 - **FR-006**: ProfileBackedFlowRepository — T127-014, T127-015 ✓
 - **FR-007**: DI wiring — T127-017, T127-018 ✓
@@ -480,20 +447,18 @@
 
 ### Contracts → Tests
 
-- **profile-v3.md contract**:
+- **profile-v1.md contract**:
   - Roundtrip test: T127-009 ✓
-  - Backward-compat test: T127-012 ✓
+  - Missing-tags-field test (constructor defaults): T127-009 bonus case ✓
   - Fixture: T127-010 ✓
-- **profile-v2.md (implicit from v2→v3 migration)**:
-  - Migration roundtrip: T127-011 ✓
-  - Fixture: T127-011 ✓
+- **[REMOVED]** profile-v2 → v3 migration tests — не пишется migration writer.
 
 ### Non-Functional Requirements
 
 - **NFR-001** (domain isolation): T127-021 (fitness function via checklist-domain-isolation) ✓
 - **NFR-002** (ProfileBackedFlowRepository emissions): T127-015 (unit test FakeProfileStore) ✓
 - **NFR-003** (Query performance < 1 ms): T127-022 (micro-benchmark) ✓
-- **NFR-004** (Migration idempotency): T127-011 (roundtrip), T127-012 (backward-compat) ✓
+- **NFR-004** [REMOVED]: no migration writer, no idempotency test needed. Constructor-defaults verified through T127-021 fitness.
 
 ---
 
@@ -517,21 +482,21 @@ All forward dependencies valid. Task IDs in `requires:` point to earlier or same
 
 ## TL;DR (по-русски, для новичка и для будущего AI)
 
-**Суть.** 27 задач разложены в 8 фаз для реализации tagged-component model (ECS-inspired) на `Profile`: добавить `Tag` enum (10 значений включая `Tag.Toolbar`), поле `tags: Set<Tag>` на Components, query API (7 функций включая `byNotTag` = canonical ECS `Without<T>`), новый `ProfileBackedFlowRepository` адаптер, миграцию v2→v3, локализованные строки wizard'а, тесты (contract, unit, integration, fitness). Terminology + latent one-way door задокументированы в [ADR-012](../../docs/adr/ADR-012-tagged-component-model-vs-canonical-ecs.md).
+**Суть.** 23 задачи разложены в 8 фаз для реализации tagged-component model (ECS-inspired) на `Profile`: добавить `Tag` enum (10 значений включая `Tag.Toolbar`), поле `tags: Set<Tag>` на Components, query API (7 функций включая `byNotTag` = canonical ECS `Without<T>`), новый `ProfileBackedFlowRepository` адаптер, локализованные строки wizard'а, тесты (contract, unit, integration, fitness). **Никакой migration writer**: `schemaVersion: 1` стартовая, MVP не релизнут (T127-007/011/012/013 удалены). Terminology + latent one-way door задокументированы в [ADR-012](../../docs/adr/ADR-012-tagged-component-model-vs-canonical-ecs.md).
 
 **Конкретика, которую стоит запомнить:**
-- **27 задач** в 8 фазах: Foundation (2) → Domain types (6) → Wire format (5) → Adapters (3) → DI wiring (2) → Localization (1) → Integration (1) → Fitness (3) → Cleanup/docs (4).
+- **23 активные задачи** в 8 фазах: Foundation (2) → Domain types (6) → Wire format (2, T127-011/012/013 removed) → Adapters (3) → DI wiring (2) → Localization (1) → Integration (1) → Fitness (3) → Cleanup/docs (4). 4 задачи `[REMOVED]` per Clarification Q6.
 - **16 задач параллельные** (`[P]`), безопасно независимые, могут идти одновременно.
 - **`Tag` enum**: 10 значений (`Presentation, Appearance, System, Safety, Capabilities, Communication, Accessibility, Emergency, Tile, Toolbar`), hardcoded в коде.
 - **`Component.tags` дефолты**: `AppTile → {Presentation, Tile}`, `Sos → {Presentation, Tile, Safety, Emergency}`, `Toolbar → {Presentation, Toolbar}`, `FontSize → {Appearance, Accessibility}`, `LauncherRole → {System}`, `Theme → {Appearance}`.
 - **Query API** 7 функций: `query(predicate)`, `byTag`, `byAllTags`, `byAnyTag`, `byNotTag` (canonical ECS `Without<T>` эквивалент), `homeScreenTiles`, `toolbar` — все extension-функции на `Profile`. `toolbar()` реализован через `byTag(Tag.Toolbar).firstOrNull()`, без `is Toolbar`.
-- **Migration v2→v3** — hardcoded mapping в `ProfileMigrationV2toV3.defaultTagsFor()`, идемпотентная (T127-011), backward-compat тест (T127-012).
+- **Никакой migration writer** (per Clarification Q6): `schemaVersion: 1` стартовая, MVP не релизнут. Отсутствие `tags` в JSON = kotlinx.serialization подставляет constructor-default (единственный источник истины). Первая migration появится post-release.
 - **ProfileBackedFlowRepository** читает `ProfileStore.observe().filterNotNull()`, проецирует query результат, заменяет `ConfigBackedFlowRepository` в DI обоих flavor'ов.
 - **Тесты**: 3 контракта (roundtrip v3, migration roundtrip, backward-compat v2), 3 юнит (Query API, ProfileBackedFlowRepository, ComponentTagsFitnessTest), 1 интеграция (HomeComponentLoadingStateTest), 1 микробенчмарк (< 1 мс на query).
 
 **На что смотреть с осторожностью:**
 - T127-026, T127-027 помечены `[deferred-physical-device]` — требуют Xiaomi Redmi Note 11 физически (adb id `17f33878`); AI не может закрыть, только владелец.
-- Migration writer (T127-013) должен покрывать все 6 existing субтипов — Kotlin sealed exhaustiveness поймёт, но проверить руками перед commit.
-- `schemaVersion: 2 → 3` — one-way door per rule 5; downgrade не поддерживается (стандартно для Android).
+- Constructor-defaults на Component subtypes (T127-004) — единственный источник истины для tags. `ComponentTagsFitnessTest` (T127-021) через reflection гарантирует non-empty defaults. Если добавляется новый subtype без `tags` default — тест упадёт на build.
+- `schemaVersion: 1` стартовая. Пока pre-release — каждое breaking dev-change = сброс dev `ProfileStore` (`adb uninstall`), не migration writer. Post-release первый breaking change = первый migration writer + bump `1 → 2`.
 - `strings_wizard.xml` ключи должны быть полными — grep по TASK-126 коду перед T127-019 (не угадаем все ключи заранее).
 - Null-handling в `ProfileBackedFlowRepository` (T127-014): `filterNotNull()` критичен для SEQ-4 контракта (Loading, не Error).

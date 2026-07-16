@@ -24,39 +24,41 @@ Documents one-way-door decisions per CLAUDE.md §3 and rejected alternatives per
 
 ---
 
-## R-2: Migration writer approach — versioned classes vs field defaults
+## R-2: Migration writer approach — versioned classes vs field defaults vs nothing
 
-**Choice**: Dedicated `ProfileMigrationV2toV3` object with hardcoded subtype→tags mapping.
+**Choice (revised 2026-07-16 per owner)**: **kotlinx.serialization constructor-defaults, никакого migration writer**.
 
 **Alternatives considered**:
-- **A. kotlinx.serialization `@Serializable` field default** on `Component.tags` — deserialiser fills default automatically on missing field.
-- **B. Dedicated migration class `ProfileMigrationV2toV3`** with explicit mapping (chosen).
+- **A. kotlinx.serialization `@Serializable` field default** on `Component.tags` — deserialiser fills default automatically on missing field. **(chosen)**
+- **B. Dedicated migration class `ProfileMigrationV2toV3`** with explicit mapping (initially chosen, rejected 2026-07-16).
 - **C. Runtime lazy compute** — never persist `tags`, compute on every access from Component subtype.
 
-**Rationale**:
-- Option A works trivially — `@Serializable data class` with `val tags: Set<Tag> = defaultForSubtype`. But: default is on the constructor, not on the migration path. When v3 Profile is later saved to disk, the default is included; but the migration path is silent — no place to hook idempotency check or unit test. Also: kotlinx.serialization default requires the default to be a compile-time constant OR a factory. For sealed hierarchy with per-subtype defaults, factory function needed → same as Option B but hidden.
-- Option C avoids migration entirely but has hidden cost: every query allocates fresh `Set<Tag>` on each access; performance breaks NFR-003 (< 1 ms) at even moderate scale. Also breaks pool `ComponentDeclaration` override (spec authors want to add extra tags to a specific instance — not possible if tags are computed).
-- Option B is explicit, testable, idempotent, exhaustive (Kotlin `when` over sealed forces coverage). schemaVersion field is the standard rule-5 pattern.
+**Rationale for choosing A**:
+- **Rule 4 (MVA)**: писать migration writer нужно только если есть релизнутые данные в старом формате. У нас MVP не релизнут, релизнутых Profile файлов не существует. Migration = solving a non-existing problem.
+- Option A работает через constructor-default `override val tags: Set<Tag> = setOf(Tag.Presentation, Tag.Tile)`. Отсутствие `tags` в JSON = kotlinx.serialization подставляет default. Единственный источник истины — конструктор Component subtype.
+- Option B ломает MVA + создаёт два источника истины (конструктор + `defaultTagsFor()` mapping) с co-location constraint, требующим reflection-теста. Больше кода, больше рисков рассинхрона, никакого пользователя миграции.
+- Option C проваливает NFR-003 (аллокация Set на каждый query call при 20 компонентах ~40 микросекунд, всё ещё под бюджетом, но не по причинам, а по случайности) + ломает `ComponentDeclaration` pool override (нельзя указать extra tags для конкретного instance).
 
-**Exit ramp**: If per-subtype mapping grows large (dozens of subtypes), extract to a table (map or resource file). Keep the migration writer as thin wrapper. Cost: ~1 day. No wire-format impact.
+**Exit ramp**: После production релиза первый breaking change полей = первый migration writer появится в тот момент. Cost: ~1 день, точно тот же что сейчас, но с реальным пользователем. До релиза `schemaVersion: 1`, каждое breaking dev change = сброс dev `ProfileStore` (`adb uninstall`).
 
 ---
 
-## R-3: `schemaVersion` bump v2 → v3 — one-way door justification
+## R-3: `schemaVersion` value — 1 (starting fresh)
 
-**Nature**: rule 5 wire-format bump. After ship, older app versions (v2 reader) cannot read v3 Profiles.
+**Nature**: rule 5 requires `schemaVersion` field с first commit — yes, у нас есть, значение `1`.
 
-**Alternatives to avoid the bump**:
-- **A. Store `tags` in a side-car file** — `profile.json` (v2 unchanged) + `profile-tags.json` (new). No schemaVersion bump.
-- **B. Encode tags as a suffix in existing `id` field** — `"tile-settings#Presentation,Tile"`. Parse at runtime.
-- **C. Bump schemaVersion (chosen).**
+**Choice (revised 2026-07-16 per owner)**: **`schemaVersion: 1` — стартовая версия**. Никаких bump'ов пока не релизнемся.
+
+**Alternatives considered**:
+- **A. `schemaVersion: 3`** для continuity с TASK-120 history (если раньше был v2).
+- **B. `schemaVersion: 1`** — сбросить счётчик, старт от MVP. **(chosen)**
 
 **Rationale**:
-- Option A introduces file-set atomicity risk: writing two files sequentially can leave inconsistent state if process dies between writes. Adds complexity for cosmetic gain (avoiding a version bump). Also: two files must be kept in sync; a bug in the sync logic = silent tag loss.
-- Option B is a documented anti-pattern (encoding structured data in string primary keys). Breaks free-form `id` semantics. Migration back is impossible (parse ambiguity if id itself contains `#`).
-- Option C is the standard practice. Cost per rule 5: migration writer + backward-compat roundtrip test + schemaVersion field. All three are ~1 day of work; already scoped in plan.md test strategy.
+- MVP не релизнут → нет пользователей, для которых номер версии что-то значит. Continuity с dev-only историей бесполезна.
+- `1` — clean starting point для production релиза. Первый breaking change post-release = bump до `2`.
+- Rule 5 удовлетворено: schemaVersion field present с day 1.
 
-**Exit ramp**: If v3 rollout has field incidents (migration writer bug), forward-fix via v3.1 (add a fallback path in migration writer + release a hotfix). Downgrading a released schemaVersion is not supported (standard Android practice). Users on older APK versions can install newer APK; opposite direction not supported.
+**Exit ramp**: Post-release каждый breaking change полей Component = migration writer + bump `1 → 2 → 3...`. Пока pre-release — версия не растёт, dev fixture'ы переписываются на месте.
 
 ---
 
@@ -126,8 +128,8 @@ Documents one-way-door decisions per CLAUDE.md §3 and rejected alternatives per
 ## TL;DR для владельца
 
 - **Query API как extension-функции** — не «сервис», не «класс запросов»; просто набор функций рядом с `Profile`. Ротация: если станут неудобны — перевесим горячие (`homeScreenTiles`, `toolbar`) на методы `Profile`. День работы, ничего не сломается.
-- **Миграция через отдельный класс** `ProfileMigrationV2toV3` — потому что sealed exhaustive Kotlin не даст забыть новый субтип компонента. Компилятор ругнётся сразу.
-- **Bump v2 → v3** — необратимый шаг после релиза (стандартно для Android). Alternative "два файла на диске" — anti-pattern, atomicity boom.
+- **Никакой миграции сейчас** (решение владельца 2026-07-16): MVP не релизнут, нет релизнутых профилей = нет потребителя миграции. `schemaVersion: 1` — стартовая. Отсутствие `tags` в JSON = kotlinx.serialization подставляет constructor-default. Единственный источник истины — конструкторы Component subtypes. Первая migration появится post-release при первом breaking change.
+- **`schemaVersion: 1`** — clean старт. Каждое breaking dev-изменение = сброс dev `ProfileStore` (`adb uninstall`), не migration writer.
 - **Линейный поиск по тегам** — по 20 компонентам это ~2 микросекунды. Индексация — когда будет 500+ компонентов (не MVP; хоть Phase-3+). Exit ramp есть.
 - **`ConfigBackedFlowRepository` не удаляем** — он нужен для будущего сценария «админ пушит настройки» (spec-009). Удалим когда админ-пуш переедет на Profile-based sync. Пометили `TODO(SRV-CONFIG-DEPRECATION)` в коде и в server-roadmap.
 - **Два маркер-тега — `Tag.Tile` и `Tag.Toolbar`** — чтобы обе выборки (плитки и тулбар) работали через теги, без `is Toolbar` в коде. Плитки: `byAllTags({Presentation, Tile})`; тулбар: `byTag(Toolbar).firstOrNull()`. Добавление любого нового Presentation-компонента (hint overlay в Phase-2) не требует правки query — только объявить нужный набор тегов.
