@@ -4,7 +4,7 @@ title: 'HomeActivity config load: ECS Tags foundation + Query pattern'
 status: In Progress
 assignee: []
 created_date: '2026-07-13'
-updated_date: '2026-07-15 12:00'
+updated_date: '2026-07-16'
 labels:
   - phase-2
   - home-screen
@@ -210,3 +210,7 @@ Revision note (2026-07-15): initial scope replaced with ECS Tags+Query per owner
 ## Definition of Done
 
 `In Progress → Verification/Done` через `pre-pr-backlog-sync` после fix + verification на Xiaomi Redmi Note 11 (тот же adb id `17f33878`, свежая установка). AC #3-#6 verifiable via unit/Robolectric — не требуют physical device. AC #1-#2 требуют физический smoke test.
+
+## Resume note (2026-07-16)
+
+Возобновлена после закрытия TASK-122 (F-CRYPTO Foundation → Done, PR #50 merged) и merge ECS scope (branch `origin/task-127-launcher-presentation-builder` merged 2026-07-16). Owner переключился на этот blocker — блокирует merge TASK-126 и TASK-128 verification bucket. Speckit stage: spec.md готов, checklists пройдены (chat-only per ADR-011 §5 revised), следующий шаг — `/speckit.clarify` или сразу `/speckit.scenarios` / `/speckit.plan` (уточнить у owner).

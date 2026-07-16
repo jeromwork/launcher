@@ -72,10 +72,13 @@ class WizardViewModel(
     }
 
     fun start() {
+        android.util.Log.d(TAG, "start() called, current state=${_state.value::class.simpleName}")
         if (_state.value != ReconcileState.Idle) return
         _state.value = ReconcileState.Loading
         viewModelScope.launch {
-            when (val outcome = bootstrap.bootstrap()) {
+            val outcome = bootstrap.bootstrap()
+            android.util.Log.d(TAG, "bootstrap outcome=$outcome")
+            when (outcome) {
                 is PresetBootstrap.BootstrapOutcome.ValidationFailed -> {
                     _state.value = ReconcileState.Failed(
                         message = outcome.i18nKeys.joinToString(","),
@@ -95,12 +98,15 @@ class WizardViewModel(
                 }
             }
             val profile = store.load()
+            android.util.Log.d(TAG, "profile loaded, components=${profile?.components?.size}, ids=${profile?.components?.map { "${it.id}:${it.status}:${it.wizardBehavior}" }}")
             if (profile == null) {
                 _state.value = ReconcileState.Failed(message = "profile_missing")
                 return@launch
             }
             currentComponents = profile.components
+            android.util.Log.d(TAG, "calling engine.run(Wizard)")
             val finalProfile = engine.run(mode = RunMode.Wizard, sink = this@WizardViewModel)
+            android.util.Log.d(TAG, "engine.run returned, emitting Done")
             _state.value = ReconcileState.Done(finalProfile)
         }
     }
@@ -110,7 +116,9 @@ class WizardViewModel(
      * Interactive step. Resumes the engine.
      */
     fun respond(component: Component) {
-        pendingAnswer?.complete(component)
+        val d = pendingAnswer
+        android.util.Log.d(TAG, "respond(component=${component::class.simpleName}), pendingAnswer=${if (d == null) "NULL" else "present, active=${d.isActive}"}")
+        d?.complete(component)
         pendingAnswer = null
     }
 
@@ -148,13 +156,18 @@ class WizardViewModel(
     override suspend fun askUser(component: ProfileComponent): Component? {
         val idx = currentComponents.indexOfFirst { it.id == component.id }
         val total = currentComponents.size
+        android.util.Log.d(TAG, "askUser(id=${component.id}, idx=$idx, total=$total, critical=${component.critical}, behavior=${component.wizardBehavior})")
+        val deferred = CompletableDeferred<Component?>()
+        pendingAnswer = deferred
         _state.value = ReconcileState.Interactive(
             current = component,
             index = if (idx >= 0) idx else 0,
             total = total,
         )
-        val deferred = CompletableDeferred<Component?>()
-        pendingAnswer = deferred
-        return deferred.await()
+        val result = deferred.await()
+        android.util.Log.d(TAG, "askUser(id=${component.id}) resumed with result=${if (result == null) "null(skip)" else result::class.simpleName}")
+        return result
     }
+
+    companion object { private const val TAG = "WizardVM" }
 }
