@@ -4,19 +4,19 @@ title: Preset Authoring + Sharing
 status: Draft
 assignee: []
 created_date: '2026-06-23 05:38'
-updated_date: '2026-06-23 06:20'
+updated_date: '2026-07-17 04:06'
 labels:
-  - phase-3
+  - phase-5
   - p-spec
   - p-3
-  - authoring
+  - preset-authoring
   - sharing
   - config-source
-milestone: m-2
+milestone: m-4
 dependencies:
   - TASK-16
   - TASK-17
-priority: high
+priority: low
 ordinal: 18000
 ---
 

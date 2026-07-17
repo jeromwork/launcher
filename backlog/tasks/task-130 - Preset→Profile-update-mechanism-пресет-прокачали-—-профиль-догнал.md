@@ -4,11 +4,12 @@ title: Preset→Profile update mechanism (пресет прокачали — п
 status: Draft
 assignee: []
 created_date: '2026-07-16 11:29'
-updated_date: '2026-07-16 11:31'
+updated_date: '2026-07-17 04:06'
 labels:
   - phase-5
   - preset
   - architecture
+  - preset-authoring
 milestone: m-4
 dependencies: []
 priority: medium
