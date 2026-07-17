@@ -1,19 +1,21 @@
 ---
 id: TASK-129
-title: 'Pool ComponentDeclaration enrichment — Component Library canonical UI metadata'
-status: Draft
+title: Pool i18n coverage gate (was: ComponentDeclaration enrichment)
+status: Done
 assignee: []
 created_date: '2026-07-14'
-updated_date: '2026-07-14'
+updated_date: '2026-07-16 17:30'
 labels:
   - phase-2
   - foundation
   - preset
   - pool
-  - component-library
+  - fitness
 milestone: m-1
 dependencies:
   - TASK-120
+references:
+  - specs/task-129-pool-component-declaration/
 priority: medium
 ordinal: 129000
 ---
@@ -24,63 +26,85 @@ ordinal: 129000
 
 ## Что это простыми словами
 
-Сейчас Pool (`pool.json`) описывает компоненты только с точки зрения **правил**: кто critical, какой wizardBehavior, какие параметры. Но Pool ничего не знает о том, **как объяснить компонент пользователю**: нет иконок, нет заголовков, нет help-текста, нет информации о платформах.
+Pool (`pool.json`) — каталог компонентов внутри приложения. В нём лежат не сами
+надписи, а **ключи** — имена вроде `pool.font.description`. Настоящие слова лежат
+отдельно, в файлах приложения: английские в `values/`, русские в `values-ru/`.
+Android сам подставляет нужный язык по настройкам телефона. Благодаря этому пресет
+можно передавать между устройствами — внутри него нет текста ни на одном языке.
 
-По шагам (нормальный сценарий):
-1. LauncherPresentationBuilder (из TASK-127) создаёт экран из Profile.
-2. Ему нужна иконка для кнопки HomeRole, заголовок, описание для Settings-карточки.
-3. Сейчас ему негде взять эти данные — приходится hardcode или угадывать по типу Component.
-4. После этой задачи: `ComponentDeclaration` в `pool.json` содержит `i18nKey`, `icon`, `category`, `helpUrl`, `supportedPlatforms`, `actions` — всё что нужно Builder'у.
+Проблема: связь «ключ в каталоге ↔ слово в файле» **никем не проверяется**. Обычно
+за этим следит компилятор, но наши ключи приходят из JSON — компилятор их не видит.
+Забыли добавить перевод — узнает об этом пользователь: вместо надписи он увидит на
+экране `pool.font.description`.
 
-Что происходит при добавлении нового компонента в Pool:
-- Разработчик добавляет запись в `pool.json` с новыми полями.
-- `strings.xml` получает ключи `comp.<id>.title`, `comp.<id>.description`, `comp.<id>.help`.
-- CI fitness function проверяет что все i18nKey из pool.json покрыты в strings.xml.
-- Ни LauncherPresentationBuilder, ни другие Builder'ы не меняются — они читают поля через ComponentDeclaration.
+По шагам (после этой задачи):
+1. Разработчик (или AI-агент) добавляет компонент в `pool.json` с новым ключом.
+2. Забывает добавить русский перевод.
+3. Сборка **падает сразу** и называет ключ и язык, которого не хватает.
+4. Пользователь никогда не увидит технический текст вместо надписи.
 
 ## Зачем
 
-- LauncherPresentationBuilder (TASK-127) строит ConfigDocument из Profile — ему нужны иконки и заголовки для слотов.
-- SettingsPresentationBuilder (TASK-69) строит Settings-экран — ему нужны category, description, helpUrl.
-- WizardPresentationBuilder уже частично закрыт через `wizardFlow[i].wizardTitle` в Preset, но canonical fallback нужен.
-- Pool становится **Component Library** — одним источником правды о том, что такое каждый компонент.
+Это единственная дыра в pool-локализации, которую можно закрыть сегодня, не завися
+от будущих фич. Стоит дёшево, страхует навсегда, и работает в первую очередь на
+AI-агента: он добавляет компоненты чаще человека и получает машинную обратную связь
+вместо молчаливой ошибки.
 
 ## Что входит технически (для AI-агента)
 
-**Domain (core/preset/model/):**
-- `ComponentDeclaration` получает новые nullable поля: `i18nKey: String?`, `icon: String?`, `category: String?`, `helpUrl: String?`, `supportedPlatforms: List<Vendor>?`, `actions: List<String>?`, `validationKey: String?`
-- Все поля nullable для backward-compat: старые записи pool.json без этих полей парсятся без ошибок
-
-**Wire format (rule 5):**
-- `pool.json` schemaVersion `1 → 2`
-- Migration writer: `PoolMigration.v1ToV2(pool: JsonObject): JsonObject` — добавляет `schemaVersion: 2`, не трогает существующие поля
-- Backward-compat test: pool.json schemaVersion=1 читается текущим кодом с defaults
-
-**Assets:**
-- `app/src/main/assets/preset/pool.json` — обновить 4 существующих записи: добавить `i18nKey`, `icon`, `category` для `font-tile`, `tile-whatsapp`, `sos-main`, `toolbar-minimal`
-- `app/src/main/res/values/strings_pool.xml` — новый файл с ключами `comp.font_tile.title`, `comp.font_tile.description`, `comp.font_tile.help`, аналогично для 3 остальных компонентов
-
-**Fitness function (rule 7):**
-- `PoolI18nCoverageTest`: grep pool.json → собрать все i18nKey → проверить что каждый ключ + суффиксы `.title`/`.description`/`.help` есть в strings_pool.xml. CI gate.
-
-**Web Panel stub (forward-compat seam):**
-- `// TODO(web-panel): catalog-i18n-{locale}.json для admin web panel — serve from CDN; pool.json i18nKeys = source of truth`
-- Файл не создаём сейчас — только TODO
-
-## Что НЕ входит (deferred)
-
-- `catalog-i18n-{locale}.json` для Web Panel — TODO(web-panel), нужен при TASK-34 (clinic B2B)
-- Remote pool update (TASK-33 Capability Registry) — pool.json остаётся bundled asset
-- Русская локализация strings_pool.xml — добавить EN, RU deferred (TODO(i18n))
-- Icon resource files (drawable XML) — placeholder strings достаточно для Builder; drawable assets добавляются при UX pass
+- `PoolI18nCoverageTest` (`core/src/androidUnitTest/.../fitness/preset/`) — JVM-гейт:
+  читает bundled `pool.json`, собирает текстовые ключи (`labelKey`, `titleKey`,
+  `descriptionKey`) на любой глубине дерева, проверяет наличие непустой строки
+  в EN и RU. Правило имён зеркалит рантайм (`AndroidLocalizedResources`):
+  точки → подчёркивания.
+- EN и RU равноправно строгие — RU основной рынок продукта.
+- `iconKey` / `layoutKey` из проверки исключены — это идентификаторы, не текст;
+  решение закреплено отдельным тестом, чтобы его не «починили» обратно.
+- Гейт падает, если не смог прочитать входные файлы — иначе он зелёный вхолостую.
+- Модель, wire format, версия схемы, Provider, ReconcileEngine — **не тронуты**.
 
 ## Состояние
 
-**Draft.** Не блокирует TASK-127 (LauncherPresentationBuilder может работать с hardcoded fallbacks пока Pool не обогащён). Разблокируется после TASK-120 Done (выполнено).
+**Done** (2026-07-17). Гейт реализован, зелёный на текущем
+`pool.json` (14 текстовых ключей в EN и RU), способность падать проверена мутацией
+(удалили RU-строку — упал с точным именем ключа и языка). Весь `:core` зелёный.
+Ветка `task-129-pool-component-declaration` запушена; PR за владельцем — `gh`
+в dev-окружении не авторизован.
+
+### Scope ужат относительно исходной постановки — почему
+
+Исходная задача просила обогатить Blueprint полями `i18nKey`, `icon`, `category`,
+`helpUrl`, `supportedPlatforms`, `actions`, `validationKey` и поднять схему.
+Обследование кода на `main` (после вливания TASK-126 / TASK-127) показало, что
+**посылка задачи не подтвердилась**:
+
+- `LauncherPresentationBuilder`, ради которого всё затевалось, **не существует** —
+  TASK-127 его не создавала.
+- Домашний экран строится из Profile (`Entity` → `Component`), заголовок и иконку
+  берёт **из компонента** (`labelKey`, `iconKey`), а Pool не читает вообще
+  (`ProfileBackedFlowRepository.toSlot()`).
+- Мастер берёт заголовки шагов из `Preset.wizardFlow`, не из Blueprint.
+- Все 15 объявленных ключей **уже покрыты** EN-строками — заявленной дыры нет.
+- Схема уже v2 (TASK-126 занял версию под `requires` / `required`), а не v1.
+- Модель называется `Blueprint`, а не `ComponentDeclaration` (ECS-переименование).
+
+То есть у полей не было ни одного потребителя: мы подняли бы версию схемы и
+написали миграцию ради кода, которого нет (нарушение rule 4 MVA + refuse pattern #9).
+Решение владельца 2026-07-16 — ужать до гейта, поля отложить до появления
+потребителя. Отложенное вынесено в **TASK-135**; добавление будет additive,
+без переписывания.
+
+Спека: [`specs/task-129-pool-component-declaration/spec.md`](../../specs/task-129-pool-component-declaration/spec.md)
+— там же Clarifications (почему XML, а не JSON; почему явные ключи; почему EN+RU
+строго) и раздел «Замеченное, но не исправленное здесь» (`iconKey` как
+псевдо-i18n-ключ; риск `shrinkResources` при динамическом резолве).
 
 ---
 
-## Готовый промт для `/speckit.specify`
+## Готовый промт для `/speckit.specify` (historical — постановка до обследования)
+
+Промт ниже описывает **исходную** модель задачи (обогащение полями + schemaVersion
+1→2). Она не подтвердилась при контакте с кодом; оставлен как исторический след.
 
 ```
 ЧТО СТРОИМ:
@@ -90,45 +114,15 @@ Pool ComponentDeclaration enrichment — добавить canonical UI metadata 
 ЗАЧЕМ:
 LauncherPresentationBuilder (TASK-127) и SettingsPresentationBuilder (TASK-69)
 нуждаются в иконках, заголовках, help-текстах для компонентов.
-Сейчас эти данные нигде не хранятся — Builder'ы hardcode или пустые.
 
 SCOPE ВКЛЮЧАЕТ:
 - ComponentDeclaration: новые nullable поля i18nKey, icon, category, helpUrl,
   supportedPlatforms, actions, validationKey
 - pool.json schemaVersion 1→2 с migration writer и backward-compat test
-- pool.json обновлён для 4 существующих компонентов (font-tile, tile-whatsapp,
-  sos-main, toolbar-minimal) с заполненными полями
+- pool.json обновлён для 4 существующих компонентов
 - strings_pool.xml: EN ключи для 4 компонентов (.title, .description, .help)
-- Fitness function: PoolI18nCoverageTest — каждый i18nKey покрыт в strings.xml (CI gate)
+- Fitness function: PoolI18nCoverageTest — каждый i18nKey покрыт (CI gate)
 - TODO(web-panel) seam inline в pool.json loading code
-
-SCOPE НЕ ВКЛЮЧАЕТ:
-- catalog-i18n JSON для web panel
-- Remote pool update
-- RU локализация (deferred)
-- Drawable icon resources (placeholder string ключей достаточно)
-- Изменения в Provider или ReconcileEngine
-
-DEPENDENCIES:
-- TASK-120 (Done) — ComponentDeclaration model уже существует
-
-ACCEPTANCE CRITERIA:
-1. pool.json читается с schemaVersion=2; старый schemaVersion=1 также читается без ошибок
-2. ComponentDeclaration для font-tile, tile-whatsapp, sos-main, toolbar-minimal
-   содержат i18nKey и icon поля
-3. strings_pool.xml содержит EN ключи для всех 4 компонентов
-4. PoolI18nCoverageTest passes в CI (каждый i18nKey → .title/.description/.help в strings)
-5. Backward-compat roundtrip test: pool v1 JSON → parse → serialize → schemaVersion=2
-
-LOCAL TEST PATH:
-- Unit test: PoolMigration.v1ToV2 на sample JSON
-- PoolI18nCoverageTest: reflection-based, не нужен device
-- BundledAssetsLoadTest (Robolectric, уже есть из TASK-120): должен проходить с v2 pool.json
-
-CONSTITUTION GATES:
-- Rule 5 (wire format versioning): schemaVersion bump + migration writer обязательны
-- Rule 7 (fitness functions): PoolI18nCoverageTest как CI gate
-- Rule 9 (shareability): i18nKey в pool.json, не прямые строки — locale-neutral
 
 EFFORT: S (2-3 дня)
 ```
@@ -138,12 +132,45 @@ EFFORT: S (2-3 дня)
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 [hand] pool.json schemaVersion=2; BundledAssetsLoadTest проходит с v2; старый schemaVersion=1 читается без ошибок (backward-compat test)
-- [ ] #2 [hand] ComponentDeclaration для font-tile, tile-whatsapp, sos-main, toolbar-minimal содержат i18nKey и icon поля в pool.json
-- [ ] #3 [hand] strings_pool.xml содержит EN ключи (.title, .description, .help) для всех 4 компонентов
-- [ ] #4 [hand] PoolI18nCoverageTest passes: каждый i18nKey из pool.json имеет покрытие в strings_pool.xml
+- [x] #1 [hand] Гейт падает, если у объявленного в pool.json текстового ключа нет EN- или RU-строки; сообщение называет ключ и язык
+- [x] #2 [hand] Гейт зелёный на текущем pool.json — 14 текстовых ключей покрыты в EN и RU
+- [x] #3 [hand] iconKey / layoutKey не требуют переводов (закреплено отдельным тестом)
+- [x] #4 [hand] Модель, wire format и версия схемы не тронуты — существующие тесты (WireFormatI18nKeysTest, весь :core) зелёные
 <!-- AC:END -->
 
 ## Definition of Done
 
-Все AC `[hand]` зелёные. Pool enrichment не требует device verification — все тесты Robolectric/unit.
+Все AC `[hand]` зелёные. Device verification не требуется — гейт это JVM-тест,
+отложенных `[auto:deferred-*]` гейтов нет.
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+
+Закрыто 2026-07-17. Реализован один артефакт — `PoolI18nCoverageTest`
+([core/src/androidUnitTest/.../fitness/preset/PoolI18nCoverageTest.kt](../../core/src/androidUnitTest/kotlin/com/launcher/test/fitness/preset/PoolI18nCoverageTest.kt)),
+JVM-гейт покрытия ключей Pool переводами в EN и RU.
+
+**Что он закрывает**: ключи `pool.json` приходят из JSON, поэтому компилятор их не
+видит (обычный Android-путь `R.string.foo` роняет сборку на опечатке). При промахе
+`AndroidLocalizedResources` возвращает сам ключ — пользователь увидел бы на экране
+`pool.font.description`. Соседний `WireFormatI18nKeysTest` проверял только **форму**
+ключа, не **покрытие**.
+
+**Проверено**: зелёный на текущем `pool.json` (14 текстовых ключей × 2 языка); весь
+`:core` зелёный; способность падать подтверждена мутацией — удаление RU-строки
+`pool_sos_description` роняет гейт с точным сообщением
+`RU: pool.sos.description -> <string name="pool_sos_description"> is missing`.
+
+**Чего не делали и почему**: исходная постановка (поля `i18nKey` / `icon` /
+`category` / `helpUrl` / `supportedPlatforms` / `actions` / `validationKey` +
+bump схемы) отменена — у полей не нашлось ни одного потребителя:
+`LauncherPresentationBuilder` не существует, домашний экран читает `Component`,
+а не `Blueprint`, мастер берёт заголовки из `Preset.wizardFlow`. Отложено
+в **TASK-135** (additive, когда потребитель появится).
+
+**Оставлено сознательно** (зафиксировано в spec.md § «Замеченное»): `iconKey` как
+псевдо-i18n-ключ (наследие TASK-120, чинить — трогать `AppTileProvider` /
+`HomeScreenFacade`); риск `shrinkResources` против динамического `getIdentifier`.
+
+<!-- SECTION:FINAL_SUMMARY:END -->
