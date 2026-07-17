@@ -6,12 +6,14 @@ title: >-
 status: Draft
 assignee: []
 created_date: '2026-07-16 18:13'
+updated_date: '2026-07-17 04:06'
 labels:
-  - phase-2
+  - phase-5
+  - preset-authoring
   - preset
   - pool
   - deferred
-milestone: m-1
+milestone: m-4
 dependencies:
   - TASK-69
 priority: low

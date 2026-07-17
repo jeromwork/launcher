@@ -4,7 +4,7 @@ title: Marketplace для config templates
 status: Draft
 assignee: []
 created_date: '2026-06-23 05:43'
-updated_date: '2026-06-23 06:34'
+updated_date: '2026-07-17 04:06'
 labels:
   - phase-5
   - l-spec
@@ -12,6 +12,7 @@ labels:
   - marketplace
   - sharing
   - parking-lot
+  - preset-authoring
 milestone: m-4
 dependencies:
   - TASK-18
