@@ -7,9 +7,8 @@
 
 ## Контекст (что уже построено)
 
-Задача продолжает линию TASK-120 (модель Component/Preset/Profile) → TASK-126 (визард на композиции) → TASK-127 (ECS + домашний экран) → **TASK-136 (канонический ECS, big-bang, смержен 2026-07-18)**. На момент написания карточки (30.06.2026) этой линии ещё не существовало, поэтому словарь карточки устарел; спека опирается на фактическое состояние кода **после TASK-136**:
+**Модель конфигурации не дублируется здесь.** Единственный источник истины по ECS (Entity · Component · Tag · `LifecycleState` · `ReconcileEngine` · Provider · Profile↔Preset) — **[`docs/architecture/ecs.md`](../../docs/architecture/ecs.md)** (+ скилл `ecs`). Ключевое для этой задачи из инвариантов ecs.md: профиль **самодостаточен для поведения+home**, а **презентация настроек (`settingsMap`) живёт на пресете** и читается в рантайме (I2); чтение значений — `entity.get<T>()`, состояние — `entity.get<LifecycleState>()`. Ниже — только TASK-69-специфика (что уже есть в коде на момент задачи):
 
-- **Профиль — это ECS-«мир»**: `Profile.entities: List<Entity>`, где `Entity` — **свободный мешок** компонентов (`components: List<Component>`) + набор тегов (`tags: Set<Tag>`), без отдельного поля `status`. Состояние применения — сам компонент `LifecycleState` в мешке (`Pending` / `Applied` / `Failed(reason)` / `Skipped` / `Unverifiable`), читается через `entity.get<LifecycleState>()` ([Profile.kt](../../core/src/commonMain/kotlin/com/launcher/preset/model/Profile.kt), [LifecycleState.kt](../../core/src/commonMain/kotlin/com/launcher/preset/model/LifecycleState.kt)). Данные компонента читаются типобезопасно через `entity.get<Component.FontSize>()` и т.п. ([EntityDsl.kt:54](../../core/src/commonMain/kotlin/com/launcher/preset/ecs/EntityDsl.kt#L54)).
 - **Пресет уже несёт поле `settingsMap`** ([Preset.kt](../../core/src/commonMain/kotlin/com/launcher/preset/model/Preset.kt)): `poolRef`, `categoryKey`, `settingsIcon`, `sensitivity`, `paramsOverride`. Все три bundled-пресета его заполняют.
 - **Никто его не рисует.** Единственный читатель — [PendingChecklistViewModel.kt:36](../../app/src/main/java/com/launcher/app/settings/PendingChecklistViewModel.kt#L36), и только ради подписи (`categoryKey`). Поля `settingsIcon`, `sensitivity`, `paramsOverride` не читает никто.
 - **Экранов настроек два, на разных стеках**: [SettingsActivity.kt:35](../../app/src/main/java/com/launcher/app/settings/SettingsActivity.kt#L35) (ECS-эпоха: 3 захардкоженных блока) и legacy [SettingsScreen.kt:50](../../core/src/commonMain/kotlin/com/launcher/ui/screens/SettingsScreen.kt#L50) на `FlowPreset`/`PresetRepository` (язык, пресет, удалённое управление, сопряжённые устройства, сброс данных).
@@ -89,7 +88,7 @@
 **Acceptance Scenarios**:
 
 1. **Given** запись удалена из `settingsMap` пресета, **When** пользователь открывает Настройки, **Then** строки нет — без изменений в коде.
-2. **Given** запись помечена `editableInSettings = false`, **When** пользователь открывает Настройки, **Then** строка показывает значение и статус, но кнопки «Изменить» нет (только-читаемая).
+2. **Given** компонент строки не имеет in-app провайдера (например `StatusBarPolicy`, применяется только системным диалогом), **When** пользователь открывает Настройки, **Then** строка показывает значение и статус, а действие — через одношаговый сценарий (FR-011), не через inline-правку; редактируемость выведена, не задана полем.
 3. **Given** запись помечена `sensitivity` = «важная / админская», **When** экран открыт в MVP (ролей ещё нет), **Then** строка показывается наравне с прочими — `sensitivity` в MVP не gating'ует (разграничение доступа отложено до TASK-70).
 
 ---
@@ -144,33 +143,37 @@ sequenceDiagram
 sequenceDiagram
   participant UI as SettingsScreen (Composable)
   participant VM as SettingsViewModel
-  participant Q as ProfileQuery (domain ext)
+  participant GW as SettingsGateway (port)
+  participant B as SettingsPresentationBuilder (domain)
   participant PS as ProfileStore (port)
   participant PR as PresetSource (port)
   UI->>VM: observe settingsUiState
-  VM->>PS: observe(): Flow<Profile>
-  VM->>PR: activePreset(): Preset
-  PS-->>VM: Profile
-  PR-->>VM: Preset
-  VM->>Q: map settingsMap → entities (id==poolRef), get<T>() + get<LifecycleState>()
-  Q-->>VM: List<SettingRow>
-  VM-->>UI: SettingsUiState(rows grouped by categoryKey)
+  VM->>GW: observe(): Flow<SettingsView>
+  GW->>PS: observe(): Flow<Profile>
+  GW->>PR: activePreset(): Preset
+  PS-->>GW: Profile
+  PR-->>GW: Preset
+  GW->>B: build(profile, settingsMap): SettingsView
+  B-->>GW: SettingsView (rows by categoryKey + app-operations)
+  GW-->>VM: SettingsView
+  VM-->>UI: SettingsUiState
 ```
 
 <!-- MENTOR-DETAIL:BEGIN -->
 #### Пояснение для владельца
 
-- Экран не хранит свой список настроек — он **зеркалит профиль**. Открыли настройки → система читает текущий профиль (что реально применено) и поле `settingsMap` пресета (что показывать и в какой группе).
-- Для каждой записи `settingsMap` система по `poolRef` находит сущность профиля (у них общий id) и типобезопасно достаёт значение (`get<T>()`) и состояние применения (`LifecycleState`: применено / ожидает / ошибка / пропущено / состояние неизвестно).
-- Если запись ссылается на компонент, которого в профиле нет — строка просто пропускается, экран не падает (US1 сценарий 4).
-- Стрелки идут только «вниз» (экран → VM → запрос → порт хранилища): экран сам ничего не вычисляет и не лезет в Android — rule 1.
+- Экран не хранит свой список настроек и не рисует профиль напрямую — он рисует **проекцию** (`SettingsView`): преобразование `профиль + settingsMap + подписи` в готовые строки. «Проекция», не «зеркало» — это не копия профиля, а его переработка в то, что видно на экране.
+- Собирает проекцию `SettingsPresentationBuilder`. Для каждой записи `settingsMap` он по `poolRef` находит сущность профиля (у них общий id) и типобезопасно достаёт значение (`get<T>()`) и состояние (`LifecycleState`: применено / ожидает / ошибка / пропущено / неизвестно).
+- Почему нельзя рисовать профиль прямо в экране: тогда решение «что показать / как назвать / можно ли менять» протекло бы в Compose (`when(component)`) — это нарушение rule 1 и провал SC-006. Поэтому «что показать» решает домен (builder), «как нарисовать» — экран.
+- Если запись ссылается на компонент, которого в профиле нет — строка пропускается, экран не падает (US1 сценарий 4).
+- Стрелки только «вниз» (экран → VM → порт `SettingsGateway` → builder/порты хранилища): VM зависит от порта, не от движка; экран ничего не вычисляет и не лезет в Android — rule 1.
 <!-- MENTOR-DETAIL:END -->
 
 ---
 
 ### SEQ-2: In-app edit through the engine (US2)
 
-Pre: a row for an in-app-applied component (`FontSize`/`Theme`/`Language`/`Toolbar`) with `editableInSettings = true` is shown.
+Pre: a row for an in-app-applied component (`FontSize`/`Theme`/`Language`/`Toolbar`) is shown (editability derived — it has an in-app provider).
 Post: on success, `Profile` holds the new value (survives restart) and UI reflects it; on failure, old value kept and error state shown.
 Used-in: spec/task-69-settings-as-profile-view.
 
@@ -197,16 +200,19 @@ sequenceDiagram
 sequenceDiagram
   participant UI as SettingsScreen (Composable)
   participant VM as SettingsViewModel
-  participant RE as ReconcileEngine (RunMode.Single)
+  participant GW as SettingsGateway (port)
+  participant RE as ReconcileEngine (adapter behind port)
   participant PV as Provider (FontSizeProvider)
   participant PS as ProfileStore (port)
-  UI->>VM: onChange(componentId, newParams)
-  VM->>RE: run(Single, entity, newComponent)
+  UI->>VM: onChange(poolRef, newParams)
+  VM->>GW: apply(poolRef, newParams)
+  GW->>RE: run(Single, entity, newComponent)
   RE->>PV: apply(newComponent): Outcome
   PV-->>RE: Ok | Failed(reason)
   RE->>PS: save(Profile.with(id, newComponent).setState(id, state))
   PS-->>RE: persisted
-  RE-->>VM: reconcile result
+  RE-->>GW: result
+  GW-->>VM: ApplyResult (updated SettingsView via observe)
   VM-->>UI: updated SettingsUiState (new value or error)
 ```
 
@@ -214,7 +220,7 @@ sequenceDiagram
 #### Пояснение для владельца
 
 - Это первая возможность поменять настройку **после** визарда, не прогоняя визард заново.
-- Любое изменение идёт через тот же движок применения (`ReconcileEngine`), что и визард — экран НЕ трогает Android напрямую (rule 1, FR-008). Провайдер компонента реально применяет значение.
+- Изменение идёт через порт `SettingsGateway`, а **за** портом — движок применения (`ReconcileEngine`), тот же что у визарда. VM знает только порт (заменим движок — VM не трогаем); экран НЕ трогает Android напрямую (rule 1 + rule 4, FR-008). Провайдер компонента реально применяет значение.
 - Успех → новое значение сразу на экране и в профиле (переживает перезапуск, FR-009). Ошибка → прежнее значение не теряется, строка честно показывает «не применилось» (FR-010).
 - Работает только для компонентов, применяемых внутри приложения (шрифт/тема/язык/панель). Требующие системного диалога — см. SEQ-3.
 <!-- MENTOR-DETAIL:END -->
@@ -254,16 +260,19 @@ sequenceDiagram
 sequenceDiagram
   participant UI as SettingsScreen (Composable)
   participant VM as SettingsViewModel
-  participant RE as ReconcileEngine (RunMode.Single, Interactive)
+  participant GW as SettingsGateway (port)
+  participant RE as ReconcileEngine (adapter, Interactive)
   participant PV as Provider (LauncherRoleProvider)
   participant AD as RoleManager facade (adapter)
   UI->>VM: onChange(launcherRoleId)
-  VM->>RE: run(Single, entity) [Interactive]
+  VM->>GW: apply(launcherRoleId) [interactive]
+  GW->>RE: run(Single, entity) [Interactive]
   RE->>PV: apply(): Outcome
   PV->>AD: createRequestRoleIntent(ROLE_HOME)
   AD-->>PV: launch + await result
   PV-->>RE: Ok | Unsupported/Unverifiable
-  RE-->>VM: state (mapped to LifecycleState)
+  RE-->>GW: state (mapped to LifecycleState)
+  GW-->>VM: ApplyResult
   VM-->>UI: return to Settings, updated row
 ```
 
@@ -334,7 +343,8 @@ sequenceDiagram
 
 **Проекция профиля**
 
-- **FR-001**: Экран настроек MUST строиться из текущего профиля устройства и поля `settingsMap` применённого пресета; набор строк MUST определяться данными, а не кодом экрана.
+- **FR-000**: Проекция `Profile + settingsMap (+ i18n) → SettingsView` MUST выполняться доменным компонентом `SettingsPresentationBuilder`, спроектированным по форме будущего общего презентационного слоя (Home перейдёт на ту же форму отдельной задачей — унификация additive, Home в scope TASK-69 NOT входит). `SettingsView` = сериализуемый дескриптор (секции строк + список app-операций); JSON-driven рендеринг из него отложен в TASK-133 (в TASK-69 рендер — обычный Compose, читающий готовый `SettingsView`).
+- **FR-001**: Экран настроек MUST строиться из `SettingsView` (проекция профиля + `settingsMap`), а не из хардкод-верстки; набор строк MUST определяться данными, а не кодом экрана.
 - **FR-002**: Для каждой записи `settingsMap` система MUST найти соответствующую сущность профиля (`Profile.entities`) по `poolRef` и прочитать её данные типобезопасно (`entity.get<T>()`); при отсутствии — строку пропустить, экран отрисовать без ошибки.
 - **FR-003**: Строки MUST группироваться по `categoryKey` записи `settingsMap`.
 - **FR-004**: Каждая строка MUST показывать текущее значение компонента (из `entity.get<T>()`) и его состояние применения — компонент `LifecycleState` в мешке сущности (`Applied` / `Pending` / `Failed` / `Skipped` / `Unverifiable`), читаемый через `entity.get<LifecycleState>()`.
@@ -344,7 +354,7 @@ sequenceDiagram
 **Изменение настроек**
 
 - **FR-007**: Пользователь MUST иметь возможность изменить значение компонента, применяемого внутри приложения (`FontSize`, `Theme`, `Language`, `Toolbar`), не проходя визард.
-- **FR-008**: Любое изменение MUST применяться через единый движок применения (`ReconcileEngine`) и зарегистрированного провайдера компонента; экран MUST NOT вызывать Android API напрямую (CLAUDE.md rule 1, refuse #3).
+- **FR-008**: Любое изменение MUST проходить через доменный порт `SettingsGateway` (`observe()` + `apply(poolRef, newParams)`), НЕ через прямой вызов конкретного движка. Экран/VM зависят только от порта; `ReconcileEngine` + провайдеры живут **за** портом как сегодняшний адаптер (`EngineSettingsGateway`), заменяемый на «реальный движок» без правок VM/экрана. Экран MUST NOT вызывать Android API или `ReconcileEngine` напрямую (CLAUDE.md rule 1 + rule 4 purpose-shaped seam, refuse #3).
 - **FR-009**: Изменение MUST сохраняться в профиле и переживать перезапуск приложения и процесса.
 - **FR-010**: При провале применения система MUST сохранить прежнее значение и показать состояние ошибки; частично применённое состояние MUST NOT выглядеть как успешное.
 - **FR-011**: Для компонентов, требующих системного диалога (`LauncherRole`, `StatusBarPolicy`), система MUST запускать точечный одношаговый сценарий и возвращать пользователя на экран настроек.
@@ -354,7 +364,7 @@ sequenceDiagram
 **Видимость и редактируемость**
 
 - **FR-014**: Состав `settingsMap` MUST быть единственным источником того, какие настройки-компоненты профиля видны на экране (Profile-проекционная часть; app-операции — см. FR-020).
-- **FR-015**: Запись `settingsMap` MUST нести явное поле `editableInSettings: Boolean` (default — редактируемо). Строка редактируема на экране, только если `editableInSettings = true` **и** у компонента есть провайдер, применяющий его внутри приложения; иначе строка только-читаемая. Это additive wire-format change (`SettingsMapEntry`, Preset `schemaVersion=2` сохраняется) — требует roundtrip-теста (rule 5). *Meta-note (rule 4 ↔ rule 9): в MVP ни один bundled-пресет не ставит `false` (все строки редактируемы по умолчанию) — поле вводится как forward-design шов для авторов пресетов (rule 9 shareability), а не под текущего потребителя-данные. Осознанный выбор владельца; exit ramp — удалить поле (pre-release, дёшево), если авторский контроль так и не понадобится.*
+- **FR-015**: Редактируемость строки MUST **выводиться**, а не храниться отдельным полем: строка редактируема на экране, только если у её компонента есть провайдер, применяющий его внутри приложения (`FontSize`/`Theme`/`Language`/`Toolbar`); компоненты, требующие системного диалога (`LauncherRole`/`StatusBarPolicy`) — через FR-011; прочие — только-читаемые. **Никакого нового поля в wire-формате** (`SettingsMapEntry` не меняется, `Preset.schemaVersion=2` без изменений) — rule 4 MVA. Авторский контроль редактируемости (поле в пресете) — отложенный additive-шов на случай реального спроса.
 - **FR-016**: Поле `sensitivity` записи `settingsMap` в MVP MUST читаться, но NOT gating'овать видимость — все строки показываются независимо от `sensitivity`. Поле остаётся как шов; разграничение доступа по нему вводится с появлением ролей (TASK-70).
 
 **Границы**
@@ -367,12 +377,17 @@ sequenceDiagram
 
 ### Key Entities
 
+Канонические определения ECS-типов — в [`ecs.md`](../../docs/architecture/ecs.md); ниже — как они используются в этой задаче + новые типы самой задачи (`SettingsGateway` / `SettingsPresentationBuilder` / `SettingsView`).
+
 - **Profile** — состояние устройства: ECS-«мир» из сущностей (`entities: List<Entity>`). Источник правды для экрана.
 - **Entity** — «строка» профиля: свободный мешок компонентов (`components`) + теги (`tags`); идентифицируется `id`, связь с деревом экрана — `parentId`. Значение читается `entity.get<T>()`.
-- **`settingsMap` (запись пресета, `SettingsMapEntry`)** — витрина: какой компонент показывать в настройках, в какой категории (`categoryKey`), с какой чувствительностью (`sensitivity`, в MVP инертна), и **можно ли его менять** (`editableInSettings`, новое поле — FR-015). Формат уже существует, впервые получает потребителя; `editableInSettings` добавляется additive.
+- **`settingsMap` (запись пресета, `SettingsMapEntry`)** — витрина: какой компонент показывать в настройках, в какой категории (`categoryKey`), с какой чувствительностью (`sensitivity`, в MVP инертна). Формат уже существует, впервые получает потребителя; **не меняется** в этой задаче.
 - **Component** — единица настройки (размер шрифта, тема, плитка, SOS, панель, роль лаунчера, системная панель) — данные в мешке сущности.
 - **LifecycleState** — состояние применения как **компонент** в мешке: `Pending` / `Applied` / `Failed(reason)` / `Skipped` / `Unverifiable`. Двигается движком (`ReconcileEngine.setState`), впервые проецируется в интерфейс построчно. (Заменил enum `ComponentStatus` в TASK-136.)
-- **Provider** — исполнитель проверки и применения компонента на устройстве; экран обращается к нему только через движок.
+- **`SettingsGateway`** (порт, домен) — единственная точка, через которую VM говорит с логикой настроек: `observe(): Flow<SettingsView>` + `apply(poolRef, newParams): ApplyResult`. За портом — адаптер `EngineSettingsGateway` (сегодня оборачивает `ReconcileEngine` + `ProfileStore` + `PresetSource`); движок заменяем без правок VM/экрана.
+- **`SettingsPresentationBuilder`** (домен) — сборщик проекции `Profile + settingsMap (+ i18n) → SettingsView`. Спроектирован по форме будущего общего Home+Settings слоя; Home в TASK-69 не трогается.
+- **`SettingsView`** (сериализуемый дескриптор) — результат проекции: секции строк (сгруппированы по `categoryKey`, каждая с значением + `LifecycleState` + выведенным признаком editable) + список app-операций (FR-020). Данные, не Compose — JSON-driven рендер из него = TASK-133.
+- **Provider** — исполнитель проверки и применения компонента; вызывается **только** адаптером за `SettingsGateway`, не экраном.
 
 ## Success Criteria *(mandatory)*
 
@@ -385,15 +400,15 @@ sequenceDiagram
 - **SC-005 [backlog]**: Убрав запись из `settingsMap` пресета, строка исчезает с экрана — без изменений в коде.
 - **SC-006**: Ни один Compose-файл экрана настроек не содержит `when` по подтипам `Component` и не вызывает Android API напрямую — проверяется фитнес-тестом (rule 1).
 - **SC-007**: Все ключи локализации экрана покрыты EN + RU — существующий гейт `PoolI18nCoverageTest` расширен на ключи `categoryKey`. Хардкод-строки поглощаемого legacy-экрана (`«Настройки»`, `«Язык»`, `«Пресет»`, `«Удалённое управление»`, `«Сопряжённые устройства»`, `«Сбросить данные»` и диалоги) MUST быть вынесены в i18n-ключи при переносе (FR-020) — не переносить хардкод.
-- **SC-008**: Изменение настройки проходит через `ReconcileEngine`; контрактный тест на фейковом провайдере подтверждает вызов `apply` и сохранение профиля.
+- **SC-008**: Изменение настройки идёт через порт `SettingsGateway`; VM зависит от порта, а не от `ReconcileEngine`. Контрактный тест на **фейковом** `SettingsGateway` (rule 6) + отдельный тест адаптера `EngineSettingsGateway` подтверждает вызов `apply` и сохранение профиля.
 - **SC-009**: После задачи в приложении **один** экран настроек; legacy [SettingsScreen](../../core/src/commonMain/kotlin/com/launcher/ui/screens/SettingsScreen.kt) и его точка входа удалены, а его не-профильные функции (смена пресета, pairing-QR, admin-навигация, сброс данных) доступны с нового экрана (FR-020) — проверяется навигационным тестом.
-- **SC-010**: `SettingsMapEntry` с новым полем `editableInSettings` проходит roundtrip-тест (write → read → equal) и backward-compat чтение фикстуры без поля (default применяется) — rule 5.
+- **SC-010**: `SettingsPresentationBuilder` детерминированно строит `SettingsView` из фиксированных `Profile + settingsMap` (unit-тест на фейках); wire-формат `SettingsMapEntry` НЕ меняется (roundtrip существующих фикстур остаётся зелёным без правок).
 
 ## Assumptions
 
 - Экран настроек в MVP предназначен человеку, который настраивает устройство (администратор рядом с пользователем либо сам пользователь). Отдельного режима администратора в приложении сегодня нет.
 - Локально применяемыми (редактируемыми в MVP без системных диалогов) считаются компоненты `FontSize`, `Theme`, `Language`, `Toolbar` — по факту реализации провайдеров.
-- `settingsMap` — источник витрины; в этой задаче он получает additive-поле `editableInSettings` (FR-015). `Preset.schemaVersion: 2` сохраняется (поле опциональное с дефолтом), но roundtrip-тест обязателен (rule 5).
+- `settingsMap` — источник витрины; в этой задаче формат **не меняется** (редактируемость выводится, не хранится — FR-015). `Preset.schemaVersion: 2` без изменений.
 - Согласование профиля с новой версией пресета (TASK-130) и снисходительное чтение чужих артефактов (TASK-131) — за границами задачи: артефакты одно-девайсные.
 - Legacy-экран `FlowPreset`/`SettingsScreen` **поглощается** этой задачей (FR-017): один экран настроек, не-профильные секции переносятся как app-операции (FR-020). Судьба глубокого legacy-стека `PresetRepository` за рамками (только точка входа экрана удаляется).
 
