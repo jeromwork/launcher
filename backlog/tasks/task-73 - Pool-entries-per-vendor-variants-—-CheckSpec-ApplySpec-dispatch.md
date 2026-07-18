@@ -85,8 +85,8 @@ ordinal: 73000
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 На Xiaomi (MIUI) с загруженным recipe-покрытием тап «Настроить HOME launcher» открывает MIUI-специфичный экран (Настройки → Приложения → По умолчанию → Домашний экран) в 100% попыток на устройствах, покрытых каталогом — не generic ROLE-диалог, который на MIUI не применяется после тапа «Да»
-- [ ] #2 На Huawei без GMS ни один вызов CheckSpec/ApplySpec для покрытых recipe-каталогом pool entries не приводит к краху приложения (0 необработанных исключений в диагностических логах за прогон OEM-matrix) — пользователь либо видит статус NotApplied/Indeterminate, либо понятную текстовую инструкцию
-- [ ] #3 Новый vendor-override для существующего pool entry добавляется правкой vendor-recipes.json и раздачей через ConfigSource — без изменения Kotlin-кода и без нового APK-релиза
+- [ ] #2 На Huawei без GMS ни один вызов LauncherRoleProvider.check()/apply() не приводит к краху приложения (0 необработанных исключений в диагностических логах за прогон OEM-matrix) — пользователь либо видит честный LifecycleState, либо текстовую инструкцию
+- [ ] #3 Новый vendor-override для уже известного Vendor-значения добавляется правкой vendor-recipes.json и раздачей через VendorRecipeSource — без изменения Kotlin-кода и без нового APK-релиза
 <!-- AC:END -->
 
 ---
