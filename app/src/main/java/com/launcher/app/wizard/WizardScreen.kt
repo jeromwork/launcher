@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.launcher.api.localization.StringResolver
 import com.launcher.preset.engine.ReconcileState
 import com.launcher.preset.model.Component
+import com.launcher.preset.model.LifecycleState
 import com.launcher.preset.model.Profile
 import com.launcher.preset.model.Entity
 import com.launcher.ui.senior.primitives.SeniorButton
@@ -158,7 +159,7 @@ private fun InteractiveBody(
         )
         SeniorButton(
             text = stringResolver.resolve("wizard_confirm"),
-            onClick = { onConfirm(step.current.component) },
+            onClick = { step.current.domainComponent()?.let(onConfirm) },
             modifier = Modifier.fillMaxWidth(),
         )
         if (!step.current.critical) {
@@ -260,7 +261,7 @@ private fun componentLabel(stringResolver: StringResolver, pc: Entity): String {
     val labelKey = "wizard_component_${pc.id}"
     val resolved = stringResolver.resolve(labelKey)
     if (resolved != labelKey) return resolved
-    return when (val c = pc.component) {
+    return when (val c = pc.domainComponent()) {
         is Component.AppTile -> stringResolver.resolve(c.labelKey)
         is Component.FontSize -> stringResolver.resolve("wizard_component_font_size")
         is Component.Sos -> stringResolver.resolve("wizard_component_sos")
@@ -274,5 +275,11 @@ private fun componentLabel(stringResolver: StringResolver, pc: Entity): String {
         is Component.Workspace -> stringResolver.resolve("wizard_component_workspace")
         is Component.Flow -> stringResolver.resolve(c.titleKey)
         is Component.ToolbarButton -> stringResolver.resolve(c.labelKey)
+        // LifecycleState-only or empty bag — no user-facing question; fall back to id.
+        is LifecycleState, null -> pc.id
     }
 }
+
+/** The entity's single domain-data component (excludes the LifecycleState marker). */
+private fun Entity.domainComponent(): Component? =
+    components.firstOrNull { it !is LifecycleState }

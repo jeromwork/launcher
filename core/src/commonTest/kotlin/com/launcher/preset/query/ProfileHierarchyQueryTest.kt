@@ -1,5 +1,6 @@
 package com.launcher.preset.query
 
+import com.launcher.preset.ecs.get
 import com.launcher.preset.model.Component
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -43,7 +44,7 @@ class ProfileHierarchyQueryTest {
 
         assertNotNull(ws)
         assertEquals("ws-main", ws.id)
-        assertTrue(ws.component is Component.Workspace)
+        assertNotNull(ws.get<Component.Workspace>())
     }
 
     @Test
@@ -74,7 +75,7 @@ class ProfileHierarchyQueryTest {
         assertEquals(listOf("btn-calls", "btn-apps", "btn-info"), buttons.map { it.id })
         val flowIds = profile.flows().map { it.id }.toSet()
         for (b in buttons) {
-            val target = (b.component as Component.ToolbarButton).targetFlowId
+            val target = b.get<Component.ToolbarButton>()!!.targetFlowId
             assertTrue(target in flowIds, "button ${b.id} targets unknown flow $target")
         }
     }

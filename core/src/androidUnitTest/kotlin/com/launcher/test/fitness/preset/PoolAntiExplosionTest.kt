@@ -25,7 +25,10 @@ class PoolAntiExplosionTest {
         val poolFile = locatePoolJson()
         Assume.assumeTrue("assets/pool.json not present yet", poolFile != null)
         val pool = json.decodeFromString(Pool.serializer(), poolFile!!.readText())
-        val counts = pool.declarations.groupingBy { it.component::class.simpleName ?: "?" }.eachCount()
+        val counts = pool.declarations
+            .flatMap { it.components }
+            .groupingBy { it::class.simpleName ?: "?" }
+            .eachCount()
         val violators = counts.filter { it.value >= 6 }
         assertTrue(
             "Fitness #8: pool has ≥ 6 declarations per Component subtype: $violators. " +

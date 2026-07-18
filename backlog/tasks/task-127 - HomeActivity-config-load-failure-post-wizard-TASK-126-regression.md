@@ -20,6 +20,7 @@ references:
   - verification-evidence/task-128-xiaomi-fresh-07.png
   - verification-evidence/task-128-xiaomi-blocker-logcat.txt
   - specs/task-127-ecs-foundation/
+superseded-by: TASK-136
 priority: high
 ordinal: 127000
 ---

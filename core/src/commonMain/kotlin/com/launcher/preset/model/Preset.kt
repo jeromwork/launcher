@@ -13,8 +13,8 @@ import kotlinx.serialization.json.JsonObject
  *  1. **Lifecycle** — the three list fields below (`wizardFlow` / `settingsMap` /
  *     `activeComponents`): *when* a component appears (first-run wizard, Settings
  *     screen, applied at runtime).
- *  2. **Semantic** — `Component.tags`: *what* a component is about (Presentation,
- *     Safety, Accessibility, …).
+ *  2. **Semantic** — `Entity.tags`: *what* a component is about (Presentation,
+ *     Safety, Accessibility, …). Tags live on the entity (TASK-136).
  *  3. **Structural** — `ActiveComponentEntry.parentRef` → `Entity.parentId`:
  *     *where* it hangs in the screen tree (Workspace → Flow → Tile, Toolbar →
  *     ToolbarButton). Storage stays flat; the tree is computed by queries.
@@ -50,7 +50,12 @@ data class SettingsMapEntry(
 data class ActiveComponentEntry(
     val poolRef: String,
     val paramsOverride: JsonObject? = null,
-    val status: ComponentStatus = ComponentStatus.Pending,
+    // TASK-136 (T136-046): `status` removed — a preset declares WHAT to spawn
+    // (poolRef + paramsOverride + parentRef); the initial apply-state is injected
+    // by ProfileFactory as a LifecycleState.Pending component in the entity bag,
+    // never carried in the preset. Preset JSON wire-format change; pre-MVP
+    // clean-in-place (Article XX) — no migrator, schemaVersion stays 2, a stray
+    // legacy `"status"` key is dropped by ignoreUnknownKeys=true.
     /**
      * T127-026 (FR-011/FR-013) — id of the parent entity in the assembled Profile
      * (`null` = root). This is how a preset expresses the screen tree:

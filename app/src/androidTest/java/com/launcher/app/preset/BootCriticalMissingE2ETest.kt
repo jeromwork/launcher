@@ -3,9 +3,10 @@ package com.launcher.app.preset
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.launcher.app.preset.task120.PresetBootstrap
+import com.launcher.preset.ecs.get
 import com.launcher.preset.engine.ReconcileEngine
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentStatus
+import com.launcher.preset.model.LifecycleState
 import com.launcher.preset.model.RunMode
 import com.launcher.preset.port.ProfileStore
 import kotlinx.coroutines.runBlocking
@@ -56,20 +57,19 @@ class BootCriticalMissingE2ETest {
         val profile = store.load()
         assertNotNull("profile must exist after bootstrap", profile)
 
-        val criticalComponents = profile!!.components.filter { it.critical }
-        val roleComponent = criticalComponents.firstOrNull { it.component is Component.LauncherRole }
+        val criticalComponents = profile!!.entities.filter { it.critical }
+        val roleComponent = criticalComponents.firstOrNull { it.get<Component.LauncherRole>() != null }
         if (roleComponent != null) {
             // LauncherRole is a critical component in the bundled preset;
-            // after BootCheck its status is one of the terminal set — Applied
+            // after BootCheck its state is one of the terminal set — Applied
             // (role granted) or Failed / Pending (role denied, needs UI). Skipped
             // is not a legitimate outcome for BootCheck (no InteractionSink).
+            val state = roleComponent.get<LifecycleState>()
             assertTrue(
-                "critical LauncherRole must be walked by BootCheck, got status=${roleComponent.status}",
-                roleComponent.status in setOf(
-                    ComponentStatus.Applied,
-                    ComponentStatus.Failed,
-                    ComponentStatus.Pending,
-                ),
+                "critical LauncherRole must be walked by BootCheck, got state=$state",
+                state is LifecycleState.Applied ||
+                    state is LifecycleState.Failed ||
+                    state is LifecycleState.Pending,
             )
         }
     }

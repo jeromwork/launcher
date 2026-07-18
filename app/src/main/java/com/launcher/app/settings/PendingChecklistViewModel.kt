@@ -1,8 +1,9 @@
 package com.launcher.app.settings
 
 import com.launcher.api.localization.StringResolver
-import com.launcher.preset.model.ComponentStatus
+import com.launcher.preset.ecs.get
 import com.launcher.preset.model.Entity
+import com.launcher.preset.model.LifecycleState
 import com.launcher.preset.model.WizardBehavior
 import com.launcher.preset.port.PresetSource
 import com.launcher.preset.port.ProfileStore
@@ -12,9 +13,9 @@ import com.launcher.preset.port.ProfileStore
  * runtime. Replaces the legacy WizardManifest + WizardEngine lookup with a
  * straight walk over [ProfileStore] + [PresetSource.settingsMap]:
  *
- * - The pending list = every `Entity` whose `status` is not
- *   [ComponentStatus.Applied] (Pending / Failed / Skipped can all still be
- *   surfaced to the user in Settings) AND whose `wizardBehavior` is
+ * - The pending list = every `Entity` whose [LifecycleState] is not
+ *   [LifecycleState.Applied] (Pending / Failed / Skipped / absent can all still
+ *   be surfaced to the user in Settings) AND whose `wizardBehavior` is
  *   Interactive (auto-applied / initial-default components never need
  *   user attention).
  * - Label lookup uses the [SettingsMapEntry.categoryKey] of the matching
@@ -37,21 +38,22 @@ class PendingChecklistViewModel(
             ?.associate { it.poolRef to it.categoryKey }
             .orEmpty()
 
-        val items = profile.components
+        val items = profile.entities
             .filter { it.needsAttention() }
             .map { pc ->
                 PendingChecklistState.Item(
                     refId = pc.id,
                     labelKey = labelByRef[pc.id] ?: pc.id,
                     isRequired = pc.critical,
-                    status = pc.status,
+                    state = pc.get<LifecycleState>(),
                 )
             }
         return PendingChecklistState(items = items)
     }
 
     private fun Entity.needsAttention(): Boolean =
-        wizardBehavior == WizardBehavior.Interactive && status != ComponentStatus.Applied
+        wizardBehavior == WizardBehavior.Interactive &&
+            get<LifecycleState>() !is LifecycleState.Applied
 }
 
 data class PendingChecklistState(val items: List<Item>) {
@@ -59,6 +61,7 @@ data class PendingChecklistState(val items: List<Item>) {
         val refId: String,
         val labelKey: String,
         val isRequired: Boolean,
-        val status: ComponentStatus,
+        /** Apply-state of the entity (canonical ECS component); `null` = none recorded. */
+        val state: LifecycleState?,
     )
 }

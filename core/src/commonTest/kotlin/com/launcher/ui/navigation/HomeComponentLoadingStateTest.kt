@@ -8,6 +8,8 @@ import com.launcher.api.FlowDescriptor
 import com.launcher.api.FlowRepository
 import com.launcher.api.FlowTemplate
 import com.launcher.api.action.DispatchResult
+import com.launcher.preset.query.entity
+import com.launcher.preset.query.profileOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -102,26 +104,9 @@ class HomeComponentLoadingStateTest {
     // screen read a ConfigDocument nobody filled, and HomeComponent rendered
     // Error. A fake FlowRepository would prove nothing about that wiring.
 
-    private fun entity(
-        id: String,
-        component: com.launcher.preset.model.Component,
-        parentId: String? = null,
-    ) = com.launcher.preset.model.Entity(
-        id = id,
-        component = component,
-        wizardBehavior = com.launcher.preset.model.WizardBehavior.AutoApply,
-        critical = false,
-        status = com.launcher.preset.model.ComponentStatus.Applied,
-        parentId = parentId,
-    )
-
-    private fun profileOf(vararg entities: com.launcher.preset.model.Entity) =
-        com.launcher.preset.model.Profile(
-            basedOnPreset = "simple-launcher",
-            presetVersion = 2,
-            layoutKey = "grid",
-            components = entities.toList(),
-        )
+    // Entities/profile built via the shared QueryFixtures helpers, which stamp the
+    // default semantic tags the ProfileBackedFlowRepository queries on (tiles get
+    // {Presentation,Tile}, flows get {Presentation,Flow}, ...).
 
     @Test
     fun postManifestWizardReconcile_profileSeeded_homeReady() = runTest(testDispatcher) {

@@ -33,16 +33,18 @@ class PresetValidatorResultTest {
         declarations = listOf(
             Blueprint(
                 id = "launcher-role",
-                component = Component.LauncherRole(),
+                components = listOf(Component.LauncherRole),
                 wizardBehavior = WizardBehavior.AutoApply,
                 critical = true,
                 required = true,
             ),
             Blueprint(
                 id = "app-tile-whatsapp",
-                component = Component.AppTile(
-                    packageName = "com.whatsapp",
-                    labelKey = "app_whatsapp_label",
+                components = listOf(
+                    Component.AppTile(
+                        packageName = "com.whatsapp",
+                        labelKey = "app_whatsapp_label",
+                    ),
                 ),
                 wizardBehavior = WizardBehavior.AutoApply,
                 requires = listOf("launcher-role"),
@@ -142,7 +144,7 @@ class PresetValidatorResultTest {
             declarations = listOf(
                 Blueprint(
                     id = "language-blank",
-                    component = Component.Language(locale = ""),
+                    components = listOf(Component.Language(locale = "")),
                     wizardBehavior = WizardBehavior.Interactive,
                 ),
             ),

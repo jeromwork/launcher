@@ -1,10 +1,11 @@
 package com.launcher.app.preset.task126
 
+import com.launcher.preset.ecs.get
 import com.launcher.preset.engine.ReconcileEngine
 import com.launcher.preset.model.CapabilityFlag
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentStatus
 import com.launcher.preset.model.HandlerKey
+import com.launcher.preset.model.LifecycleState
 import com.launcher.preset.model.Outcome
 import com.launcher.preset.model.Pool
 import com.launcher.preset.model.Preset
@@ -43,20 +44,18 @@ class BootCheckReconcileTest {
             basedOnPreset = "simple-launcher",
             presetVersion = 1,
             layoutKey = "layout.grid.2x3",
-            components = listOf(
+            entities = listOf(
                 Entity(
                     id = "role",
-                    component = Component.LauncherRole(),
+                    components = listOf(Component.LauncherRole, LifecycleState.Applied),
                     wizardBehavior = WizardBehavior.AutoApply,
                     critical = true,
-                    status = ComponentStatus.Applied,
                 ),
                 Entity(
                     id = "font",
-                    component = fontComponent,
+                    components = listOf(fontComponent, LifecycleState.Applied),
                     wizardBehavior = WizardBehavior.Interactive,
                     critical = false,
-                    status = ComponentStatus.Applied,
                 ),
             ),
         )
@@ -90,13 +89,12 @@ class BootCheckReconcileTest {
             basedOnPreset = "simple-launcher",
             presetVersion = 1,
             layoutKey = "layout.grid.2x3",
-            components = listOf(
+            entities = listOf(
                 Entity(
                     id = "role",
-                    component = Component.LauncherRole(),
+                    components = listOf(Component.LauncherRole, LifecycleState.Applied),
                     wizardBehavior = WizardBehavior.AutoApply,
                     critical = true,
-                    status = ComponentStatus.Applied,
                 ),
             ),
         )
@@ -117,7 +115,7 @@ class BootCheckReconcileTest {
 
         assertEquals(1, applyInvocations)
         val persisted = store.load()!!
-        assertEquals(ComponentStatus.Applied, persisted.components.first { it.id == "role" }.status)
+        assertEquals(LifecycleState.Applied, persisted.entities.first { it.id == "role" }.get<LifecycleState>())
     }
 
     private class CountingProvider<T : Component>(

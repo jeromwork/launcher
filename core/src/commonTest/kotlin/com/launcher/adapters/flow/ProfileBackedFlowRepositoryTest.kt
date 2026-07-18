@@ -3,10 +3,11 @@ package com.launcher.adapters.flow
 import com.launcher.api.action.ActionPayload
 import com.launcher.preset.fakes.FakeProfileStore
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentStatus
-import com.launcher.preset.model.Entity
-import com.launcher.preset.model.Profile
-import com.launcher.preset.model.WizardBehavior
+import com.launcher.preset.model.FailReason
+import com.launcher.preset.model.LifecycleState
+import com.launcher.preset.query.appTile
+import com.launcher.preset.query.entity
+import com.launcher.preset.query.profileOf
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -23,29 +24,11 @@ import kotlin.test.assertTrue
  */
 class ProfileBackedFlowRepositoryTest {
 
-    private fun entity(
-        id: String,
-        component: Component,
-        parentId: String? = null,
-        status: ComponentStatus = ComponentStatus.Applied,
-    ) = Entity(
-        id = id,
-        component = component,
-        wizardBehavior = WizardBehavior.AutoApply,
-        critical = false,
-        status = status,
-        parentId = parentId,
-    )
-
-    private fun profileOf(vararg entities: Entity) = Profile(
-        basedOnPreset = "p",
-        presetVersion = 2,
-        layoutKey = "grid",
-        components = entities.toList(),
-    )
-
-    private fun tile(id: String, pkg: String, parentId: String?, status: ComponentStatus = ComponentStatus.Applied) =
-        entity(id, Component.AppTile(packageName = pkg, labelKey = "label.$id"), parentId, status)
+    // Entities carry their default semantic tags via the shared fixtures
+    // (`entity`/`appTile` from QueryFixtures): tiles get {Presentation,Tile},
+    // flows get {Presentation,Flow}, etc. — the tags the repository queries on.
+    private fun tile(id: String, pkg: String, parentId: String?, state: LifecycleState = LifecycleState.Applied) =
+        appTile(id, pkg, parentId, state)
 
     private fun hierarchical() = profileOf(
         entity("ws", Component.Workspace()),
@@ -178,8 +161,8 @@ class ProfileBackedFlowRepositoryTest {
             profileOf(
                 entity("flow", Component.Flow(titleKey = "t")),
                 tile("ok", "com.a", parentId = "flow"),
-                tile("failed", "com.b", parentId = "flow", status = ComponentStatus.Failed),
-                tile("skipped", "com.c", parentId = "flow", status = ComponentStatus.Skipped),
+                tile("failed", "com.b", parentId = "flow", state = LifecycleState.Failed(FailReason.Cancelled)),
+                tile("skipped", "com.c", parentId = "flow", state = LifecycleState.Skipped),
             ),
         )
         val repo = ProfileBackedFlowRepository(store)

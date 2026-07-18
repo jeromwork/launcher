@@ -19,7 +19,7 @@ class ProfileFactoryHierarchyValidationTest {
 
     private fun entity(id: String, component: Component, parentId: String? = null) = Entity(
         id = id,
-        component = component,
+        components = listOf(component),
         wizardBehavior = WizardBehavior.AutoApply,
         critical = false,
         parentId = parentId,
@@ -29,7 +29,7 @@ class ProfileFactoryHierarchyValidationTest {
         basedOnPreset = "p",
         presetVersion = 2,
         layoutKey = "grid",
-        components = entities.toList(),
+        entities = entities.toList(),
     )
 
     @Test

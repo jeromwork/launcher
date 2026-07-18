@@ -3,9 +3,11 @@ package com.launcher.app.wizard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.launcher.app.preset.task120.PresetBootstrap
+import com.launcher.preset.ecs.get
 import com.launcher.preset.engine.ReconcileEngine
 import com.launcher.preset.engine.ReconcileState
 import com.launcher.preset.model.Component
+import com.launcher.preset.model.LifecycleState
 import com.launcher.preset.model.Profile
 import com.launcher.preset.model.Entity
 import com.launcher.preset.model.RunMode
@@ -98,12 +100,12 @@ class WizardViewModel(
                 }
             }
             val profile = store.load()
-            android.util.Log.d(TAG, "profile loaded, components=${profile?.components?.size}, ids=${profile?.components?.map { "${it.id}:${it.status}:${it.wizardBehavior}" }}")
+            android.util.Log.d(TAG, "profile loaded, entities=${profile?.entities?.size}, ids=${profile?.entities?.map { "${it.id}:${it.get<LifecycleState>()}:${it.wizardBehavior}" }}")
             if (profile == null) {
                 _state.value = ReconcileState.Failed(message = "profile_missing")
                 return@launch
             }
-            currentComponents = profile.components
+            currentComponents = profile.entities
             android.util.Log.d(TAG, "calling engine.run(Wizard)")
             val finalProfile = engine.run(mode = RunMode.Wizard, sink = this@WizardViewModel)
             android.util.Log.d(TAG, "engine.run returned, emitting Done")
@@ -146,7 +148,7 @@ class WizardViewModel(
             return
         }
         // Non-critical: proceed with Skipped semantics — the engine's runWizard treats
-        // `null` from askUser as ComponentStatus.Skipped and advances.
+        // `null` from askUser as LifecycleState.Skipped and advances.
         pendingAnswer?.complete(null)
         pendingAnswer = null
     }

@@ -3,45 +3,57 @@
   "declarations": [
     {
       "id": "font-tile",
-      "component": {
-        "type": "FontSize",
-        "scale": 1.6
-      },
+      "components": [
+        {
+          "type": "FontSize",
+          "scale": 1.6
+        }
+      ],
+      "tags": ["Appearance", "Accessibility"],
       "wizardBehavior": "Interactive",
       "critical": false,
       "descriptionKey": "pool.font.description"
     },
     {
       "id": "tile-whatsapp",
-      "component": {
-        "type": "AppTile",
-        "packageName": "com.whatsapp",
-        "labelKey": "pool.tile.whatsapp.label",
-        "iconKey": "pool.tile.whatsapp.icon",
-        "pinProtected": false
-      },
+      "components": [
+        {
+          "type": "AppTile",
+          "packageName": "com.whatsapp",
+          "labelKey": "pool.tile.whatsapp.label",
+          "iconKey": "pool.tile.whatsapp.icon",
+          "pinProtected": false
+        }
+      ],
+      "tags": ["Presentation", "Tile"],
       "wizardBehavior": "AutoApply",
       "critical": false,
       "descriptionKey": "pool.tile.whatsapp.description"
     },
     {
       "id": "sos-main",
-      "component": {
-        "type": "Sos",
-        "shareLocation": true,
-        "autoAnswer": true
-      },
+      "components": [
+        {
+          "type": "Sos",
+          "shareLocation": true,
+          "autoAnswer": true
+        }
+      ],
+      "tags": ["Presentation", "Tile", "Safety", "Emergency"],
       "wizardBehavior": "Interactive",
       "critical": true,
       "descriptionKey": "pool.sos.description"
     },
     {
       "id": "toolbar-minimal",
-      "component": {
-        "type": "Toolbar",
-        "items": ["call", "sos", "clock"],
-        "layoutKey": "layout.toolbar.minimal"
-      },
+      "components": [
+        {
+          "type": "Toolbar",
+          "items": ["call", "sos", "clock"],
+          "layoutKey": "layout.toolbar.minimal"
+        }
+      ],
+      "tags": ["Presentation", "Toolbar"],
       "wizardBehavior": "InitialDefault",
       "critical": false,
       "descriptionKey": "pool.toolbar.description"
@@ -49,58 +61,73 @@
 
     {
       "id": "ws-main",
-      "component": {
-        "type": "Workspace",
-        "layoutKey": "layout.workspace.single"
-      },
+      "components": [
+        {
+          "type": "Workspace",
+          "layoutKey": "layout.workspace.single"
+        }
+      ],
+      "tags": ["Presentation", "Workspace"],
       "wizardBehavior": "InitialDefault",
       "critical": false,
       "descriptionKey": "pool.workspace.description"
     },
     {
       "id": "flow-main",
-      "component": {
-        "type": "Flow",
-        "titleKey": "pool.flow.main.title",
-        "layoutKey": "layout.grid.2x3",
-        "order": 0
-      },
+      "components": [
+        {
+          "type": "Flow",
+          "titleKey": "pool.flow.main.title",
+          "layoutKey": "layout.grid.2x3",
+          "order": 0
+        }
+      ],
+      "tags": ["Presentation", "Flow"],
       "wizardBehavior": "InitialDefault",
       "critical": false,
       "descriptionKey": "pool.flow.main.description"
     },
     {
       "id": "flow-apps",
-      "component": {
-        "type": "Flow",
-        "titleKey": "pool.flow.apps.title",
-        "layoutKey": "layout.grid.2x3",
-        "order": 1
-      },
+      "components": [
+        {
+          "type": "Flow",
+          "titleKey": "pool.flow.apps.title",
+          "layoutKey": "layout.grid.2x3",
+          "order": 1
+        }
+      ],
+      "tags": ["Presentation", "Flow"],
       "wizardBehavior": "InitialDefault",
       "critical": false,
       "descriptionKey": "pool.flow.apps.description"
     },
     {
       "id": "btn-main",
-      "component": {
-        "type": "ToolbarButton",
-        "targetFlowId": "flow-main",
-        "labelKey": "pool.button.main.label",
-        "order": 0
-      },
+      "components": [
+        {
+          "type": "ToolbarButton",
+          "targetFlowId": "flow-main",
+          "labelKey": "pool.button.main.label",
+          "order": 0
+        }
+      ],
+      "tags": ["Presentation", "ToolbarButton"],
       "wizardBehavior": "InitialDefault",
       "critical": false,
       "descriptionKey": "pool.button.main.description"
     },
     {
       "id": "btn-apps",
-      "component": {
-        "type": "ToolbarButton",
-        "targetFlowId": "flow-apps",
-        "labelKey": "pool.button.apps.label",
-        "order": 1
-      },
+      "components": [
+        {
+          "type": "ToolbarButton",
+          "targetFlowId": "flow-apps",
+          "labelKey": "pool.button.apps.label",
+          "order": 1
+        }
+      ],
+      "tags": ["Presentation", "ToolbarButton"],
       "wizardBehavior": "InitialDefault",
       "critical": false,
       "descriptionKey": "pool.button.apps.description"

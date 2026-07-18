@@ -9,7 +9,7 @@ sealed class Outcome {
     /**
      * T127-005 (FR-014) — the provider fired its intent(s) but the OS exposes no
      * read-back, so it cannot report success or failure honestly (e.g. hiding the
-     * system status bar). The engine records [ComponentStatus.Unverifiable]; the
+     * system status bar). The engine records [LifecycleState.Unverifiable]; the
      * interactive path asks the human («open settings, turn on X, come back, tap
      * "I did it"»).
      *

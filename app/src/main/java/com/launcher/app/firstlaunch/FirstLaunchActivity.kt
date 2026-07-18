@@ -34,6 +34,8 @@ import com.launcher.ui.setup.AuthChoiceStep
 import com.launcher.ui.setup.PostNotificationsStep
 import com.launcher.ui.setup.RoleHomeStep
 import com.launcher.ui.setup.WizardProgressIndicator
+import com.launcher.preset.ecs.get
+import com.launcher.preset.model.LifecycleState
 import com.launcher.ui.theme.LauncherTheme
 import cryptokit.crypto.api.AeadCipher
 import cryptokit.crypto.api.RandomSource
@@ -642,9 +644,9 @@ class FirstLaunchActivity : ComponentActivity() {
         // `Applied` = the user has finished the wizard for this preset.
         lifecycleScope.launch {
             val profile = profileStore.load()
-            val wizardDone = profile != null && profile.components.none { pc ->
+            val wizardDone = profile != null && profile.entities.none { pc ->
                 pc.wizardBehavior == com.launcher.preset.model.WizardBehavior.Interactive &&
-                    pc.status != com.launcher.preset.model.ComponentStatus.Applied
+                    pc.get<LifecycleState>() !is LifecycleState.Applied
             }
             val next = if (!wizardDone) {
                 Intent(this@FirstLaunchActivity, com.launcher.app.wizard.WizardHostActivity::class.java)

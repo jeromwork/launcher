@@ -9,9 +9,10 @@ import com.launcher.preset.engine.ReconcileState
 import com.launcher.preset.model.ActiveComponentEntry
 import com.launcher.preset.model.CapabilityFlag
 import com.launcher.preset.model.Component
+import com.launcher.preset.ecs.get
 import com.launcher.preset.model.Blueprint
-import com.launcher.preset.model.ComponentStatus
 import com.launcher.preset.model.HandlerKey
+import com.launcher.preset.model.LifecycleState
 import com.launcher.preset.model.Outcome
 import com.launcher.preset.model.Pool
 import com.launcher.preset.model.Preset
@@ -73,8 +74,8 @@ class WizardDenialUxTest {
         val store = InMemoryProfileStore()
         val pool = Pool(
             declarations = listOf(
-                Blueprint("font", fontComponent, WizardBehavior.Interactive, critical = false),
-                Blueprint("role", Component.LauncherRole(), WizardBehavior.Interactive, critical = false),
+                Blueprint("font", components = listOf(fontComponent), wizardBehavior = WizardBehavior.Interactive, critical = false),
+                Blueprint("role", components = listOf(Component.LauncherRole), wizardBehavior = WizardBehavior.Interactive, critical = false),
             ),
         )
         val preset = Preset(
@@ -96,7 +97,7 @@ class WizardDenialUxTest {
 
         // Persisted status of the skipped step
         val persisted = store.load()!!
-        assertEquals(ComponentStatus.Skipped, persisted.components.first { it.id == "font" }.status)
+        assertEquals(LifecycleState.Skipped, persisted.entities.first { it.id == "font" }.get<LifecycleState>())
     }
 
     @Test
@@ -104,8 +105,8 @@ class WizardDenialUxTest {
         val store = InMemoryProfileStore()
         val pool = Pool(
             declarations = listOf(
-                Blueprint("font", fontComponent, WizardBehavior.Interactive, critical = false),
-                Blueprint("role", Component.LauncherRole(), WizardBehavior.Interactive, critical = true),
+                Blueprint("font", components = listOf(fontComponent), wizardBehavior = WizardBehavior.Interactive, critical = false),
+                Blueprint("role", components = listOf(Component.LauncherRole), wizardBehavior = WizardBehavior.Interactive, critical = true),
             ),
         )
         val preset = Preset(
@@ -130,7 +131,7 @@ class WizardDenialUxTest {
 
         // Prior font step remains Applied.
         val persisted = store.load()!!
-        assertEquals(ComponentStatus.Applied, persisted.components.first { it.id == "font" }.status)
+        assertEquals(LifecycleState.Applied, persisted.entities.first { it.id == "font" }.get<LifecycleState>())
     }
 
     private fun newViewModel(store: ProfileStore, pool: Pool, preset: Preset): WizardViewModel {

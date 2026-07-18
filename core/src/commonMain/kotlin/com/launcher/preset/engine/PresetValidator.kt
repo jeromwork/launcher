@@ -65,13 +65,17 @@ class PresetValidator(
         val available = mutableSetOf<CapabilityFlag>()
         for (entry in preset.wizardFlow.sortedWith(compareBy({ it.order }, { it.poolRef }))) {
             val decl = pool.byId(entry.poolRef) ?: continue
-            val type = decl.component::class
-            val requires = contract.requires(type)
-            val missing = requires - available
-            if (missing.isNotEmpty()) {
-                errors += ValidationError.CapabilityMissing(entry.poolRef, missing)
+            // A bundle may declare several components; each contributes its own
+            // capability requires/provides (TASK-136 free bag; MVP bundles hold one).
+            for (comp in decl.components) {
+                val type = comp::class
+                val requires = contract.requires(type)
+                val missing = requires - available
+                if (missing.isNotEmpty()) {
+                    errors += ValidationError.CapabilityMissing(entry.poolRef, missing)
+                }
+                available += contract.provides(type)
             }
-            available += contract.provides(type)
         }
 
         // T020 additions — requires-order + null-locale + unknown-component-id.
@@ -132,9 +136,10 @@ class PresetValidator(
         // (Kotlin-level `locale: String` cannot be `null`; a JSON `"locale": null` fails
         // deserialization before reaching here. We still guard against sentinel emptiness.)
         for (decl in pool.declarations) {
-            val comp = decl.component
-            if (comp is Component.Language && comp.locale.isBlank()) {
-                out += ValidationError.NullLocale
+            for (comp in decl.components) {
+                if (comp is Component.Language && comp.locale.isBlank()) {
+                    out += ValidationError.NullLocale
+                }
             }
         }
 
