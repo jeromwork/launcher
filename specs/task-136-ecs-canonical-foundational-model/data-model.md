@@ -155,6 +155,39 @@ data class Profile(
 
 ---
 
+## 6b. `Preset` / `ActiveComponentEntry` — status field removed (REWRITE; Preset wire-format change)
+
+> Added by analyze caveat 1 (2026-07-18): the original inventory omitted `Preset` from the reshape set, but `ActiveComponentEntry` carries a **serialized** `status` referencing the deleted `ComponentStatus` enum.
+
+**Current** ([Preset.kt:50](../../core/src/commonMain/kotlin/com/launcher/preset/model/Preset.kt#L50)):
+```kotlin
+@Serializable
+data class ActiveComponentEntry(
+    val poolRef: String,
+    val paramsOverride: JsonObject? = null,
+    val status: ComponentStatus = ComponentStatus.Pending,   // serialized; enum deleted § 5
+    val parentRef: String? = null,
+)
+```
+
+**New**:
+```kotlin
+@Serializable
+data class ActiveComponentEntry(
+    val poolRef: String,
+    val paramsOverride: JsonObject? = null,
+    val parentRef: String? = null,
+    // NO `status` — the preset declares WHAT to spawn; ProfileFactory injects
+    // LifecycleState.Pending into the entity bag at spawn (§ 5, T136-011).
+)
+```
+
+- **Deleted**: `ActiveComponentEntry.status: ComponentStatus`. In canonical ECS the preset entry declares only WHAT to spawn (`poolRef` + `paramsOverride` + `parentRef`); initial apply-state is a `LifecycleState.Pending` component set by the System at spawn, not carried in the preset.
+- **Wire-format change**: this removes a serialized field from the Preset JSON. Pre-MVP clean-in-place per Article XX — **no migrator, `Preset.CURRENT_SCHEMA_VERSION` stays 2**. All bundled presets already omit `status` (grep-verified); a stray legacy `status` key is dropped by `ignoreUnknownKeys=true`, so no backward-compat reader is needed. `PresetSchemaV1ReadV2Test` (v1→v2 for `hintFlow`/`wizardPresentation`) is unaffected and kept.
+- Only production construction site with the 3rd arg was `ProfileFactory.kt:34` (rewritten by T136-011). `Preset`, `WizardFlowEntry`, `SettingsMapEntry`, and the rest of `Preset.kt` are otherwise unchanged.
+
+---
+
 ## 7. Consumers reading a component (bodies rewritten, signatures mostly intact)
 
 | Site | Was | Becomes |
@@ -168,9 +201,14 @@ data class Profile(
 | `PresetValidator` / `PresetDiff` | `decl.component` | `decl.components` |
 | `ProfileBackedFlowRepository` | `flowEntity.component as? Component.Flow`; `when(component)` | `flowEntity.get<Component.Flow>()`; `entity.get<Component.AppTile>()` |
 | `WizardScreen` | `when(pc.component)` big `when` | `when` over the entity's domain-data component (`pc.get<T>()`) |
-| `PostWizardKioskApply` | `comp is StatusBarPolicy \|\| comp is LauncherRole` | `pc.get<StatusBarPolicy>() != null \|\| pc.get<LauncherRole>() != null` |
+| `PostWizardKioskApply` | `comp is StatusBarPolicy \|\| comp is LauncherRole`; `mark(id, ComponentStatus.X)` | `pc.get<StatusBarPolicy>() != null \|\| pc.get<LauncherRole>() != null`; `setState(id, LifecycleState.X)` |
+| `PendingChecklistViewModel` (app) | `profile.components`; `status != ComponentStatus.Applied`; `Item.status: ComponentStatus` | `profile.entities`; `get<LifecycleState>() !is LifecycleState.Applied`; `Item.status: LifecycleState` (T136-047) |
+| `WizardViewModel` (app) | `profile.components`; debug-log `it.status` | `profile.entities`; `it.get<LifecycleState>()` (T136-048) |
+| `FirstLaunchActivity` (app) | `profile.components.none { … pc.status != ComponentStatus.Applied }` | `profile.entities.none { … pc.get<LifecycleState>() !is LifecycleState.Applied }` (T136-049) |
 
 Ports **unchanged**: `Provider<T : Component>`, `ProviderRegistry.resolve(component)`, `ProfileStore`, `FlowRepository`.
+
+> **Punch-list note (analyze caveat 2, 2026-07-18)**: the three `(app)` rows read the deleted `Entity.status` field and were missing from the original consumer inventory — they are now tracked by T136-047–T136-049 and gated by the `:app` build check (T136-044).
 
 ---
 
@@ -222,7 +260,7 @@ No separate DTO layer — the domain types are the `@Serializable` wire types (a
 
 | Action | Symbol |
 |--------|--------|
-| **Delete** | `enum class ComponentStatus`; `Component.tags` member; `Entity.status` field; `Entity.component`; `Blueprint.component`; `Profile.mark`/`replaceComponent` (→ bag ops) |
+| **Delete** | `enum class ComponentStatus`; `Component.tags` member; `Entity.status` field; `Entity.component`; `Blueprint.component`; `ActiveComponentEntry.status` field (§ 6b — Preset wire-format change); `Profile.mark`/`replaceComponent` (→ bag ops) |
 | **Rename** | `Profile.components: List<Entity>` → `entities` |
 | **Add** | `LifecycleState` (state component); `preset/ecs/` (EntityDsl, Family, World); `Entity.get<T>()`/`with`/`without`; `Entity.tags`, `Blueprint.tags`/`components` |
 | **Survive (body-only edits)** | `Tag`, `Outcome`, `FailReason`, `ValidationError`, `WizardBehavior`, `Provider`, `ProviderRegistry`, `ProfileStore`, `FlowRepository`, `ReconcileEngine` role, `ProfileFactory.validateHierarchy` |
@@ -238,6 +276,7 @@ No separate DTO layer — the domain types are the `@Serializable` wire types (a
 - **`Tag`**: тот же enum (13 значений), только живёт теперь на `Entity`.
 - **`Blueprint`**: стал «бандлом» — набор компонентов + теги, шаблон для рождения сущности, после сборки забывается.
 - **`LifecycleState`**: заменяет enum `ComponentStatus` — состояние стало компонентом.
+- **`Preset`**: из записи `ActiveComponentEntry` убрано поле `status` (оно ссылалось на удаляемый enum и лежало прямо в JSON пресета) — состояние теперь ставит движок при рождении сущности, а не пресет. Это изменение формата пресета, мигратор не пишем (pre-MVP).
 - **`Profile`**: `components` → `entities`; методы `mark`/`replaceComponent` → операции над мешком.
 - **Свой ECS-core** (пакет `preset/ecs/`): `entity{}`, `get<T>()`, `with/without`, `family{}` — в форме Fleks.
 Порты (`Provider`, `FlowRepository`, `ProfileStore`) и их сигнатуры не меняются.

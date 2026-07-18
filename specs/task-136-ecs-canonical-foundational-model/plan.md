@@ -101,7 +101,12 @@ core/src/commonMain/kotlin/com/launcher/
 app/src/main/java/com/launcher/app/
 ├── wizard/WizardScreen.kt              [MODIFIED] when(pc.component) → when over pc.get<T>() /
 │                                          the domain-data component in the bag
-└── wizard/PostWizardKioskApply.kt      [MODIFIED] pc.component is X → pc.get<X>() != null
+├── wizard/PostWizardKioskApply.kt      [MODIFIED] pc.component is X → pc.get<X>() != null
+├── wizard/WizardViewModel.kt           [MODIFIED] profile.components → entities; log it.status → it.get<LifecycleState>() (T136-048)
+├── firstlaunch/FirstLaunchActivity.kt  [MODIFIED] wizard-done gate: pc.status → pc.get<LifecycleState>() (T136-049)
+└── settings/PendingChecklistViewModel.kt [MODIFIED] pc.status → get<LifecycleState>(); Item.status retype (T136-047)
+
+core/src/commonMain/**/preset/model/Preset.kt   [MODIFIED — ActiveComponentEntry drops `status`; Preset wire-format change, T136-046]
 
 core/src/androidMockBackend/kotlin/com/launcher/di/BackendInit.kt   [UNCHANGED — binding shape intact]
 core/src/androidRealBackend/kotlin/com/launcher/di/BackendInit.kt   [UNCHANGED — binding shape intact]
@@ -243,10 +248,10 @@ Every port already has a fake + real adapter (`FakeProfileStore`, `NoOpProvider`
 
 Big-bang, one coherent PR (FR-016). Suggested internal order for reviewable diff:
 
-1. **model/ecs core** — `Component` sealed class → sealed interface, drop `tags` from 11 subtypes, add `LifecycleState`; `Entity` free bag (drop `status`); `Blueprint` → Bundle; delete `ComponentStatus`; new `preset/ecs/` package (`EntityDsl`, `Family`, `World` + seam).
+1. **model/ecs core** — `Component` sealed class → sealed interface, drop `tags` from 11 subtypes, add `LifecycleState`; `Entity` free bag (drop `status`); `Blueprint` → Bundle; delete `ComponentStatus`; remove `ActiveComponentEntry.status` (Preset wire-format change, T136-046); new `preset/ecs/` package (`EntityDsl`, `Family`, `World` + seam).
 2. **engine** — `ProfileFactory` spawn (flat bundle expansion, no base/extra); `ReconcileEngine` per-component dispatch + `LifecycleState` transitions; `validateHierarchy`, `PresetValidator`, `PresetDiff` read via `get<T>()`.
 3. **query** — `ProfileQuery` selectors over `entity.tags` + `get<T>()`; render gating via `get<LifecycleState>()`; add typed `Entity.get<T>()`.
-4. **consumers** — `ProfileBackedFlowRepository` (`get<Component.Flow>()`, `toSlot`); `WizardScreen` `when(pc.component)`; `PostWizardKioskApply` `is X`. (DI bindings + `FlowRepository` port unchanged.)
+4. **consumers** — `ProfileBackedFlowRepository` (`get<Component.Flow>()`, `toSlot`); `WizardScreen` `when(pc.component)`; `PostWizardKioskApply` `is X`; **app-layer status readers `PendingChecklistViewModel` / `WizardViewModel` / `FirstLaunchActivity` (`Entity.status` → `get<LifecycleState>()`, `profile.components` → `entities`) + their unit tests — T136-047–T136-049.** (DI bindings + `FlowRepository` port unchanged.)
 5. **assets** — `pool.json` blueprints → bundles; `bundled-presets/*.json` entity-grouped, keep `BundledSource` + `// TODO(shareability)` seam; all wire fixtures entity-grouped.
 6. **tests** — rewrite roundtrip/query/factory/engine/fitness suites; delete migration tests.
 7. **CLEANUP INVENTORY** (FR-017..FR-021, executes in this PR):
@@ -255,7 +260,9 @@ Big-bang, one coherent PR (FR-016). Suggested internal order for reviewable diff
    - `TASK-120`, `TASK-127` frontmatter — `superseded-by: TASK-136`.
    - Downstream notice (FR-021): TASK-69/71/68/19 get a "See TASK-136 Decision" pointer via `dependencies:` (their own spec edits are out of scope here).
 
-**Consumer inventory (grep-verified 2026-07-18)** — real `Entity.component` / `Blueprint.component` / `ComponentStatus` sites: `ProfileQuery.kt`, `ProfileFactory.kt`, `ReconcileEngine.kt`, `PresetValidator.kt`, `PresetDiff.kt`, `ProfileBackedFlowRepository.kt`, `WizardScreen.kt`, `PostWizardKioskApply.kt`, `Profile.kt` (`mark`/`replaceComponent`), plus fixtures/presets. `Provider`/`ProviderRegistry`/`FlowRepository` ports and DI bindings keep their signatures.
+**Consumer inventory (grep-verified 2026-07-18; app-layer status readers + `Preset` added 2026-07-18 post-analyze)** — real `Entity.component` / `Blueprint.component` / `ComponentStatus` / `Entity.status` sites: `ProfileQuery.kt`, `ProfileFactory.kt`, `ReconcileEngine.kt`, `PresetValidator.kt`, `PresetDiff.kt`, `ProfileBackedFlowRepository.kt`, `WizardScreen.kt`, `PostWizardKioskApply.kt`, `Profile.kt` (`mark`/`replaceComponent`), **`Preset.kt` (`ActiveComponentEntry.status` — serialized field, Preset wire-format change, T136-046)**, plus **three app-layer `Entity.status` readers** `app/.../wizard/WizardViewModel.kt`, `app/.../firstlaunch/FirstLaunchActivity.kt`, `app/.../settings/PendingChecklistViewModel.kt` (+ their unit tests `WizardViewModelTest`, `PendingChecklistViewModelTest`) — T136-047–T136-049, plus fixtures/presets. `Provider`/`ProviderRegistry`/`FlowRepository` ports and DI bindings keep their signatures.
+
+> **Punch-list correction (analyze caveats 1 & 2, 2026-07-18)**: the original inventory missed (a) `Preset.ActiveComponentEntry.status` — a *serialized* field on the deleted `ComponentStatus` enum, hence a Preset JSON wire-format change (removed, no migrator — Article XX); and (b) three `:app` consumers reading `Entity.status`. Both gaps are now covered by dedicated tasks and exercised by the `:app` build gate (T136-044).
 
 ---
 

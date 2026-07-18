@@ -28,36 +28,43 @@ ordinal: 136000
 
 ## Что это простыми словами
 
-Пересматриваем **фундамент** настройки лаунчера. Сейчас модель — «tagged-component, ECS-inspired» (TASK-120/127, ADR-012): каждая сущность (`Entity`) — это **ровно один тип** из закрытого меню (`sealed class Component`), данные вшиты в тип. Это **discriminated union**, не настоящий ECS — композиции нет.
+Пересматриваем **фундамент** настройки лаунчера. Сейчас модель — «tagged-component, ECS-inspired» (TASK-120/127, ADR-012): каждая сущность (`Entity`) — это **ровно один тип** из закрытого меню (`sealed class Component`), данные вшиты в тип, а теги висят на компоненте. Это **discriminated union**, не настоящий ECS — композиции нет.
 
-Владелец решил (2026-07-18) перейти на **канонический ECS**: сущность = id + **мешок компонентов** (`ComponentMap`), которые вешаются и снимаются независимо. Причина — устал от повторяющихся всплывающих архитектурных вопросов, которые в ECS уже продуманы; композиция всё равно понадобится (admin-lock / удалённое управление — TASK-70/103 вешают флаг «заблокировано» на сущности любого типа).
+Владелец решил (2026-07-18) перейти на **канонический ECS**: сущность = id + **свободный мешок компонентов** (`components: List<Component>`) + **набор тегов-маркеров** (`tags: Set<Tag>`) + ссылка на родителя. Компоненты и теги вешаются/снимаются независимо. **Отдельного поля `status` больше нет** — состояние применения (`Pending`/`Applied`/`Failed`/`Skipped`/`Unverifiable`) само становится компонентом `LifecycleState`, который двигает движок примирения.
 
 По шагам (что меняется):
-1. `Entity` перестаёт быть «один Component» → становится `Entity(id, components: ComponentMap, parentId?)`.
-2. Компоненты (`Renderable`, `Parent`, `AdminLocked`, `AppTile`-данные, …) вешаются композиционно.
-3. Запросы (`byTag`, `children`, `tilesOf`) остаются, но работают над мешком компонентов.
-4. Сериализация мешка в версионированный JSON — новый дизайн (правило 5 + zero-knowledge правило 13).
+1. `Entity` перестаёт быть «один Component» → становится `Entity(id, components: List<Component>, tags: Set<Tag>, parentId?)`, без поля `status`.
+2. `Component` из `sealed class` с полем `tags` → `sealed interface` **без** `tags` (теги уехали на сущность); 11 подтипов данных сохраняются, добавляется 12-й — `LifecycleState`.
+3. `Blueprint` → **Bundle**: шаблон рождения сущности (набор компонентов + теги), после сборки забывается — не застывший тип.
+4. Запросы (`byTag`, `children`, `tilesOf`, `get<T>()`) остаются, но читают теги/компоненты **с сущности**, а не с компонента.
+5. Сериализация — entity-grouped JSON (зеркало Fleks Snapshot), полиморфный список компонентов внутри сущности; **мигратор НЕ пишем** (pre-release), версия формата не двигается.
+
+**Про admin-lock (важное исправление, clarify 2026-07-18):** ранняя мотивация «admin-lock как навесной флаг на любую сущность» **отозвана**. Admin-lock — это блокировка **на уровне всего профиля, на сервере** (TASK-70): администратор видит «профиль редактируется другим админом». Это НЕ признак на отдельной сущности. Настоящая композиция здесь — на уровне **тегов** (одна сущность несёт несколько маркеров сразу, например «плитка» + «в фасаде» + «в настройках»).
 
 ## Зачем
 
-- **Снять целый класс будущих арх-вопросов** одним продуманным решением, а не решать каждый по мере всплытия (owner motivation).
-- **Композиция реально приходит**: admin-lock (TASK-70/103) — сквозной флаг на сущности разных типов; sealed-union решает это только через «поле-на-каждый-тип» (death spiral).
-- **Дёшево сейчас**: приложение не выпущено, миграции профилей пользователей нет (только переписывание кода) — pre-release момент минимальной цены для one-way door.
+- **Чистая каноническая модель**: переиспользовать продуманную индустриальную структуру (entity / component / tag / system / query) вместо ad-hoc переизобретения — снять «налог на постоянные исправления», когда новичку-владельцу и AI-агентам приходится каждый раз держать в голове «это не настоящий ECS».
+- **Композиция тегов реально используется**: сущность несёт несколько zero-data маркеров одновременно; многокомпонентная композиция на уровне данных — бесплатная способность канонической модели.
+- **Дёшево сейчас**: приложение не выпущено, миграции профилей пользователей нет (только переписывание кода) — pre-release момент минимальной цены для one-way door (Article XX разрешает пропустить мигратор).
 
 ## Что входит технически (для AI-агента)
 
-Решается в Discussion-сессии (ниже). Ключевые оси:
-- **Свой маленький ECS-core (~сотни строк) vs Fleks (KMP, но игровой)** — TASK-120 уже отверг Fleks/Ashley по scale; проверить снова под composition-нужду.
-- **Compile-time safety recovery**: держать `sealed interface Component` для **закрытого набора типов** (exhaustive `when` для сериализации + coverage-тест сохраняются), а композицию давать через `ComponentMap` (typed `get<T>()`, bundles, required-components).
-- **Сериализация ECS-мира** в wire-format: `Entity(id, Map<KClass, Component>)` → versioned JSON → назад; совместимость с zero-knowledge sync (правило 13, opaque blob).
-- **Миграция существующего кода**: `Entity`/`Component`/`ProfileQuery`/`ProfileFactory`/`Provider` уже есть (TASK-120/127) — что переживёт, что переписывается.
-- **Exit ramp** (правило 3): если canonical ECS окажется overkill — как откатиться.
+Big-bang — одна когерентная правка + CLEANUP INVENTORY. Финализировано в spec/plan/tasks (45 задач, 10 фаз):
+- **Модель** (`core/preset/model/`): `Entity` = свободный мешок (без `status`); `Component` = `sealed interface` без `tags`; `LifecycleState` sealed-компонент заменяет enum `ComponentStatus`; `Blueprint` = Bundle; `Profile.components` → `entities`, `mark`/`replaceComponent` → `setState`/`with`/`without`.
+- **Свой ECS-core** (`core/preset/ecs/`, ~200-400 LOC, форма Fleks API): `entity(id){}` spawn DSL, `get<T>()`/`with`/`without`, `family { all/any/none }`, шов `// TODO(ecs-fleks-migration)`. Не Fleks напрямую (игровой, требует Kotlin 2.4; мы на 2.0.21).
+- **Движок**: `ProfileFactory` = спавн из бандла в плоский набор (без «base vs extra»); `ReconcileEngine` — per-component dispatch, состояние через смену `LifecycleState`; `validateHierarchy`/`PresetValidator`/`PresetDiff` читают через `get<T>()`.
+- **Сериализация**: entity-grouped, kotlinx polymorphic (`classDiscriminator="type"`), ноль кастомного сериализатора; `schemaVersion` остаётся = 2, без bump/мигратора/backward-compat (Article XX).
+- **Fitness (rule 7)**: coverage, at-most-one-per-type (CL-3), tag-consistency (CL-4), paramsOverride roundtrip, import-guard, LOC-budget.
+- **Cleanup inventory**: переписать `docs/architecture/preset-model.md` на месте, написать `ADR-013` + header «Superseded by ADR-013» на `ADR-012`, `superseded-by: TASK-136` на TASK-120/127, downstream-notice TASK-69/71/68/19.
+- **Exit ramps** (правило 3): переезд на Fleks (Kotlin upgrade + String→Int id remap), type-grouped index под масштаб, marker/data-компонент из тега, revert к discriminated-union (только pre-release).
 
 ## Состояние
 
-**Draft, Decision block заполнен 2026-07-18.** Discussion завершён за одну сессию (OQ-1..OQ-7 закрыты, все grounded против Fleks Snapshot + Bevy Bundle). Готов к `/speckit.specify`. Decision **mutable до старта имплементации** (rule 11). Supersedes TASK-120 + TASK-127 (оба Done — `superseded-by` проставляется в implementation-фазе вместе с ADR-013 + cleanup). Decision block mutable до первого implementation-коммита.
+**In Progress. Полный speckit-цикл пройден 2026-07-18** (spec → clarify → plan → tasks → analyze). Discussion завершён (OQ-1..OQ-7 + CL-1..CL-5 закрыты, grounded против Fleks Snapshot + Bevy Bundle + ECS FAQ). Спека: `specs/task-136-ecs-canonical-foundational-model/` (spec.md, plan.md, tasks.md — 45 задач, data-model.md, 3 контракта). Decision block **mutable до первого implementation-коммита** (rule 11).
 
-Блокирует: **TASK-69** (Settings as Profile View — поставлен на Paused 2026-07-18, строит проекцию на этой модели). Downstream, зависевшие от TASK-120 (TASK-71, TASK-68, TASK-19, draft-1), получат обновлённый контракт.
+**Analyze verdict: READY-WITH-CAVEATS** (`analyze-report.md`) — конституция 8/8, все FR/SC покрыты, но 4 caveat'а закрыть перед кодом: (1) `Preset.ActiveComponentEntry.status: ComponentStatus` ссылается на удаляемый enum, хотя tasks.md утверждает «Preset не трогаем» — исправить + учесть как изменение wire-формата пресета; (2) 3 app-потребителя `Entity.status` (`WizardViewModel`, `FirstLaunchActivity`, `PendingChecklistViewModel`) не покрыты задачами Phase-6; (3) убедиться что build-gate их ловит; (4) косметика — ссылки на ADR-012. Готова к implementation после закрытия caveat'ов (рекомендуется свежая сессия per feedback).
+
+Блокирует: **TASK-69** (Settings as Profile View — Paused 2026-07-18, строит проекцию на этой модели). Downstream, зависевшие от TASK-120 (TASK-71, TASK-68, TASK-19), получат обновлённый контракт (implementation-фаза, T136-042).
 
 <!-- SECTION:DESCRIPTION:END -->
 
