@@ -1,9 +1,10 @@
 ---
 id: TASK-73
 title: Pool entries per-vendor variants — CheckSpec/ApplySpec dispatch
-status: Draft
+status: In Progress
 assignee: []
 created_date: '2026-07-01 04:15'
+updated_date: '2026-07-18 22:00'
 labels:
   - phase-3
   - area-preset
