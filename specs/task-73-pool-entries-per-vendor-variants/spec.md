@@ -11,6 +11,17 @@ TASK-65 (Profile Composition Foundation v2, Done) ввёл `Pool` — катал
 
 Эта спека не меняет *что* можно настраивать (набор pool entries), только *как* check/apply находят правильный путь на конкретном устройстве.
 
+## Clarifications
+
+### 2026-07-18 — Pre-plan clarification pass
+
+| # | Question | Resolution |
+|---|----------|------------|
+| 1 | `VendorProfile` — закрытый sealed-набор или открытый string-backed value class? | Closed sealed set. Новый vendor (не входящий в текущие 9 значений) требует правки Kotlin-кода — это осознанный one-way door; SC-003 («без изменения кода») применяется только к новым override'ам для УЖЕ известных vendor'ов, не к добавлению нового vendor'а как такового. |
+| 2 | Суббренды (Redmi/POCO → Xiaomi) — alias-таблица или Build.MANUFACTURER as-is? | Explicit alias table внутри `VendorProfileProvider`-адаптера. Redmi/POCO — самые массовые устройства среди целевой аудитории; без alias они бы молча падали в `Generic`. |
+| 3 | Приоритет VendorProfile: только manufacturer, или GMS-доступность — часть профиля? | Manufacturer-only. `VendorProfile.Huawei` выставляется по `Build.MANUFACTURER` независимо от GMS; `GmsAvailabilityPort` проверяется отдельно внутри `CheckHandler`/`ApplyHandler` только там, где это реально влияет на выбор intent (Huawei-ветка). Корректно обрабатывает Huawei-устройства с GMS (модели до бана 2019 года). |
+| 4 | Отсутствующий/битый `fallbackTextKey` в recipe — что показываем? | Универсальный **per-pool-entry** (не per-vendor, не единая фраза на всё приложение) default-текст — тот же generic-label/описание pool entry, что уже используется как заголовок записи в Settings (TASK-69). Работает одинаково для любой настройки без хардкода единственной строки на всё приложение. |
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — Xiaomi MIUI: настройка HOME launcher открывает правильный экран (Priority: P1)
@@ -79,6 +90,8 @@ TASK-65 (Profile Composition Foundation v2, Done) ввёл `Pool` — катал
 - Recipe ссылается на `VendorProfile`, который приложение ещё не знает (recipe написан для более новой версии приложения) → неизвестный vendor-ключ игнорируется при парсинге, dispatch падает на default.
 - Пользователь отменяет системный диалог/intent на середине Apply-потока (Xiaomi/Huawei fallback экран) → состояние pool entry остаётся прежним (`NotApplied`), повторный запуск возможен, ничего не ломается — тот же инвариант, что уже проверен для generic Android-пути в TASK-69 SEQ-3.
 - Firebase Test Lab недоступен/квота исчерпана в момент PR → OEM-matrix job помечается как inconclusive (не blocking silently зелёным), PR не мержится до ручной проверки — см. Local Test Path.
+- Устройство сообщает суббренд без записи в alias-таблице (например, редкий Xiaomi sub-brand, добавленный OEM позже) → `VendorProfile.Generic`, тот же путь, что и для незнакомого производителя — расширение alias-таблицы не требует изменения recipe-формата, только код адаптера (см. Clarifications #2).
+- Vendor-override ссылается на `fallbackTextKey`, отсутствующий в строковых ресурсах приложения → показывается universal per-pool-entry default-текст, не сырой ключ и не пустой диалог (см. FR-006, Clarifications #4).
 
 ## Out of Scope
 
@@ -93,12 +106,12 @@ TASK-65 (Profile Composition Foundation v2, Done) ввёл `Pool` — катал
 
 ### Functional Requirements
 
-- **FR-001**: Domain MUST определять `VendorProfile` как sealed value (`Pixel`, `Xiaomi`, `Huawei`, `Samsung`, `Oppo`, `Vivo`, `OnePlus`, `Honor`, `Generic`) без вендорских SDK-типов в сигнатуре.
-- **FR-002**: Приложение MUST определять `VendorProfile` устройства через порт `VendorProfileProvider` (Android-адаптер читает `Build.MANUFACTURER`/`Build.BRAND` + `GmsAvailabilityPort`), домен зависит только от порта.
+- **FR-001**: Domain MUST определять `VendorProfile` как **закрытый** sealed value (`Pixel`, `Xiaomi`, `Huawei`, `Samsung`, `Oppo`, `Vivo`, `OnePlus`, `Honor`, `Generic`) без вендорских SDK-типов в сигнатуре. Добавление нового vendor'а (не из этого списка) — осознанный one-way door, требующий правки Kotlin-кода; SC-003 («без изменения кода») гарантируется только для новых override'ов уже известных vendor'ов, не для добавления самого vendor'а (см. Clarifications #1).
+- **FR-002**: Приложение MUST определять `VendorProfile` устройства через порт `VendorProfileProvider` (Android-адаптер читает `Build.MANUFACTURER`/`Build.BRAND`), **только** по производителю — `GmsAvailabilityPort` в вывод `VendorProfile` не входит, домен зависит только от порта. Адаптер MUST нормализовать известные суббренды через explicit alias-таблицу (минимум: `Redmi`, `POCO` → `VendorProfile.Xiaomi`; `Honor` остаётся отдельным значением от `Huawei`), иначе устройства этих суббрендов молча получают `Generic` вместо релевантного override'а (см. Clarifications #2). `GmsAvailabilityPort` MUST проверяться отдельно, внутри `CheckHandler`/`ApplyHandler`, там где GMS-доступность реально влияет на выбор intent (Huawei-ветка) — Huawei-устройство с GMS (модели до 2019 года) остаётся `VendorProfile.Huawei` (см. Clarifications #3).
 - **FR-003**: `CheckSpec` и `ApplySpec` sealed-иерархии MUST поддерживать необязательный `perVendor: Map<VendorProfile, Variant>` без изменения существующих non-vendor-aware записей (обратная совместимость с TASK-65 pool entries).
 - **FR-004**: `CheckHandler` MUST резолвить vendor-override для текущего `VendorProfile`, если он есть в загруженном recipe catalogue, иначе использовать default CheckSpec той же записи.
 - **FR-005**: `CheckHandler` MUST возвращать типизированный результат (`Applied`/`NotApplied`/`Indeterminate`), а не бросать исключение, при отсутствии vendor-специфичного пути или ошибке платформенного вызова.
-- **FR-006**: `ApplyHandler` MUST пробовать fallback-цепочку в порядке: vendor-специфичный intent → generic Android API intent → structured localized instruction (`AlertDialog`), если ни один intent не резолвится (`resolveActivity == null`). Диалог закрывается явным подтверждением пользователя («Понятно»); закрытие не меняет статус pool entry — он остаётся `NotApplied`, повторный тап на настройку в любой момент запускает Apply заново (без авто-retry).
+- **FR-006**: `ApplyHandler` MUST пробовать fallback-цепочку в порядке: vendor-специфичный intent → generic Android API intent → structured localized instruction (`AlertDialog`), если ни один intent не резолвится (`resolveActivity == null`). Диалог закрывается явным подтверждением пользователя («Понятно»); закрытие не меняет статус pool entry — он остаётся `NotApplied`, повторный тап на настройку в любой момент запускает Apply заново (без авто-retry). Если vendor-override ссылается на `fallbackTextKey`, которого нет в строковых ресурсах, `AlertDialog` MUST показать универсальный **per-pool-entry** default-текст (тот же generic-label pool entry, что уже используется как заголовок записи в Settings, TASK-69) — не единую захардкоженную фразу на всё приложение и не тихий пропуск шага (см. Clarifications #4).
 - **FR-007**: Recipe catalogue MUST загружаться как отдельный wire-format файл (`vendor-recipes.json`) через существующий `ConfigSource` порт (новый `ConfigKind.VendorRecipes`, тот же паттерн `BundledSource`/`TODO(shareability)`, что уже установлен для других `ConfigKind` — новый adapter не изобретается), не как часть APK-кода.
 - **FR-008**: Recipe wire-format MUST нести явное поле `schemaVersion`, считываемое первым при десериализации (до разбора остального содержимого), и структуру `Map<PoolEntryId, Map<VendorId, VendorOverride>>` (per CLAUDE.md rule 5). Текущая версия — `schemaVersion=1` (первый коммит формата); чтение версий ≤ текущей MUST оставаться возможным минимум один major release вперёд, начиная с момента, когда появится `schemaVersion=2`.
 - **FR-009**: Recipe reader MUST игнорировать неизвестные `poolEntryId` и неизвестные vendor-ключи без падения чтения целиком (симметрично TASK-131).
@@ -141,7 +154,7 @@ TASK-65 (Profile Composition Foundation v2, Done) ввёл `Pool` — катал
 - **Emulator / device**: `pixel_5_api_34` через skill `android-emulator` для generic-пути (default CheckSpec/ApplySpec, dispatch без vendor-override) и для unit/instrumentation-тестов dispatch-логики с застабленным `Build.MANUFACTURER`.
 - **Fake adapters used**: `FakeVendorProfileProvider` (стаб `Build.MANUFACTURER`/`GmsAvailabilityPort` на произвольный `VendorProfile`), `FakeConfigSource` для recipe-каталога, существующий `FakeGmsAvailabilityPort` (TASK-49).
 - **Fixtures / seed data**: `core/src/test/resources/fixtures/vendor-recipes-v1.json` — минимум по одной записи на Xiaomi/Huawei/Samsung для `android.role.home`. Начиная со `schemaVersion=2` (следующая эволюция формата) добавляется парный fixture `vendor-recipes-v1-legacy.json` для backward-compat теста — не создаётся сейчас, т.к. `schemaVersion=1` ещё не имеет предшественника.
-- **Verification command**: `./gradlew :core:test --tests *VendorDispatch*`, `./gradlew :core:test --tests *VendorRecipe*Roundtrip*`.
+- **Verification command**: `./gradlew :core:test --tests *VendorDispatch*`, `./gradlew :core:test --tests *VendorRecipe*Roundtrip*`, `./gradlew :core:test --tests *VendorProfileAlias*` (alias-таблица: `Redmi`/`POCO` → `Xiaomi`, `Honor` остаётся отдельным от `Huawei`, неизвестный суббренд → `Generic`).
 - **Cannot-test-locally gaps**: реальное поведение MIUI/EMUI/One UI settings screens и silent-deny сценарии **нельзя** воспроизвести на generic-эмуляторе (эмуляторные образы — AOSP, не несут OEM-скины) → `TODO(physical-device)` для ручной Xiaomi/Huawei/Samsung проверки (см. reference-память `reference_testing_environment`); Firebase Test Lab с реальными OEM-образами — ближайшая замена, но настройка GCP-проекта/биллинга — отдельный операционный шаг, не выполняемый в этой AI-сессии.
 
 ## AI Affordance *(mandatory)*
@@ -168,14 +181,16 @@ TASK-65 (Profile Composition Foundation v2, Done) ввёл `Pool` — катал
 **Суть.** CheckSpec/ApplySpec (пара «проверить/включить» настройку из TASK-65 Pool) сегодня работает по одному пути, рассчитанному на чистый Pixel. Эта спека добавляет vendor-специфичные варианты (Xiaomi, Huawei, Samsung, Oppo/Vivo/OnePlus/Honor, Generic) поверх того же pool entry — один и тот же `android.role.home` теперь может по-разному проверяться/включаться в зависимости от `VendorProfile` устройства, а данные для этого грузятся отдельным файлом `vendor-recipes.json`, а не зашиваются в APK.
 
 **Конкретика, которую стоит запомнить:**
-- Новый домен-тип `VendorProfile` (sealed value, 9 значений: Pixel/Xiaomi/Huawei/Samsung/Oppo/Vivo/OnePlus/Honor/Generic) + порт `VendorProfileProvider`.
+- Новый домен-тип `VendorProfile` — **закрытый** sealed value (9 значений: Pixel/Xiaomi/Huawei/Samsung/Oppo/Vivo/OnePlus/Honor/Generic) + порт `VendorProfileProvider`. Новый vendor вне этих 9 = правка кода, осознанный one-way door (Clarifications #1).
+- `VendorProfileProvider` определяет профиль **только по Build.MANUFACTURER/BRAND** через explicit alias-таблицу (Redmi/POCO → Xiaomi обязательны — самые массовые устройства у целевой аудитории); `GmsAvailabilityPort` — отдельная ось, используется только внутри Huawei-ветки CheckHandler/ApplyHandler, не входит в сам VendorProfile (Clarifications #2, #3).
 - `CheckSpec`/`ApplySpec` получают необязательную карту `perVendor: Map<VendorProfile, Variant>` — старые записи без неё продолжают работать как раньше.
-- Fallback-цепочка ApplyHandler жёстко зафиксирована в 3 шага: vendor-intent → generic Android intent → localized `AlertDialog`-инструкция.
+- Fallback-цепочка ApplyHandler жёстко зафиксирована в 3 шага: vendor-intent → generic Android intent → localized `AlertDialog`-инструкция с universal per-pool-entry default-текстом, если `fallbackTextKey` recipe'а не резолвится (Clarifications #4).
 - Recipe wire-format — `schemaVersion=1` (первый коммит формата, backward-compat тест появится только когда родится `schemaVersion=2`, раньше тестировать нечего).
 - Минимальное покрытие v1: `android.role.home` и `android.permission.POST_NOTIFICATIONS` — по 3 vendor-override каждый (Xiaomi/Huawei/Samsung); Oppo/Vivo/OnePlus/Honor — архитектурно готовы, но recipe-записей для них нет (Out of Scope).
 - CI: Firebase Test Lab job на 3 устройства (Pixel 8, Samsung Galaxy S24, Xiaomi Redmi) по PR-метке `oem-matrix-required`, не блокирует обычные PR.
 
 **На что смотреть с осторожностью:**
 - FR-012 — explicit intent на OEM-пакеты (например `com.miui.securitycenter`) не резолвится без `<queries>`-записи в манифесте (Android 11+ package visibility) — легко забыть и получить silent-fail, который выглядит как «vendor override не сработал», хотя на самом деле не задекларирован `<queries>`.
+- Alias-таблица суббрендов (Clarifications #2) — если её не завести с первого дня, Redmi/POCO-устройства (вероятно, большинство «Xiaomi» среди целевой аудитории) молча получают `Generic` и фича для них не работает, хотя формально «Xiaomi override есть».
 - Реальное поведение MIUI/EMUI/One UI нельзя проверить на обычном AOSP-эмуляторе — только Firebase Test Lab (нужен GCP-биллинг, не настраивается в этой AI-сессии) или `TODO(physical-device)` — при чтении plan.md/tasks.md не путать «протестировано» с «протестировано только dispatch-логика на generic эмуляторе».
 - `schemaVersion=1` — если следующая спека (или follow-up этой) добавит `schemaVersion=2`, обязателен backward-compat fixture `vendor-recipes-v1-legacy.json`, которого пока намеренно нет.
