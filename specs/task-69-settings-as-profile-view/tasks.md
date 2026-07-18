@@ -44,11 +44,11 @@ Source: [spec.md](spec.md), [plan.md](plan.md), [data-model.md](data-model.md). 
 
 ## Phase 6 — i18n + fitness
 
-- [ ] **T069-026** Externalize absorbed legacy hardcoded strings («Настройки», «Язык», «Пресет», «Удалённое управление», «Сопряжённые устройства», «Сбросить данные», dialogs) to i18n keys (EN+RU). Trace: SC-007, FR-020. Requires: T069-021.
-- [ ] **T069-027** Extend `PoolI18nCoverageTest` to `categoryKey` + new keys (EN+RU coverage). Trace: SC-007. Requires: T069-026.
-- [ ] **T069-028** [P] Fitness: no `when(Component subtype)` in settings UI. Trace: SC-006, rule 1. Requires: T069-015.
-- [ ] **T069-029** [P] Fitness: no Android imports in `SettingsPresentationBuilder` / `SettingsGateway`. Trace: rule 1, §10. Requires: T069-003, T069-002.
-- [ ] **T069-030** [P] Fitness: `SettingsViewModel` has no `ReconcileEngine` reference (only the port). Trace: §10, FR-008. Requires: T069-014.
+- [x] **T069-026** Externalize absorbed legacy hardcoded strings («Настройки», «Язык», «Пресет», «Удалённое управление», «Сопряжённые устройства», «Сбросить данные», dialogs) to i18n keys (EN+RU). Trace: SC-007, FR-020. Requires: T069-021.
+- [x] **T069-027** Extend `PoolI18nCoverageTest` to `categoryKey` + new keys (EN+RU coverage). Trace: SC-007. Requires: T069-026.
+- [x] **T069-028** [P] Fitness: no `when(Component subtype)` in settings UI. Trace: SC-006, rule 1. Requires: T069-015.
+- [x] **T069-029** [P] Fitness: no Android imports in `SettingsPresentationBuilder` / `SettingsGateway`. Trace: rule 1, §10. Requires: T069-003, T069-002.
+- [x] **T069-030** [P] Fitness: `SettingsViewModel` has no `ReconcileEngine` reference (only the port). Trace: §10, FR-008. Requires: T069-014.
 
 ## Phase 7 — Emulator / device verification (deferred)
 

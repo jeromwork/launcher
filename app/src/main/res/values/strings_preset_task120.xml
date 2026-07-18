@@ -36,6 +36,22 @@
     <string name="settings_category_apps">Applications</string>
     <string name="settings_category_layout">Layout</string>
 
+    <!-- TASK-69 — settings.row.* row titles + derived value labels
+         (SettingsPresentationBuilder.classifyRow), resolved through
+         LocalizedResources like categoryKey above. -->
+    <string name="settings_row_font_size_title">Font size</string>
+    <string name="settings_row_theme_title">Appearance</string>
+    <string name="settings_row_theme_value_dark">Dark</string>
+    <string name="settings_row_theme_value_light">Light</string>
+    <string name="settings_row_language_title">Language</string>
+    <string name="settings_row_toolbar_title">Bottom toolbar</string>
+    <string name="settings_row_launcher_role_title">Default home screen</string>
+    <string name="settings_row_status_bar_policy_title">Status bar</string>
+    <string name="settings_row_sos_title">Emergency SOS button</string>
+    <string name="settings_row_sos_value">Configured</string>
+    <string name="settings_row_app_tile_title">App shortcut</string>
+    <string name="settings_row_unknown_title">Setting</string>
+
     <!-- layout.* — layout keys -->
     <string name="layout_grid_2x3">2×3 grid</string>
     <string name="layout_toolbar_minimal">Minimal toolbar</string>

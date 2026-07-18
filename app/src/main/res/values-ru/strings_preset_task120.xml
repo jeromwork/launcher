@@ -41,6 +41,20 @@
     <string name="settings_category_apps">Приложения</string>
     <string name="settings_category_layout">Расположение</string>
 
+    <!-- TASK-69 — settings.row.* заголовки строк + подписи значений -->
+    <string name="settings_row_font_size_title">Размер шрифта</string>
+    <string name="settings_row_theme_title">Оформление</string>
+    <string name="settings_row_theme_value_dark">Тёмная</string>
+    <string name="settings_row_theme_value_light">Светлая</string>
+    <string name="settings_row_language_title">Язык</string>
+    <string name="settings_row_toolbar_title">Нижняя панель</string>
+    <string name="settings_row_launcher_role_title">Главный экран по умолчанию</string>
+    <string name="settings_row_status_bar_policy_title">Верхняя полоска</string>
+    <string name="settings_row_sos_title">Кнопка экстренного вызова</string>
+    <string name="settings_row_sos_value">Настроено</string>
+    <string name="settings_row_app_tile_title">Ярлык приложения</string>
+    <string name="settings_row_unknown_title">Настройка</string>
+
     <!-- layout.* -->
     <string name="layout_grid_2x3">Сетка 2×3</string>
     <string name="layout_toolbar_minimal">Простая панель</string>
