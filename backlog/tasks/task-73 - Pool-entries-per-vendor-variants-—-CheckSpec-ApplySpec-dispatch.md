@@ -4,7 +4,7 @@ title: Pool entries per-vendor variants — CheckSpec/ApplySpec dispatch
 status: In Progress
 assignee: []
 created_date: '2026-07-01 04:15'
-updated_date: '2026-07-18 22:00'
+updated_date: '2026-07-18 23:00'
 labels:
   - phase-3
   - area-preset
@@ -84,11 +84,9 @@ ordinal: 73000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 На новом OEM (Huawei без GMS, Samsung One UI, Xiaomi MIUI) CheckSpec отвечает корректно, а не throws
-- [ ] #2 ApplySpec запускает правильный Settings screen на каждом OEM, иначе fallback UI с текстовой инструкцией
-- [ ] #3 Один pool entry (например `android.role.home`) может иметь per-vendor override без дублирования всей записи
-- [ ] #4 Скачивание vendor-специфичных вариантов (recipe-catalogue style) без выкатки нового APK
-- [ ] #5 OEM matrix test в CI прогоняет минимум 3 vendor через Firebase Test Lab на любое изменение pool
+- [ ] #1 На Xiaomi (MIUI) с загруженным recipe-покрытием тап «Настроить HOME launcher» открывает MIUI-специфичный экран (Настройки → Приложения → По умолчанию → Домашний экран) в 100% попыток на устройствах, покрытых каталогом — не generic ROLE-диалог, который на MIUI не применяется после тапа «Да»
+- [ ] #2 На Huawei без GMS ни один вызов CheckSpec/ApplySpec для покрытых recipe-каталогом pool entries не приводит к краху приложения (0 необработанных исключений в диагностических логах за прогон OEM-matrix) — пользователь либо видит статус NotApplied/Indeterminate, либо понятную текстовую инструкцию
+- [ ] #3 Новый vendor-override для существующего pool entry добавляется правкой vendor-recipes.json и раздачей через ConfigSource — без изменения Kotlin-кода и без нового APK-релиза
 <!-- AC:END -->
 
 ---
