@@ -1,7 +1,9 @@
 package com.launcher.preset.query
 
+import com.launcher.preset.ecs.get
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentStatus
+import com.launcher.preset.model.FailReason
+import com.launcher.preset.model.LifecycleState
 import com.launcher.preset.model.Tag
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -87,7 +89,7 @@ class ProfileQueryTest {
 
         assertNotNull(toolbar)
         assertEquals("toolbar-main", toolbar.id)
-        assertTrue(toolbar.component is Component.Toolbar)
+        assertNotNull(toolbar.get<Component.Toolbar>())
         // Toolbar must never leak into the tile grid (Presentation without Tile).
         assertTrue(profile.homeScreenTiles(flowId = "flow-calls").none { it.id == "toolbar-main" })
     }
@@ -98,9 +100,9 @@ class ProfileQueryTest {
     fun renderGating_failedAndSkippedTilesAreHidden() {
         val profile = profileOf(
             entity("flow-main", Component.Flow(titleKey = "f")),
-            appTile("ok", "com.a", parentId = "flow-main", status = ComponentStatus.Applied),
-            appTile("failed", "com.b", parentId = "flow-main", status = ComponentStatus.Failed),
-            appTile("skipped", "com.c", parentId = "flow-main", status = ComponentStatus.Skipped),
+            appTile("ok", "com.a", parentId = "flow-main", state = LifecycleState.Applied),
+            appTile("failed", "com.b", parentId = "flow-main", state = LifecycleState.Failed(FailReason.Cancelled)),
+            appTile("skipped", "com.c", parentId = "flow-main", state = LifecycleState.Skipped),
         )
 
         val visible = profile.homeScreenTiles().map { it.id }
@@ -112,8 +114,8 @@ class ProfileQueryTest {
     fun renderGating_pendingAndUnverifiableTilesAreVisible() {
         val profile = profileOf(
             entity("flow-main", Component.Flow(titleKey = "f")),
-            appTile("pending", "com.a", parentId = "flow-main", status = ComponentStatus.Pending),
-            appTile("unverifiable", "com.b", parentId = "flow-main", status = ComponentStatus.Unverifiable),
+            appTile("pending", "com.a", parentId = "flow-main", state = LifecycleState.Pending),
+            appTile("unverifiable", "com.b", parentId = "flow-main", state = LifecycleState.Unverifiable),
         )
 
         val visible = profile.homeScreenTiles().map { it.id }

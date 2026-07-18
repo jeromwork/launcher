@@ -1,7 +1,8 @@
 package com.launcher.preset.engine
 
+import com.launcher.preset.ecs.get
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentStatus
+import com.launcher.preset.model.LifecycleState
 import com.launcher.preset.roundtrip.mvpPool
 import com.launcher.preset.roundtrip.simpleLauncherPreset
 import kotlin.test.Test
@@ -18,10 +19,10 @@ class ProfileFactoryTest {
         val profile = ProfileFactory().create(preset, pool)
 
         assertEquals("simple-launcher", profile.basedOnPreset)
-        assertEquals(4, profile.components.size)
-        val font = profile.components.first { it.id == "font-tile" }
-        assertEquals(1.6f, (font.component as Component.FontSize).scale)
-        assertTrue(profile.components.all { it.status == ComponentStatus.Pending })
+        assertEquals(4, profile.entities.size)
+        val font = profile.entities.first { it.id == "font-tile" }
+        assertEquals(1.6f, font.get<Component.FontSize>()!!.scale)
+        assertTrue(profile.entities.all { it.get<LifecycleState>() == LifecycleState.Pending })
         assertTrue(profile.unknownRefs.isEmpty())
     }
 

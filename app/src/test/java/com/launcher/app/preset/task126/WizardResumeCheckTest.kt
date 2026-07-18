@@ -9,9 +9,10 @@ import com.launcher.preset.engine.ReconcileState
 import com.launcher.preset.model.ActiveComponentEntry
 import com.launcher.preset.model.CapabilityFlag
 import com.launcher.preset.model.Component
+import com.launcher.preset.ecs.get
 import com.launcher.preset.model.Blueprint
-import com.launcher.preset.model.ComponentStatus
 import com.launcher.preset.model.HandlerKey
+import com.launcher.preset.model.LifecycleState
 import com.launcher.preset.model.Outcome
 import com.launcher.preset.model.Pool
 import com.launcher.preset.model.Preset
@@ -47,7 +48,7 @@ import org.robolectric.annotation.Config
  * T060 — resume-check semantics (FR-008, SC-10, CL-5).
  *
  * Verifies:
- * - Once a component reaches `ComponentStatus.Applied` in the persisted profile,
+ * - Once a component reaches `LifecycleState.Applied` in the persisted profile,
  *   `ReconcileEngine.runWizard` skips it on the next run — regardless of any
  *   persisted counter. Progress is derived from `Provider.check()` + status.
  * - Mutating OS state externally between runs (fake facade grants permission →
@@ -73,8 +74,8 @@ class WizardResumeCheckTest {
     )
     private val pool = Pool(
         declarations = listOf(
-            Blueprint("font", fontComponent, WizardBehavior.Interactive, critical = false),
-            Blueprint("theme", themeComponent, WizardBehavior.Interactive, critical = false),
+            Blueprint("font", components = listOf(fontComponent), wizardBehavior = WizardBehavior.Interactive, critical = false),
+            Blueprint("theme", components = listOf(themeComponent), wizardBehavior = WizardBehavior.Interactive, critical = false),
         ),
     )
     private val preset = Preset(
@@ -98,8 +99,8 @@ class WizardResumeCheckTest {
         advanceUntilIdle()
         // Now paused at theme; process dies.
         val savedProfile = store.load()!!
-        val fontStatus = savedProfile.components.first { it.id == "font" }.status
-        assertEquals(ComponentStatus.Applied, fontStatus)
+        val fontStatus = savedProfile.entities.first { it.id == "font" }.get<LifecycleState>()
+        assertEquals(LifecycleState.Applied, fontStatus)
 
         // Second run — fresh VM instance, same ProfileStore.
         val vm2 = newViewModel(store)

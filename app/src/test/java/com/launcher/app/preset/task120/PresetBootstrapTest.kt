@@ -32,7 +32,7 @@ class PresetBootstrapTest {
         declarations = listOf(
             Blueprint(
                 id = "font-tile",
-                component = Component.FontSize(1.6f),
+                components = listOf(Component.FontSize(1.6f)),
                 wizardBehavior = WizardBehavior.Interactive,
                 critical = false,
             ),

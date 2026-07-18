@@ -2,6 +2,7 @@ package com.launcher.preset.fake
 
 import com.launcher.preset.model.Component
 import com.launcher.preset.model.Entity
+import com.launcher.preset.model.LifecycleState
 import com.launcher.preset.port.InteractionSink
 
 /**
@@ -42,7 +43,7 @@ class FakeInteractionSink private constructor(
 
     class Builder {
         private val responses: MutableMap<String, Component?> = mutableMapOf()
-        private var fallback: (Entity) -> Component? = { it.component }
+        private var fallback: (Entity) -> Component? = { e -> e.components.firstOrNull { it !is LifecycleState } }
 
         /** Pre-configure the answer for a specific Entity.id. */
         fun answer(componentId: String, response: Component?): Builder = apply {

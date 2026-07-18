@@ -71,13 +71,13 @@ class WizardViewModelTest {
         declarations = listOf(
             Blueprint(
                 id = "font",
-                component = fontComponent,
+                components = listOf(fontComponent),
                 wizardBehavior = WizardBehavior.Interactive,
                 critical = false,
             ),
             Blueprint(
                 id = "theme",
-                component = themeComponent,
+                components = listOf(themeComponent),
                 wizardBehavior = WizardBehavior.Interactive,
                 critical = false,
             ),
@@ -149,7 +149,7 @@ class WizardViewModelTest {
             declarations = listOf(
                 Blueprint(
                     id = "role",
-                    component = Component.LauncherRole(),
+                    components = listOf(Component.LauncherRole),
                     wizardBehavior = WizardBehavior.Interactive,
                     critical = true,
                 ),

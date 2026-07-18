@@ -44,7 +44,7 @@ class ProfileQueryBenchmarkTest {
 
     private fun assertUnderBudget(name: String, block: () -> Unit) {
         val profile = largeProfile()
-        check(profile.components.size >= 38)
+        check(profile.entities.size >= 38)
 
         repeat(WARMUP) { block() }
         val elapsed = measureTime { repeat(ITERATIONS) { block() } }

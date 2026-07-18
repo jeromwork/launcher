@@ -1,8 +1,8 @@
 package com.launcher.preset.wire
 
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentStatus
 import com.launcher.preset.model.Entity
+import com.launcher.preset.model.LifecycleState
 import com.launcher.preset.model.Profile
 import com.launcher.preset.model.Tag
 import com.launcher.preset.model.WizardBehavior
@@ -14,11 +14,16 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 /**
- * T127-011 (FR-004, contracts/profile-v2.md, CLAUDE.md rule 5).
+ * T127-011 (FR-004, contracts/profile-v2.md, CLAUDE.md rule 5), reshaped TASK-136.
  *
- * `schemaVersion` stays **2**: everything TASK-127 adds — `tags`, `parentId`,
- * three new `type` discriminators and the `Unverifiable` status — is additive, so
- * no bump and no migration writer (spec Q6).
+ * `schemaVersion` stays **2**: everything TASK-127/136 adds — `tags`, `parentId`,
+ * three new `type` discriminators and the apply-state as a `LifecycleState`
+ * component — is additive, so no bump and no migration writer (spec Q6).
+ *
+ * TASK-136 wire shape: an [Entity] serializes with `components: [{type,...}]` (a
+ * free bag) + entity-level `tags: [...]`; apply-state lives inside the bag as a
+ * `LifecycleState` component, not a top-level `status` enum. The `Profile` field is
+ * `entities` (renamed from `components`).
  *
  * The Json settings below mirror `DataStoreProfileStore` exactly. A drift between
  * the two would void the roundtrip guarantee, so it is asserted here rather than
@@ -37,13 +42,14 @@ class ProfileSchemaV2RoundtripTest {
         id: String,
         component: Component,
         parentId: String? = null,
-        status: ComponentStatus = ComponentStatus.Applied,
+        state: LifecycleState = LifecycleState.Applied,
+        tags: Set<Tag> = emptySet(),
     ) = Entity(
         id = id,
-        component = component,
+        components = listOf(component, state),
+        tags = tags,
         wizardBehavior = WizardBehavior.AutoApply,
         critical = false,
-        status = status,
         parentId = parentId,
     )
 
@@ -53,25 +59,27 @@ class ProfileSchemaV2RoundtripTest {
         basedOnPreset = "simple-launcher",
         presetVersion = 2,
         layoutKey = "grid",
-        components = listOf(
-            entity("ws-main", Component.Workspace(layoutKey = "single")),
-            entity("flow-calls", Component.Flow(titleKey = "flow.calls", order = 0), parentId = "ws-main"),
-            entity("flow-apps", Component.Flow(titleKey = "flow.apps", order = 1), parentId = "ws-main"),
-            entity("tile-wa", Component.AppTile("com.whatsapp", "tile.wa"), parentId = "flow-calls"),
-            entity("sos", Component.Sos(), parentId = "flow-calls"),
-            entity("tile-settings", Component.AppTile("com.android.settings", "tile.settings"), parentId = "flow-apps"),
-            entity("toolbar", Component.Toolbar(layoutKey = "bottom-bar"), parentId = "ws-main"),
+        entities = listOf(
+            entity("ws-main", Component.Workspace(layoutKey = "single"), tags = setOf(Tag.Presentation, Tag.Workspace)),
+            entity("flow-calls", Component.Flow(titleKey = "flow.calls", order = 0), parentId = "ws-main", tags = setOf(Tag.Presentation, Tag.Flow)),
+            entity("flow-apps", Component.Flow(titleKey = "flow.apps", order = 1), parentId = "ws-main", tags = setOf(Tag.Presentation, Tag.Flow)),
+            entity("tile-wa", Component.AppTile("com.whatsapp", "tile.wa"), parentId = "flow-calls", tags = setOf(Tag.Presentation, Tag.Tile)),
+            entity("sos", Component.Sos(), parentId = "flow-calls", tags = setOf(Tag.Presentation, Tag.Tile, Tag.Safety, Tag.Emergency)),
+            entity("tile-settings", Component.AppTile("com.android.settings", "tile.settings"), parentId = "flow-apps", tags = setOf(Tag.Presentation, Tag.Tile)),
+            entity("toolbar", Component.Toolbar(layoutKey = "bottom-bar"), parentId = "ws-main", tags = setOf(Tag.Presentation, Tag.Toolbar)),
             entity(
                 "btn-calls",
                 Component.ToolbarButton(targetFlowId = "flow-calls", labelKey = "btn.calls", order = 0),
                 parentId = "toolbar",
+                tags = setOf(Tag.Presentation, Tag.ToolbarButton),
             ),
             entity(
                 "btn-apps",
                 Component.ToolbarButton(targetFlowId = "flow-apps", labelKey = "btn.apps", order = 1),
                 parentId = "toolbar",
+                tags = setOf(Tag.Presentation, Tag.ToolbarButton),
             ),
-            entity("statusbar", Component.StatusBarPolicy(), status = ComponentStatus.Unverifiable),
+            entity("statusbar", Component.StatusBarPolicy, state = LifecycleState.Unverifiable, tags = setOf(Tag.System)),
         ),
     )
 
@@ -97,16 +105,19 @@ class ProfileSchemaV2RoundtripTest {
 
     @Test
     fun missingTags_fallBackToConstructorDefaults() {
+        // TASK-136: tags are now explicit on the entity (no constructor-default
+        // fallback). This pins that entity-level `tags` deserialize from the wire.
         val jsonText = """
             {
               "schemaVersion": 2,
               "basedOnPreset": "p",
               "presetVersion": 2,
               "layoutKey": "grid",
-              "components": [
+              "entities": [
                 {
                   "id": "tile",
-                  "component": { "type": "AppTile", "packageName": "com.a", "labelKey": "l" },
+                  "components": [ { "type": "AppTile", "packageName": "com.a", "labelKey": "l" } ],
+                  "tags": ["Presentation", "Tile"],
                   "wizardBehavior": "AutoApply",
                   "critical": false
                 }
@@ -116,8 +127,7 @@ class ProfileSchemaV2RoundtripTest {
 
         val decoded = json.decodeFromString(Profile.serializer(), jsonText)
 
-        // Constructor defaults are the single source of truth for tags.
-        assertEquals(setOf(Tag.Presentation, Tag.Tile), decoded.components.single().component.tags)
+        assertEquals(setOf(Tag.Presentation, Tag.Tile), decoded.entities.single().tags)
     }
 
     @Test
@@ -128,10 +138,10 @@ class ProfileSchemaV2RoundtripTest {
               "basedOnPreset": "p",
               "presetVersion": 2,
               "layoutKey": "grid",
-              "components": [
+              "entities": [
                 {
                   "id": "tile",
-                  "component": { "type": "AppTile", "packageName": "com.a", "labelKey": "l" },
+                  "components": [ { "type": "AppTile", "packageName": "com.a", "labelKey": "l" } ],
                   "wizardBehavior": "AutoApply",
                   "critical": false
                 }
@@ -141,29 +151,32 @@ class ProfileSchemaV2RoundtripTest {
 
         val decoded = json.decodeFromString(Profile.serializer(), jsonText)
 
-        assertNull(decoded.components.single().parentId)
+        assertNull(decoded.entities.single().parentId)
     }
 
     @Test
     fun objectStyleComponents_stillDeserialize_afterObjectToDataClassConversion() {
-        // LauncherRole / StatusBarPolicy were Kotlin objects before T127-007;
-        // their old wire shape carries no fields at all.
+        // LauncherRole / StatusBarPolicy are Kotlin data objects; their wire shape
+        // carries no fields at all — `{"type":"..."}` must still deserialize inside
+        // the components bag.
         val jsonText = """
             {
               "schemaVersion": 2,
               "basedOnPreset": "p",
               "presetVersion": 2,
               "layoutKey": "grid",
-              "components": [
+              "entities": [
                 {
                   "id": "role",
-                  "component": { "type": "LauncherRole" },
+                  "components": [ { "type": "LauncherRole" } ],
+                  "tags": ["System"],
                   "wizardBehavior": "AutoApply",
                   "critical": true
                 },
                 {
                   "id": "bar",
-                  "component": { "type": "StatusBarPolicy" },
+                  "components": [ { "type": "StatusBarPolicy" } ],
+                  "tags": ["System"],
                   "wizardBehavior": "AutoApply",
                   "critical": false
                 }
@@ -173,8 +186,8 @@ class ProfileSchemaV2RoundtripTest {
 
         val decoded = json.decodeFromString(Profile.serializer(), jsonText)
 
-        assertEquals(setOf(Tag.System), decoded.components[0].component.tags)
-        assertEquals(setOf(Tag.System), decoded.components[1].component.tags)
+        assertEquals(setOf(Tag.System), decoded.entities[0].tags)
+        assertEquals(setOf(Tag.System), decoded.entities[1].tags)
     }
 
     // ---- fail-loud pins (contract § Forward compat) ----
@@ -190,11 +203,11 @@ class ProfileSchemaV2RoundtripTest {
         val jsonText = """
             {
               "schemaVersion": 2, "basedOnPreset": "p", "presetVersion": 2, "layoutKey": "grid",
-              "components": [
+              "entities": [
                 {
                   "id": "t",
-                  "component": { "type": "AppTile", "packageName": "com.a", "labelKey": "l",
-                                 "tags": ["Presentation", "FutureTag"] },
+                  "components": [ { "type": "AppTile", "packageName": "com.a", "labelKey": "l" } ],
+                  "tags": ["Presentation", "FutureTag"],
                   "wizardBehavior": "AutoApply", "critical": false
                 }
               ]
@@ -211,10 +224,10 @@ class ProfileSchemaV2RoundtripTest {
         val jsonText = """
             {
               "schemaVersion": 2, "basedOnPreset": "p", "presetVersion": 2, "layoutKey": "grid",
-              "components": [
+              "entities": [
                 {
                   "id": "x",
-                  "component": { "type": "FutureComponent", "whatever": 1 },
+                  "components": [ { "type": "FutureComponent", "whatever": 1 } ],
                   "wizardBehavior": "AutoApply", "critical": false
                 }
               ]
@@ -228,14 +241,19 @@ class ProfileSchemaV2RoundtripTest {
 
     @Test
     fun unknownStatus_failsLoud_untilLenientReaderShips() {
+        // Apply-state is now a LifecycleState component in the bag; an unknown
+        // state variant is an unknown polymorphic component type and must fail loud.
         val jsonText = """
             {
               "schemaVersion": 2, "basedOnPreset": "p", "presetVersion": 2, "layoutKey": "grid",
-              "components": [
+              "entities": [
                 {
                   "id": "t",
-                  "component": { "type": "AppTile", "packageName": "com.a", "labelKey": "l" },
-                  "wizardBehavior": "AutoApply", "critical": false, "status": "FutureStatus"
+                  "components": [
+                    { "type": "AppTile", "packageName": "com.a", "labelKey": "l" },
+                    { "type": "LifecycleState.FutureStatus" }
+                  ],
+                  "wizardBehavior": "AutoApply", "critical": false
                 }
               ]
             }
@@ -252,11 +270,11 @@ class ProfileSchemaV2RoundtripTest {
             {
               "schemaVersion": 2, "basedOnPreset": "p", "presetVersion": 2, "layoutKey": "grid",
               "futureTopLevelField": "ignored",
-              "components": [
+              "entities": [
                 {
                   "id": "t",
-                  "component": { "type": "AppTile", "packageName": "com.a", "labelKey": "l",
-                                 "futureFieldOnComponent": true },
+                  "components": [ { "type": "AppTile", "packageName": "com.a", "labelKey": "l",
+                                   "futureFieldOnComponent": true } ],
                   "wizardBehavior": "AutoApply", "critical": false
                 }
               ]
@@ -265,6 +283,6 @@ class ProfileSchemaV2RoundtripTest {
 
         val decoded = json.decodeFromString(Profile.serializer(), jsonText)
 
-        assertEquals("t", decoded.components.single().id)
+        assertEquals("t", decoded.entities.single().id)
     }
 }

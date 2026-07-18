@@ -7,6 +7,7 @@ import com.launcher.preset.model.Pool
 import com.launcher.preset.model.Preset
 import com.launcher.preset.model.Sensitivity
 import com.launcher.preset.model.SettingsMapEntry
+import com.launcher.preset.model.Tag
 import com.launcher.preset.model.WizardBehavior
 import com.launcher.preset.model.WizardFlowEntry
 import kotlinx.serialization.json.JsonObject
@@ -17,36 +18,44 @@ internal fun mvpPool(): Pool = Pool(
     declarations = listOf(
         Blueprint(
             id = "font-tile",
-            component = Component.FontSize(scale = 1.6f),
+            components = listOf(Component.FontSize(scale = 1.6f)),
+            tags = setOf(Tag.Appearance, Tag.Accessibility),
             wizardBehavior = WizardBehavior.Interactive,
             critical = false,
             descriptionKey = "pool.font.description",
         ),
         Blueprint(
             id = "tile-whatsapp",
-            component = Component.AppTile(
-                packageName = "com.whatsapp",
-                labelKey = "pool.tile.whatsapp.label",
-                iconKey = "pool.tile.whatsapp.icon",
-                pinProtected = false,
+            components = listOf(
+                Component.AppTile(
+                    packageName = "com.whatsapp",
+                    labelKey = "pool.tile.whatsapp.label",
+                    iconKey = "pool.tile.whatsapp.icon",
+                    pinProtected = false,
+                ),
             ),
+            tags = setOf(Tag.Presentation, Tag.Tile),
             wizardBehavior = WizardBehavior.AutoApply,
             critical = false,
             descriptionKey = "pool.tile.whatsapp.description",
         ),
         Blueprint(
             id = "sos-main",
-            component = Component.Sos(shareLocation = true, autoAnswer = true),
+            components = listOf(Component.Sos(shareLocation = true, autoAnswer = true)),
+            tags = setOf(Tag.Presentation, Tag.Tile, Tag.Safety, Tag.Emergency),
             wizardBehavior = WizardBehavior.Interactive,
             critical = true,
             descriptionKey = "pool.sos.description",
         ),
         Blueprint(
             id = "toolbar-minimal",
-            component = Component.Toolbar(
-                items = listOf("call", "sos", "clock"),
-                layoutKey = "layout.toolbar.minimal",
+            components = listOf(
+                Component.Toolbar(
+                    items = listOf("call", "sos", "clock"),
+                    layoutKey = "layout.toolbar.minimal",
+                ),
             ),
+            tags = setOf(Tag.Presentation, Tag.Toolbar),
             wizardBehavior = WizardBehavior.InitialDefault,
             critical = false,
             descriptionKey = "pool.toolbar.description",

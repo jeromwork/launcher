@@ -1,6 +1,13 @@
 # ADR-012: Tagged-Component Model vs Canonical ECS
 
-**Status**: Accepted
+> **⚠️ Superseded by [ADR-013](ADR-013-canonical-ecs.md) (2026-07-18, TASK-136).** The
+> project moved to **canonical ECS** (free-bag `Entity`, `sealed interface Component`
+> without `tags`, tags on the entity, apply-state as a `LifecycleState` component). The
+> "tagged-component / not-canonical-ECS / discriminated-union" framing below is **historical**
+> — it describes the TASK-120/127 model that TASK-136 replaced. Kept as decision history
+> (rule 11); do NOT act on its language rules for current work.
+
+**Status**: Superseded by ADR-013
 **Date**: 2026-07-16
 **Source**: TASK-127 deep architecture audit (industry ECS research: Bevy, Flecs, Unity DOTS, EnTT)
 **Related**: [TASK-127 spec.md](../../specs/task-127-ecs-foundation/spec.md), [TASK-127 research.md § R-6](../../specs/task-127-ecs-foundation/research.md), [TASK-120 Decision](../../backlog/tasks/task-120%20-%20Decision-Component-Preset-Profile-foundational-model.md)

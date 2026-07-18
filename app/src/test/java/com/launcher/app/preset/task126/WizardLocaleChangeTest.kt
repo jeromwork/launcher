@@ -106,7 +106,7 @@ class WizardLocaleChangeTest {
         declarations = listOf(
             Blueprint(
                 id = "font",
-                component = fontComponent,
+                components = listOf(fontComponent),
                 wizardBehavior = WizardBehavior.Interactive,
                 critical = false,
             ),

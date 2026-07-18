@@ -36,7 +36,7 @@
 
 ## Phase 0 — Verify (no behaviour)
 
-### T136-001 — [ ] [P] Verify consumer inventory against real code
+### T136-001 — [x] [P] Verify consumer inventory against real code
 
 **Trace**: Plan §Migration/rewrite plan (Consumer inventory), FR-016.
 
@@ -51,7 +51,7 @@
 
 ## Phase 1 — Core model reshape (`core/src/commonMain/.../preset/model/`)
 
-### T136-002 — [ ] `Component`: sealed class → sealed interface, drop `tags` from 11 subtypes
+### T136-002 — [x] `Component`: sealed class → sealed interface, drop `tags` from 11 subtypes
 
 **Trace**: FR-002, FR-003, data-model §2.
 
@@ -66,7 +66,7 @@
 
 ---
 
-### T136-003 — [ ] Add `LifecycleState` sealed component; delete `ComponentStatus` enum
+### T136-003 — [x] Add `LifecycleState` sealed component; delete `ComponentStatus` enum
 
 **Trace**: FR-STATE, CL-5, Plan §State encoding decision, data-model §5.
 
@@ -80,7 +80,7 @@
 
 ---
 
-### T136-004 — [ ] `Entity` → free bag (`components: List<Component>` + `tags: Set<Tag>`), delete `status`
+### T136-004 — [x] `Entity` → free bag (`components: List<Component>` + `tags: Set<Tag>`), delete `status`
 
 **Trace**: FR-001, FR-013, data-model §1.
 
@@ -94,7 +94,7 @@
 
 ---
 
-### T136-005 — [ ] `Blueprint` → Bundle (`components: List<Component>` + `tags: Set<Tag>`)
+### T136-005 — [x] `Blueprint` → Bundle (`components: List<Component>` + `tags: Set<Tag>`)
 
 **Trace**: FR-004, data-model §4.
 
@@ -107,7 +107,7 @@
 
 ---
 
-### T136-006 — [ ] `Profile`: rename `components` → `entities`; `mark`/`replaceComponent` → `setState`/`with`/`without`
+### T136-006 — [x] `Profile`: rename `components` → `entities`; `mark`/`replaceComponent` → `setState`/`with`/`without`
 
 **Trace**: FR-001, data-model §6.
 
@@ -120,7 +120,7 @@
 
 ---
 
-### T136-046 — [ ] `Preset`/`ActiveComponentEntry`: remove `status` field (Preset wire-format change)
+### T136-046 — [x] `Preset`/`ActiveComponentEntry`: remove `status` field (Preset wire-format change)
 
 **Trace**: FR-STATE, CL-5, SC-009, data-model §"Delete / rename summary", contracts/profile-serialization.md §Removed vs TASK-127.
 
@@ -141,7 +141,7 @@
 
 > Contract: [ecs-world-core.md](contracts/ecs-world-core.md). Concrete to `Component`/`Tag` (no generic universe, rule 4). Zero Android imports (NFR-001).
 
-### T136-007 — [ ] `EntityDsl.kt`: `entity(id){}` spawn DSL + `EntityBuilder`
+### T136-007 — [x] `EntityDsl.kt`: `entity(id){}` spawn DSL + `EntityBuilder`
 
 **Trace**: FR-005 (spawn support), FR-012, contracts/ecs-world-core.md §Spawn.
 
@@ -154,7 +154,7 @@
 
 ---
 
-### T136-008 — [ ] Compose ops: `Entity.get<T>()` / `with` / `without` / `withTag` / `withoutTag`
+### T136-008 — [x] Compose ops: `Entity.get<T>()` / `with` / `without` / `withTag` / `withoutTag`
 
 **Trace**: FR-006, FR-007, data-model §8, contracts/ecs-world-core.md.
 
@@ -168,7 +168,7 @@
 
 ---
 
-### T136-009 — [ ] `Family.kt`: `FamilyBuilder { all/any/none }` + `Profile.family {}`
+### T136-009 — [x] `Family.kt`: `FamilyBuilder { all/any/none }` + `Profile.family {}`
 
 **Trace**: FR-008 (basis), FR-012, contracts/ecs-world-core.md §Query.
 
@@ -180,7 +180,7 @@
 
 ---
 
-### T136-010 — [ ] `World.kt`: World = Profile's entity bag + `TODO(ecs-fleks-migration)` seam
+### T136-010 — [x] `World.kt`: World = Profile's entity bag + `TODO(ecs-fleks-migration)` seam
 
 **Trace**: FR-012, FR-013, contracts/ecs-world-core.md §World seam.
 
@@ -195,7 +195,7 @@
 
 ## Phase 3 — Engine (`core/src/commonMain/.../preset/engine/`)
 
-### T136-011 — [ ] `ProfileFactory` spawn: flat bundle expansion + inline + `paramsOverride` + `parentRef`
+### T136-011 — [x] `ProfileFactory` spawn: flat bundle expansion + inline + `paramsOverride` + `parentRef`
 
 **Trace**: FR-005, Capability Story 3, data-model §7.
 
@@ -210,7 +210,7 @@
 
 ---
 
-### T136-012 — [ ] `ReconcileEngine`: per-component dispatch + `LifecycleState` transitions
+### T136-012 — [x] `ReconcileEngine`: per-component dispatch + `LifecycleState` transitions
 
 **Trace**: FR-011, FR-STATE, Plan §engine per-component dispatch.
 
@@ -224,7 +224,7 @@
 
 ---
 
-### T136-013 — [ ] `validateHierarchy` + `PresetValidator` + `PresetDiff` read via `get<T>()`
+### T136-013 — [x] `validateHierarchy` + `PresetValidator` + `PresetDiff` read via `get<T>()`
 
 **Trace**: FR-014, data-model §7.
 
@@ -240,7 +240,7 @@
 
 > Contract: [query-api.md](contracts/query-api.md).
 
-### T136-014 — [ ] Tag selectors over `entity.tags`
+### T136-014 — [x] Tag selectors over `entity.tags`
 
 **Trace**: FR-008, contracts/query-api.md §Tag selectors.
 
@@ -252,7 +252,7 @@
 
 ---
 
-### T136-015 — [ ] Hierarchy selectors via `get<T>()` + render gating via `LifecycleState`
+### T136-015 — [x] Hierarchy selectors via `get<T>()` + render gating via `LifecycleState`
 
 **Trace**: FR-009, contracts/query-api.md §Hierarchy + Render gating.
 
@@ -268,7 +268,7 @@
 
 > Contract: [profile-serialization.md](contracts/profile-serialization.md).
 
-### T136-016 — [ ] Entity-grouped polymorphic serialization config
+### T136-016 — [x] Entity-grouped polymorphic serialization config
 
 **Trace**: FR-010, contracts/profile-serialization.md §Shape.
 
@@ -281,7 +281,7 @@
 
 ---
 
-### T136-017 — [ ] [P] `ProfileSerializationRoundtripTest` + fixtures (contract test 1)
+### T136-017 — [x] [P] `ProfileSerializationRoundtripTest` + fixtures (contract test 1)
 
 **Trace**: SC-003, Capability Story 4, contracts/profile-serialization.md §1.
 
@@ -293,7 +293,7 @@
 
 ---
 
-### T136-018 — [ ] [P] Polymorphic-list-placement test (contract test 2)
+### T136-018 — [x] [P] Polymorphic-list-placement test (contract test 2)
 
 **Trace**: contracts/profile-serialization.md §2, Capability Story 4 scenario 2.
 
@@ -304,7 +304,7 @@
 
 ---
 
-### T136-019 — [ ] [P] Fail-loud pins test (contract test 5)
+### T136-019 — [x] [P] Fail-loud pins test (contract test 5)
 
 **Trace**: contracts/profile-serialization.md §5, Edge Cases (unknown type/Tag).
 
@@ -315,7 +315,7 @@
 
 ---
 
-### T136-020 — [ ] Update `Pool`/`Blueprint` roundtrip tests to bundle shape
+### T136-020 — [x] Update `Pool`/`Blueprint` roundtrip tests to bundle shape
 
 **Trace**: FR-020, Plan §Test strategy ("rewrite roundtrip suites").
 
@@ -327,7 +327,7 @@
 
 ---
 
-### T136-021 — [ ] Delete Profile/Pool migration + backward-compat readers; grep-verify none remain
+### T136-021 — [x] Delete Profile/Pool migration + backward-compat readers; grep-verify none remain
 
 **Trace**: SC-009, NFR-004, FR-010, contracts/profile-serialization.md §Removed vs TASK-127.
 
@@ -342,7 +342,7 @@
 
 ## Phase 6 — Consumers (adapters + UI)
 
-### T136-022 — [ ] `ProfileBackedFlowRepository`: `get<Component.Flow>()` + `toSlot`
+### T136-022 — [x] `ProfileBackedFlowRepository`: `get<Component.Flow>()` + `toSlot`
 
 **Trace**: FR-016, data-model §7.
 
@@ -354,7 +354,7 @@
 
 ---
 
-### T136-023 — [ ] `WizardScreen`: `when(pc.component)` → `get<T>()`
+### T136-023 — [x] `WizardScreen`: `when(pc.component)` → `get<T>()`
 
 **Trace**: FR-016, data-model §7.
 
@@ -366,7 +366,7 @@
 
 ---
 
-### T136-024 — [ ] `PostWizardKioskApply`: `comp is X` → `pc.get<X>()`, `mark(…, ComponentStatus)` → `setState(…, LifecycleState)`
+### T136-024 — [x] `PostWizardKioskApply`: `comp is X` → `pc.get<X>()`, `mark(…, ComponentStatus)` → `setState(…, LifecycleState)`
 
 **Trace**: FR-016, FR-STATE, data-model §7.
 
@@ -381,7 +381,7 @@
 
 > **Punch-list app-layer status-consumers (T136-047–T136-049)** — analyze caveat 2 (real drift). These three production files read `Entity.status` / `ComponentStatus` and were **missing** from the original Phase-6 inventory. Each reads the deleted `Entity.status` field and must derive apply-state from `entity.get<LifecycleState>()`; each also references `profile.components` (renamed to `entities`, T136-006).
 
-### T136-047 — [ ] `PendingChecklistViewModel` (+ test): `Entity.status` → `get<LifecycleState>()`
+### T136-047 — [x] `PendingChecklistViewModel` (+ test): `Entity.status` → `get<LifecycleState>()`
 
 **Trace**: FR-016, FR-STATE, data-model §7.
 
@@ -393,7 +393,7 @@
 
 ---
 
-### T136-048 — [ ] `WizardViewModel` (+ test): `Entity.status`/`profile.components` reads
+### T136-048 — [x] `WizardViewModel` (+ test): `Entity.status`/`profile.components` reads
 
 **Trace**: FR-016, FR-STATE, data-model §7.
 
@@ -405,7 +405,7 @@
 
 ---
 
-### T136-049 — [ ] `FirstLaunchActivity`: wizard-done gate via `get<LifecycleState>()`
+### T136-049 — [x] `FirstLaunchActivity`: wizard-done gate via `get<LifecycleState>()`
 
 **Trace**: FR-016, FR-STATE, data-model §7.
 
@@ -419,7 +419,7 @@
 
 ## Phase 7 — Assets rewritten in place
 
-### T136-025 — [ ] `pool.json` blueprints → bundles; keep `BundledSource` + `TODO(shareability)` seam
+### T136-025 — [x] `pool.json` blueprints → bundles; keep `BundledSource` + `TODO(shareability)` seam
 
 **Trace**: FR-020, rule 9, Plan §Wire formats, Risk R-8.
 
@@ -431,7 +431,7 @@
 
 ---
 
-### T136-026 — [ ] `bundled-presets/*.json` entity-grouped
+### T136-026 — [x] `bundled-presets/*.json` entity-grouped
 
 **Trace**: FR-020, Plan §Wire formats.
 
@@ -443,7 +443,7 @@
 
 ---
 
-### T136-027 — [ ] Rewrite wire fixtures + `simple-launcher-profile-golden.json`
+### T136-027 — [x] Rewrite wire fixtures + `simple-launcher-profile-golden.json`
 
 **Trace**: FR-020, Plan §Migration step 5.
 
@@ -459,7 +459,7 @@
 
 > Each contract gets ≥1 test task: serialization → T136-017/018/019/032/033; ecs-world-core → T136-028/036/037; query-api → T136-028/029/031.
 
-### T136-028 — [ ] [P] `EntityCompositionTest` (Capability Story 1)
+### T136-028 — [x] [P] `EntityCompositionTest` (Capability Story 1)
 
 **Trace**: SC-001, FR-006, FR-007, contracts/ecs-world-core.md.
 
@@ -471,7 +471,7 @@
 
 ---
 
-### T136-029 — [ ] [P] `ProfileQueryTest` (Capability Story 2)
+### T136-029 — [x] [P] `ProfileQueryTest` (Capability Story 2)
 
 **Trace**: SC-002, FR-008, NFR-002, contracts/query-api.md.
 
@@ -483,7 +483,7 @@
 
 ---
 
-### T136-030 — [ ] [P] `ProfileFactoryTest` (Capability Story 3)
+### T136-030 — [x] [P] `ProfileFactoryTest` (Capability Story 3)
 
 **Trace**: SC-005, FR-005.
 
@@ -494,7 +494,7 @@
 
 ---
 
-### T136-031 — [ ] [P] `ProfileQueryHierarchyTest` + `ValidateHierarchyTest` (Capability Story 5)
+### T136-031 — [x] [P] `ProfileQueryHierarchyTest` + `ValidateHierarchyTest` (Capability Story 5)
 
 **Trace**: SC-005, FR-009, FR-014, contracts/query-api.md §Semantics pinned.
 
@@ -506,7 +506,7 @@
 
 ---
 
-### T136-032 — [ ] [P] `ReconcileEngineStateTest` (FR-STATE)
+### T136-032 — [x] [P] `ReconcileEngineStateTest` (FR-STATE)
 
 **Trace**: FR-STATE, FR-011, Plan §Test strategy.
 
@@ -517,7 +517,7 @@
 
 ---
 
-### T136-033 — [ ] [P] `ComponentCoverageFitnessTest` (contract test 4)
+### T136-033 — [x] [P] `ComponentCoverageFitnessTest` (contract test 4)
 
 **Trace**: SC-006, FR-015a, contracts/profile-serialization.md §4.
 
@@ -529,7 +529,7 @@
 
 ---
 
-### T136-034 — [ ] [P] `AtMostOneComponentPerTypeFitnessTest` (contract test 3)
+### T136-034 — [x] [P] `AtMostOneComponentPerTypeFitnessTest` (contract test 3)
 
 **Trace**: FR-015d, CL-3, contracts/profile-serialization.md §3, contracts/ecs-world-core.md.
 
@@ -540,7 +540,7 @@
 
 ---
 
-### T136-035 — [ ] [P] `TagConsistencyFitnessTest`
+### T136-035 — [x] [P] `TagConsistencyFitnessTest`
 
 **Trace**: FR-015e, CL-4, contracts/ecs-world-core.md.
 
@@ -552,7 +552,7 @@
 
 ---
 
-### T136-036 — [ ] [P] `paramsOverride` schema roundtrip fitness
+### T136-036 — [x] [P] `paramsOverride` schema roundtrip fitness
 
 **Trace**: FR-015c.
 
@@ -563,7 +563,7 @@
 
 ---
 
-### T136-037 — [ ] [P] Core LOC-budget fitness + `TODO(ecs-fleks-migration)` seam grep
+### T136-037 — [x] [P] Core LOC-budget fitness + `TODO(ecs-fleks-migration)` seam grep
 
 **Trace**: SC-011, NFR-003, FR-012, contracts/ecs-world-core.md §Invariants.
 
@@ -575,7 +575,7 @@
 
 ---
 
-### T136-038 — [ ] [P] Domain-isolation import-guard on `Entity`/`Component`/`Blueprint`/`preset/ecs`
+### T136-038 — [x] [P] Domain-isolation import-guard on `Entity`/`Component`/`Blueprint`/`preset/ecs`
 
 **Trace**: SC-008, FR-015b, NFR-001.
 
@@ -588,7 +588,7 @@
 
 ## Phase 9 — Cleanup inventory (executes in this PR — FR-017..FR-021)
 
-### T136-039 — [ ] [P] Rewrite `docs/architecture/preset-model.md` in place to canonical ECS
+### T136-039 — [x] [P] Rewrite `docs/architecture/preset-model.md` in place to canonical ECS
 
 **Trace**: FR-017, SC-007.
 
@@ -600,7 +600,7 @@
 
 ---
 
-### T136-040 — [ ] [P] Write `ADR-013`; mark `ADR-012` "Superseded by ADR-013"
+### T136-040 — [x] [P] Write `ADR-013`; mark `ADR-012` "Superseded by ADR-013"
 
 **Trace**: FR-018, SC-007.
 
@@ -612,7 +612,7 @@
 
 ---
 
-### T136-041 — [ ] [P] Set `superseded-by: TASK-136` on TASK-120 + TASK-127
+### T136-041 — [x] [P] Set `superseded-by: TASK-136` on TASK-120 + TASK-127
 
 **Trace**: FR-019, SC-007.
 
@@ -624,7 +624,7 @@
 
 ---
 
-### T136-042 — [ ] [P] Downstream notice: TASK-69/71/68/19 → "See TASK-136 Decision"
+### T136-042 — [x] [P] Downstream notice: TASK-69/71/68/19 → "See TASK-136 Decision"
 
 **Trace**: FR-021, rule 11 cross-task references.
 
@@ -637,7 +637,7 @@
 
 ## Phase 10 — Gates + smoke
 
-### T136-043 — [ ] Consistency grep gates (SC-004 / SC-007 / SC-009)
+### T136-043 — [x] Consistency grep gates (SC-004 / SC-007 / SC-009)
 
 **Trace**: SC-004, SC-007, SC-009, Plan §Rollout.
 
@@ -650,7 +650,7 @@
 
 ---
 
-### T136-044 — [ ] Build gate: `:core:test` green + `:app` mock/real backend compile
+### T136-044 — [x] Build gate: `:core:test` green + `:app` mock/real backend compile
 
 **Trace**: SC-010, FR-016, Plan §Rollout.
 

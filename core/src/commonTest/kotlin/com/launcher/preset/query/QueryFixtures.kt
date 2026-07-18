@@ -1,31 +1,38 @@
 package com.launcher.preset.query
 
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentStatus
 import com.launcher.preset.model.Entity
+import com.launcher.preset.model.LifecycleState
 import com.launcher.preset.model.Profile
+import com.launcher.preset.model.Tag
 import com.launcher.preset.model.WizardBehavior
 
 /**
- * Shared fixtures for the query tests (T127-014 / T127-015).
+ * Shared fixtures for the query tests (T127-014 / T127-015, reshaped TASK-136).
  *
  * [hierarchicalProfile] models the owner's target screen (spec US-4):
  * a workspace with three flows and a bottom toolbar whose three buttons each
- * switch to one flow. Note the storage is **flat** — the tree lives in `parentId`.
+ * switch to one flow. Storage is **flat** — the tree lives in `parentId`.
+ *
+ * TASK-136: entities are free bags — the [component] plus a [LifecycleState]
+ * marker in `components`, and the [tags] on the entity (was on the component).
+ * [defaultTagsFor] reproduces TASK-127's per-component tag defaults so the tag
+ * selectors keep the same semantics under the canonical model.
  */
 internal fun entity(
     id: String,
     component: Component,
     parentId: String? = null,
-    status: ComponentStatus = ComponentStatus.Applied,
+    state: LifecycleState = LifecycleState.Applied,
     critical: Boolean = false,
     wizardBehavior: WizardBehavior = WizardBehavior.AutoApply,
+    tags: Set<Tag> = defaultTagsFor(component),
 ): Entity = Entity(
     id = id,
-    component = component,
+    components = listOf(component, state),
+    tags = tags,
     wizardBehavior = wizardBehavior,
     critical = critical,
-    status = status,
     parentId = parentId,
 )
 
@@ -33,16 +40,36 @@ internal fun profileOf(vararg entities: Entity): Profile = Profile(
     basedOnPreset = "test-preset",
     presetVersion = 2,
     layoutKey = "grid",
-    components = entities.toList(),
+    entities = entities.toList(),
 )
 
-internal fun appTile(id: String, pkg: String, parentId: String?, status: ComponentStatus = ComponentStatus.Applied) =
-    entity(
-        id = id,
-        component = Component.AppTile(packageName = pkg, labelKey = "label.$id"),
-        parentId = parentId,
-        status = status,
-    )
+internal fun appTile(
+    id: String,
+    pkg: String,
+    parentId: String?,
+    state: LifecycleState = LifecycleState.Applied,
+) = entity(
+    id = id,
+    component = Component.AppTile(packageName = pkg, labelKey = "label.$id"),
+    parentId = parentId,
+    state = state,
+)
+
+/** The TASK-127 per-component tag defaults, now stamped on the entity (CL-4). */
+internal fun defaultTagsFor(component: Component): Set<Tag> = when (component) {
+    is Component.AppTile -> setOf(Tag.Presentation, Tag.Tile)
+    is Component.FontSize -> setOf(Tag.Appearance, Tag.Accessibility)
+    is Component.Sos -> setOf(Tag.Presentation, Tag.Tile, Tag.Safety, Tag.Emergency)
+    is Component.Toolbar -> setOf(Tag.Presentation, Tag.Toolbar)
+    is Component.LauncherRole -> setOf(Tag.System)
+    is Component.Theme -> setOf(Tag.Appearance)
+    is Component.Language -> setOf(Tag.System)
+    is Component.StatusBarPolicy -> setOf(Tag.System)
+    is Component.Workspace -> setOf(Tag.Presentation, Tag.Workspace)
+    is Component.Flow -> setOf(Tag.Presentation, Tag.Flow)
+    is Component.ToolbarButton -> setOf(Tag.Presentation, Tag.ToolbarButton)
+    is LifecycleState -> emptySet()
+}
 
 /**
  * workspace ws-main
@@ -50,7 +77,7 @@ internal fun appTile(id: String, pkg: String, parentId: String?, status: Compone
  *  ├── flow-apps   (order 1) → tile-settings
  *  ├── flow-info   (order 2) → (no tiles)
  *  └── toolbar-main → btn-calls (0), btn-apps (1), btn-info (2)
- * plus one root-level StatusBarPolicy with status Unverifiable.
+ * plus one root-level StatusBarPolicy with LifecycleState.Unverifiable.
  */
 internal fun hierarchicalProfile(): Profile = profileOf(
     entity("ws-main", Component.Workspace()),
@@ -76,7 +103,7 @@ internal fun hierarchicalProfile(): Profile = profileOf(
         Component.ToolbarButton(targetFlowId = "flow-info", labelKey = "btn.info", order = 2),
         parentId = "toolbar-main",
     ),
-    entity("statusbar", Component.StatusBarPolicy(), status = ComponentStatus.Unverifiable),
+    entity("statusbar", Component.StatusBarPolicy, state = LifecycleState.Unverifiable),
 )
 
 /** Simple launcher (US-1): tiles only, no Workspace/Flow/Toolbar — degenerate tree. */

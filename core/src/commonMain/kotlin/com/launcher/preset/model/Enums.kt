@@ -6,26 +6,17 @@ import kotlinx.serialization.Serializable
 enum class WizardBehavior { Interactive, AutoApply, InitialDefault }
 
 /**
- * Lifecycle state of one [Entity] inside a [Profile].
+ * Semantic + structural marker on an [Entity] (TASK-136, canonical ECS).
  *
- * [Unverifiable] (T127-005, FR-014) — the setting was applied on the user's word
- * and the OS exposes no read-back (e.g. hiding the system status bar is a chain
- * of intents with no query API). Recording [Applied] there would be a lie:
- * `BootCheck` would trust a fiction, and re-checking on every cold start would
- * nag the user forever. Only the interactive paths (Wizard / RunMode.Single) may
- * record it; `BootCheck` skips such entities entirely.
- */
-@Serializable
-enum class ComponentStatus { Pending, Applied, Failed, Skipped, Unverifiable }
-
-/**
- * Semantic + structural marker on a [Component] (T127-004, FR-001).
+ * A tag is a **zero-data marker** (ECS FAQ: "a tag is a component that has no
+ * data") carried by the [Entity], not by the [Component] — one entity carries
+ * several tags at once (`Sos` is `Presentation` AND `Tile` AND `Safety` AND
+ * `Emergency`); queries select on any combination. Assigned explicitly at spawn
+ * (bundle) or by composing code — never auto-derived from components (CL-4).
  *
- * Multiple tags per component are expected — `Sos` is `Presentation` AND `Tile`
- * AND `Safety` AND `Emergency` at once; queries select on any combination.
- *
- * Mental model (ADR-012): this is a **label-selector** system (closest industrial
- * analogue: Kubernetes `matchLabels`), not canonical ECS archetype filtering.
+ * `Set<Tag>` is the compact encoding of Fleks `Snapshot.tags` (a separate marker
+ * list). Exit ramp (Decision): a tag that must carry data / need a typed query is
+ * promoted from an enum value to a marker/data [Component] — additive, same bag.
  *
  * Additive-only per rule 5, with an honest caveat: an *older reader* fails loud on
  * an unknown enum name (kotlinx.serialization has no per-element leniency for enum

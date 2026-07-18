@@ -1,12 +1,14 @@
 package com.launcher.preset.engine
 
+import com.launcher.preset.ecs.get
 import com.launcher.preset.fakes.FakeInteractionSink
 import com.launcher.preset.fakes.FakeProfileStore
 import com.launcher.preset.fakes.FakeProvider
 import com.launcher.preset.model.ChangeItem
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentStatus
+import com.launcher.preset.model.FailReason
 import com.launcher.preset.model.HandlerKey
+import com.launcher.preset.model.LifecycleState
 import com.launcher.preset.model.Outcome
 import com.launcher.preset.model.RunMode
 import com.launcher.preset.port.DefaultProviderRegistry
@@ -32,7 +34,7 @@ class ReconcileEngineTest {
         val store = FakeProfileStore(ProfileFactory().create(simpleLauncherPreset(), mvpPool()))
         val engine = ReconcileEngine(DefaultProviderRegistry(okAllHandlers()), store)
         val result = engine.run(RunMode.Wizard, sink = FakeInteractionSink())
-        assertTrue(result.components.all { it.status != ComponentStatus.Pending })
+        assertTrue(result.entities.all { it.get<LifecycleState>() != LifecycleState.Pending })
     }
 
     @Test
@@ -41,8 +43,8 @@ class ReconcileEngineTest {
         val engine = ReconcileEngine(DefaultProviderRegistry(okAllHandlers()), store)
         val sink = FakeInteractionSink(defaultAnswer = { null })
         val result = engine.run(RunMode.Wizard, sink = sink)
-        val fontComponent = result.components.first { it.id == "font-tile" }
-        assertEquals(ComponentStatus.Skipped, fontComponent.status)
+        val fontComponent = result.entities.first { it.id == "font-tile" }
+        assertEquals(LifecycleState.Skipped, fontComponent.get<LifecycleState>())
     }
 
     @Test
@@ -50,10 +52,10 @@ class ReconcileEngineTest {
         val store = FakeProfileStore(ProfileFactory().create(simpleLauncherPreset(), mvpPool()))
         val engine = ReconcileEngine(DefaultProviderRegistry(okAllHandlers()), store)
         val result = engine.run(RunMode.BootCheck)
-        val sos = result.components.first { it.id == "sos-main" }
-        val font = result.components.first { it.id == "font-tile" }
-        assertEquals(ComponentStatus.Applied, sos.status)
-        assertEquals(ComponentStatus.Pending, font.status)
+        val sos = result.entities.first { it.id == "sos-main" }
+        val font = result.entities.first { it.id == "font-tile" }
+        assertEquals(LifecycleState.Applied, sos.get<LifecycleState>())
+        assertEquals(LifecycleState.Pending, font.get<LifecycleState>())
     }
 
     @Test
@@ -61,10 +63,10 @@ class ReconcileEngineTest {
         val store = FakeProfileStore(ProfileFactory().create(simpleLauncherPreset(), mvpPool()))
         val engine = ReconcileEngine(DefaultProviderRegistry(okAllHandlers()), store)
         val result = engine.run(RunMode.Single, targetId = "font-tile")
-        val font = result.components.first { it.id == "font-tile" }
-        assertEquals(ComponentStatus.Applied, font.status)
-        val sos = result.components.first { it.id == "sos-main" }
-        assertEquals(ComponentStatus.Pending, sos.status)
+        val font = result.entities.first { it.id == "font-tile" }
+        assertEquals(LifecycleState.Applied, font.get<LifecycleState>())
+        val sos = result.entities.first { it.id == "sos-main" }
+        assertEquals(LifecycleState.Pending, sos.get<LifecycleState>())
     }
 
     @Test
@@ -81,11 +83,11 @@ class ReconcileEngineTest {
             ChangeItem.ParamsChanged("font-tile", Component.FontSize(scale = 2.0f)),
         )
         val result = engine.run(RunMode.RemotePush, changes = changes)
-        assertTrue(result.components.none { it.id == "toolbar-minimal" })
-        val added = result.components.first { it.id == "tile-telegram" }
-        assertEquals(ComponentStatus.Applied, added.status)
-        val font = result.components.first { it.id == "font-tile" }
-        assertEquals(2.0f, (font.component as Component.FontSize).scale)
+        assertTrue(result.entities.none { it.id == "toolbar-minimal" })
+        val added = result.entities.first { it.id == "tile-telegram" }
+        assertEquals(LifecycleState.Applied, added.get<LifecycleState>())
+        val font = result.entities.first { it.id == "font-tile" }
+        assertEquals(2.0f, font.get<Component.FontSize>()!!.scale)
     }
 
     @Test
@@ -93,7 +95,7 @@ class ReconcileEngineTest {
         val store = FakeProfileStore(ProfileFactory().create(simpleLauncherPreset(), mvpPool()))
         val handlers = mapOf<HandlerKey, Provider<out Component>>(
             HandlerKey(Component.FontSize::class) to FakeProvider<Component.FontSize>(
-                applyOutcome = { Outcome.Failed(com.launcher.preset.model.FailReason.NetworkUnavailable) }
+                applyOutcome = { Outcome.Failed(FailReason.NetworkUnavailable) }
             ),
             HandlerKey(Component.AppTile::class) to FakeProvider<Component.AppTile>(),
             HandlerKey(Component.Sos::class) to FakeProvider<Component.Sos>(),
@@ -101,7 +103,7 @@ class ReconcileEngineTest {
         )
         val engine = ReconcileEngine(DefaultProviderRegistry(handlers), store)
         val result = engine.run(RunMode.Wizard, sink = FakeInteractionSink())
-        val font = result.components.first { it.id == "font-tile" }
-        assertEquals(ComponentStatus.Failed, font.status)
+        val font = result.entities.first { it.id == "font-tile" }
+        assertEquals(LifecycleState.Failed(FailReason.NetworkUnavailable), font.get<LifecycleState>())
     }
 }

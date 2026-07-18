@@ -1,6 +1,8 @@
 package com.launcher.preset.engine
 
 import com.launcher.preset.model.ChangeItem
+import com.launcher.preset.model.Component
+import com.launcher.preset.model.LifecycleState
 import com.launcher.preset.model.Pool
 import com.launcher.preset.model.Preset
 
@@ -31,14 +33,8 @@ class PresetDiff {
         for (ref in added) {
             val decl = pool.byId(ref) ?: continue
             val single = incomingRefs[ref]!!
-            val resolved = factory.create(
-                incoming.copy(
-                    wizardFlow = emptyList(),
-                    settingsMap = emptyList(),
-                    activeComponents = listOf(single),
-                ),
-                pool,
-            ).components.firstOrNull()?.component ?: decl.component
+            val resolved = factory.resolveSingle(incoming, single, pool)
+                ?: decl.components.firstOrNull() ?: continue
             changes += ChangeItem.Added(ref, resolved)
         }
 
@@ -51,17 +47,30 @@ class PresetDiff {
             val b = incomingRefs[ref]!!
             if (a.paramsOverride != b.paramsOverride) {
                 val decl = pool.byId(ref) ?: continue
-                val resolved = factory.create(
-                    incoming.copy(
-                        wizardFlow = emptyList(),
-                        settingsMap = emptyList(),
-                        activeComponents = listOf(b),
-                    ),
-                    pool,
-                ).components.firstOrNull()?.component ?: decl.component
+                val resolved = factory.resolveSingle(incoming, b, pool)
+                    ?: decl.components.firstOrNull() ?: continue
                 changes += ChangeItem.ParamsChanged(ref, resolved)
             }
         }
         return changes
     }
+
+    /**
+     * Spawn a single preset entry and return its resolved data component (the
+     * bundle's one domain-data component with `paramsOverride` merged), stripped of
+     * the [LifecycleState] marker. Null when the entry resolves to no entity.
+     */
+    private fun ProfileFactory.resolveSingle(
+        incoming: Preset,
+        entry: com.launcher.preset.model.ActiveComponentEntry,
+        pool: Pool,
+    ): Component? = create(
+        incoming.copy(
+            wizardFlow = emptyList(),
+            settingsMap = emptyList(),
+            activeComponents = listOf(entry),
+        ),
+        pool,
+    ).entities.firstOrNull()
+        ?.components?.firstOrNull { it !is LifecycleState }
 }

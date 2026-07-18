@@ -9,9 +9,10 @@ import com.launcher.preset.engine.ReconcileState
 import com.launcher.preset.model.ActiveComponentEntry
 import com.launcher.preset.model.CapabilityFlag
 import com.launcher.preset.model.Component
+import com.launcher.preset.ecs.get
 import com.launcher.preset.model.Blueprint
-import com.launcher.preset.model.ComponentStatus
 import com.launcher.preset.model.HandlerKey
+import com.launcher.preset.model.LifecycleState
 import com.launcher.preset.model.Outcome
 import com.launcher.preset.model.Pool
 import com.launcher.preset.model.Preset
@@ -72,9 +73,9 @@ class WizardForceCloseResumeTest {
     private val langComponent = Component.Language(locale = "en-US")
     private val pool = Pool(
         declarations = listOf(
-            Blueprint("font", fontComponent, WizardBehavior.Interactive, critical = false),
-            Blueprint("theme", themeComponent, WizardBehavior.Interactive, critical = false),
-            Blueprint("lang", langComponent, WizardBehavior.Interactive, critical = false),
+            Blueprint("font", components = listOf(fontComponent), wizardBehavior = WizardBehavior.Interactive, critical = false),
+            Blueprint("theme", components = listOf(themeComponent), wizardBehavior = WizardBehavior.Interactive, critical = false),
+            Blueprint("lang", components = listOf(langComponent), wizardBehavior = WizardBehavior.Interactive, critical = false),
         ),
     )
     private val preset = Preset(
@@ -102,10 +103,10 @@ class WizardForceCloseResumeTest {
         assertEquals("lang", pausedState.current.id)
 
         val persisted = store.load()!!
-        assertEquals(ComponentStatus.Applied, persisted.components.first { it.id == "font" }.status)
-        assertEquals(ComponentStatus.Applied, persisted.components.first { it.id == "theme" }.status)
+        assertEquals(LifecycleState.Applied, persisted.entities.first { it.id == "font" }.get<LifecycleState>())
+        assertEquals(LifecycleState.Applied, persisted.entities.first { it.id == "theme" }.get<LifecycleState>())
         assertTrue(
-            persisted.components.first { it.id == "lang" }.status != ComponentStatus.Applied,
+            persisted.entities.first { it.id == "lang" }.get<LifecycleState>() != LifecycleState.Applied,
         )
 
         // Session 2: fresh VM over the same ProfileStore — simulates re-open

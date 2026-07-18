@@ -32,7 +32,7 @@ class PoolSchemaV2RoundtripTest {
             declarations = listOf(
                 Blueprint(
                     id = "launcher-role",
-                    component = Component.LauncherRole(),
+                    components = listOf(Component.LauncherRole),
                     wizardBehavior = WizardBehavior.AutoApply,
                     critical = true,
                     descriptionKey = "pool_launcher_role_desc",
@@ -41,9 +41,11 @@ class PoolSchemaV2RoundtripTest {
                 ),
                 Blueprint(
                     id = "app-tile-whatsapp",
-                    component = Component.AppTile(
-                        packageName = "com.whatsapp",
-                        labelKey = "app_whatsapp_label",
+                    components = listOf(
+                        Component.AppTile(
+                            packageName = "com.whatsapp",
+                            labelKey = "app_whatsapp_label",
+                        ),
                     ),
                     wizardBehavior = WizardBehavior.AutoApply,
                     critical = false,
@@ -52,11 +54,13 @@ class PoolSchemaV2RoundtripTest {
                 ),
                 Blueprint(
                     id = "theme-warm",
-                    component = Component.Theme(
-                        paletteSeedHex = "#FF7043",
-                        typographyScale = TypographyScale.Large,
-                        shapeStyle = ShapeStyle.Rounded,
-                        darkMode = false,
+                    components = listOf(
+                        Component.Theme(
+                            paletteSeedHex = "#FF7043",
+                            typographyScale = TypographyScale.Large,
+                            shapeStyle = ShapeStyle.Rounded,
+                            darkMode = false,
+                        ),
                     ),
                     wizardBehavior = WizardBehavior.AutoApply,
                     requires = null,
@@ -64,12 +68,12 @@ class PoolSchemaV2RoundtripTest {
                 ),
                 Blueprint(
                     id = "language-system",
-                    component = Component.Language(locale = "system"),
+                    components = listOf(Component.Language(locale = "system")),
                     wizardBehavior = WizardBehavior.Interactive,
                 ),
                 Blueprint(
                     id = "status-bar-hidden",
-                    component = Component.StatusBarPolicy(),
+                    components = listOf(Component.StatusBarPolicy),
                     wizardBehavior = WizardBehavior.AutoApply,
                     requires = listOf("launcher-role"),
                     required = false,

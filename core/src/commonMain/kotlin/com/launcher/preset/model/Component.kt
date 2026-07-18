@@ -4,35 +4,33 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Component — sealed hierarchy of what-is-configurable in the launcher.
+ * Component — the closed set of what-is-configurable in the launcher (canonical
+ * ECS, TASK-136). Each subtype is a plain data holder; an [Entity] carries a
+ * **free bag** of them (`Entity.components`), composed after assembly.
  *
- * Each subtype declares its own parameter set. Instances are attached to an
- * [Entity] inside `Profile.components`.
+ * `sealed interface` keeps the type-set **closed** — the exhaustive `when` for
+ * serialization + coverage tests survives, so compile-time safety is preserved
+ * while gaining composition (FR-002). Adding a subtype later is additive
+ * (`@SerialName`), no edit to existing subtypes.
  *
- * The model has **three orthogonal axes** — do not conflate them
+ * **Three orthogonal axes** — do not conflate them
  * (see `docs/architecture/preset-model.md`):
  *
- *  1. **Lifecycle** — `Preset.wizardFlow` / `settingsMap` / `activeComponents`:
- *     *when* a component appears (first-run wizard, Settings screen, applied now).
- *  2. **Semantic** — [tags]: *what* a component is about (Presentation, Safety,
- *     Accessibility, …). Multiple tags per subtype are expected: [Sos] carries
- *     `[Presentation, Tile, Safety, Emergency]`.
+ *  1. **Lifecycle** — [LifecycleState] component in the bag + `Preset.wizardFlow`
+ *     / `settingsMap` / `activeComponents`: *when* / *in what apply-state*.
+ *  2. **Semantic** — [Entity.tags]: *what* a component is about (Presentation,
+ *     Safety, Accessibility, …). Tags live on the entity, not the component
+ *     (TASK-136 — canonical ECS: a tag is a zero-data marker on the entity).
  *  3. **Structural** — `Entity.parentId` + the [Workspace] / [Flow] /
  *     [ToolbarButton] subtypes: *where on the screen* it lives. Storage stays
  *     flat; the tree is computed by queries (`preset/query/ProfileQuery.kt`).
  *
- * Per TASK-127 (FR-002) every subtype MUST carry a non-empty [tags] default —
- * enforced at build time by `ComponentTagsFitnessTest`.
- *
- * Adding new subtypes: additive only per rule 5 (wire-format versioning);
- * removing subtypes requires a migration writer per rule 5 + a
- * `decision-supersedes` task per rule 11.
+ * The closed set = **11 domain-data subtypes** (below) **+ [LifecycleState]** (a
+ * state component, its own file). At most one component per Kotlin type per
+ * entity (CL-3, fitness-enforced) ⇒ `entity.get<T>()` is unambiguous.
  */
 @Serializable
-sealed class Component {
-
-    /** Semantic + structural markers. See [Tag]. Never empty (FR-002). */
-    abstract val tags: Set<Tag>
+sealed interface Component {
 
     @Serializable
     @SerialName("AppTile")
@@ -41,23 +39,20 @@ sealed class Component {
         val labelKey: String,
         val iconKey: String? = null,
         val pinProtected: Boolean = false,
-        override val tags: Set<Tag> = setOf(Tag.Presentation, Tag.Tile),
-    ) : Component()
+    ) : Component
 
     @Serializable
     @SerialName("FontSize")
     data class FontSize(
         val scale: Float,
-        override val tags: Set<Tag> = setOf(Tag.Appearance, Tag.Accessibility),
-    ) : Component()
+    ) : Component
 
     @Serializable
     @SerialName("Sos")
     data class Sos(
         val shareLocation: Boolean = true,
         val autoAnswer: Boolean = true,
-        override val tags: Set<Tag> = setOf(Tag.Presentation, Tag.Tile, Tag.Safety, Tag.Emergency),
-    ) : Component()
+    ) : Component
 
     /**
      * Bottom toolbar **container**. Its buttons are separate [ToolbarButton]
@@ -69,25 +64,18 @@ sealed class Component {
         /** Legacy flat list; superseded by [ToolbarButton] children. */
         val items: List<String> = emptyList(),
         val layoutKey: String,
-        override val tags: Set<Tag> = setOf(Tag.Presentation, Tag.Toolbar),
-    ) : Component()
+    ) : Component
 
     /**
-     * T010 — LauncherRole component (FR-002). Provider claims / releases the
-     * Android HOME role.
-     *
-     * T127-007: was an `object`; converted to a data class because an object
-     * cannot carry an overridable constructor default for [tags]. Wire-compatible —
-     * `{"type":"LauncherRole"}` with no fields still deserializes.
+     * LauncherRole component (FR-002). Provider claims / releases the Android
+     * HOME role. No fields — `{"type":"LauncherRole"}` deserializes.
      */
     @Serializable
     @SerialName("LauncherRole")
-    data class LauncherRole(
-        override val tags: Set<Tag> = setOf(Tag.System),
-    ) : Component()
+    data object LauncherRole : Component
 
     /**
-     * T011 — Theme component (FR-003).
+     * Theme component (FR-003).
      * Flat fields only per D3; `ThemeRef` sugar expands at write time (androidMain).
      */
     @Serializable
@@ -97,11 +85,10 @@ sealed class Component {
         val typographyScale: TypographyScale,
         val shapeStyle: ShapeStyle,
         val darkMode: Boolean,
-        override val tags: Set<Tag> = setOf(Tag.Appearance),
-    ) : Component()
+    ) : Component
 
     /**
-     * T012 — Language component (FR-004).
+     * Language component (FR-004).
      * `locale` sentinel `"system"` means follow OS locale.
      * Null locale is a validation error (see [ValidationError.NullLocale]).
      */
@@ -109,24 +96,19 @@ sealed class Component {
     @SerialName("Language")
     data class Language(
         val locale: String,
-        override val tags: Set<Tag> = setOf(Tag.System),
-    ) : Component()
+    ) : Component
 
     /**
-     * T013 — StatusBarPolicy component (FR-005). Provider hides the system status
-     * bar (kiosk mode).
-     *
-     * T127-007: object → data class (same reason as [LauncherRole]).
+     * StatusBarPolicy component (FR-005). Provider hides the system status bar
+     * (kiosk mode).
      *
      * Android exposes **no read-back** for this setting, so the provider returns
-     * [Outcome.NeedsUserConfirmation] and the entity ends up
-     * [ComponentStatus.Unverifiable] rather than a dishonest `Applied` (FR-014).
+     * [Outcome.NeedsUserConfirmation] and the entity ends up carrying
+     * [LifecycleState.Unverifiable] rather than a dishonest `Applied` (FR-014).
      */
     @Serializable
     @SerialName("StatusBarPolicy")
-    data class StatusBarPolicy(
-        override val tags: Set<Tag> = setOf(Tag.System),
-    ) : Component()
+    data object StatusBarPolicy : Component
 
     // ---- structural subtypes (T127-008, FR-013, spec Q7) ----
 
@@ -138,8 +120,7 @@ sealed class Component {
     @SerialName("Workspace")
     data class Workspace(
         val layoutKey: String = "single",
-        override val tags: Set<Tag> = setOf(Tag.Presentation, Tag.Workspace),
-    ) : Component()
+    ) : Component
 
     /**
      * One tab / page inside a [Workspace]. Owns its own grid — `layoutKey` lives
@@ -152,8 +133,7 @@ sealed class Component {
         val titleKey: String,
         val layoutKey: String = "2x3",
         val order: Int = 0,
-        override val tags: Set<Tag> = setOf(Tag.Presentation, Tag.Flow),
-    ) : Component()
+    ) : Component
 
     /**
      * One toolbar button. `parentId` points at the [Toolbar]; [targetFlowId]
@@ -167,6 +147,5 @@ sealed class Component {
         val labelKey: String,
         val iconKey: String? = null,
         val order: Int = 0,
-        override val tags: Set<Tag> = setOf(Tag.Presentation, Tag.ToolbarButton),
-    ) : Component()
+    ) : Component
 }

@@ -8,6 +8,7 @@ import com.launcher.api.action.Action
 import com.launcher.api.action.ActionPayload
 import com.launcher.api.action.ProviderId
 import com.launcher.api.localization.StringResolver
+import com.launcher.preset.ecs.get
 import com.launcher.preset.model.Component
 import com.launcher.preset.model.Entity
 import com.launcher.preset.model.Profile
@@ -113,7 +114,7 @@ class ProfileBackedFlowRepository(
             )
         }
         return flowEntities.map { flowEntity ->
-            val titleKey = (flowEntity.component as? Component.Flow)?.titleKey.orEmpty()
+            val titleKey = flowEntity.get<Component.Flow>()?.titleKey.orEmpty()
             FlowDescriptor(
                 schemaVersion = schemaVersion,
                 id = flowEntity.id,
@@ -129,25 +130,29 @@ class ProfileBackedFlowRepository(
      * (existing [SlotDescriptor] contract), which is the honest result for a
      * component we cannot turn into a tap action.
      */
-    private fun Entity.toSlot(): SlotDescriptor = when (val c = component) {
-        is Component.AppTile -> SlotDescriptor(
-            id = id,
-            label = strings.resolve(c.labelKey),
-            iconRef = c.iconKey.orEmpty(),
-            action = Action(
-                providerId = ProviderId.APP,
-                payload = ActionPayload.OpenApp(packageHint = c.packageName),
-            ),
-        )
-        // SOS dispatch is owned by the safety stack, not by a generic tile action.
-        // Rendering it as a placeholder keeps it visible without inventing a
-        // provider contract here.
-        else -> SlotDescriptor(
-            id = id,
-            label = "",
-            iconRef = "",
-            action = null,
-        )
+    private fun Entity.toSlot(): SlotDescriptor {
+        val appTile = get<Component.AppTile>()
+        return if (appTile != null) {
+            SlotDescriptor(
+                id = id,
+                label = strings.resolve(appTile.labelKey),
+                iconRef = appTile.iconKey.orEmpty(),
+                action = Action(
+                    providerId = ProviderId.APP,
+                    payload = ActionPayload.OpenApp(packageHint = appTile.packageName),
+                ),
+            )
+        } else {
+            // SOS dispatch is owned by the safety stack, not by a generic tile action.
+            // Rendering it as a placeholder keeps it visible without inventing a
+            // provider contract here.
+            SlotDescriptor(
+                id = id,
+                label = "",
+                iconRef = "",
+                action = null,
+            )
+        }
     }
 
     /** Returns the key unchanged — used when no resolver is supplied (tests, previews). */

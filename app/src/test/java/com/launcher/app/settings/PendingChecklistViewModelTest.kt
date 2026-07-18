@@ -3,7 +3,8 @@ package com.launcher.app.settings
 import com.launcher.api.localization.StringResolver
 import com.launcher.preset.model.ActiveComponentEntry
 import com.launcher.preset.model.Component
-import com.launcher.preset.model.ComponentStatus
+import com.launcher.preset.model.FailReason
+import com.launcher.preset.model.LifecycleState
 import com.launcher.preset.model.Preset
 import com.launcher.preset.model.Profile
 import com.launcher.preset.model.Entity
@@ -35,7 +36,7 @@ import org.junit.Test
 class PendingChecklistViewModelTest {
 
     private val fontComponent = Component.FontSize(1.4f)
-    private val roleComponent = Component.LauncherRole()
+    private val roleComponent = Component.LauncherRole
 
     private val preset = Preset(
         presetId = "simple-launcher",
@@ -57,34 +58,30 @@ class PendingChecklistViewModelTest {
         basedOnPreset = "simple-launcher",
         presetVersion = 1,
         layoutKey = "layout.grid.2x3",
-        components = listOf(
+        entities = listOf(
             Entity(
                 id = "font",
-                component = fontComponent,
+                components = listOf(fontComponent, LifecycleState.Pending),
                 wizardBehavior = WizardBehavior.Interactive,
                 critical = false,
-                status = ComponentStatus.Pending,
             ),
             Entity(
                 id = "role",
-                component = roleComponent,
+                components = listOf(roleComponent, LifecycleState.Failed(FailReason.Cancelled)),
                 wizardBehavior = WizardBehavior.Interactive,
                 critical = true,
-                status = ComponentStatus.Failed,
             ),
             Entity(
                 id = "silent",
-                component = fontComponent,
+                components = listOf(fontComponent, LifecycleState.Pending),
                 wizardBehavior = WizardBehavior.AutoApply,
                 critical = false,
-                status = ComponentStatus.Pending,
             ),
             Entity(
                 id = "already-done",
-                component = fontComponent,
+                components = listOf(fontComponent, LifecycleState.Applied),
                 wizardBehavior = WizardBehavior.Interactive,
                 critical = false,
-                status = ComponentStatus.Applied,
             ),
         ),
     )
@@ -109,12 +106,12 @@ class PendingChecklistViewModelTest {
         val font = state.items.first { it.refId == "font" }
         assertEquals("settings_font_label", font.labelKey)
         assertEquals(false, font.isRequired)
-        assertEquals(ComponentStatus.Pending, font.status)
+        assertEquals(LifecycleState.Pending, font.state)
 
         val role = state.items.first { it.refId == "role" }
         assertEquals("settings_role_label", role.labelKey)
         assertTrue(role.isRequired)
-        assertEquals(ComponentStatus.Failed, role.status)
+        assertTrue(role.state is LifecycleState.Failed)
 
         // AutoApply "silent" and Applied "already-done" must NOT surface.
         assertTrue(state.items.none { it.refId == "silent" })
@@ -124,13 +121,12 @@ class PendingChecklistViewModelTest {
     @Test
     fun load_fallsBackToComponentId_whenSettingsMapMissing() = runTest {
         val profile = fullProfile.copy(
-            components = listOf(
+            entities = listOf(
                 Entity(
                     id = "orphan",
-                    component = fontComponent,
+                    components = listOf(fontComponent, LifecycleState.Pending),
                     wizardBehavior = WizardBehavior.Interactive,
                     critical = false,
-                    status = ComponentStatus.Pending,
                 ),
             ),
         )

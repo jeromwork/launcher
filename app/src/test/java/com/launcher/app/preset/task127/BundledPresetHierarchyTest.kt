@@ -1,5 +1,6 @@
 package com.launcher.app.preset.task127
 
+import com.launcher.preset.ecs.get
 import com.launcher.preset.engine.ProfileFactory
 import com.launcher.preset.model.Component
 import com.launcher.preset.model.Pool
@@ -98,7 +99,7 @@ class BundledPresetHierarchyTest {
 
         assertTrue("toolbar must have buttons", buttons.isNotEmpty())
         for (button in buttons) {
-            val target = (button.component as Component.ToolbarButton).targetFlowId
+            val target = button.get<Component.ToolbarButton>()!!.targetFlowId
             assertTrue("button ${button.id} targets unknown flow $target", target in flowIds)
         }
     }
