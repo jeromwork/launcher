@@ -1,15 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  TASK-69 — тексты экрана «Настройки» (ручные подписи интерфейса,
-  StringResolver / Compose Multiplatform Resources). Строки/категории самого
-  профиля резолвятся отдельно через LocalizedResources — см.
-  app/src/main/res/values-ru/strings_preset_task120.xml `settings.row.*` /
-  `settings.category.*`.
-  Base (EN): values/strings_settings.xml.
+  TASK-69 — тексты экрана «Настройки» (StringResolver -> AndroidStringResolver
+  -> обычные Android string-ресурсы). Base (EN): values/strings_settings.xml.
+  `settings_title` переиспользует существующий ключ из strings.xml.
 -->
 <resources>
 
-    <string name="settings_title">Настройки</string>
     <string name="settings_back_description">Назад</string>
     <string name="settings_row_change">Изменить</string>
     <string name="settings_actions_header">Действия</string>

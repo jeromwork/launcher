@@ -98,4 +98,9 @@
     <string name="wizard_component_status_bar_policy">Скрыть верхнюю полоску</string>
     <string name="wizard_component_workspace">Главный экран</string>
 
+    <!-- TASK-69 — see EN file for why these are mirrored here. -->
+    <string name="settings_walk_through_all_label">Пройти все настройки пошагово</string>
+    <string name="settings_pending_indicator_label">Требует вашего внимания</string>
+    <string name="settings_locale_divergence_label_format">Язык приложения: %1$s (системный Android: %2$s)</string>
+
 </resources>

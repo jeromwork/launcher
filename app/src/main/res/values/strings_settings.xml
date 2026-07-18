@@ -1,18 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   TASK-69 — Settings screen chrome (hand-written UI copy, resolved via
-  StringResolver / Compose Multiplatform Resources). Row/category content
-  comes from LocalizedResources instead — see
-  app/src/main/res/values/strings_preset_task120.xml `settings.row.*` /
-  `settings.category.*`.
+  StringResolver -> AndroidStringResolver -> plain Android string resources,
+  same mechanism as strings.xml / strings_preset_task120.xml; this app does
+  NOT use Compose Multiplatform Resources for StringResolver despite the
+  port's doc comment mentioning it — see Spec015Module.kt binding).
 
-  Base language: EN (falls back for locales not covered here — resolution
-  chain is requested locale -> EN base -> key literal). RU is the product's
-  primary market and is fully covered (see values-ru/strings_settings.xml).
+  Row/category content comes from LocalizedResources instead — see
+  strings_preset_task120.xml `settings.row.*` / `settings.category.*`.
+
+  `settings_title` reuses the pre-existing key in strings.xml (same value,
+  original owner of the string) rather than redeclaring it here.
 -->
 <resources>
 
-    <string name="settings_title">Settings</string>
     <string name="settings_back_description">Back</string>
     <string name="settings_row_change">Change</string>
     <string name="settings_actions_header">Actions</string>

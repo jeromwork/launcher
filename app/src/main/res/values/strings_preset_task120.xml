@@ -103,4 +103,15 @@
     <string name="wizard_component_language">Language</string>
     <string name="wizard_component_status_bar_policy">Hide the status bar</string>
     <string name="wizard_component_workspace">Home screen</string>
+
+    <!--
+      TASK-69 — same fix as T127-030 above: these three keys are declared in
+      core/.../composeResources/values/strings_wizard.xml (Compose Multiplatform
+      Resources) but StringResolver resolves through AndroidStringResolver
+      (plain Android res/values, see Spec015Module.kt), which never reads that
+      file. They rendered as raw keys on SettingsActivity until mirrored here.
+    -->
+    <string name="settings_walk_through_all_label">Walk through all settings step-by-step</string>
+    <string name="settings_pending_indicator_label">Needs your attention</string>
+    <string name="settings_locale_divergence_label_format">App language: %1$s (system Android: %2$s)</string>
 </resources>

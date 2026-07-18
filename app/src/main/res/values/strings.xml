@@ -37,16 +37,9 @@
     <string name="comm_contact_oleg">Oleg</string>
     <string name="comm_contact_photo_a11y">Contact photo</string>
 
-    <!-- Settings screen -->
+    <!-- Settings screen — see also strings_settings.xml (TASK-69 chrome) and
+         strings_preset_task120.xml settings.row.*/settings.category.* -->
     <string name="settings_title">Settings</string>
-    <string name="settings_language_label">Language</string>
-    <string name="settings_language_placeholder">Russian (placeholder)</string>
-    <string name="settings_preset_label">Active preset</string>
-    <string name="settings_preset_value">senior-launcher</string>
-    <string name="settings_remote_control_label">Allow remote control of this phone</string>
-    <string name="settings_show_qr_button">Show QR code</string>
-    <string name="settings_qr_placeholder_message">QR code pairing will be available in a future update.</string>
-    <string name="settings_reset_data_button">Reset all data</string>
     <string name="settings_reset_data_confirm_title">Reset all data?</string>
     <string name="settings_reset_data_confirm_message">All settings will be cleared. This cannot be undone.</string>
     <string name="settings_reset_data_confirm_yes">Reset</string>
@@ -83,8 +76,4 @@
     <string name="preset_launcher_description">Replaces the home screen. Simple and fast.</string>
     <string name="preset_simple_launcher_title">Simple launcher</string>
     <string name="preset_simple_launcher_description">Large buttons, protection from accidental taps.</string>
-
-    <!-- Settings preset switcher -->
-    <string name="settings_preset_change_button">Change preset</string>
-    <string name="settings_preset_dialog_title">Switch preset</string>
 </resources>

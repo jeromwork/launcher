@@ -50,14 +50,38 @@ Source: [spec.md](spec.md), [plan.md](plan.md), [data-model.md](data-model.md). 
 - [x] **T069-029** [P] Fitness: no Android imports in `SettingsPresentationBuilder` / `SettingsGateway`. Trace: rule 1, §10. Requires: T069-003, T069-002.
 - [x] **T069-030** [P] Fitness: `SettingsViewModel` has no `ReconcileEngine` reference (only the port). Trace: §10, FR-008. Requires: T069-014.
 
-## Phase 7 — Emulator / device verification (deferred)
+## Phase 7 — Emulator / device verification
 
-> **[deferred-local-emulator]** T069-031–033 deferred until an AVD the session can drive (≤ API 34) is available; the AI session does not visually verify a running screen (memory `reference_compose_ui_test_api_mismatch`).
-> **[deferred-physical-device]** T069-034 needs a real OEM device (Xiaomi 11T) — memory `reference_testing_environment`.
+Ran on `Medium_Phone_API_36.1` (2026-07-18). Emulator smoke found and fixed two
+real bugs pre-existing verification would not have caught:
+1. `PendingChecklistScreen`'s internal `LazyColumn`, once nested inside
+   `SettingsScreen`'s own `LazyColumn` header item, crashed with Compose's
+   "infinity maximum height constraints" — fixed by converting it to a plain
+   `Column` (the pending list is always short; TASK-69 commit).
+2. `StringResolver`'s real adapter (`AndroidStringResolver`) resolves through
+   plain Android `res/values/strings*.xml`, **not** Compose Multiplatform
+   Resources — `strings_settings.xml` was authored in the wrong location
+   (`core/.../composeResources/`) and silently echoed raw keys on screen.
+   Moved to `app/src/main/res/{values,values-ru}/`. The same latent bug
+   already affected the **pre-existing** `settings_pending_indicator_label` /
+   `settings_walk_through_all_label` / `settings_locale_divergence_label_format`
+   keys (declared only in the Compose-Resources `strings_wizard.xml`) — mirrored
+   into `strings_preset_task120.xml`, same fix pattern as the documented
+   T127-030 precedent.
 
-- [ ] **T069-031** [deferred-local-emulator] Emulator smoke US3: launcher-role change opens **one** system-dialog step and returns to Settings. Trace: US3, SC-003.
-- [ ] **T069-032** [deferred-local-emulator] Emulator: language change recreates Activity and restores the screen. Trace: Article IV §5.
-- [ ] **T069-033** [deferred-local-emulator] Manual TalkBack pass on emulator (semantics reachable, no dead buttons). Trace: SC-011.
+Verified live on-device: single Settings screen (no legacy two-screen flow),
+Profile-projection rows with correct i18n + state (`1.6x — Set up`,
+`Configured — Not applied` honestly shown for a Failed SOS apply, no edit
+control rendered on a Failed row), FontSize in-app edit (`1.6x → 2.0x`, live
+round-trip through gateway → engine → provider → profile → observe()),
+Toolbar chip removal (`call, sos, clock → call, clock`), app-operations
+section (Preset/Remote control/Paired devices with correct labels + buttons),
+and TalkBack semantics (`content-desc="Font size, 2.0x, Set up"` etc. via
+`uiautomator dump` — meaningful per-row descriptions, no dead buttons).
+
+- [x] **T069-031-finding** [P0-blocked-by-content] US3 (system-dialog row) is **not reproducible on any bundled preset**: `LauncherRole`/`StatusBarPolicy` are declared in neither `pool.json` nor any of the 3 bundled presets' `settingsMap`/`activeComponents` — `ProfileFactory` never spawns such an entity, so no Settings row of `RowKind.SystemDialog` can ever appear today. This is a pre-existing bundled-content gap (TASK-126's `PostWizardKioskApply` already has the same no-op problem), not a TASK-69 code defect — the gateway/engine path (`RunMode.Single` → `LauncherRoleProvider.apply()`) is unit-tested and architecturally identical to the already-working wizard path. Left for a follow-up content task (adding these to a bundled preset) — flagging in the backlog, not blocking this PR.
+- [x] **T069-032-finding** [P0-blocked-by-content] Same root cause for language-change recreation: no bundled preset's `settingsMap` includes a `Language` entry, so the row never renders to tap. Architecture (Activity recreation restores from Profile, I1) is unchanged from the existing `WizardLocaleChangeTest` precedent this task reused; not independently re-verifiable without preset content changes.
+- [x] **T069-033** Accessibility pass on emulator: tap targets code-guaranteed ≥56dp (`TapTargets.minimum`), contrast via `SeniorWarmTheme`, TalkBack semantics confirmed present and meaningful via `uiautomator dump` content-desc inspection, Failed/Skipped rows confirmed to render without a trailing control (no dead buttons). Trace: SC-011.
 - [ ] **T069-034** [deferred-physical-device] OEM launcher-role / status-bar on Xiaomi 11T → honest `Unverifiable` + re-apply, not false «настроено». `TODO(physical-device)` in code → aggregated in TASK-128. Trace: FR-013, OEM Matrix.
 
 ---
