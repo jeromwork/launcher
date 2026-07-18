@@ -197,8 +197,9 @@ Concrete shape:
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 Decision block заполнен (Choice / Rationale / Applies to / Trade-offs / Exit ramp) на English
-- [x] #2 OQ-1..OQ-7 закрыты в Discussion
-- [ ] #3 ADR-013 написан (заменяет ADR-012), TASK-120/127 помечены superseded-by TASK-136 — implementation-фаза
-- [ ] #4 Downstream dependencies обновлены (TASK-69/71/68/19 получают ссылку на новый контракт) — implementation-фаза
+- [x] #1 [hand] Decision block заполнен (Choice / Rationale / Applies to / Trade-offs / Exit ramp) на English
+- [x] #2 [hand] OQ-1..OQ-7 закрыты в Discussion
+- [x] #3 [hand] ADR-013 написан (заменяет ADR-012), ADR-012 получил "Superseded by ADR-013", TASK-120/127 помечены superseded-by TASK-136
+- [x] #4 [hand] Downstream dependencies обновлены (TASK-69/71/68/19 получили TASK-136 в dependencies)
+- [ ] #5 [auto:deferred-local-emulator] Emulator smoke — fresh install → wizard → HomeScreen tiles (T136-045)
 <!-- AC:END -->
