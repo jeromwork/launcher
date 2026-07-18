@@ -23,8 +23,10 @@ sealed interface RootConfig {
     @Serializable
     data class FlowDetail(val flowId: String) : RootConfig
 
-    @Serializable
-    data object Settings : RootConfig
+    // TASK-69: Settings is no longer a Decompose destination — it is re-hosted
+    // as a standalone `SettingsActivity` (single host, FR-017/FR-020). The
+    // legacy `RootConfig.Settings` / `SettingsComponent` / `SettingsScreen`
+    // entry was deleted, not deprecated in place (pre-release, clean-in-place).
 
     @Serializable
     data object AddFlowWizard : RootConfig

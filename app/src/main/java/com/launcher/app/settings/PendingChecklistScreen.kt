@@ -1,11 +1,8 @@
 package com.launcher.app.settings
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -36,10 +33,14 @@ fun PendingChecklistScreen(
                 text = "[!] " + stringResolver.resolve("settings_pending_indicator_label"),
                 style = MaterialTheme.typography.titleMedium,
             )
-            LazyColumn(
-                contentPadding = PaddingValues(top = 8.dp),
-            ) {
-                items(state.items) { item ->
+            Column(modifier = Modifier.padding(top = 8.dp)) {
+                // TASK-69: this banner is now nested inside SettingsScreen's own
+                // LazyColumn (as a header item) — a LazyColumn here would hit
+                // Compose's "infinity maximum height constraints" crash. The
+                // pending-items list is always short (setup checklist, not a
+                // data feed), so a plain Column is correct, not a lazy-loading
+                // compromise.
+                state.items.forEach { item ->
                     PendingItemRow(item = item, stringResolver = stringResolver)
                 }
             }

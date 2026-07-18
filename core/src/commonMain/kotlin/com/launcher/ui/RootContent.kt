@@ -23,7 +23,6 @@ import com.launcher.ui.screens.AdminDevicesScreen
 import com.launcher.ui.screens.FirstLaunchScreen
 import com.launcher.ui.screens.HomeScreen
 import com.launcher.ui.screens.PresetUiModel
-import com.launcher.ui.screens.SettingsScreen
 
 /**
  * Renders the root [RootComponent]'s child stack. Each [RootChild] picks its
@@ -51,7 +50,7 @@ fun RootContent(
                 onPresetSelected = child.component.onPresetSelected,
             )
             is RootChild.Home -> HomeScreen(component = child.component, topSlot = homeTopSlot)
-            is RootChild.Settings -> SettingsScreen(component = child.component)
+            // TASK-69: Settings re-hosted as a standalone Activity — no RootChild entry.
             is RootChild.AddFlowWizard -> AddFlowWizardScreen(component = child.component)
             is RootChild.AddSlotWizard -> AddSlotWizardScreen(component = child.component)
             is RootChild.AdminDevices -> AdminDevicesScreen(component = child.component)

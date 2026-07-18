@@ -47,6 +47,9 @@ import com.launcher.preset.port.ProfileStateConditionEvaluator
 import com.launcher.preset.port.ProfileStore
 import com.launcher.preset.port.Provider
 import com.launcher.preset.port.ProviderRegistry
+import com.launcher.preset.port.SettingsGateway
+import com.launcher.preset.settings.EngineSettingsGateway
+import com.launcher.preset.settings.SettingsPresentationBuilder
 import kotlin.reflect.KClass
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -180,5 +183,21 @@ val presetModule = module {
             registry = get(),
             store = get(),
         )
+    }
+
+    // TASK-69 — Settings screen is a second projection of the Profile (Wizard is
+    // the first). SettingsGateway is the only door the ViewModel sees; the real
+    // engine sits behind it here, swappable without touching VM/screen.
+    single { SettingsPresentationBuilder() }
+    single<SettingsGateway> {
+        EngineSettingsGateway(
+            engine = get(),
+            profileStore = get(),
+            presetSource = get(),
+            builder = get(),
+        )
+    }
+    single {
+        com.launcher.app.settings.SettingsViewModel(gateway = get())
     }
 }

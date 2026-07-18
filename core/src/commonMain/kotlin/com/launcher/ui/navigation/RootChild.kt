@@ -10,7 +10,7 @@ sealed interface RootChild {
 
     data class Home(val component: HomeComponent) : RootChild
 
-    data class Settings(val component: SettingsComponent) : RootChild
+    // TASK-69: Settings re-hosted as a standalone Activity — no RootChild entry.
 
     data class AddFlowWizard(val component: AddFlowWizardComponent) : RootChild
 

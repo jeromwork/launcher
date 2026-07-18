@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TASK-69 — тексты экрана «Настройки» (StringResolver -> AndroidStringResolver
+  -> обычные Android string-ресурсы). Base (EN): values/strings_settings.xml.
+  `settings_title` переиспользует существующий ключ из strings.xml.
+-->
+<resources>
+
+    <string name="settings_back_description">Назад</string>
+    <string name="settings_row_change">Изменить</string>
+    <string name="settings_actions_header">Действия</string>
+
+    <string name="settings_action_preset">Пресет</string>
+    <string name="settings_action_pairing">Удалённое управление</string>
+    <string name="settings_action_admin_devices">Сопряжённые устройства</string>
+    <string name="settings_action_reset">Сбросить данные</string>
+    <string name="settings_action_change">Сменить</string>
+    <string name="settings_action_open">Открыть</string>
+
+    <string name="settings_reset_confirm_title">Сбросить данные?</string>
+    <string name="settings_reset_confirm_body">Активный пресет и связанные настройки будут удалены. Запустится мастер первого запуска.</string>
+    <string name="settings_reset_confirm_yes">Сбросить</string>
+    <string name="settings_reset_confirm_cancel">Отмена</string>
+
+    <string name="settings_preset_picker_title">Выберите пресет</string>
+    <string name="settings_preset_picker_close">Закрыть</string>
+    <string name="settings_preset_workspace_label">Рабочий стол</string>
+    <string name="settings_preset_launcher_label">Лаунчер</string>
+    <string name="settings_preset_simple_launcher_label">Простой лаунчер</string>
+
+    <string name="settings_state_applied">Настроено</string>
+    <string name="settings_state_pending">Не доделано</string>
+    <string name="settings_state_failed">Не применилось</string>
+    <string name="settings_state_skipped">Пропущено</string>
+    <string name="settings_state_unverifiable">Состояние неизвестно — нажмите, чтобы применить снова</string>
+
+</resources>

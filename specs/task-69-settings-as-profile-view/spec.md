@@ -1,0 +1,463 @@
+# Feature Specification: Settings as Profile View
+
+**Feature Branch**: `task-69-settings-as-profile-view`
+**Created**: 2026-07-17
+**Status**: Draft
+**Input**: Backlog TASK-69 «Settings as Profile View» — превратить экран настроек во второй view на тот же Profile (первый view — Wizard). Оба — проекции одного источника.
+
+## Контекст (что уже построено)
+
+**Модель конфигурации не дублируется здесь.** Единственный источник истины по ECS (Entity · Component · Tag · `LifecycleState` · `ReconcileEngine` · Provider · Profile↔Preset) — **[`docs/architecture/ecs.md`](../../docs/architecture/ecs.md)** (+ скилл `ecs`). Ключевое для этой задачи из инвариантов ecs.md: профиль **самодостаточен для поведения+home**, а **презентация настроек (`settingsMap`) живёт на пресете** и читается в рантайме (I2); чтение значений — `entity.get<T>()`, состояние — `entity.get<LifecycleState>()`. Ниже — только TASK-69-специфика (что уже есть в коде на момент задачи):
+
+- **Пресет уже несёт поле `settingsMap`** ([Preset.kt](../../core/src/commonMain/kotlin/com/launcher/preset/model/Preset.kt)): `poolRef`, `categoryKey`, `settingsIcon`, `sensitivity`, `paramsOverride`. Все три bundled-пресета его заполняют.
+- **Никто его не рисует.** Единственный читатель — [PendingChecklistViewModel.kt:36](../../app/src/main/java/com/launcher/app/settings/PendingChecklistViewModel.kt#L36), и только ради подписи (`categoryKey`). Поля `settingsIcon`, `sensitivity`, `paramsOverride` не читает никто.
+- **Экранов настроек два, на разных стеках**: [SettingsActivity.kt:35](../../app/src/main/java/com/launcher/app/settings/SettingsActivity.kt#L35) (ECS-эпоха: 3 захардкоженных блока) и legacy [SettingsScreen.kt:50](../../core/src/commonMain/kotlin/com/launcher/ui/screens/SettingsScreen.kt#L50) на `FlowPreset`/`PresetRepository` (язык, пресет, удалённое управление, сопряжённые устройства, сброс данных).
+- **Пути «пользователь изменил настройку после визарда» не существует.** Единственная возможность — прогнать визард целиком заново кнопкой в настройках.
+- **Движок применения есть**: `ReconcileEngine` + провайдеры. Режим `RunMode.Single` реализован, но в продакшене его никто не вызывает.
+
+## Clarifications
+
+### 2026-07-18 — Pre-plan clarification pass (после реконсиляции на канонический ECS TASK-136)
+
+| # | Вопрос | Резолюция |
+|---|--------|-----------|
+| 1 | `settingsMap.poolRef` → как найти сущность профиля? | **Разрешено из кода**, вопрос владельцу не задавался: `ProfileFactory.create` спавнит сущность как `entity(decl.id)`, где `decl = pool.byId(poolRef)` ⇒ **`entity.id == poolRef`**. FR-002 = прямой lookup `profile.entities.first { it.id == poolRef }` → `entity.get<T>()`. |
+| 2 | Судьба legacy-экрана настроек (FR-017) | **Поглотить legacy сейчас — один экран вместо двух.** Уточнение области: только «Язык» из legacy — компонент профиля; остальные 4 секции (смена пресета, удалённое управление/pairing-QR, сопряжённые устройства/admin-режим, сброс данных) переносятся на новый экран **как app-операции / навигация**, НЕ моделируются как Profile-компоненты (сохраняет rule 1 domain isolation). Их внутренняя логика не переписывается — новый экран их re-host'ит. |
+| 3 | Признак редактируемости (FR-015) | **Ввести явное поле `editableInSettings: Boolean` в `SettingsMapEntry` сейчас.** Additive wire-format change (Preset `schemaVersion=2` сохраняется, поле опциональное с дефолтом). Даёт автору пресета контроль над тем, что можно менять (rule 9 shareability). |
+| 4 | `sensitivity`-gating (FR-016) | **Инертно до ролей (TASK-70).** В MVP показываем все строки независимо от `sensitivity`; поле остаётся как шов. Понятия «режим администратора» сегодня нет — gating без ролей бессмыслен. |
+
+## User Scenarios & Testing *(mandatory)*
+
+### User Story 1 — Настройки показывают то, что реально настроено (Priority: P1)
+
+Пользователь (или администратор, настраивающий устройство) открывает «Настройки» и видит список того, что применено на устройстве: размер шрифта, тема, кнопка SOS, плитки приложений, панель — с текущими значениями и понятной группировкой. Список не захардкожен: он построен из профиля устройства, поэтому у другого пресета будет другой набор строк без единой правки кода.
+
+**Why this priority**: это ядро задачи и единственная часть, дающая ценность сама по себе. Без неё остальные истории не на чем строить. Сегодня экран настроек не показывает состояние устройства вообще.
+
+**Independent Test**: подменив источник профиля фейком с разным набором компонентов, убедиться, что экран рендерит ровно те строки, что описаны в `settingsMap`, с актуальными значениями — без изменений в коде экрана.
+
+**Acceptance Scenarios**:
+
+1. **Given** устройство настроено пресетом `simple-launcher`, **When** пользователь открывает Настройки, **Then** он видит строки для тех компонентов, что перечислены в `settingsMap` пресета, сгруппированные по категориям (`categoryKey`), каждая — с текущим значением из профиля.
+2. **Given** устройство настроено пресетом `workspace` (в его `settingsMap` только две записи), **When** пользователь открывает Настройки, **Then** он видит ровно эти две строки, а не набор от `simple-launcher`.
+3. **Given** компонент есть в профиле, но отсутствует в `settingsMap` пресета, **When** пользователь открывает Настройки, **Then** этот компонент не показывается.
+4. **Given** запись `settingsMap` ссылается на `poolRef`, которого нет в профиле, **When** экран строится, **Then** строка пропускается, экран рендерится без сбоя.
+5. **Given** компонент в статусе `Failed` или `Pending`, **When** пользователь открывает Настройки, **Then** его состояние видно на строке (не «настроено»), и пользователь понимает, что действие не завершено.
+
+---
+
+### User Story 2 — Изменить настройку, которая меняется внутри приложения (Priority: P2)
+
+Пользователь меняет размер шрифта, тему, язык или состав панели прямо на экране настроек. Изменение применяется сразу, переживает перезапуск приложения и не требует прохождения визарда.
+
+**Why this priority**: первая реальная возможность изменить настройку после визарда — то, ради чего пользователь заходит в настройки. Ограничена компонентами, которые применяются внутри приложения и не требуют системных диалогов (`FontSize`, `Theme`, `Language`, `Toolbar`).
+
+**Independent Test**: на фейковых провайдерах изменить значение, проверить, что профиль сохранён с новым значением и провайдер получил `apply`; перечитать профиль — значение новое.
+
+**Acceptance Scenarios**:
+
+1. **Given** размер шрифта «обычный», **When** пользователь выбирает «крупный», **Then** интерфейс сразу отражает новый размер, а профиль сохраняет новое значение.
+2. **Given** пользователь изменил значение, **When** приложение перезапущено, **Then** значение сохранилось.
+3. **Given** применение изменения провалилось (провайдер вернул ошибку), **When** пользователь смотрит на строку, **Then** он видит, что изменение не применилось, и прежнее значение не потеряно.
+4. **Given** пользователь меняет значение, **When** изменение применяется, **Then** оно проходит через тот же движок применения, что и визард (не в обход провайдеров).
+
+---
+
+### User Story 3 — Изменить настройку, требующую системного диалога (Priority: P3)
+
+Пользователь меняет настройку, которую нельзя применить внутри приложения: роль лаунчера по умолчанию или поведение системной панели. Открывается точечный шаг — тот же, что показывал визард, но только для этой одной настройки; после ответа пользователь возвращается в настройки.
+
+**Why this priority**: доставляет ценность, но зависит от US1/US2 и упирается в поведение Android (системные диалоги, невозможность прочитать состояние обратно). Может ехать отдельно.
+
+**Independent Test**: на эмуляторе открыть настройку роли лаунчера, убедиться, что запускается системный диалог, и после возврата экран настроек показывает актуальный статус.
+
+**Acceptance Scenarios**:
+
+1. **Given** пользователь нажимает «Изменить» на настройке, требующей системного диалога, **When** шаг запускается, **Then** показывается ровно один шаг (не весь визард), и после ответа пользователь возвращается на экран настроек.
+2. **Given** пользователь отменил системный диалог, **When** он вернулся в настройки, **Then** прежнее состояние не разрушено, строка показывает неизменённый статус.
+3. **Given** настройка, состояние которой приложение не может проверить (`Unverifiable` — например, системная панель), **When** пользователь смотрит на строку, **Then** она честно показывает «состояние неизвестно / применить заново», а не ложное «настроено».
+
+---
+
+### User Story 4 — Автор пресета решает, что видно в настройках (Priority: P3)
+
+Автор пресета (сейчас — мы, в bundled-JSON) управляет тем, какие настройки показываются пользователю и какие он может менять, не трогая код: убрал запись из `settingsMap` — строка исчезла; пометил чувствительность — строка скрыта от обычного пользователя.
+
+**Why this priority**: US1 уже даёт управление видимостью (через состав `settingsMap`). Эта история добавляет только градацию доступа, которая по-настоящему нужна с появлением ролей (админ / основной пользователь) — это территория TASK-70/67.
+
+**Acceptance Scenarios**:
+
+1. **Given** запись удалена из `settingsMap` пресета, **When** пользователь открывает Настройки, **Then** строки нет — без изменений в коде.
+2. **Given** компонент строки не имеет in-app провайдера (например `StatusBarPolicy`, применяется только системным диалогом), **When** пользователь открывает Настройки, **Then** строка показывает значение и статус, а действие — через одношаговый сценарий (FR-011), не через inline-правку; редактируемость выведена, не задана полем.
+3. **Given** запись помечена `sensitivity` = «важная / админская», **When** экран открыт в MVP (ролей ещё нет), **Then** строка показывается наравне с прочими — `sensitivity` в MVP не gating'ует (разграничение доступа отложено до TASK-70).
+
+---
+
+### Edge Cases
+
+- **Профиля ещё нет** (визард не пройден): что показывают Настройки? Ожидание: экран не падает, предлагает пройти настройку.
+- **Пресет изменился под ногами** (новая версия пресета с другим `settingsMap`): строки, которых больше нет в `settingsMap`, исчезают; компоненты остаются в профиле. Согласование профиля с новой версией пресета — не эта задача (TASK-130).
+- **`settingsMap` пуст**: экран показывает пустое состояние, а не список всех компонентов профиля.
+- **Компонент требует внешнего состояния** (`Sos` без установленной связи с администратором, `AppTile` с удалённым приложением): строка показывает причину, по которой настройка не работает.
+- **Изменение во время применения**: пользователь быстро меняет значение дважды — второе изменение не должно потеряться или перезаписаться устаревшим результатом.
+- **Смена языка из настроек** пересоздаёт активность — экран должен восстановиться корректно (прецедент есть в визарде: `WizardLocaleChangeTest`).
+
+## Sequences
+
+Sequence diagrams elaborate critical flows from User Stories. Each sequence has Pre/Post conditions, a spec-level diagram (behaviour, owner-readable), a plan-level diagram (architecture, plan.md cites these lifelines), and a MENTOR-DETAIL block (plain-Russian explanation).
+
+Per [CLAUDE.md «Sequences in spec.md»](../../CLAUDE.md) section and [ADR-011](../../docs/adr/ADR-011-ai-owner-collaboration-conventions.md).
+
+Simple carried-over app-operations (preset switch, pairing-QR nav, admin nav — FR-020 a/b/c) are trivial navigation and get no dedicated sequence; **SEQ-4 (data reset)** represents the app-operation boundary — the interesting destructive case that must NOT route through the Component/Provider engine.
+
+---
+
+### SEQ-1: Settings projects the Profile (US1)
+
+Pre: wizard completed, a `Profile` exists in `ProfileStore`; a `Preset` with a filled `settingsMap` is active.
+Post: screen shows one row per resolvable `settingsMap` entry, grouped by `categoryKey`, each with current value + `LifecycleState`; unresolved `poolRef`s skipped, no crash.
+Used-in: spec/task-69-settings-as-profile-view.
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  U->>S: Open Settings
+  S->>S: Read active Profile + Preset.settingsMap
+  loop each settingsMap entry
+    S->>S: Find entity by poolRef (entity.id == poolRef)
+    alt entity found
+      S->>S: Read value get<T>() + state get<LifecycleState>()
+    else missing
+      S->>S: Skip row
+    end
+  end
+  S-->>U: Render rows grouped by categoryKey (value + state)
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant UI as SettingsScreen (Composable)
+  participant VM as SettingsViewModel
+  participant GW as SettingsGateway (port)
+  participant B as SettingsPresentationBuilder (domain)
+  participant PS as ProfileStore (port)
+  participant PR as PresetSource (port)
+  UI->>VM: observe settingsUiState
+  VM->>GW: observe(): Flow<SettingsView>
+  GW->>PS: observe(): Flow<Profile>
+  GW->>PR: activePreset(): Preset
+  PS-->>GW: Profile
+  PR-->>GW: Preset
+  GW->>B: build(profile, settingsMap): SettingsView
+  B-->>GW: SettingsView (rows by categoryKey + app-operations)
+  GW-->>VM: SettingsView
+  VM-->>UI: SettingsUiState
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- Экран не хранит свой список настроек и не рисует профиль напрямую — он рисует **проекцию** (`SettingsView`): преобразование `профиль + settingsMap + подписи` в готовые строки. «Проекция», не «зеркало» — это не копия профиля, а его переработка в то, что видно на экране.
+- Собирает проекцию `SettingsPresentationBuilder`. Для каждой записи `settingsMap` он по `poolRef` находит сущность профиля (у них общий id) и типобезопасно достаёт значение (`get<T>()`) и состояние (`LifecycleState`: применено / ожидает / ошибка / пропущено / неизвестно).
+- Почему нельзя рисовать профиль прямо в экране: тогда решение «что показать / как назвать / можно ли менять» протекло бы в Compose (`when(component)`) — это нарушение rule 1 и провал SC-006. Поэтому «что показать» решает домен (builder), «как нарисовать» — экран.
+- Если запись ссылается на компонент, которого в профиле нет — строка пропускается, экран не падает (US1 сценарий 4).
+- Стрелки только «вниз» (экран → VM → порт `SettingsGateway` → builder/порты хранилища): VM зависит от порта, не от движка; экран ничего не вычисляет и не лезет в Android — rule 1.
+<!-- MENTOR-DETAIL:END -->
+
+---
+
+### SEQ-2: In-app edit through the engine (US2)
+
+Pre: a row for an in-app-applied component (`FontSize`/`Theme`/`Language`/`Toolbar`) is shown (editability derived — it has an in-app provider).
+Post: on success, `Profile` holds the new value (survives restart) and UI reflects it; on failure, old value kept and error state shown.
+Used-in: spec/task-69-settings-as-profile-view.
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  U->>S: Change value (e.g. FontSize → Large)
+  S->>S: Apply via reconcile engine (single component)
+  alt apply Ok
+    S->>S: Persist new value in Profile
+    S-->>U: UI shows new value immediately
+  else apply Failed
+    S->>S: Keep previous value, record Failed state
+    S-->>U: Row shows "not applied", old value intact
+  end
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant UI as SettingsScreen (Composable)
+  participant VM as SettingsViewModel
+  participant GW as SettingsGateway (port)
+  participant RE as ReconcileEngine (adapter behind port)
+  participant PV as Provider (FontSizeProvider)
+  participant PS as ProfileStore (port)
+  UI->>VM: onChange(poolRef, newParams)
+  VM->>GW: apply(poolRef, newParams)
+  GW->>RE: run(Single, entity, newComponent)
+  RE->>PV: apply(newComponent): Outcome
+  PV-->>RE: Ok | Failed(reason)
+  RE->>PS: save(Profile.with(id, newComponent).setState(id, state))
+  PS-->>RE: persisted
+  RE-->>GW: result
+  GW-->>VM: ApplyResult (updated SettingsView via observe)
+  VM-->>UI: updated SettingsUiState (new value or error)
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- Это первая возможность поменять настройку **после** визарда, не прогоняя визард заново.
+- Изменение идёт через порт `SettingsGateway`, а **за** портом — движок применения (`ReconcileEngine`), тот же что у визарда. VM знает только порт (заменим движок — VM не трогаем); экран НЕ трогает Android напрямую (rule 1 + rule 4, FR-008). Провайдер компонента реально применяет значение.
+- Успех → новое значение сразу на экране и в профиле (переживает перезапуск, FR-009). Ошибка → прежнее значение не теряется, строка честно показывает «не применилось» (FR-010).
+- Работает только для компонентов, применяемых внутри приложения (шрифт/тема/язык/панель). Требующие системного диалога — см. SEQ-3.
+<!-- MENTOR-DETAIL:END -->
+
+---
+
+### SEQ-3: System-dialog setting — one-step mini-wizard (US3)
+
+Pre: a row for a component needing a system dialog (`LauncherRole`/`StatusBarPolicy`) is shown.
+Post: exactly one wizard step runs (not the whole wizard); user returns to Settings; row shows honest post-dialog status (may be `Unverifiable` on OEM firmwares).
+Used-in: spec/task-69-settings-as-profile-view.
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  participant X as Android OS
+  U->>S: Tap "Change" on launcher-role setting
+  S->>S: Launch single-step flow (not full wizard)
+  S->>X: Request system dialog (RoleManager)
+  X-->>U: OS role-picker dialog
+  U->>X: Choose / cancel
+  X-->>S: Return to app
+  S->>S: Re-check component state
+  alt state readable
+    S-->>U: Back on Settings, row shows Applied/NeedsApply
+  else not readable (OEM)
+    S-->>U: Row shows "state unknown" (Unverifiable), re-apply offered
+  end
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant UI as SettingsScreen (Composable)
+  participant VM as SettingsViewModel
+  participant GW as SettingsGateway (port)
+  participant RE as ReconcileEngine (adapter, Interactive)
+  participant PV as Provider (LauncherRoleProvider)
+  participant AD as RoleManager facade (adapter)
+  UI->>VM: onChange(launcherRoleId)
+  VM->>GW: apply(launcherRoleId) [interactive]
+  GW->>RE: run(Single, entity) [Interactive]
+  RE->>PV: apply(): Outcome
+  PV->>AD: createRequestRoleIntent(ROLE_HOME)
+  AD-->>PV: launch + await result
+  PV-->>RE: Ok | Unsupported/Unverifiable
+  RE-->>GW: state (mapped to LifecycleState)
+  GW-->>VM: ApplyResult
+  VM-->>UI: return to Settings, updated row
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- Некоторые настройки (роль лаунчера по умолчанию, поведение системной панели) нельзя применить внутри приложения — их решает система Android своим диалогом.
+- Мы открываем **один шаг** — тот же, что показывал визард, но только для этой настройки; после ответа пользователь возвращается в настройки (FR-011), а не проходит весь визард.
+- Отмена не ломает прежнее состояние (FR-012). На некоторых прошивках (Xiaomi/Samsung) состояние нельзя прочитать обратно — тогда строка честно пишет «состояние неизвестно» и предлагает применить заново, а не врёт «настроено» (FR-013, OEM Matrix).
+- `RoleManager facade` — адаптер (rule 2): весь Android-код живёт там, домен его не видит.
+<!-- MENTOR-DETAIL:END -->
+
+---
+
+### SEQ-4: Absorbed app-operation — data reset (FR-020, boundary case)
+
+Pre: single settings screen (legacy absorbed); "Reset data" action shown in the app-operations section (not the Profile-projection list).
+Post: on confirm, profile wiped and first-launch wizard starts; on cancel, nothing changes. This flow bypasses the Component/Provider engine by design.
+Used-in: spec/task-69-settings-as-profile-view.
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  U->>S: Tap "Reset data" (app-operation, not a component)
+  S-->>U: Confirm dialog ("preset + settings will be deleted")
+  alt confirmed
+    U->>S: Confirm
+    S->>S: Wipe Profile + active preset
+    S-->>U: First-launch wizard starts
+  else cancelled
+    U->>S: Cancel
+    S-->>U: Nothing changes
+  end
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant UI as SettingsScreen (Composable)
+  participant VM as SettingsViewModel
+  participant PS as ProfileStore (port)
+  participant NAV as Navigation (to FirstLaunch)
+  UI->>VM: onResetConfirmed()
+  VM->>PS: clear()
+  PS-->>VM: cleared
+  VM->>NAV: navigate(FirstLaunchWizard)
+  NAV-->>UI: wizard screen
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- «Сбросить данные» — это **операция приложения**, а не настройка профиля. Она стирает весь профиль и запускает мастер первого запуска.
+- Важно архитектурно: этот путь **намеренно** идёт мимо движка применения компонентов (`ReconcileEngine`/`Provider`) — сбрасывать нечего «по одному компоненту», это целостная операция над всем профилем. Поэтому она живёт в отдельной секции «действия», а не в списке-зеркале профиля (FR-020).
+- Тот же принцип у остальных перенесённых из старого экрана пунктов (смена пресета, QR помощнику, сопряжённые устройства) — это действия/навигация, не компоненты. Отдельные диаграммы им не нужны (тривиальная навигация).
+- Деструктивное действие всегда с подтверждением; отмена ничего не меняет.
+<!-- MENTOR-DETAIL:END -->
+
+---
+
+## Requirements *(mandatory)*
+
+### Functional Requirements
+
+**Проекция профиля**
+
+- **FR-000**: Проекция `Profile + settingsMap (+ i18n) → SettingsView` MUST выполняться доменным компонентом `SettingsPresentationBuilder`, спроектированным по форме будущего общего презентационного слоя (Home перейдёт на ту же форму отдельной задачей — унификация additive, Home в scope TASK-69 NOT входит). `SettingsView` = сериализуемый дескриптор (секции строк + список app-операций); JSON-driven рендеринг из него отложен в TASK-133 (в TASK-69 рендер — обычный Compose, читающий готовый `SettingsView`).
+- **FR-001**: Экран настроек MUST строиться из `SettingsView` (проекция профиля + `settingsMap`), а не из хардкод-верстки; набор строк MUST определяться данными, а не кодом экрана.
+- **FR-002**: Для каждой записи `settingsMap` система MUST найти соответствующую сущность профиля (`Profile.entities`) по `poolRef` и прочитать её данные типобезопасно (`entity.get<T>()`); при отсутствии — строку пропустить, экран отрисовать без ошибки.
+- **FR-003**: Строки MUST группироваться по `categoryKey` записи `settingsMap`.
+- **FR-004**: Каждая строка MUST показывать текущее значение компонента (из `entity.get<T>()`) и его состояние применения — компонент `LifecycleState` в мешке сущности (`Applied` / `Pending` / `Failed` / `Skipped` / `Unverifiable`), читаемый через `entity.get<LifecycleState>()`.
+- **FR-005**: Экран MUST реагировать на изменения профиля (наблюдение за источником профиля), а не читать его однократно при открытии.
+- **FR-006**: Все подписи MUST приходить из ключей локализации (`categoryKey` и ключи компонентов), с покрытием EN + RU — по правилу, закреплённому гейтом TASK-129.
+
+**Изменение настроек**
+
+- **FR-007**: Пользователь MUST иметь возможность изменить значение компонента, применяемого внутри приложения (`FontSize`, `Theme`, `Language`, `Toolbar`), не проходя визард.
+- **FR-008**: Любое изменение MUST проходить через доменный порт `SettingsGateway` (`observe()` + `apply(poolRef, newParams)`), НЕ через прямой вызов конкретного движка. Экран/VM зависят только от порта; `ReconcileEngine` + провайдеры живут **за** портом как сегодняшний адаптер (`EngineSettingsGateway`), заменяемый на «реальный движок» без правок VM/экрана. Экран MUST NOT вызывать Android API или `ReconcileEngine` напрямую (CLAUDE.md rule 1 + rule 4 purpose-shaped seam, refuse #3).
+- **FR-009**: Изменение MUST сохраняться в профиле и переживать перезапуск приложения и процесса.
+- **FR-010**: При провале применения система MUST сохранить прежнее значение и показать состояние ошибки; частично применённое состояние MUST NOT выглядеть как успешное.
+- **FR-011**: Для компонентов, требующих системного диалога (`LauncherRole`, `StatusBarPolicy`), система MUST запускать точечный одношаговый сценарий и возвращать пользователя на экран настроек.
+- **FR-012**: Отмена пользователем MUST оставлять профиль в прежнем состоянии.
+- **FR-013**: Сущности, чьё `entity.get<LifecycleState>()` = `Unverifiable`, MUST отображаться как «состояние неизвестно» с возможностью применить повторно, а не как настроенные.
+
+**Видимость и редактируемость**
+
+- **FR-014**: Состав `settingsMap` MUST быть единственным источником того, какие настройки-компоненты профиля видны на экране (Profile-проекционная часть; app-операции — см. FR-020).
+- **FR-015**: Редактируемость строки MUST **выводиться**, а не храниться отдельным полем: строка редактируема на экране, только если у её компонента есть провайдер, применяющий его внутри приложения (`FontSize`/`Theme`/`Language`/`Toolbar`); компоненты, требующие системного диалога (`LauncherRole`/`StatusBarPolicy`) — через FR-011; прочие — только-читаемые. **Никакого нового поля в wire-формате** (`SettingsMapEntry` не меняется, `Preset.schemaVersion=2` без изменений) — rule 4 MVA. Авторский контроль редактируемости (поле в пресете) — отложенный additive-шов на случай реального спроса.
+- **FR-016**: Поле `sensitivity` записи `settingsMap` в MVP MUST читаться, но NOT gating'овать видимость — все строки показываются независимо от `sensitivity`. Поле остаётся как шов; разграничение доступа по нему вводится с появлением ролей (TASK-70).
+
+**Границы**
+
+- **FR-017**: Задача MUST свести настройки к **одному экрану**, поглотив оба текущих: ECS-экран ([SettingsActivity](../../app/src/main/java/com/launcher/app/settings/SettingsActivity.kt), сохранив индикатор расхождения языка, список незавершённых шагов, повторный прогон визарда) **и** legacy [SettingsScreen](../../core/src/commonMain/kotlin/com/launcher/ui/screens/SettingsScreen.kt) на стеке `FlowPreset`. После задачи legacy-экран и его точка входа MUST быть удалены. *Планировщик MUST провести аудит dangling-ссылок на удаляемый экран перед удалением (`SettingsComponent` навигация, entry из spec-009 admin-mode flows, любые `docs/**` / `specs/**`) — CHK012, задача в tasks.md.*
+- **FR-020**: Не-профильные секции legacy-экрана MUST быть перенесены на новый экран как **app-операции / навигация** (отдельная секция ниже Profile-проекции), НЕ моделируясь как Profile-компоненты (сохраняет rule 1): (a) смена активного пресета (`FlowPreset` picker), (b) удалённое управление / показ pairing-QR (навигация в pairing-flow), (c) сопряжённые устройства / admin-режим (навигация в admin-flow), (d) сброс данных (деструктивное действие с подтверждением). Внутренняя логика этих операций NOT переписывается — новый экран их re-host'ит через существующие точки входа.
+- **FR-021**: Раздел «Язык» из legacy-экрана MUST быть представлен как обычная строка Profile-проекции (компонент `Language`), а не как app-операция — это единственная legacy-секция, являющаяся компонентом профиля.
+- **FR-018**: Задача MUST NOT вводить механизм авторинга пресетов (это вынесено за MVP: TASK-72/18/135).
+- **FR-019**: Задача MUST NOT вводить удалённое управление настройками со стороны администратора (TASK-70 + TASK-67); при этом форма изменения MUST оставаться совместимой с уже существующим режимом удалённого применения (`RunMode.RemotePush` работает через тот же движок). Перенос pairing-QR / admin-навигации (FR-020) — это re-host существующих точек входа, а не новая функциональность удалённого управления.
+
+### Key Entities
+
+Канонические определения ECS-типов — в [`ecs.md`](../../docs/architecture/ecs.md); ниже — как они используются в этой задаче + новые типы самой задачи (`SettingsGateway` / `SettingsPresentationBuilder` / `SettingsView`).
+
+- **Profile** — состояние устройства: ECS-«мир» из сущностей (`entities: List<Entity>`). Источник правды для экрана.
+- **Entity** — «строка» профиля: свободный мешок компонентов (`components`) + теги (`tags`); идентифицируется `id`, связь с деревом экрана — `parentId`. Значение читается `entity.get<T>()`.
+- **`settingsMap` (запись пресета, `SettingsMapEntry`)** — витрина: какой компонент показывать в настройках, в какой категории (`categoryKey`), с какой чувствительностью (`sensitivity`, в MVP инертна). Формат уже существует, впервые получает потребителя; **не меняется** в этой задаче.
+- **Component** — единица настройки (размер шрифта, тема, плитка, SOS, панель, роль лаунчера, системная панель) — данные в мешке сущности.
+- **LifecycleState** — состояние применения как **компонент** в мешке: `Pending` / `Applied` / `Failed(reason)` / `Skipped` / `Unverifiable`. Двигается движком (`ReconcileEngine.setState`), впервые проецируется в интерфейс построчно. (Заменил enum `ComponentStatus` в TASK-136.)
+- **`SettingsGateway`** (порт, домен) — единственная точка, через которую VM говорит с логикой настроек: `observe(): Flow<SettingsView>` + `apply(poolRef, newParams): ApplyResult`. За портом — адаптер `EngineSettingsGateway` (сегодня оборачивает `ReconcileEngine` + `ProfileStore` + `PresetSource`); движок заменяем без правок VM/экрана.
+- **`SettingsPresentationBuilder`** (домен) — сборщик проекции `Profile + settingsMap (+ i18n) → SettingsView`. Спроектирован по форме будущего общего Home+Settings слоя; Home в TASK-69 не трогается.
+- **`SettingsView`** (сериализуемый дескриптор) — результат проекции: секции строк (сгруппированы по `categoryKey`, каждая с значением + `LifecycleState` + выведенным признаком editable) + список app-операций (FR-020). Данные, не Compose — JSON-driven рендер из него = TASK-133.
+- **Provider** — исполнитель проверки и применения компонента; вызывается **только** адаптером за `SettingsGateway`, не экраном.
+
+## Success Criteria *(mandatory)*
+
+### Measurable Outcomes
+
+- **SC-001 [backlog]**: Экран настроек показывает то, что реально настроено на устройстве: для каждого пресета — свой набор строк, с текущими значениями, без правок кода под конкретный пресет.
+- **SC-002 [backlog]**: Пользователь меняет размер шрифта (тему, язык, состав панели) прямо в настройках; изменение видно сразу и сохраняется после перезапуска.
+- **SC-003 [backlog]**: Настройка, требующая системного диалога, открывается одним шагом, а не прогоном всего визарда; отмена не ломает прежнее состояние.
+- **SC-004 [backlog]**: Незавершённые и сбойные настройки видны на экране: пользователь понимает, что не доделано, и может доделать это отсюда.
+- **SC-005 [backlog]**: Убрав запись из `settingsMap` пресета, строка исчезает с экрана — без изменений в коде.
+- **SC-006**: Ни один Compose-файл экрана настроек не содержит `when` по подтипам `Component` и не вызывает Android API напрямую — проверяется фитнес-тестом (rule 1).
+- **SC-007**: Все ключи локализации экрана покрыты EN + RU — существующий гейт `PoolI18nCoverageTest` расширен на ключи `categoryKey`. Хардкод-строки поглощаемого legacy-экрана (`«Настройки»`, `«Язык»`, `«Пресет»`, `«Удалённое управление»`, `«Сопряжённые устройства»`, `«Сбросить данные»` и диалоги) MUST быть вынесены в i18n-ключи при переносе (FR-020) — не переносить хардкод.
+- **SC-008**: Изменение настройки идёт через порт `SettingsGateway`; VM зависит от порта, а не от `ReconcileEngine`. Контрактный тест на **фейковом** `SettingsGateway` (rule 6) + отдельный тест адаптера `EngineSettingsGateway` подтверждает вызов `apply` и сохранение профиля.
+- **SC-009**: После задачи в приложении **один** экран настроек; legacy [SettingsScreen](../../core/src/commonMain/kotlin/com/launcher/ui/screens/SettingsScreen.kt) и его точка входа удалены, а его не-профильные функции (смена пресета, pairing-QR, admin-навигация, сброс данных) доступны с нового экрана (FR-020) — проверяется навигационным тестом.
+- **SC-010**: `SettingsPresentationBuilder` детерминированно строит `SettingsView` из фиксированных `Profile + settingsMap` (unit-тест на фейках); wire-формат `SettingsMapEntry` НЕ меняется (roundtrip существующих фикстур остаётся зелёным без правок).
+- **SC-011 (senior-safe / accessibility, Article VIII §7)**: каждая интерактивная строка/кнопка экрана настроек имеет tap target **≥ 56dp**, текст-контраст **≥ 4.5:1**, и `contentDescription`/семантику для TalkBack из i18n-ключей (не raw id); строки в состоянии `Failed`/`Skipped` не выглядят как рабочие кнопки (нет «мёртвых» кнопок — FR-013 + render-gating из ecs.md). Проверяется UI-тестом семантики + ручной TalkBack-проверкой (эмулятор).
+
+## Assumptions
+
+- Экран настроек в MVP предназначен человеку, который настраивает устройство (администратор рядом с пользователем либо сам пользователь). Отдельного режима администратора в приложении сегодня нет.
+- Локально применяемыми (редактируемыми в MVP без системных диалогов) считаются компоненты `FontSize`, `Theme`, `Language`, `Toolbar` — по факту реализации провайдеров.
+- `settingsMap` — источник витрины; в этой задаче формат **не меняется** (редактируемость выводится, не хранится — FR-015). `Preset.schemaVersion: 2` без изменений.
+- Согласование профиля с новой версией пресета (TASK-130) и снисходительное чтение чужих артефактов (TASK-131) — за границами задачи: артефакты одно-девайсные.
+- Legacy-экран `FlowPreset`/`SettingsScreen` **поглощается** этой задачей (FR-017): один экран настроек, не-профильные секции переносятся как app-операции (FR-020). Судьба глубокого legacy-стека `PresetRepository` за рамками (только точка входа экрана удаляется).
+
+## Local Test Path *(mandatory)*
+
+- **Emulator / device**: `pixel_5_api_34` через skill `android-emulator` — для US3 (системные диалоги) и восстановления после смены языка; логика US1/US2 — JVM-тесты без устройства.
+- **Fake adapters used**: `FakeProfileStore`, `FakeProvider`, `FakePoolSource`, `FakePresetSource`, `FakeLocalizedResources` (все существуют в `core/src/commonTest/kotlin/com/launcher/preset/fakes/`).
+- **Fixtures / seed data**: `core/src/commonTest/kotlin/com/launcher/preset/roundtrip/Fixtures.kt` (уже содержит пресеты с заполненным `settingsMap`); bundled-пресеты `app/src/main/assets/preset/bundled-presets/*.json`.
+- **Verification command**: `./gradlew :core:test --tests "*Settings*"` + `./gradlew :app:testDebugUnitTest --tests "*Settings*"`; экранные проверки — `./gradlew :app:connectedDebugAndroidTest --tests "*Settings*"`.
+- **Cannot-test-locally gaps**: поведение роли лаунчера по умолчанию и системной панели на OEM-прошивках (Xiaomi MIUI, Samsung One UI) — на эмуляторе не воспроизводится → `TODO(physical-device)` в местах проверки; агрегируется в TASK-128.
+
+## AI Affordance *(mandatory)*
+
+- **Exposable capabilities**: `listSettings(profileId): List<SettingView>` (что настроено и в каком состоянии), `changeSetting(componentId, params)` (изменить значение). Доменные глаголы; при появлении удалённого управления те же глаголы обслуживают администратора.
+- **Required affordances on data**: чтение значений и статусов компонентов профиля. Персональных данных экран не содержит; значения компонентов (размер шрифта, тема) — не PII. Список плиток приложений — чувствительнее, наружу не отдаётся.
+- **Provider-agnostic shape**: возможности выражаются доменными портами (`ProfileStore`, `ReconcileEngine`, `Provider`); типов вендоров/LLM в сигнатурах нет.
+- **Out of scope for this spec**: реализация провайдера ИИ, MCP-сервер, телеметрия. Шов — существующий `TODO(capability-registry)` в [ReconcileEngine.kt:33](../../core/src/commonMain/kotlin/com/launcher/preset/engine/ReconcileEngine.kt#L33).
+
+## OEM Matrix *(mandatory if feature touches device behavior)*
+
+Применимо: US3 трогает роль лаунчера по умолчанию и системную панель.
+
+| OEM / surface | Known divergence | Mitigation in this spec | Verification source |
+|---------------|------------------|-------------------------|---------------------|
+| Stock Android (Pixel) | baseline: `RoleManager.createRequestRoleIntent(ROLE_HOME)` работает | — | эмулятор `pixel_5_api_34` |
+| Samsung One UI | диалог выбора лаунчера по умолчанию открывается в другом месте настроек | статус компонента честно показывается как «состояние неизвестно» (`Unverifiable`), возможность применить повторно | `TODO(physical-device)` → TASK-128 |
+| Xiaomi MIUI | смена лаунчера по умолчанию через собственный экран прошивки; состояние панели не читается обратно | то же: не утверждаем «настроено», предлагаем повторное применение | `TODO(physical-device)` → TASK-128 (устройство Xiaomi 11T есть) |
+| Huawei EMUI | устройства нет | не заявляем поддержку; псевдо-гейт не создаём (rule refuse #15) | не проверяется |
+
+---
+
+<!-- NOVICE-SUMMARY:BEGIN -->
+## Коротко для владельца
+
+**Что делаем.** Экран «Настройки» сегодня — захардкоженный список: каждая строка написана кодом отдельно. Мы превращаем его в **зеркало профиля** — того самого состояния устройства, которое собрал визард. Что настроено на устройстве, то и видно в настройках; поменяли пресет — набор строк поменялся сам, без правки кода.
+
+**Приятная новость.** Пол-задачи уже сделано до нас, просто не подключено: в пресете есть готовое поле `settingsMap` — «что показывать в настройках, в какой группе». Все три наших пресета его уже заполняют, а рисует его — никто. То есть мы не изобретаем механизм, а **включаем уже решённое** (решение TASK-120 прямо называет настройки одним из четырёх потребителей общего движка).
+
+**Из чего состоит работа** (по убыванию важности):
+1. Настройки показывают, что реально настроено, и что не доделано.
+2. Простые настройки (шрифт, тема, язык, панель) меняются прямо там — сейчас после визарда их не изменить вообще никак, кроме прогона визарда заново.
+3. Сложные (роль лаунчера, системная панель) открывают **один шаг** визарда вместо всего визарда.
+4. Автор пресета решает, что показывать — просто составом `settingsMap`.
+
+**Три вопроса перед планом — теперь решены** (clarify-проход 2026-07-18):
+- **Два экрана настроек** сводим в один: новый экран **поглощает** старый. Но важный нюанс — из старого экрана только «Язык» является настройкой профиля; остальное (смена пресета, QR-код помощнику, сопряжённые устройства, сброс данных) переносится как **отдельные действия/кнопки**, не притворяясь настройками профиля. Так один экран, но архитектура чистая.
+- **Признак «эту настройку можно менять»** — добавляем прямо в пресет (поле `editableInSettings`), чтобы автор пресета решал, что редактируемо. Дешёвое дополнение формата.
+- Поле `sensitivity` («обычная / важная / админская») пока **не включаем** — показываем все строки. Разграничение доступа заработает, когда появятся роли (TASK-70): без ролей прятать что-то бессмысленно.
+
+**Чего здесь точно нет**: конструктора пресетов (вынесен за MVP сегодня же) и удалённого управления настройками со стороны администратора (TASK-70/67) — но форма изменения делается совместимой с ним, чтобы потом дописывать, а не переписывать.
+<!-- NOVICE-SUMMARY:END -->

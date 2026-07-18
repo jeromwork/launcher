@@ -74,6 +74,60 @@ class PoolI18nCoverageTest {
     }
 
     /**
+     * TASK-69 T069-027 (SC-007) — every `settingsMap[].categoryKey` declared in the
+     * bundled presets has an EN + RU string. Same coverage gate as
+     * [everyPoolTextKey_hasEnAndRuString], extended per plan.md §7 to the new
+     * Settings-screen consumer of preset JSON (`categoryKey` lives on the
+     * *preset*, not on `pool.json`, so it needs its own key collection).
+     */
+    @Test
+    fun everyBundledPresetCategoryKey_hasEnAndRuString() {
+        val presetsDir = locate("app/src/main/assets/preset/bundled-presets")
+            ?: return fail("T069-027: bundled-presets dir not found — the gate cannot verify anything.")
+        val presetFiles = presetsDir.listFiles { f -> f.isFile && f.extension == "json" }
+            ?: return fail("T069-027: bundled-presets dir has no JSON files.")
+        assertTrue("T069-027: no bundled preset JSON files found.", presetFiles.isNotEmpty())
+
+        val declaredKeys = presetFiles
+            .flatMap { collectCategoryKeys(json.parseToJsonElement(it.readText())) }
+            .toSet()
+        assertTrue(
+            "T069-027: no categoryKey found in bundled presets — the gate would pass vacuously.",
+            declaredKeys.isNotEmpty(),
+        )
+
+        val missing = mutableListOf<String>()
+        for (locale in listOf(Locale("EN", "app/src/main/res/values"), Locale("RU", "app/src/main/res/values-ru"))) {
+            val strings = readStrings(locale.resDir)
+                ?: return fail("T069-027: ${locale.tag} resources not found at ${locale.resDir}.")
+            for (key in declaredKeys) {
+                val resourceName = key.replace('.', '_')
+                val value = strings[resourceName]
+                when {
+                    value == null -> missing += "${locale.tag}: $key -> <string name=\"$resourceName\"> is missing"
+                    value.isBlank() -> missing += "${locale.tag}: $key -> <string name=\"$resourceName\"> is empty"
+                }
+            }
+        }
+
+        assertTrue(
+            "TASK-69: every settingsMap categoryKey declared in a bundled preset needs an EN and a RU string.\n" +
+                "Add the missing entries to app/src/main/res/values{,-ru}/strings_preset_task120.xml.\n" +
+                missing.joinToString("\n"),
+            missing.isEmpty(),
+        )
+    }
+
+    private fun collectCategoryKeys(element: JsonElement): Set<String> = buildSet {
+        if (element !is JsonObject) return@buildSet
+        val settingsMap = element["settingsMap"] as? JsonArray ?: return@buildSet
+        settingsMap.forEach { entry ->
+            val categoryKey = (entry as? JsonObject)?.get("categoryKey") as? JsonPrimitive
+            if (categoryKey != null && categoryKey.isString) add(categoryKey.content)
+        }
+    }
+
+    /**
      * FR-003 / SC-004 — pins the decision that `iconKey` and `layoutKey` are identifiers.
      * Without this, adding them to [textKeyFields] looks like a tightening of the gate
      * but would demand a "translation" of `whatsapp` into every locale. Icons resolve

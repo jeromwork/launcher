@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TASK-69 — Settings screen chrome (hand-written UI copy, resolved via
+  StringResolver -> AndroidStringResolver -> plain Android string resources,
+  same mechanism as strings.xml / strings_preset_task120.xml; this app does
+  NOT use Compose Multiplatform Resources for StringResolver despite the
+  port's doc comment mentioning it — see Spec015Module.kt binding).
+
+  Row/category content comes from LocalizedResources instead — see
+  strings_preset_task120.xml `settings.row.*` / `settings.category.*`.
+
+  `settings_title` reuses the pre-existing key in strings.xml (same value,
+  original owner of the string) rather than redeclaring it here.
+-->
+<resources>
+
+    <string name="settings_back_description">Back</string>
+    <string name="settings_row_change">Change</string>
+    <string name="settings_actions_header">Actions</string>
+
+    <string name="settings_action_preset">Preset</string>
+    <string name="settings_action_pairing">Remote control</string>
+    <string name="settings_action_admin_devices">Paired devices</string>
+    <string name="settings_action_reset">Reset data</string>
+    <string name="settings_action_change">Change</string>
+    <string name="settings_action_open">Open</string>
+
+    <string name="settings_reset_confirm_title">Reset data?</string>
+    <string name="settings_reset_confirm_body">The active preset and its settings will be deleted. The first-launch setup will start again.</string>
+    <string name="settings_reset_confirm_yes">Reset</string>
+    <string name="settings_reset_confirm_cancel">Cancel</string>
+
+    <string name="settings_preset_picker_title">Choose a preset</string>
+    <string name="settings_preset_picker_close">Close</string>
+    <string name="settings_preset_workspace_label">Workspace</string>
+    <string name="settings_preset_launcher_label">Launcher</string>
+    <string name="settings_preset_simple_launcher_label">Simple launcher</string>
+
+    <string name="settings_state_applied">Set up</string>
+    <string name="settings_state_pending">Not finished</string>
+    <string name="settings_state_failed">Not applied</string>
+    <string name="settings_state_skipped">Skipped</string>
+    <string name="settings_state_unverifiable">State unknown — tap to re-apply</string>
+
+</resources>
