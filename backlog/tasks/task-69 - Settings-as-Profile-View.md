@@ -1,10 +1,10 @@
 ---
 id: TASK-69
 title: Settings as Profile View
-status: In Progress
+status: Verification
 assignee: []
 created_date: '2026-06-30 20:00'
-updated_date: '2026-07-17 04:23'
+updated_date: '2026-07-18 21:30'
 labels:
   - phase-2
   - foundation
@@ -53,19 +53,29 @@ ordinal: 69000
 
 ## Состояние
 
-**In Progress — speckit-цикл пройден 2026-07-18** (specify → clarify → scenarios → plan → tasks → analyze). Спека `specs/task-69-settings-as-profile-view/` (spec.md, plan.md, data-model.md, tasks.md — 34 задачи / 7 фаз, analyze-report.md).
+**Verification — имплементация завершена и запушена 2026-07-18** (34/34 задачи tasks.md, 7 фаз, 4 коммита на ветке `task-69-settings-as-profile-view`).
 
-- **Constitution 8/8 PASS**, cross-artifact trace чист, чек-листы чисты. **Analyze verdict: READY-WITH-CAVEATS.**
-- Caveat (не блокер): свести две навигации к одной (legacy на Decompose vs новый на Activity) — прописано в T069-020.
-- Deferred: эмуляторные прогоны (US3 диалог, смена языка, TalkBack) + OEM Xiaomi — задача останется в Verification, пока их не закроют на железе.
-- **Код — в отдельной сессии** (правило для крупных one-way-door фич). Depends: TASK-136 (ECS foundation, в Verification).
+- **Constitution 8/8 PASS**, cross-artifact trace чист, чек-листы чисты. Analyze verdict был READY-WITH-CAVEATS — оба caveat закрыты в коде: T069-020 (одна навигация — `SettingsActivity`, legacy Decompose-экран удалён) и эмуляторный прогон (см. ниже).
+- **Эмуляторная проверка пройдена** (`Medium_Phone_API_36.1`, 2026-07-18): нашла и починила 2 реальных бага — краш вложенного `LazyColumn` (`PendingChecklistScreen`) и неверное расположение строк `StringResolver` (были в `composeResources`, реальный адаптер читает `app/res`; заодно починен тот же старый баг у трёх pre-existing ключей). Живьём подтверждено: один экран, проекция профиля с верными i18n/состояниями, in-app правка шрифта и панели инструментов (live round-trip), честный показ Failed-состояния без «мёртвой» кнопки, app-операции, TalkBack-семантика.
+- **Открытый разрыв, обнаруженный на эмуляторе (не баг кода TASK-69)**: ни один из 3 bundled-пресетов не ссылается на `LauncherRole`/`StatusBarPolicy`/`Language` в своём `settingsMap`/`activeComponents` — соответствующие строки физически не могут появиться на экране сегодня. Значит AC #2 (тема/язык) и AC #3 (системный диалог) не проверяются end-to-end до тех пор, пока эти записи не появятся в bundled-контенте — отдельная follow-up задача по контенту, не по коду. Детали — `specs/task-69-settings-as-profile-view/tasks.md` Phase 7 findings.
+- Остаётся: `T069-034` [deferred-physical-device] — OEM launcher-role/status-bar на Xiaomi 11T.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Экран настроек показывает то, что реально настроено на устройстве: для каждого пресета — свой набор строк, с текущими значениями, без правок кода под конкретный пресет
-- [ ] #2 Пользователь меняет размер шрифта (тему, язык, состав панели) прямо в настройках; изменение видно сразу и сохраняется после перезапуска
-- [ ] #3 Настройка, требующая системного диалога, открывается одним шагом, а не прогоном всего визарда; отмена не ломает прежнее состояние
-- [ ] #4 Незавершённые и сбойные настройки видны на экране: пользователь понимает, что не доделано, и может доделать это отсюда
-- [ ] #5 Убрав запись из settingsMap пресета, строка исчезает с экрана — без изменений в коде
+- [x] #1 [hand] Экран настроек показывает то, что реально настроено на устройстве: для каждого пресета — свой набор строк, с текущими значениями, без правок кода под конкретный пресет
+- [ ] #2 [hand] Пользователь меняет размер шрифта (тему, язык, состав панели) прямо в настройках; изменение видно сразу и сохраняется после перезапуска — шрифт и панель подтверждены живьём (live round-trip); тема/язык не проверены (нет таких строк ни в одном bundled-пресете); сохранение-после-перезапуска не пере-проверено этой сессией (архитектурно гарантировано DataStore-хранилищем `ProfileStore`, но не показано вручную)
+- [ ] #3 [hand] Настройка, требующая системного диалога, открывается одним шагом, а не прогоном всего визарда; отмена не ломает прежнее состояние — код/тесты готовы (тот же путь `RunMode.Single`, что и у визарда), но не воспроизводимо на реальном устройстве: ни один bundled-пресет не создаёт `LauncherRole`/`StatusBarPolicy` в профиле
+- [x] #4 [hand] Незавершённые и сбойные настройки видны на экране: пользователь понимает, что не доделано, и может доделать это отсюда
+- [x] #5 [hand] Убрав запись из settingsMap пресета, строка исчезает с экрана — без изменений в коде
+- [ ] #6 [auto:deferred-physical-device] OEM launcher-role / status-bar на Xiaomi 11T (T069-034)
 <!-- AC:END -->
+
+<!-- SECTION:VERIFICATION_PENDING:BEGIN -->
+PR открыт 2026-07-18 (branch `task-69-settings-as-profile-view`, 4 коммита). Pending AC:
+- #2 (частично) — тема/язык + explicit restart-persistence re-check.
+- #3 — системный диалог: нужен bundled-пресет со строкой `LauncherRole`/`StatusBarPolicy` в `settingsMap`, чтобы вообще было что тапать (follow-up контент-задача, не код).
+- #6 (auto:deferred-physical-device) — Xiaomi 11T прогон, TASK-128.
+
+Recovery: как только появится bundled-пресет с этими записями (или мы решим, что MVP не требует демонстрации всех трёх in-app типов) — #2/#3 закрываются повторным emulator-прогоном; #6 — на физическом устройстве.
+<!-- SECTION:VERIFICATION_PENDING:END -->
