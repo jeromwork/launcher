@@ -9,6 +9,7 @@ import com.launcher.api.FlowRepository
 import com.launcher.api.PresetRepository
 import com.launcher.app.firstlaunch.FirstLaunchActivity
 import com.launcher.app.home.HomeBannerHost
+import com.launcher.app.settings.SettingsActivity
 import com.launcher.app.ui.pairing.PairingActivity
 import com.launcher.api.action.ActionDispatcher
 import com.launcher.api.action.ProviderRegistry
@@ -74,7 +75,6 @@ class HomeActivity : ComponentActivity() {
             flowRepository = flowRepository,
             dispatchAction = { action -> actionDispatcher.dispatch(action) },
             providerRegistry = providerRegistry,
-            onPresetChanged = { recreate() },
             onResetData = {
                 val intent = android.content.Intent(this, FirstLaunchActivity::class.java)
                     .addFlags(
@@ -100,6 +100,9 @@ class HomeActivity : ComponentActivity() {
                     )
                     startActivity(intent)
                 }
+            },
+            onOpenSettings = {
+                startActivity(android.content.Intent(this, SettingsActivity::class.java))
             },
             managedDevices = managedDevices,
             initialPresetSlug = activePreset?.slug,
@@ -129,6 +132,12 @@ class HomeActivity : ComponentActivity() {
         // contact to draft.
         intent?.getStringExtra(com.launcher.app.contacts.VCardReceiveActivity.EXTRA_OPEN_EDITOR_LINK_ID)
             ?.let { linkId -> rootComponent.openEditor(linkId) }
+
+        // TASK-69 (FR-020c) — SettingsActivity launches us with this extra to
+        // re-host the "сопряжённые устройства" action on the Decompose stack.
+        if (intent?.getBooleanExtra(SettingsActivity.EXTRA_OPEN_ADMIN_DEVICES, false) == true) {
+            rootComponent.openAdminDevices()
+        }
 
         val challengeGateLabels = com.launcher.ui.gate.ChallengeGateLabels(
             cancelLabel = getString(R.string.challenge_gate_cancel),

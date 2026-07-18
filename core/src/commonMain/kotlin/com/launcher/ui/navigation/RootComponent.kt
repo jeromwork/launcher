@@ -43,9 +43,6 @@ import kotlinx.coroutines.launch
  * later admin-mode toggle, and recreate-on-preset-switch fit Decompose's
  * component-and-typed-config model better.
  *
- * @param onPresetChanged invoked after the user picks a different preset in
- *   Settings. The host Activity should `recreate()` so density-bound theme
- *   changes apply (`LauncherTheme(preset = ...)`).
  * @param onResetData invoked after the user resets all data; host Activity
  *   should restart the process at FirstLaunchActivity (clearing the task).
  */
@@ -55,10 +52,12 @@ class RootComponent(
     private val flowRepository: FlowRepository,
     private val dispatchAction: suspend (Action) -> DispatchResult,
     private val providerRegistry: ProviderRegistry? = null,
-    private val onPresetChanged: () -> Unit,
     private val onResetData: () -> Unit,
     private val onOpenPairing: () -> Unit,
     private val onOpenScanner: () -> Unit,
+    // TASK-69 — Settings is now a standalone Activity (FR-017); Home's
+    // "Settings" tap starts it instead of pushing a Decompose child.
+    private val onOpenSettings: () -> Unit = {},
     private val managedDevices: com.launcher.api.link.ManagedDevicesRegistry? = null,
     initialPresetSlug: String?,
     // ─── Spec 009 admin-mode-flows deps (all nullable so spec 008-only
@@ -101,7 +100,7 @@ class RootComponent(
                     componentContext = context,
                     flowRepository = flowRepository,
                     dispatchAction = dispatchAction,
-                    onSettingsClick = { nav.push(RootConfig.Settings) },
+                    onSettingsClick = onOpenSettings,
                     onAddFlowClick = { nav.push(RootConfig.AddFlowWizard) },
                     onAdminDevicesClick = { nav.push(RootConfig.AdminDevices) },
                     onAddSlotClick = { flowId -> nav.push(RootConfig.AddSlotWizard(flowId)) },
@@ -123,18 +122,6 @@ class RootComponent(
                         nav.push(RootConfig.AdminDevices)
                     },
                     onCancel = { nav.pop() },
-                )
-            )
-            is RootConfig.Settings -> RootChild.Settings(
-                SettingsComponent(
-                    componentContext = context,
-                    presetRepository = presetRepository,
-                    onBack = { nav.pop() },
-                    onPresetChanged = onPresetChanged,
-                    onResetData = onResetData,
-                    onAdminDevicesClick = { nav.push(RootConfig.AdminDevices) },
-                    onOpenPairing = onOpenPairing,
-                    onOpenScanner = onOpenScanner,
                 )
             )
             is RootConfig.AddFlowWizard -> RootChild.AddFlowWizard(
@@ -340,5 +327,16 @@ class RootComponent(
      */
     fun openEditor(linkId: String) {
         nav.push(RootConfig.Editor(linkId))
+    }
+
+    /**
+     * TASK-69 (FR-020c) entry point: programmatically push admin-devices.
+     * Called from [HomeActivity] when launched with
+     * `SettingsActivity.EXTRA_OPEN_ADMIN_DEVICES` — Settings re-hosts the
+     * legacy "сопряжённые устройства" action via this existing nav target,
+     * same pattern as [openEditor].
+     */
+    fun openAdminDevices() {
+        nav.push(RootConfig.AdminDevices)
     }
 }

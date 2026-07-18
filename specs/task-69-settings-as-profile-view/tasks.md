@@ -35,12 +35,12 @@ Source: [spec.md](spec.md), [plan.md](plan.md), [data-model.md](data-model.md). 
 
 ## Phase 5 — Legacy absorption + app-operations
 
-- [ ] **T069-020** Dangling-ref audit of legacy `SettingsScreen` + **navigation-stack reconciliation**. Confirmed call sites: `RootContent.kt` (renders it), `RootChild.kt` / `RootComponent.kt` / `SettingsComponent.kt` (Decompose nav graph), `SettingsScreenTest.kt`, spec-009 admin-mode entry. **Decide the single host**: legacy is on the **Decompose** nav (`RootComponent`→`SettingsComponent`), the ECS-era screen is an **Activity** (`SettingsActivity`) — plan §3 makes `SettingsActivity` the single host, so the Decompose `SettingsComponent` + `RootChild` entry are torn down and app-operations nav re-wired to the Activity host. Output: migration list + the teardown plan. Trace: FR-017, CHK012. Requires: —.
-- [ ] **T069-021** Re-host app-operations as `AppOperation` actions (preset switch, pairing-QR, admin-devices, data-reset) wired to **existing** navigation/actions (internals not rewritten). Trace: FR-020, SEQ-4. Requires: T069-015, T069-020.
-- [ ] **T069-022** «Язык» from legacy → profile-projection row (`Language` component), not an app-operation. Trace: FR-021. Requires: T069-016.
-- [ ] **T069-023** Delete legacy `core/…/ui/screens/SettingsScreen.kt` + its `SettingsComponent` entry. Trace: FR-017, SC-009. Requires: T069-021, T069-022.
-- [ ] **T069-024** Grep-verify no dangling references to the deleted screen remain (build green). Trace: FR-017, CHK012. Requires: T069-023.
-- [ ] **T069-025** Navigation test: single settings screen; legacy entry gone; all app-operations reachable. Trace: SC-009. Requires: T069-023.
+- [x] **T069-020** Dangling-ref audit of legacy `SettingsScreen` + **navigation-stack reconciliation**. Confirmed call sites: `RootContent.kt` (renders it), `RootChild.kt` / `RootComponent.kt` / `SettingsComponent.kt` (Decompose nav graph), `SettingsScreenTest.kt`, spec-009 admin-mode entry. **Decide the single host**: legacy is on the **Decompose** nav (`RootComponent`→`SettingsComponent`), the ECS-era screen is an **Activity** (`SettingsActivity`) — plan §3 makes `SettingsActivity` the single host, so the Decompose `SettingsComponent` + `RootChild` entry are torn down and app-operations nav re-wired to the Activity host. Output: migration list + the teardown plan. Trace: FR-017, CHK012. Requires: —.
+- [x] **T069-021** Re-host app-operations as `AppOperation` actions (preset switch, pairing-QR, admin-devices, data-reset) wired to **existing** navigation/actions (internals not rewritten). Trace: FR-020, SEQ-4. Requires: T069-015, T069-020.
+- [x] **T069-022** «Язык» from legacy → profile-projection row (`Language` component), not an app-operation. Trace: FR-021. Requires: T069-016.
+- [x] **T069-023** Delete legacy `core/…/ui/screens/SettingsScreen.kt` + its `SettingsComponent` entry. Trace: FR-017, SC-009. Requires: T069-021, T069-022.
+- [x] **T069-024** Grep-verify no dangling references to the deleted screen remain (build green). Trace: FR-017, CHK012. Requires: T069-023.
+- [x] **T069-025** Navigation test: single settings screen; legacy entry gone; all app-operations reachable. Trace: SC-009. Requires: T069-023.
 
 ## Phase 6 — i18n + fitness
 
