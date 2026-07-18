@@ -403,6 +403,7 @@ sequenceDiagram
 - **SC-008**: Изменение настройки идёт через порт `SettingsGateway`; VM зависит от порта, а не от `ReconcileEngine`. Контрактный тест на **фейковом** `SettingsGateway` (rule 6) + отдельный тест адаптера `EngineSettingsGateway` подтверждает вызов `apply` и сохранение профиля.
 - **SC-009**: После задачи в приложении **один** экран настроек; legacy [SettingsScreen](../../core/src/commonMain/kotlin/com/launcher/ui/screens/SettingsScreen.kt) и его точка входа удалены, а его не-профильные функции (смена пресета, pairing-QR, admin-навигация, сброс данных) доступны с нового экрана (FR-020) — проверяется навигационным тестом.
 - **SC-010**: `SettingsPresentationBuilder` детерминированно строит `SettingsView` из фиксированных `Profile + settingsMap` (unit-тест на фейках); wire-формат `SettingsMapEntry` НЕ меняется (roundtrip существующих фикстур остаётся зелёным без правок).
+- **SC-011 (senior-safe / accessibility, Article VIII §7)**: каждая интерактивная строка/кнопка экрана настроек имеет tap target **≥ 56dp**, текст-контраст **≥ 4.5:1**, и `contentDescription`/семантику для TalkBack из i18n-ключей (не raw id); строки в состоянии `Failed`/`Skipped` не выглядят как рабочие кнопки (нет «мёртвых» кнопок — FR-013 + render-gating из ecs.md). Проверяется UI-тестом семантики + ручной TalkBack-проверкой (эмулятор).
 
 ## Assumptions
 
