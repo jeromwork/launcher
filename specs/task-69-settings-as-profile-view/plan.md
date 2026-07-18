@@ -60,7 +60,7 @@ New **runtime** (non-persisted) domain types — see [data-model.md](data-model.
 
 | Risk | Mitigation |
 |---|---|
-| Legacy removal breaks dangling refs (`SettingsComponent` nav, spec-009 admin-mode entry) | **CHK012 audit task** before deletion (Phase in tasks.md) |
+| Legacy removal breaks dangling refs + **two nav stacks** (legacy on Decompose `RootComponent`→`SettingsComponent`+`RootContent`; ECS-era on `SettingsActivity`) | **T069-020 audit + nav reconciliation**: `SettingsActivity` becomes the single host; Decompose `SettingsComponent`/`RootChild` entry torn down, app-operations re-wired. Confirmed sites: `RootContent`/`RootChild`/`RootComponent`/`SettingsComponent`/`SettingsScreenTest`. |
 | OEM launcher-role/status-bar unreadable | `LifecycleState.Unverifiable` shown honestly, re-apply offered (FR-013); `TODO(physical-device)` → TASK-128 |
 | Language change recreates Activity mid-screen | Restore from Profile (Profile-only, I1); precedent `WizardLocaleChangeTest` |
 | Edit-during-apply race (double change) | Serialize applies through the gateway; last-write via reconcile result; test the double-change edge |

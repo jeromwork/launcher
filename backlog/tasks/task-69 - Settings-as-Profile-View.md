@@ -41,20 +41,24 @@ ordinal: 69000
 
 ## Что входит технически (для AI-агента)
 
-- `SettingsViewModel` читает текущий Profile через `ProfileRepository`.
-- `SettingsScreenComposer` строит UI динамически: для каждого pool entry в `preset.requires` + `preset.picks` рендерит карточку.
-- Per-pool-entry метаданные: `showInSettings: Boolean`, `editableInSettings: Boolean`, `hideAfterApply: Boolean`.
-- Reuse `WizardEngine.computePending` для status check.
-- Wizard и Settings — разные projections одного source.
+Модель ECS не описываем здесь — источник истины [`docs/architecture/ecs.md`](../../docs/architecture/ecs.md) (+ скилл `ecs`). Финальная архитектура задачи (после speckit-цикла + mentor-сессии 2026-07-18):
+
+- **Порт `SettingsGateway`** (`observe(): Flow<SettingsView>` + `apply(poolRef, params)`) — VM зависит только от него, `ReconcileEngine` живёт **за** портом как адаптер `EngineSettingsGateway`. Экран движок напрямую не дёргает.
+- **`SettingsPresentationBuilder`** (домен): `Profile + Preset.settingsMap → SettingsView` (проекция). Сделан по форме будущего общего Home+Settings слоя, но **Home не трогаем** (unification — additive позже).
+- **`SettingsView` / `SettingRow` / `AppOperation`** — готовый дескриптор для экрана (значение, статус `LifecycleState`, выведенная editability, + app-операции). Runtime, не сохраняется.
+- **Editability выводится** (есть ли in-app провайдер), **не хранится** — поле `editableInSettings` отклонено (rule 4); wire-формат `settingsMap` НЕ меняется.
+- **Профиль читает Settings как проекцию**; презентация (`settingsMap`) берётся из пресета в рантайме (инвариант I2 ecs.md — профиль самодостаточен для поведения+home, но не для презентации).
+- **Поглощение legacy**: старый `SettingsScreen` (Decompose) сводится к одному экрану на `SettingsActivity`; не-профильные пункты (смена пресета, pairing-QR, сопряжённые устройства, сброс данных) переносятся как `AppOperation`-действия, не как компоненты.
+- **JSON-driven рендер отложен в TASK-133**; экран пока обычный Compose поверх готового `SettingsView`.
 
 ## Состояние
 
-**Planned.** Возникла в clarify-фазе TASK-65 как natural extension. Не в scope TASK-65 (там только banner-reminders в Settings, не полная replacement существующего Settings экрана).
+**In Progress — speckit-цикл пройден 2026-07-18** (specify → clarify → scenarios → plan → tasks → analyze). Спека `specs/task-69-settings-as-profile-view/` (spec.md, plan.md, data-model.md, tasks.md — 34 задачи / 7 фаз, analyze-report.md).
 
-Contextual notes от TASK-65 clarify:
-- Settings = view на тот же Profile что и Wizard.
-- Per-entry метаданные позволяют Preset author настраивать что показывать в Settings vs скрывать (по аналогии с wizard hidden-steps в TASK-71).
-- Settings UI должен поддерживать **в будущем** remote management (admin меняет настройки primary user'а через свой app) — TASK-70 + TASK-67 territory.
+- **Constitution 8/8 PASS**, cross-artifact trace чист, чек-листы чисты. **Analyze verdict: READY-WITH-CAVEATS.**
+- Caveat (не блокер): свести две навигации к одной (legacy на Decompose vs новый на Activity) — прописано в T069-020.
+- Deferred: эмуляторные прогоны (US3 диалог, смена языка, TalkBack) + OEM Xiaomi — задача останется в Verification, пока их не закроют на железе.
+- **Код — в отдельной сессии** (правило для крупных one-way-door фич). Depends: TASK-136 (ECS foundation, в Verification).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
