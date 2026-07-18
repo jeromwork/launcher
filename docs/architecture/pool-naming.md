@@ -1,5 +1,7 @@
 # Architecture: Pool naming convention
 
+> **Scope:** this doc covers **only pool-entry ID naming stability**. For the configuration **model** (Entity · Component · Blueprint · Provider · reconcile) the single source of truth is **[`ecs.md`](ecs.md)** — read it for the model. Any `Config` / `PoolEntry` / `check` / `apply` vocabulary in older examples below is superseded TASK-65 wording; the **naming rules still apply**, the model terms are `ecs.md`'s (`Blueprint` / `Component` / `Provider`).
+
 **Origin**: TASK-65 (FR-028). Moved from `specs/task-65-.../contracts/` to `docs/architecture/` 2026-07-09 (архитектурный инвариант, применяется ко всем preset'ам, не только TASK-65).
 **Purpose**: Stable identifiers для pool entries (настроек-кубиков), которые preset'ы пикают и компонуют. Identifiers видны в bundled presets, в server-distributed presets (future), в community/marketplace presets (future TASK-35). Стабильность критична.
 
