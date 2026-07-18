@@ -103,4 +103,10 @@
     <string name="settings_pending_indicator_label">Требует вашего внимания</string>
     <string name="settings_locale_divergence_label_format">Язык приложения: %1$s (системный Android: %2$s)</string>
 
+    <!-- TASK-73 — launcher_role.fallback.* -->
+    <string name="launcher_role_fallback_xiaomi">Откройте Настройки → Приложения → Приложения по умолчанию → Домашний экран, чтобы закончить.</string>
+    <string name="launcher_role_fallback_huawei">Откройте Настройки → Главный экран, чтобы закончить.</string>
+    <string name="launcher_role_fallback_samsung">Откройте Настройки → Приложения → Приложения по умолчанию, чтобы закончить.</string>
+    <string name="launcher_role_fallback_generic">Откройте Настройки телефона и найдите «Приложения по умолчанию» → «Домашний экран».</string>
+
 </resources>

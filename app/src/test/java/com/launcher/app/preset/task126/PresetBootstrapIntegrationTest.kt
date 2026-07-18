@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.launcher.api.FlowPreset
 import com.launcher.api.PresetRepository
+import com.launcher.api.setup.GmsAvailabilityPort
+import com.launcher.api.setup.GmsStatus
 import com.launcher.app.di.presetModule
 import com.launcher.app.preset.task120.PresetBootstrap
 import com.launcher.app.wizard.WizardViewModel
@@ -53,9 +55,16 @@ class PresetBootstrapIntegrationTest {
         override fun observeActivePreset(): Flow<FlowPreset?> = state.asStateFlow()
     }
 
+    private class AlwaysAvailableGmsPort : GmsAvailabilityPort {
+        override suspend fun status(): GmsStatus = GmsStatus.Available
+    }
+
     /** Stands in for the bindings that live outside `presetModule` in production. */
     private val testOnlyModule = module {
         single<PresetRepository> { InMemoryPresetRepository() }
+        // TASK-73 — LauncherRoleProvider now depends on GmsAvailabilityPort, bound
+        // in production by the (flavor-specific) SetupModule, not presetModule.
+        single<GmsAvailabilityPort> { AlwaysAvailableGmsPort() }
     }
 
     @After fun tearDown() {

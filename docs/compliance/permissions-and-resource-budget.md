@@ -301,4 +301,18 @@ Cross-checked against shipped manifests:
 - **Decision**: 🟡 in implementation. Pre-merge gates:
   - Owner runs T681-T685 manual verification on Xiaomi 11T.
   - Workers deployed (T666 — owner Cloudflare credentials).
+
+### task-73: vendor-aware dispatch for OEM-sensitive Providers
+
+- **Feature**: `LauncherRoleProvider` (`Component.LauncherRole`) tries a vendor-specific intent (from bundled `assets/preset/vendor-recipes.json`, Xiaomi/Huawei/Samsung in v1) before falling back to the pre-existing generic `RoleManager`/`ACTION_MAIN+CATEGORY_HOME` path; honest `Outcome.Failed(FailReason.InternalError(fallbackTextKey))` when neither resolves. No new `Component`, no new UI mechanism (research.md R2 — fallback text rides the existing TASK-69 `ApplyResult.Failed` Settings path).
+- **Requested permissions**: zero new runtime/normal permissions.
+- **Why each permission is needed**: n/a (none new).
+- **Fallback if denied**: n/a.
+- **Manifest deltas**: `<queries>` gains `<package android:name="com.android.settings" />` and `<intent><action android:name="android.settings.HOME_SETTINGS" /></intent>` (FR-010) — every `intentPackage`/implicit-action value referenced by `vendor-recipes.json` v1. Explicit-component overrides (Xiaomi/Samsung, `setClassName`) don't strictly need the `<queries>` declaration for `resolveActivity()` to work, but it's added anyway per FR-010 + `ManifestQueriesCoverageTest` (one invariant to check, not two). See `app/src/main/AndroidManifest.xml`.
+- **Background/runtime impact**: zero. One extra bundled-asset read (`vendor-recipes.json`) at `LauncherRoleProvider` construction time (DI singleton, same lifecycle as `pool.json`/`preset.json`), no background work, no polling.
+- **Startup impact**: negligible — one additional JSON asset parse (~1 KB) alongside the existing `pool.json`/preset reads already happening at the same DI-construction point.
+- **Memory/storage impact**: `vendor-recipes.json` bundled asset ≈ 0.5 KB. No new persisted state (no DataStore/SQLDelight schema change).
+- **Network impact**: zero — bundled asset only, no runtime fetch (Out of Scope: selective runtime download of recipe entries).
+- **Monitoring/observability**: new structured, PII-free diagnostic log (FR-012) — `vendor`, `componentType`, `outcome` fields — emitted on every `check()` non-`Ok` result and every `apply()` fallback-to-failure, for OEM-regression triage without a physical device.
+- **Decision**: 🟡 in implementation. `[deferred-external]` Firebase Test Lab OEM-matrix CI job (GCP billing, owner-provisioned); `[deferred-physical-device]` real Xiaomi/Huawei/Samsung verification via TASK-128 device rotation.
   - Docs read by a peer (T686 SC-006 peer-review).

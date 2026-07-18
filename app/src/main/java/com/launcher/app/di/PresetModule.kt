@@ -1,9 +1,11 @@
 package com.launcher.app.di
 
 import com.launcher.adapters.auth.ActivityHolder
+import com.launcher.api.setup.GmsAvailabilityPort
 import com.launcher.app.preset.task120.adapter.AndroidLocalizedResources
 import com.launcher.app.preset.task120.adapter.BundledPoolSource
 import com.launcher.app.preset.task120.adapter.BundledPresetSource
+import com.launcher.app.preset.task120.adapter.BundledVendorRecipeSource
 import com.launcher.app.preset.task120.adapter.DataStoreCapabilityAdapter
 import com.launcher.app.preset.task120.adapter.DataStoreProfileStore
 import com.launcher.app.preset.task120.adapter.NoopPairingService
@@ -27,6 +29,7 @@ import com.launcher.app.preset.task120.provider.StatusBarPolicyProvider
 import com.launcher.app.preset.task120.provider.ThemeProvider
 import com.launcher.app.preset.task120.provider.ToolbarProvider
 import com.launcher.app.preset.task126.BundledHintPoolSource
+import com.launcher.preset.adapter.AndroidVendorDetector
 import com.launcher.preset.engine.PresetDiff
 import com.launcher.preset.engine.PresetValidator
 import com.launcher.preset.engine.ProfileFactory
@@ -48,6 +51,8 @@ import com.launcher.preset.port.ProfileStore
 import com.launcher.preset.port.Provider
 import com.launcher.preset.port.ProviderRegistry
 import com.launcher.preset.port.SettingsGateway
+import com.launcher.preset.port.VendorDetector
+import com.launcher.preset.port.VendorRecipeSource
 import com.launcher.preset.settings.EngineSettingsGateway
 import com.launcher.preset.settings.SettingsPresentationBuilder
 import kotlin.reflect.KClass
@@ -73,6 +78,9 @@ val presetModule = module {
     // Persistence + capability + localization + pairing adapters
     single<PoolSource> { BundledPoolSource(androidContext()) }
     single<PresetSource> { BundledPresetSource(androidContext()) }
+    // TASK-73 — vendor-aware dispatch inputs for LauncherRoleProvider.
+    single<VendorDetector> { AndroidVendorDetector() }
+    single<VendorRecipeSource> { BundledVendorRecipeSource(androidContext()) }
     single<ProfileStore> { DataStoreProfileStore(androidContext()) }
     single<CapabilityQuery> { DataStoreCapabilityAdapter(androidContext()) }
     single<LocalizedResources> { AndroidLocalizedResources(androidContext()) }
@@ -99,6 +107,9 @@ val presetModule = module {
         LauncherRoleProvider(
             context = androidContext(),
             currentActivity = { ActivityHolder.current() },
+            vendorDetector = get(),
+            vendorRecipes = get(),
+            gmsAvailability = get<GmsAvailabilityPort>(),
         )
     }
     single { ThemeProvider(controller = get()) }

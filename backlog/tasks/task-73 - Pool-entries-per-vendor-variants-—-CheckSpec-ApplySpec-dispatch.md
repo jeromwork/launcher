@@ -60,8 +60,8 @@ ordinal: 73000
 ## Состояние
 
 - **`/speckit.analyze` verdict: READY** (2026-07-19). Полный speckit-цикл пройден: specify → clarify (4 вопроса) → grounding-коррекция (дважды) → plan (Constitution Check 8/8) → tasks (34 задачи, 8 фаз) → analyze (9 чек-листов чистые). Ветка `task-73-pool-vendor-variants` запушена.
-- Реализация ещё не начата — по практике проекта, код пишется в свежей сессии после полного speckit-цикла.
-- Три группы задач помечены deferred и не блокируют старт реализации: Firebase Test Lab CI (`[deferred-external]`, нужен GCP-биллинг), эмуляторный смок (`[deferred-local-emulator]`), реальные Xiaomi/Huawei/Samsung устройства (`[deferred-physical-device]`, через TASK-128).
+- **Реализация завершена (2026-07-19), Phase 1-6 из 8**: 30 из 34 задач сделаны (`T073-001..031`) — типы + порты, wire-format тесты, `AndroidVendorDetector` + `BundledVendorRecipeSource` + fakes, `LauncherRoleProvider` vendor-aware dispatch (Xiaomi/Samsung explicit-intent + Huawei action-intent + Huawei-без-GMS skip-generic-branch), Koin DI wiring, манифест `<queries>` + `ManifestQueriesCoverageTest`, i18n fallback-строки (EN+RU) + fitness-тесты, structured diagnostic log (FR-012). Все JVM unit-тесты зелёные (`:core:test`, `:app:testDebugUnitTest`), эмуляторный смок на `Medium_Phone_API_36.1` подтвердил: generic-path (Vendor.GenericAndroid, override отсутствует) не сломан — приложение стало HOME role holder'ом как раньше.
+- Три оставшиеся задачи — deferred, не блокируют: Firebase Test Lab CI (`T073-032`, `[deferred-external]`, нужен GCP-биллинг), реальные Xiaomi/Huawei/Samsung устройства (`T073-034`, `[deferred-physical-device]`, через TASK-128).
 
 <!-- SECTION:DESCRIPTION:END -->
 

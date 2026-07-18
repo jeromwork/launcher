@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "entries": {
+    "LauncherRole": {
+      "Xiaomi": {
+        "intentAction": "android.settings.MANAGE_DEFAULT_APPS_SETTINGS",
+        "intentPackage": "com.android.settings",
+        "intentClassName": "com.android.settings.Settings$ManageDefaultAppsActivitiesActivity",
+        "fallbackTextKey": "launcher_role.fallback.xiaomi"
+      },
+      "Huawei": {
+        "intentAction": "android.settings.HOME_SETTINGS",
+        "fallbackTextKey": "launcher_role.fallback.huawei"
+      },
+      "Samsung": {
+        "intentPackage": "com.android.settings",
+        "intentClassName": "com.android.settings.Settings$DefaultAppSettingsActivity",
+        "fallbackTextKey": "launcher_role.fallback.samsung"
+      }
+    }
+  }
+}
