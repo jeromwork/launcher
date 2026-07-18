@@ -1,7 +1,7 @@
 ---
 id: TASK-136
 title: 'Decision: ECS canonical foundational model'
-status: In Progress
+status: Verification
 assignee: []
 created_date: '2026-07-18'
 updated_date: '2026-07-18'
@@ -203,3 +203,10 @@ Concrete shape:
 - [x] #4 [hand] Downstream dependencies обновлены (TASK-69/71/68/19 получили TASK-136 в dependencies)
 - [ ] #5 [auto:deferred-local-emulator] Emulator smoke — fresh install → wizard → HomeScreen tiles (T136-045)
 <!-- AC:END -->
+
+## Verification Pending
+
+<!-- SECTION:VERIFICATION_PENDING:BEGIN -->
+PR #55 merged 2026-07-18 (big-bang impl, 48/49 tasks `[x]`). Pending AC: #5 (`auto:deferred-local-emulator`, T136-045 emulator smoke — fresh install → wizard → HomeScreen tiles). AI session does not visually verify a running HomeScreen (memory `reference_compose_ui_test_api_mismatch`); closes when the emulator smoke is driven on an AVD ≤ API 34. No `[deferred-physical-device]` — pure `:core` JVM domain refactor, no OEM/permission/HOME-role surface. Transition Verification → Done via `pre-pr-backlog-sync` once #5 is closed.
+<!-- SECTION:VERIFICATION_PENDING:END -->
+
