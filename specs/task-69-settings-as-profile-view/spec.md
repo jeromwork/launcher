@@ -103,6 +103,231 @@
 - **Изменение во время применения**: пользователь быстро меняет значение дважды — второе изменение не должно потеряться или перезаписаться устаревшим результатом.
 - **Смена языка из настроек** пересоздаёт активность — экран должен восстановиться корректно (прецедент есть в визарде: `WizardLocaleChangeTest`).
 
+## Sequences
+
+Sequence diagrams elaborate critical flows from User Stories. Each sequence has Pre/Post conditions, a spec-level diagram (behaviour, owner-readable), a plan-level diagram (architecture, plan.md cites these lifelines), and a MENTOR-DETAIL block (plain-Russian explanation).
+
+Per [CLAUDE.md «Sequences in spec.md»](../../CLAUDE.md) section and [ADR-011](../../docs/adr/ADR-011-ai-owner-collaboration-conventions.md).
+
+Simple carried-over app-operations (preset switch, pairing-QR nav, admin nav — FR-020 a/b/c) are trivial navigation and get no dedicated sequence; **SEQ-4 (data reset)** represents the app-operation boundary — the interesting destructive case that must NOT route through the Component/Provider engine.
+
+---
+
+### SEQ-1: Settings projects the Profile (US1)
+
+Pre: wizard completed, a `Profile` exists in `ProfileStore`; a `Preset` with a filled `settingsMap` is active.
+Post: screen shows one row per resolvable `settingsMap` entry, grouped by `categoryKey`, each with current value + `LifecycleState`; unresolved `poolRef`s skipped, no crash.
+Used-in: spec/task-69-settings-as-profile-view.
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  U->>S: Open Settings
+  S->>S: Read active Profile + Preset.settingsMap
+  loop each settingsMap entry
+    S->>S: Find entity by poolRef (entity.id == poolRef)
+    alt entity found
+      S->>S: Read value get<T>() + state get<LifecycleState>()
+    else missing
+      S->>S: Skip row
+    end
+  end
+  S-->>U: Render rows grouped by categoryKey (value + state)
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant UI as SettingsScreen (Composable)
+  participant VM as SettingsViewModel
+  participant Q as ProfileQuery (domain ext)
+  participant PS as ProfileStore (port)
+  participant PR as PresetSource (port)
+  UI->>VM: observe settingsUiState
+  VM->>PS: observe(): Flow<Profile>
+  VM->>PR: activePreset(): Preset
+  PS-->>VM: Profile
+  PR-->>VM: Preset
+  VM->>Q: map settingsMap → entities (id==poolRef), get<T>() + get<LifecycleState>()
+  Q-->>VM: List<SettingRow>
+  VM-->>UI: SettingsUiState(rows grouped by categoryKey)
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- Экран не хранит свой список настроек — он **зеркалит профиль**. Открыли настройки → система читает текущий профиль (что реально применено) и поле `settingsMap` пресета (что показывать и в какой группе).
+- Для каждой записи `settingsMap` система по `poolRef` находит сущность профиля (у них общий id) и типобезопасно достаёт значение (`get<T>()`) и состояние применения (`LifecycleState`: применено / ожидает / ошибка / пропущено / состояние неизвестно).
+- Если запись ссылается на компонент, которого в профиле нет — строка просто пропускается, экран не падает (US1 сценарий 4).
+- Стрелки идут только «вниз» (экран → VM → запрос → порт хранилища): экран сам ничего не вычисляет и не лезет в Android — rule 1.
+<!-- MENTOR-DETAIL:END -->
+
+---
+
+### SEQ-2: In-app edit through the engine (US2)
+
+Pre: a row for an in-app-applied component (`FontSize`/`Theme`/`Language`/`Toolbar`) with `editableInSettings = true` is shown.
+Post: on success, `Profile` holds the new value (survives restart) and UI reflects it; on failure, old value kept and error state shown.
+Used-in: spec/task-69-settings-as-profile-view.
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  U->>S: Change value (e.g. FontSize → Large)
+  S->>S: Apply via reconcile engine (single component)
+  alt apply Ok
+    S->>S: Persist new value in Profile
+    S-->>U: UI shows new value immediately
+  else apply Failed
+    S->>S: Keep previous value, record Failed state
+    S-->>U: Row shows "not applied", old value intact
+  end
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant UI as SettingsScreen (Composable)
+  participant VM as SettingsViewModel
+  participant RE as ReconcileEngine (RunMode.Single)
+  participant PV as Provider (FontSizeProvider)
+  participant PS as ProfileStore (port)
+  UI->>VM: onChange(componentId, newParams)
+  VM->>RE: run(Single, entity, newComponent)
+  RE->>PV: apply(newComponent): Outcome
+  PV-->>RE: Ok | Failed(reason)
+  RE->>PS: save(Profile.with(id, newComponent).setState(id, state))
+  PS-->>RE: persisted
+  RE-->>VM: reconcile result
+  VM-->>UI: updated SettingsUiState (new value or error)
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- Это первая возможность поменять настройку **после** визарда, не прогоняя визард заново.
+- Любое изменение идёт через тот же движок применения (`ReconcileEngine`), что и визард — экран НЕ трогает Android напрямую (rule 1, FR-008). Провайдер компонента реально применяет значение.
+- Успех → новое значение сразу на экране и в профиле (переживает перезапуск, FR-009). Ошибка → прежнее значение не теряется, строка честно показывает «не применилось» (FR-010).
+- Работает только для компонентов, применяемых внутри приложения (шрифт/тема/язык/панель). Требующие системного диалога — см. SEQ-3.
+<!-- MENTOR-DETAIL:END -->
+
+---
+
+### SEQ-3: System-dialog setting — one-step mini-wizard (US3)
+
+Pre: a row for a component needing a system dialog (`LauncherRole`/`StatusBarPolicy`) is shown.
+Post: exactly one wizard step runs (not the whole wizard); user returns to Settings; row shows honest post-dialog status (may be `Unverifiable` on OEM firmwares).
+Used-in: spec/task-69-settings-as-profile-view.
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  participant X as Android OS
+  U->>S: Tap "Change" on launcher-role setting
+  S->>S: Launch single-step flow (not full wizard)
+  S->>X: Request system dialog (RoleManager)
+  X-->>U: OS role-picker dialog
+  U->>X: Choose / cancel
+  X-->>S: Return to app
+  S->>S: Re-check component state
+  alt state readable
+    S-->>U: Back on Settings, row shows Applied/NeedsApply
+  else not readable (OEM)
+    S-->>U: Row shows "state unknown" (Unverifiable), re-apply offered
+  end
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant UI as SettingsScreen (Composable)
+  participant VM as SettingsViewModel
+  participant RE as ReconcileEngine (RunMode.Single, Interactive)
+  participant PV as Provider (LauncherRoleProvider)
+  participant AD as RoleManager facade (adapter)
+  UI->>VM: onChange(launcherRoleId)
+  VM->>RE: run(Single, entity) [Interactive]
+  RE->>PV: apply(): Outcome
+  PV->>AD: createRequestRoleIntent(ROLE_HOME)
+  AD-->>PV: launch + await result
+  PV-->>RE: Ok | Unsupported/Unverifiable
+  RE-->>VM: state (mapped to LifecycleState)
+  VM-->>UI: return to Settings, updated row
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- Некоторые настройки (роль лаунчера по умолчанию, поведение системной панели) нельзя применить внутри приложения — их решает система Android своим диалогом.
+- Мы открываем **один шаг** — тот же, что показывал визард, но только для этой настройки; после ответа пользователь возвращается в настройки (FR-011), а не проходит весь визард.
+- Отмена не ломает прежнее состояние (FR-012). На некоторых прошивках (Xiaomi/Samsung) состояние нельзя прочитать обратно — тогда строка честно пишет «состояние неизвестно» и предлагает применить заново, а не врёт «настроено» (FR-013, OEM Matrix).
+- `RoleManager facade` — адаптер (rule 2): весь Android-код живёт там, домен его не видит.
+<!-- MENTOR-DETAIL:END -->
+
+---
+
+### SEQ-4: Absorbed app-operation — data reset (FR-020, boundary case)
+
+Pre: single settings screen (legacy absorbed); "Reset data" action shown in the app-operations section (not the Profile-projection list).
+Post: on confirm, profile wiped and first-launch wizard starts; on cancel, nothing changes. This flow bypasses the Component/Provider engine by design.
+Used-in: spec/task-69-settings-as-profile-view.
+
+#### Spec-level (behavior)
+
+```mermaid
+sequenceDiagram
+  participant U as Owner
+  participant S as System
+  U->>S: Tap "Reset data" (app-operation, not a component)
+  S-->>U: Confirm dialog ("preset + settings will be deleted")
+  alt confirmed
+    U->>S: Confirm
+    S->>S: Wipe Profile + active preset
+    S-->>U: First-launch wizard starts
+  else cancelled
+    U->>S: Cancel
+    S-->>U: Nothing changes
+  end
+```
+
+#### Plan-level (architecture)
+
+```mermaid
+sequenceDiagram
+  participant UI as SettingsScreen (Composable)
+  participant VM as SettingsViewModel
+  participant PS as ProfileStore (port)
+  participant NAV as Navigation (to FirstLaunch)
+  UI->>VM: onResetConfirmed()
+  VM->>PS: clear()
+  PS-->>VM: cleared
+  VM->>NAV: navigate(FirstLaunchWizard)
+  NAV-->>UI: wizard screen
+```
+
+<!-- MENTOR-DETAIL:BEGIN -->
+#### Пояснение для владельца
+
+- «Сбросить данные» — это **операция приложения**, а не настройка профиля. Она стирает весь профиль и запускает мастер первого запуска.
+- Важно архитектурно: этот путь **намеренно** идёт мимо движка применения компонентов (`ReconcileEngine`/`Provider`) — сбрасывать нечего «по одному компоненту», это целостная операция над всем профилем. Поэтому она живёт в отдельной секции «действия», а не в списке-зеркале профиля (FR-020).
+- Тот же принцип у остальных перенесённых из старого экрана пунктов (смена пресета, QR помощнику, сопряжённые устройства) — это действия/навигация, не компоненты. Отдельные диаграммы им не нужны (тривиальная навигация).
+- Деструктивное действие всегда с подтверждением; отмена ничего не меняет.
+<!-- MENTOR-DETAIL:END -->
+
+---
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
