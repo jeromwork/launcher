@@ -58,6 +58,31 @@
 
 ---
 
+## Scope (In / Out)
+
+> Консолидация big-bang-границы (раньше была размазана по FR-016 / FR-021 / Assumptions — фикс requirements-quality CHK012). Одна когерентная правка, дёшево только пока pre-release (нет пользователей, нет persisted prod-данных).
+
+### В scope (одна big-bang правка, FR-016)
+
+- **Переписать форму модели**: `Entity` (один Component → свободный мешок `components: List<Component>` + `tags: Set<Tag>`, без поля `status`), `Component` (`sealed class` → `sealed interface`, убрать поле `tags` со всех подтипов), `Blueprint` (→ Bundle: набор компонентов + теги), `LifecycleState` (состояние как компонент вместо enum `ComponentStatus`).
+- **Переписать движок и запросы**: `ProfileFactory` (спавн из бандла в плоский набор), `ReconcileEngine` (состояние через смену компонента-маркера), `ProfileQuery` (селекторы над `entity.tags` + `get<T>()`), `validateHierarchy`, `PresetValidator`, `PresetDiff`.
+- **Собственный ECS-core** (~200-400 LOC, форма Fleks API) в новом пакете `preset/ecs/`.
+- **Переписать всех потребителей на месте**: `ProfileBackedFlowRepository`, `WizardScreen`, `PostWizardKioskApply`, фикстуры, bundled-пресеты (`pool.json`, `bundled-presets/*.json`), тесты.
+- **Cleanup inventory** (FR-017..FR-021): переписать `docs/architecture/preset-model.md`, написать `ADR-013` + header «Superseded by ADR-013» на `ADR-012`, проставить `superseded-by: TASK-136` на TASK-120/127.
+
+### Вне scope
+
+- **Мигратор / backward-compat / schemaVersion bump** — не пишем (Article XX pre-MVP; поле `schemaVersion` остаётся = 2, dev `ProfileStore` сбрасывается fresh-install'ом).
+- **Правки downstream-спек** (TASK-69/71/68/19) — только notice/указатель «See TASK-136 Decision» через `dependencies:`, сами спеки не трогаем (FR-021).
+- **`AdminLocked` / per-entity admin-lock** — не добавляется (CL-1 отозвано; admin-lock — profile-level, TASK-70).
+- **Sharing UI / marketplace / import-from-file** — не строятся; сохраняется только шов `BundledSource`-as-one-of-many + `// TODO(shareability)` (rule 9).
+- **Lenient reader** для незнакомых type/Tag — отдельный будущий шаг перед cross-device обменом (не здесь).
+- **Индексация запросов, type-grouped storage, game-loop планировщик** — exit ramps, не MVP.
+- **Изменение UI-контракта `FlowDescriptor` и экранов** — не трогается (проекция уже иерархична, наследие TASK-127).
+- **Переезд на Fleks напрямую** — exit ramp (требует Kotlin 2.0→2.4 + String→Int id remap), не сейчас.
+
+---
+
 ## Developer / Consumer Scenarios & Testing *(mandatory)*
 
 > Формат адаптирован: вместо end-user stories — **capability stories** (что модель должна уметь). «Actor» — downstream-таск или разработчик. Каждый сценарий имеет независимый тест на уровне `core` (JVM/commonTest), без устройства.
