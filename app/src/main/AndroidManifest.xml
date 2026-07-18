@@ -191,10 +191,11 @@
             android:label="Spec 014 Smoke" />
 
         <!--
-          TASK-7 Phase 6 (FR-014 / FR-014a / FR-017a) — minimal Settings host.
-          Bundles PendingChecklist + WalkThrough button + LocaleDivergence
-          indicator. exported=false: only launched from inside the app
-          (post-TASK-7 menu wiring will add the entry from HomeActivity).
+          TASK-69 (FR-017 / FR-020 / FR-021) — the single Settings host: a
+          Profile projection (Wizard is the other), plus the PendingChecklist +
+          WalkThrough button + LocaleDivergence indicator kept from TASK-7.
+          Launched from HomeActivity's "Settings" tap. exported=false: only
+          launched from inside the app.
         -->
         <activity
             android:name=".settings.SettingsActivity"

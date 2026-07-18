@@ -4,34 +4,34 @@ Source: [spec.md](spec.md), [plan.md](plan.md), [data-model.md](data-model.md). 
 
 ## Phase 1 — Domain types + port (`core/preset/`, pure Kotlin)
 
-- [ ] **T069-001** [P] Add view types `SettingsView` / `SettingsSection` / `SettingRow` / `RowState` / `RowKind` / `AppOperation` in `core/preset/settings/SettingsView.kt`. Trace: FR-001, FR-004, FR-020, data-model.md. Acceptance: compiles; `RowState` is a 1:1 projection of the 5 `LifecycleState` variants.
-- [ ] **T069-002** [P] Add `SettingsGateway` port + `ApplyResult` in `core/preset/port/SettingsGateway.kt`. Trace: FR-008, plan §3. Acceptance: compiles; zero Android imports.
-- [ ] **T069-003** Add `SettingsPresentationBuilder` skeleton (`build(profile, settingsMap): SettingsView`, injected `LocalizedResources` + editability fn) in `core/preset/settings/`. Trace: FR-000, FR-002. Requires: T069-001.
+- [x] **T069-001** [P] Add view types `SettingsView` / `SettingsSection` / `SettingRow` / `RowState` / `RowKind` / `AppOperation` in `core/preset/settings/SettingsView.kt`. Trace: FR-001, FR-004, FR-020, data-model.md. Acceptance: compiles; `RowState` is a 1:1 projection of the 5 `LifecycleState` variants.
+- [x] **T069-002** [P] Add `SettingsGateway` port + `ApplyResult` in `core/preset/port/SettingsGateway.kt`. Trace: FR-008, plan §3. Acceptance: compiles; zero Android imports.
+- [x] **T069-003** Add `SettingsPresentationBuilder` skeleton (`build(profile, settingsMap): SettingsView`, injected `LocalizedResources` + editability fn) in `core/preset/settings/`. Trace: FR-000, FR-002. Requires: T069-001.
 
 ## Phase 2 — Builder logic + tests (`core:test`, JVM)
 
-- [ ] **T069-004** Builder: for each `settingsMap` entry find entity by `id == poolRef` (I5), **skip if absent**, group rows by `categoryKey`. Trace: FR-002, FR-003, ecs.md I5. Requires: T069-003.
-- [ ] **T069-005** Builder: project value via `entity.get<T>()` (pre-formatted `valueText`) + state via `entity.get<LifecycleState>()` → `RowState`. Trace: FR-004, FR-013. Requires: T069-004.
-- [ ] **T069-006** Builder: derive `RowKind` (InApp / SystemDialog / ReadOnly) from provider capability — **no wire field**. Trace: FR-015, rule 4. Requires: T069-004.
-- [ ] **T069-007** Builder: `sensitivity` read but **not** gating (all rows shown in MVP). Trace: FR-016. Requires: T069-004.
-- [ ] **T069-008** Builder unit tests (fixtures with filled `settingsMap`): skip-missing, grouping, value, state, derived editability, sensitivity-inert, deterministic output. Trace: US1, SC-001, SC-010. Requires: T069-005, T069-006, T069-007.
+- [x] **T069-004** Builder: for each `settingsMap` entry find entity by `id == poolRef` (I5), **skip if absent**, group rows by `categoryKey`. Trace: FR-002, FR-003, ecs.md I5. Requires: T069-003.
+- [x] **T069-005** Builder: project value via `entity.get<T>()` (pre-formatted `valueText`) + state via `entity.get<LifecycleState>()` → `RowState`. Trace: FR-004, FR-013. Requires: T069-004.
+- [x] **T069-006** Builder: derive `RowKind` (InApp / SystemDialog / ReadOnly) from provider capability — **no wire field**. Trace: FR-015, rule 4. Requires: T069-004.
+- [x] **T069-007** Builder: `sensitivity` read but **not** gating (all rows shown in MVP). Trace: FR-016. Requires: T069-004.
+- [x] **T069-008** Builder unit tests (fixtures with filled `settingsMap`): skip-missing, grouping, value, state, derived editability, sensitivity-inert, deterministic output. Trace: US1, SC-001, SC-010. Requires: T069-005, T069-006, T069-007.
 
 ## Phase 3 — Fake + adapter + DI
 
-- [ ] **T069-009** [P] `FakeSettingsGateway` (in-memory `SettingsView` + recorded `apply`) for UI/VM tests (rule 6). Trace: plan §7. Requires: T069-002.
-- [ ] **T069-010** `EngineSettingsGateway : SettingsGateway` (adapter): `observe()` = combine(`ProfileStore.observe()`, active `Preset` via `PresetSource`) → `SettingsPresentationBuilder.build()`. Trace: FR-005, FR-008, I2. Requires: T069-003, T069-002.
-- [ ] **T069-011** `EngineSettingsGateway.apply()` → `ReconcileEngine.run(Single)`; Ok → persist new value; Failed → keep prior + `Failed` state; system-dialog component → `NeedsSystemDialog`. Trace: FR-009, FR-010, FR-011. Requires: T069-010.
-- [ ] **T069-012** DI (Hilt): bind `SettingsGateway` → `EngineSettingsGateway`. Trace: plan §3, rule 6. Requires: T069-010.
-- [ ] **T069-013** Gateway contract test on `FakeProvider`/`FakeProfileStore`/`FakePresetSource`: apply → engine → `Provider.apply` + `ProfileStore.save`; failure keeps prior value. Trace: SC-008, FR-010. Requires: T069-011.
+- [x] **T069-009** [P] `FakeSettingsGateway` (in-memory `SettingsView` + recorded `apply`) for UI/VM tests (rule 6). Trace: plan §7. Requires: T069-002.
+- [x] **T069-010** `EngineSettingsGateway : SettingsGateway` (adapter): `observe()` = combine(`ProfileStore.observe()`, active `Preset` via `PresetSource`) → `SettingsPresentationBuilder.build()`. Trace: FR-005, FR-008, I2. Requires: T069-003, T069-002.
+- [x] **T069-011** `EngineSettingsGateway.apply()` → `ReconcileEngine.run(Single)`; Ok → persist new value; Failed → keep prior + `Failed` state; system-dialog component → `NeedsSystemDialog`. Trace: FR-009, FR-010, FR-011. Requires: T069-010.
+- [x] **T069-012** DI (Hilt): bind `SettingsGateway` → `EngineSettingsGateway`. Trace: plan §3, rule 6. Requires: T069-010.
+- [x] **T069-013** Gateway contract test on `FakeProvider`/`FakeProfileStore`/`FakePresetSource`: apply → engine → `Provider.apply` + `ProfileStore.save`; failure keeps prior value. Trace: SC-008, FR-010. Requires: T069-011.
 
 ## Phase 4 — ViewModel + Screen (`app/`, Compose)
 
-- [ ] **T069-014** `SettingsViewModel` depends **only** on `SettingsGateway`: `observe()` → `SettingsUiState`; `onChange` → `apply`; app-op callbacks → navigation. Trace: FR-005, FR-007. Requires: T069-002.
-- [ ] **T069-015** `SettingsScreen` composable renders `SettingsView` (sections → rows → actions). **No `when(component)`, no Android calls.** Trace: FR-001, SC-006. Requires: T069-001, T069-014.
-- [ ] **T069-016** Row UI: value + state badge; edit control **only** for `RowKind.InApp`; `ReadOnly` shows value+state without edit. Trace: FR-004, FR-015. Requires: T069-015.
-- [ ] **T069-017** System-dialog row (`RowKind.SystemDialog`, `LauncherRole`/`StatusBarPolicy`): tap → one-step flow (not full wizard) → return to Settings; cancel leaves state intact. Trace: US3, FR-011, FR-012, SEQ-3. Requires: T069-016, T069-011.
-- [ ] **T069-018** Accessibility: interactive rows/buttons tap target ≥ 56dp, contrast ≥ 4.5:1, TalkBack semantics from i18n keys; `Failed`/`Skipped` rows render as status, not tappable. Trace: SC-011, Article VIII §7. Requires: T069-016.
-- [ ] **T069-019** Language change from Settings recreates Activity; screen restores from Profile (I1). Trace: Article IV §5, edge case. Requires: T069-015.
+- [x] **T069-014** `SettingsViewModel` depends **only** on `SettingsGateway`: `observe()` → `SettingsUiState`; `onChange` → `apply`; app-op callbacks → navigation. Trace: FR-005, FR-007. Requires: T069-002.
+- [x] **T069-015** `SettingsScreen` composable renders `SettingsView` (sections → rows → actions). **No `when(component)`, no Android calls.** Trace: FR-001, SC-006. Requires: T069-001, T069-014.
+- [x] **T069-016** Row UI: value + state badge; edit control **only** for `RowKind.InApp`; `ReadOnly` shows value+state without edit. Trace: FR-004, FR-015. Requires: T069-015.
+- [x] **T069-017** System-dialog row (`RowKind.SystemDialog`, `LauncherRole`/`StatusBarPolicy`): tap → one-step flow (not full wizard) → return to Settings; cancel leaves state intact. Trace: US3, FR-011, FR-012, SEQ-3. Requires: T069-016, T069-011.
+- [x] **T069-018** Accessibility: interactive rows/buttons tap target ≥ 56dp, contrast ≥ 4.5:1, TalkBack semantics from i18n keys; `Failed`/`Skipped` rows render as status, not tappable. Trace: SC-011, Article VIII §7. Requires: T069-016.
+- [x] **T069-019** Language change from Settings recreates Activity; screen restores from Profile (I1). Trace: Article IV §5, edge case. Requires: T069-015.
 
 ## Phase 5 — Legacy absorption + app-operations
 
