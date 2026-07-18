@@ -4,7 +4,7 @@
 **Date**: 2026-07-18
 **Source**: TASK-136 (Decision block = authority) — mentor session inside speckit-clarify TASK-69
 **Supersedes**: [ADR-012](ADR-012-tagged-component-model-vs-canonical-ecs.md)
-**Related**: [TASK-136 Decision](../../backlog/tasks/task-136%20-%20Decision-ECS-canonical-foundational-model.md), [spec](../../specs/task-136-ecs-canonical-foundational-model/spec.md), [preset-model.md](../architecture/preset-model.md)
+**Related**: [TASK-136 Decision](../../backlog/tasks/task-136%20-%20Decision-ECS-canonical-foundational-model.md), [spec](../../specs/task-136-ecs-canonical-foundational-model/spec.md), **[ecs.md](../architecture/ecs.md)** (single source of truth for the model)
 
 ---
 

@@ -1,5 +1,7 @@
 # 02 — Config Ownership Per Device
 
+> **Note (model pointer):** the device **runtime** configuration model is now the ECS **Profile** (source of truth: [`ecs.md`](../../../architecture/ecs.md)); `ConfigDocument` as a runtime unit is deprecated (`ecs.md` §7). This decision's *ownership* principle (a config belongs to the account signed in on its device; pairing = edit rights) still holds and is orthogonal to the model. What actually flows through the cloud (Profile / Preset / pair) is the open question owned by **TASK-70**.
+
 **Status**: ACCEPTED 2026-06-15
 **Supersedes**: [`specs/014-tile-editing-admin-senior-profiles/spec.md` FR-003h](../../../../specs/014-tile-editing-admin-senior-profiles/spec.md) `ownerUid = admin Google UID` model
 
