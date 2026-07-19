@@ -1,10 +1,10 @@
 ---
 id: TASK-136
 title: 'Decision: ECS canonical foundational model'
-status: Verification
+status: Done
 assignee: []
 created_date: '2026-07-18'
-updated_date: '2026-07-18'
+updated_date: '2026-07-19'
 labels:
   - phase-2
   - foundation
@@ -201,12 +201,20 @@ Concrete shape:
 - [x] #2 [hand] OQ-1..OQ-7 закрыты в Discussion
 - [x] #3 [hand] ADR-013 написан (заменяет ADR-012), ADR-012 получил "Superseded by ADR-013", TASK-120/127 помечены superseded-by TASK-136
 - [x] #4 [hand] Downstream dependencies обновлены (TASK-69/71/68/19 получили TASK-136 в dependencies)
-- [ ] #5 [auto:deferred-local-emulator] Emulator smoke — fresh install → wizard → HomeScreen tiles (T136-045)
+- [x] #5 [auto:deferred-local-emulator] Emulator smoke — fresh install → wizard → HomeScreen tiles (T136-045) — verified 2026-07-19 on Medium_Phone_API_36.1 (mockBackend)
 <!-- AC:END -->
 
 ## Verification Pending
 
-<!-- SECTION:VERIFICATION_PENDING:BEGIN -->
-PR #55 merged 2026-07-18 (big-bang impl, 48/49 tasks `[x]`). Pending AC: #5 (`auto:deferred-local-emulator`, T136-045 emulator smoke — fresh install → wizard → HomeScreen tiles). AI session does not visually verify a running HomeScreen (memory `reference_compose_ui_test_api_mismatch`); closes when the emulator smoke is driven on an AVD ≤ API 34. No `[deferred-physical-device]` — pure `:core` JVM domain refactor, no OEM/permission/HOME-role surface. Transition Verification → Done via `pre-pr-backlog-sync` once #5 is closed.
-<!-- SECTION:VERIFICATION_PENDING:END -->
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+**Done 2026-07-19.** Big-bang canonical-ECS refactor merged in PR #55 (49/49 tasks `[x]`); the final deferred gate (AC #5, T136-045 emulator smoke) closed 2026-07-19.
+
+**Smoke verified** on `Medium_Phone_API_36.1` AVD (mockBackend flavor), manual `am start` + screencap walkthrough — NOT composeUiTest, so the API-35/36 instrumented-test blocker (`reference_compose_ui_test_api_mismatch`) does not apply:
+- Fresh install → preset picker (Workspace / Launcher / Simple launcher) renders from the rewritten bundled seed presets.
+- Wizard driven by ECS `ReconcileEngine` (RunMode.Wizard) across 9 steps — Font size, Emergency SOS button, AppTile-install (→ Play Store intent for an uninstalled target), etc.
+- `HomeActivity` renders the tabbed shell (Home / Apps / + / Settings) with **no config-load Error UI** — the TASK-127 regression is absent.
+- Apps tab shows the `AppTile` (WhatsApp) from the bundled `launcher` preset; render gating correct (no dead `Failed`/`Skipped` button).
+
+All AC green: #1–4 `[hand]` (Decision block, OQ-1..OQ-7, ADR-013 + supersede markers, downstream dependency updates), #5 `[auto:deferred-local-emulator]`. Supersedes TASK-120 + TASK-127; ADR-013 is the canonical model of record.
+<!-- SECTION:FINAL_SUMMARY:END -->
 

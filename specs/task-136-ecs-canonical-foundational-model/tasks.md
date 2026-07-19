@@ -667,12 +667,13 @@
 
 > **[deferred-local-emulator]** T136-045 deferred until an AVD the session can drive is available (memory `reference_compose_ui_test_api_mismatch.md`; the AI session cannot visually verify a running HomeScreen). `pre-pr-backlog-sync` emits this as a `[auto:deferred-local-emulator]` AC; task stays in Verification until closed.
 
-### T136-045 — [ ] [deferred-local-emulator] Emulator smoke — fresh install → wizard → HomeScreen tiles
+### T136-045 — [x] [deferred-local-emulator] Emulator smoke — fresh install → wizard → HomeScreen tiles
 
 **Trace**: Plan §Rollout step 5, SC-010.
 
 **Acceptance**:
 - Fresh install → wizard → HomeScreen shows tiles from the rewritten bundled preset; render gating (no dead `Failed`/`Skipped` button) visually correct. Owner / emulator run; AI session does not verify.
+- **Verified 2026-07-19** on `Medium_Phone_API_36.1` AVD (mockBackend flavor): fresh install → preset picker (Workspace/Launcher/Simple launcher) → wizard driven by ECS `ReconcileEngine` (Step 1..9: Font size, Emergency SOS, AppTile-install → Play Store intent, …) → `HomeActivity` renders the tabbed shell (Home/Apps/+/Settings) with **no config-load Error UI** (TASK-127 regression absent). Apps tab shows the `AppTile` (WhatsApp) from the bundled `launcher` preset; render gating correct — no dead `Failed`/`Skipped` button. Note: composeUiTest API-mismatch (`reference_compose_ui_test_api_mismatch`) only blocks instrumented tests, not this manual `am start` + screencap smoke, so API 36.1 AVD is valid here.
 
 **Dependencies**: T136-044
 
