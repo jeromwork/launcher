@@ -1,9 +1,10 @@
 ---
 id: TASK-73
 title: Pool entries per-vendor variants — CheckSpec/ApplySpec dispatch
-status: Draft
+status: In Progress
 assignee: []
 created_date: '2026-07-01 04:15'
+updated_date: '2026-07-19'
 labels:
   - phase-3
   - area-preset
@@ -14,6 +15,7 @@ dependencies:
   - TASK-65
 references:
   - specs/task-65-profile-composition-foundation-v2/
+  - specs/task-73-pool-entries-per-vendor-variants/
 priority: high
 ordinal: 73000
 ---
@@ -22,77 +24,63 @@ ordinal: 73000
 
 ## Что это простыми словами
 
-Сейчас у нас есть **пул настроек** (pool) — список того, что должно быть настроено на устройстве, чтобы preset (простой лаунчер, workspace, и т.д.) заработал. У каждой настройки в пуле есть две части:
+Сейчас в приложении есть класс `LauncherRoleProvider` — он умеет проверять и включать «быть launcher'ом по умолчанию» (Android HOME role). Работает он одним способом, рассчитанным на чистый Pixel: через стандартный системный диалог Android.
 
-1. **CheckSpec** — «как проверить, что настройка включена?» (например: «спроси у RoleManager, кто default HOME»)
-2. **ApplySpec** — «как эту настройку включить?» (например: «открой системный диалог выбора default launcher через `RoleManager.createRequestRoleIntent`»)
+**Проблема:** на других производителях (Xiaomi, Huawei, Samsung) этот стандартный путь либо не работает, либо ведёт не туда:
 
-**Проблема:** и check, и apply — **разные на разных Android-устройствах**:
-
-- На чистом Pixel — `RoleManager` работает штатно.
-- На **Xiaomi MIUI** — `RoleManager` есть, но есть ещё свой поверх него экран «Разрешения / Приложения по умолчанию», и часто через intent от Google открывается **не туда**.
-- На **Huawei без GMS** (EMUI/HarmonyOS) — `RoleManager` может быть, но нет Google-путей, свои системные диалоги, другой namespace для permission strings.
-- На **Samsung One UI** — есть Knox-специфичные пути (device policy) параллельно с обычным API.
-- На **Oppo/Vivo/OnePlus/Honor** — свои настройки уведомлений, отдельные экраны battery optimization, свой autostart manager.
-
-Что происходит по шагам сейчас (нормальный сценарий, Pixel):
-1. Preset ссылается на pool entry `android.role.home`.
-2. `CheckSpec.AndroidRole("android.app.role.HOME")` спрашивает `RoleManager.isRoleHeld(HOME)` — работает.
-3. Если not held → `ApplySpec.AndroidRoleRequest(HOME)` открывает системный диалог — работает.
-
-Что происходит **на Xiaomi**:
-1. Тот же pool entry.
-2. Check работает.
-3. Apply открывает диалог, но пользователь тапает «Да» — MIUI не всегда его применяет; нужен fallback на MIUI-специфичный intent или toast с текстовой инструкцией.
-
-Что происходит **на Huawei без GMS**:
-1. Тот же pool entry.
-2. Check может throw или вернуть Indeterminate.
-3. Apply intent может не resolve'иться → сейчас мы просто показываем toast, но текст generic — пользователь не знает куда идти на своём устройстве.
+- На **Xiaomi MIUI** — системный диалог выбора роли часто не применяется даже после тапа «Да»; нужен свой путь через настройки MIUI.
+- На **Huawei без Google-сервисов** (EMUI/HarmonyOS) — стандартная проверка может упасть с ошибкой вместо честного «не настроено».
+- На **Samsung One UI** — есть свои особенности (Knox), но для MVP хватает честного fallback.
 
 **Что должно быть:**
-- Один и тот же pool entry `android.role.home` (сохраняем идентичность и переносимость preset'ов).
-- **Vendor-специфичные варианты** check и apply, dispatch по `Build.MANUFACTURER` / `Build.BRAND` / GMS availability.
-- Fallback chain: сначала пробуем vendor-native → если нет → generic Android API → если и это нет → structured user-facing instruction.
-- Всё это загружается **как данные** (recipe catalogue), а не hardcode в APK — иначе каждый новый Android release / OEM update требует новой сборки.
+1. Тот же самый `LauncherRoleProvider` пробует сначала vendor-специфичный путь (если для текущего производителя есть запись в файле-рецепте) → если нет, старый generic-путь (ничего не меняется для Pixel) → если и это не сработало, честно возвращает «не получилось» с понятным текстом инструкции.
+2. Vendor-специфичные пути и текст ошибки лежат **в отдельном файле** (`vendor-recipes.json`), не в коде — новый рецепт для уже известного производителя добавляется без пересборки приложения.
 
 ## Зачем
 
-- **UX real-world**: сейчас preset'ы «работают» только на устройствах, похожих на Pixel. Xiaomi/Huawei/Samsung — большинство рынка senior-family target audience — получают broken UX без обратной связи.
-- **Foundation completeness**: TASK-65 задекларировал generic engine, но engine работает над данными; если данные vendor-blind, engine бесполезен.
-- **Community-authored presets**: любой автор preset (внешний, из marketplace будущего) не должен думать про OEM matrix — только про поведение. OEM matrix — забота инфраструктуры, не автора.
+- **UX real-world**: сейчас настройка «сделать launcher по умолчанию» реально работает только на устройствах, похожих на Pixel. Xiaomi/Huawei/Samsung — большинство рынка целевой аудитории — получают broken UX без обратной связи.
+- **Community-authored presets** (в будущем): автор preset'а не должен думать про OEM-матрицу — это забота инфраструктуры, не автора.
 
 ## Что входит технически (для AI-агента)
 
-- **`VendorProfile` sealed value** в domain — `Pixel`, `Xiaomi`, `Huawei`, `Samsung`, `Generic` (fallback), derived from `Build.MANUFACTURER` + optional GMS presence.
-- **`CheckSpec` и `ApplySpec` sealed hierarchy расширяется variant polymorphism**: каждая variant может нести `perVendor: Map<VendorProfile, SpecVariantOverride>` — если vendor override есть, dispatch туда, иначе default.
-  - Пример: `CheckSpec.AndroidRole(role, perVendor = mapOf(Xiaomi to CheckSpec.MiuiRoleCheck(...)))`.
-- **Handler registry** (`CheckHandler`, `ApplyHandler`) уже есть — расширить dispatch через `VendorProfile`.
-- **Recipe catalogue wire format** — `vendor-recipes.json` который shipping'ся отдельно от APK, загружается через существующий `ConfigSource` port (rule 9 shareability, ConfigKind.VendorRecipes). Recipe = `Map<PoolEntryId, Map<VendorProfile, {check, apply, fallbackText}>>`.
-- **Fallback chain** в `ApplyHandler`: try vendor-specific intent → if `resolveActivity == null` → try generic → if all fail → show `AlertDialog` with текстовой инструкцией (localized, per-vendor).
-- **Detection cost**: `Build.MANUFACTURER` дешёвый; GMS check уже есть через `GmsAvailabilityPort`.
-- **CI OEM matrix**: Firebase Test Lab job (`gcloud firebase test android run`) на minimum {Pixel 8, Samsung Galaxy S24, Xiaomi Redmi Note 13} на любой PR trigger'ится через label `oem-matrix-required`. Non-blocking для draft PR, mandatory для merge to main.
+**Важно**: технический раздел ниже (и «Готовый промт» ниже него) описывают **исходный, устаревший план** от 2026-07-01, написанный в терминологии TASK-65 (`CheckSpec`/`ApplySpec`/`Pool`/`ConfigSource`), которая была полностью заменена каноническим ECS (TASK-136, [ADR-013](../../docs/adr/ADR-013-canonical-ecs.md), 2026-07-18). Актуальная техническая модель — в `specs/task-73-pool-entries-per-vendor-variants/plan.md` (см. «Корректировки модели» ниже). Кратко, что реально строится:
+
+- Переиспользуется **уже существующий** `enum Vendor` (не новый `VendorProfile`) и **уже существующий** `Provider<Component.LauncherRole>` (не `CheckSpec`/`ApplySpec`).
+- Новые порты: `VendorDetector` (определяет `Vendor` по `Build.MANUFACTURER`, с alias-таблицей Redmi/POCO→Xiaomi) и `VendorRecipeSource` (читает `vendor-recipes.json`, по образцу уже существующих `PoolSource`/`PresetSource`).
+- Vendor-логика — **внутри** `LauncherRoleProvider`, не через отдельный (уже существующий, но выключенный) вендорский диспетчер `ProviderRegistry.HandlerKey.vendor` — тот потребовал бы нового релиза на каждый vendor-override.
+- Минимальное покрытие v1 — только `Component.LauncherRole` (3 vendor-override: Xiaomi/Huawei/Samsung); `POST_NOTIFICATIONS` выпал из скоупа — permissions не смоделированы как `Component` в текущей ECS.
+- CI: Firebase Test Lab job на 3 устройства по PR-метке `oem-matrix-required`.
+
+## Корректировки модели в процессе
+
+- **2026-07-19 (grounding-коррекция при `/speckit.specify`+`/speckit.plan`)**: исходное описание задачи (2026-07-01) писалось до канонизации ECS (TASK-136, тот же день 2026-07-18) и использовало терминологию `CheckSpec`/`ApplySpec`/`PoolEntry`/`ConfigSource`, которой в текущем коде не существует. При написании spec.md обнаружено, что реальная архитектура — `Component`/`Provider`/`ProviderRegistry`/`Vendor` — и что часть желаемой инфраструктуры (3-tier vendor fallback в `ProviderRegistry.HandlerKey`) **уже существует в коде**, но не задействована (`runtimeVendor = null` в DI). Решение: vendor-recipe данные живут внутри `LauncherRoleProvider` (не через существующий, но выключенный vendor-tier — тот потребовал бы нового релиза на каждый override, что противоречит цели «без пересборки APK»). Обоснование — прямая цитата `docs/architecture/ecs.md` §4 п.7: «никаких правок в ReconcileEngine/ProviderRegistry/ProfileFactory». См. `specs/task-73-pool-entries-per-vendor-variants/research.md` (R1) для полного сравнения альтернатив.
+- **2026-07-19 (вторая коррекция, при написании plan.md)**: изначальный план показывать `AlertDialog` из `Provider` — архитектурно неверен (`Provider` — адаптер, не UI-слой, не может сам рисовать диалоги). Заменено на переиспользование уже существующего канала `Outcome.Failed(FailReason.InternalError(messageKey))` → `LifecycleState.Failed` → `ApplyResult.Failed` (тот же путь, что TASK-69 уже построила для Settings-экрана). См. research.md (R2).
+- **Минимальное покрытие сузилось** с `android.role.home` + `android.permission.POST_NOTIFICATIONS` до **только `LauncherRole`** — для permissions нет соответствующего `Component` в текущей ECS; добавление нового `Component`-подтипа — отдельная, не бюджетированная в этой задаче работа.
 
 ## Состояние
 
-- **Draft** — задача сформулирована после TASK-65 review (2026-07-01) когда выяснилось что pool CheckSpec/ApplySpec — vendor-blind по дизайну.
-- Не блокирует ни один текущий feature — TASK-65 foundation работает; TASK-73 добавляет vendor dispatch слой поверх.
-- Логическое место в roadmap — **Phase 3** (после того как preset composition foundation стабилизируется и появятся первые reports «на Xiaomi не открывается settings screen»).
+- **`/speckit.analyze` verdict: READY** (2026-07-19). Полный speckit-цикл пройден: specify → clarify (4 вопроса) → grounding-коррекция (дважды) → plan (Constitution Check 8/8) → tasks (34 задачи, 8 фаз) → analyze (9 чек-листов чистые). Ветка `task-73-pool-vendor-variants` запушена.
+- **Реализация завершена (2026-07-19), Phase 1-6 из 8**: 30 из 34 задач сделаны (`T073-001..031`) — типы + порты, wire-format тесты, `AndroidVendorDetector` + `BundledVendorRecipeSource` + fakes, `LauncherRoleProvider` vendor-aware dispatch (Xiaomi/Samsung explicit-intent + Huawei action-intent + Huawei-без-GMS skip-generic-branch), Koin DI wiring, манифест `<queries>` + `ManifestQueriesCoverageTest`, i18n fallback-строки (EN+RU) + fitness-тесты, structured diagnostic log (FR-012). Все JVM unit-тесты зелёные (`:core:test`, `:app:testDebugUnitTest`), эмуляторный смок на `Medium_Phone_API_36.1` подтвердил: generic-path (Vendor.GenericAndroid, override отсутствует) не сломан — приложение стало HOME role holder'ом как раньше.
+- **Физическая verification вынесена в TASK-137** (2026-07-19, решение владельца): Firebase Test Lab CI (`T073-032`, `[deferred-external]`) и реальные Xiaomi/Huawei/Samsung устройства (`T073-034`, `[deferred-physical-device]`) → TASK-137 (`VERIFY OEM-matrix`). У TASK-73 своих открытых гейтов больше нет — все AC зелёные (`[hand]` ×3 + emulator-smoke) или делегированы (`[N/A] → TASK-137`).
+- **Статус**: остаётся `In Progress` до merge PR (по модели проекта терминальный статус требует merge в `main`); при merge переходит **сразу в Done** (Verification не нужен — своих физических гейтов не осталось, они на TASK-137).
 
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 На новом OEM (Huawei без GMS, Samsung One UI, Xiaomi MIUI) CheckSpec отвечает корректно, а не throws
-- [ ] #2 ApplySpec запускает правильный Settings screen на каждом OEM, иначе fallback UI с текстовой инструкцией
-- [ ] #3 Один pool entry (например `android.role.home`) может иметь per-vendor override без дублирования всей записи
-- [ ] #4 Скачивание vendor-специфичных вариантов (recipe-catalogue style) без выкатки нового APK
-- [ ] #5 OEM matrix test в CI прогоняет минимум 3 vendor через Firebase Test Lab на любое изменение pool
+- [x] #1 [hand] Dispatch: при наличии vendor-override для текущего Vendor и резолвящемся intent `apply()` запускает vendor-специфичный intent, не generic ROLE-путь (unit `LauncherRoleProviderTest.apply_vendorOverridePresent_andResolves_launchesVendorIntent_notGenericPath` + DI-override `FakeVendorDetector`/`FakeVendorRecipeSource`). Реальный MIUI-экран на железе — TASK-137 #1.
+- [x] #2 [hand] `check()`/`apply()` не бросают исключений ни при одном `Vendor`; Huawei-без-GMS → `apply()` возвращает честный `Outcome.Failed(FailReason.InternalError(fallbackTextKey))` и пропускает generic RoleManager-путь (unit `check_returnsWellFormedOutcome_neverThrows_acrossEveryVendor`, `apply_huaweiWithoutGms_skipsGenericPath_noActivityStarted`). Реальное EMUI-без-GMS поведение на железе — TASK-137 #2.
+- [x] #3 [hand] Новый vendor-override для уже известного `Vendor` подхватывается правкой `vendor-recipes.json` через `VendorRecipeSource` без изменения Kotlin-кода и нового APK (`VendorRecipeNoRebuildDemonstrationTest`).
+- [x] #4 [auto:deferred-local-emulator] Emulator smoke (T073-033): generic-path не сломан vendor-aware расширением. Verified 2026-07-19 на AVD `Medium_Phone_API_36.1` (API 36.1 — канонический AVD проекта; `pixel_5_api_34` из текста задачи на машине отсутствует), онбординг → «Make it home» → приложение стало HOME role holder'ом (`dumpsys role` holders=`com.launcher.app.mock`), commit `b7968af`.
+- [N/A] #5 [auto:deferred-external] Firebase Test Lab OEM-matrix CI (T073-032) — делегировано в **TASK-137 #4** (нужен GCP-проект + биллинг).
+- [N/A] #6 [auto:deferred-physical-device] Реальные Xiaomi/Huawei/Samsung устройства (T073-034) — делегировано в **TASK-137 #1-#3** (через device rotation владельца).
 <!-- AC:END -->
 
 ---
 
-## Готовый промт для `/speckit.specify`
+## Готовый промт для `/speckit.specify` (historical, kept for archival)
+
+**Не использовать как источник правды** — написан 2026-07-01 в терминологии TASK-65 (`CheckSpec`/`ApplySpec`/`ConfigSource`), полностью заменённой TASK-136 canonical ECS. Реальный scope — в «Корректировки модели» выше и в `specs/task-73-pool-entries-per-vendor-variants/`. Оставлен для истории — показывает, как задача формулировалась изначально vs что получилось после grounding-коррекции.
 
 ```
 Разработать TASK-73: Pool entries per-vendor variants — CheckSpec/ApplySpec dispatch.

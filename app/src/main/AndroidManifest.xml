@@ -120,6 +120,20 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="market" />
         </intent>
+
+        <!--
+          TASK-73 FR-010: every OEM package/intent referenced by a
+          vendor-override in assets/preset/vendor-recipes.json. Explicit-
+          component overrides (Xiaomi/Samsung, `setClassName`) technically
+          bypass Android 11+ package-visibility filtering for resolveActivity,
+          but the declaration is kept anyway per FR-010/ManifestQueriesCoverageTest
+          — one invariant to check, not two. The Huawei override is a genuine
+          implicit intent and does need this entry to resolve at all.
+        -->
+        <package android:name="com.android.settings" />
+        <intent>
+            <action android:name="android.settings.HOME_SETTINGS" />
+        </intent>
     </queries>
 
     <application

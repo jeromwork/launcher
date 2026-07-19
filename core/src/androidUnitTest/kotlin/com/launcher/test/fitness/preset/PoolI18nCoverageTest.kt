@@ -118,6 +118,55 @@ class PoolI18nCoverageTest {
         )
     }
 
+    /**
+     * TASK-73 T073-030 (plan.md §7 Gate 5) — every `fallbackTextKey` declared in
+     * the bundled `vendor-recipes.json` has an EN + RU string. Same coverage
+     * gate as [everyPoolTextKey_hasEnAndRuString], extended to the new
+     * `VendorRecipeCatalogue` wire format.
+     */
+    @Test
+    fun everyVendorRecipeFallbackTextKey_hasEnAndRuString() {
+        val recipeFile = locate("app/src/main/assets/preset/vendor-recipes.json")
+            ?: return fail("T073-030: vendor-recipes.json not found — the gate cannot verify anything.")
+
+        val declaredKeys = collectFallbackTextKeys(json.parseToJsonElement(recipeFile.readText()))
+        assertTrue(
+            "T073-030: no fallbackTextKey found in vendor-recipes.json — the gate would pass vacuously.",
+            declaredKeys.isNotEmpty(),
+        )
+
+        val missing = mutableListOf<String>()
+        for (locale in listOf(Locale("EN", "app/src/main/res/values"), Locale("RU", "app/src/main/res/values-ru"))) {
+            val strings = readStrings(locale.resDir)
+                ?: return fail("T073-030: ${locale.tag} resources not found at ${locale.resDir}.")
+            for (key in declaredKeys) {
+                val resourceName = key.replace('.', '_')
+                val value = strings[resourceName]
+                when {
+                    value == null -> missing += "${locale.tag}: $key -> <string name=\"$resourceName\"> is missing"
+                    value.isBlank() -> missing += "${locale.tag}: $key -> <string name=\"$resourceName\"> is empty"
+                }
+            }
+        }
+
+        assertTrue(
+            "TASK-73: every fallbackTextKey declared in vendor-recipes.json needs an EN and a RU string.\n" +
+                missing.joinToString("\n"),
+            missing.isEmpty(),
+        )
+    }
+
+    private fun collectFallbackTextKeys(element: JsonElement): Set<String> = buildSet {
+        if (element !is JsonObject) return@buildSet
+        val entries = element["entries"] as? JsonObject ?: return@buildSet
+        entries.values.forEach { vendorMap ->
+            (vendorMap as? JsonObject)?.values?.forEach { override ->
+                val key = (override as? JsonObject)?.get("fallbackTextKey") as? JsonPrimitive
+                if (key != null && key.isString) add(key.content)
+            }
+        }
+    }
+
     private fun collectCategoryKeys(element: JsonElement): Set<String> = buildSet {
         if (element !is JsonObject) return@buildSet
         val settingsMap = element["settingsMap"] as? JsonArray ?: return@buildSet

@@ -114,4 +114,10 @@
     <string name="settings_walk_through_all_label">Walk through all settings step-by-step</string>
     <string name="settings_pending_indicator_label">Needs your attention</string>
     <string name="settings_locale_divergence_label_format">App language: %1$s (system Android: %2$s)</string>
+
+    <!-- TASK-73 — launcher_role.fallback.* (VendorOverride.fallbackTextKey / generic default) -->
+    <string name="launcher_role_fallback_xiaomi">Open Settings → Apps → Default apps → Home app to finish this.</string>
+    <string name="launcher_role_fallback_huawei">Open Settings → Home screen to finish this.</string>
+    <string name="launcher_role_fallback_samsung">Open Settings → Apps → Default apps to finish this.</string>
+    <string name="launcher_role_fallback_generic">Open Settings and look for Default apps → Home app.</string>
 </resources>

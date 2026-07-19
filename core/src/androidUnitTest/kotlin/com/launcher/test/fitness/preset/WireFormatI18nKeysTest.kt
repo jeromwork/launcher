@@ -16,6 +16,8 @@ class WireFormatI18nKeysTest {
     private val keyFields = listOf(
         "labelKey", "descriptionKey", "wizardTitleKey", "wizardIntroKey",
         "categoryKey", "layoutKey", "iconKey", "messageKey",
+        // TASK-73 — vendor-recipes.json VendorOverride.fallbackTextKey.
+        "fallbackTextKey",
     )
 
     // Literal-text heuristic: any value that is NOT a lowercase.dotted.identifier
