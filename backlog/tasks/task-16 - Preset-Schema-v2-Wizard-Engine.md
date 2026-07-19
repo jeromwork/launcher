@@ -4,7 +4,7 @@ title: 'Wire format evolution discipline — versioning convention + fitness rul
 status: Draft
 assignee: []
 created_date: '2026-06-23 05:38'
-updated_date: '2026-07-07'
+updated_date: '2026-07-19'
 labels:
   - decision
   - wire-format
@@ -211,6 +211,8 @@ Same infrastructure (custom Detekt rule или Konsist), но проверяет
 - [ ] #6 E2E-encrypted formats (Recovery blob, Bucket, Ciphertext envelope) — pattern documented (Bitwarden first-byte inband)
 - [ ] #7 Plain-JSON formats (Profile, Preset, QR, Push metadata) — strictness taxonomy documented (WIRE / WIRE_JSON per format)
 - [ ] #8 Pre-MVP → GA switch ceremony documented (git tag, sweep, remove `-alpha`, commit fixtures, enable strict mode)
+- [ ] #9 Shipped ECS formats converted: `Preset`/`Profile` `schemaVersion: Int = 2` → `String "1-alpha.0"`; bundled-preset JSON + fixtures + roundtrip tests updated; `docs/architecture/ecs.md` `schemaVersion` line synced in same commit (ecs.md §12)
+- [ ] #10 Convention lives authoritatively in `checklist-wire-format` SKILL.md (single source) + one-line pointer from `docs/architecture`
 <!-- AC:END -->
 
 ## Discussion
@@ -246,7 +248,9 @@ Original TASK-16 = «Preset Schema v2 + Wizard Engine» с миграционн�
 
 **Pre-MVP mode is a named encoded-in-artifact pattern** (Rust `0.x.y`, Kubernetes `v1alpha1`, Google `/v1alpha1/`). Not a hack, not a hidden flag — the version string itself declares the mode.
 
-### Decision (English, immutable) 🔒
+### Decision (English)
+
+> **Revised 2026-07-19 (pre-implementation ⇒ still mutable, rule 11 window).** Session-3 industry re-grounding (Kubernetes / buf / semver, primary-source verified) confirmed the String + per-object choice and refined the String-vs-Int question; owner approved converting the ECS formats. Becomes immutable at the first implementation commit. The earlier "🔒 immutable" marker (2026-07-07) was premature — no implementation had started.
 
 **Scope**: TASK-16 defines wire format evolution discipline for all 7 wire formats in the project (Profile, Preset, Recovery blob, Bucket, Ciphertext envelope, QR pairing token, Push payload). Does NOT define individual format contents (owned by respective decision tasks per rule 11).
 
@@ -255,6 +259,8 @@ Original TASK-16 = «Preset Schema v2 + Wizard Engine» с миграционн�
 - `"1-beta.N"` — feature-freeze, deprecation clock started.
 - `"1"` — stable, no breaking changes ever (post-GA gate).
 - `"2"` — breaking bump post-GA, requires migration writer chain.
+
+**Uniformity refinement (Session 3, 2026-07-19)**: **one encoding for ALL wire formats — String, everywhere.** No mixed String/Int scheme (no major system does this — Kubernetes/buf/semver are uniform; a heterogeneous rule forces every reader to branch on format, and a small format that grows would need a wire-breaking type switch). A born-stable / small format is simply the string **with no pre-release token** (`"1"`) — as cheap as an int, one parser/comparator, and can enter `-alpha` later without changing field type. The Int-for-size path (QR token < 200 bytes) survives **only** as the narrow exit ramp below, not as a second default. Rationale for mode-in-the-string: a wire blob travels alone with no ambient channel, so the receiver must decide "may I rely on this shape?" from the blob's own token (Kubernetes/semver model), not a side channel (Rust/Stripe model).
 
 **Two modes, one enforcement point**:
 - One fitness rule reads `schemaVersion` suffix at build time.
@@ -276,8 +282,11 @@ Original TASK-16 = «Preset Schema v2 + Wizard Engine» с миграционн�
 **Preset shape reference**: short doc in `docs/architecture/INDEX.md` (or `preset.md`) — links to decision tasks owning namespaces (TASK-103 deviceLock, TASK-104 mls, TASK-108 privacy/quota, TASK-110 media). Does NOT duplicate field contents.
 
 **Applies to**:
-- All existing wire formats: TASK-6 (Recovery blob v1 → `"1-alpha.1"` at next touch), TASK-66 (Bucket at implementation), TASK-112 (Ciphertext envelope), TASK-67 (QR token), TASK-102 (Profile + encrypted edit lock), TASK-108 (Push payload metadata).
+- **Already-shipped ECS formats (`Preset`, `Profile`) — CONVERT NOW (added 2026-07-19).** TASK-136 (2026-07-18) shipped these with `schemaVersion: Int = 2`, which violates this Decision. First TASK-16 implementation converts both to the String convention: `Int 2` → `String "1-alpha.0"` (pre-release ⇒ version count resets; "first public = first"; Article XX clean-in-place, no migrator, delete/rewrite fixtures). Touches `Preset.kt`, `Profile.kt`, `Pool.kt` if it carries a version, all bundled-preset JSON (`app/.../bundled-presets/*.json`, `core/.../presets/*.json`), fixtures, roundtrip tests. `ecs.md` says `schemaVersion = 2` — update it in the same commit (ecs.md §12 sync rule).
+- All other existing wire formats: TASK-6 (Recovery blob v1 → `"1-alpha.1"` at next touch), TASK-66 (Bucket at implementation), TASK-112 (Ciphertext envelope), TASK-67 (QR token), TASK-102 (encrypted edit lock), TASK-108 (Push payload metadata).
 - Future wire formats: all follow same discipline from commit-1.
+
+**Convention home (single source, no re-derivation — added 2026-07-19)**: the authoritative convention (String, suffix semantics, per-object staging, promotion alpha→beta→stable, MVP-vs-GA rules, uniformity refinement) lives **in the `checklist-wire-format` SKILL.md** — it fires on every wire-format touch, so an AI/dev reads it before changing any `schemaVersion`. A one-line pointer from `docs/architecture` (e.g. INDEX or the wire-format reference) links to it. No second copy (drift risk). This is what closes "so this question never comes up again" (owner directive 2026-07-19).
 
 **Trade-offs**:
 - String schemaVersion vs Int: trades ergonomics (comparison, parsing) for machine-readable mode encoding. Fitness rule reads suffix — worth the cost.
@@ -295,5 +304,23 @@ Original TASK-16 = «Preset Schema v2 + Wizard Engine» с миграционн�
 - Wizard engine (mandatory/optional steps) — belongs to TASK-22 or TASK-1.
 - Preset composition rules — belongs to TASK-18.
 - Field-level values (family default `poolCap = 100` etc.) — belongs to respective decision tasks (TASK-103/104/108/110).
+
+### Session 3 — Industry-source revisit (2026-07-19, pre-implementation ⇒ Decision still mutable per rule 11)
+
+Owner reopened TASK-16 to take it into work; confirmed Q1: **mode (alpha/beta/stable) is a per-format property, not a global switch** ("otherwise features are hard to launch"). Asked to ground the String-vs-Int choice in industry primary sources.
+
+**Research (primary-source verified, agent 2026-07-19):**
+- **Kubernetes** (deprecation-policy + API-overview): API groups are *"independently versioned"* — per-object staging is explicit and canonical. Stability level is encoded IN the string (`v1alpha1`/`v1beta1`/`v1`). Promotion is one-directional alpha→beta→GA (Rule 3: never deprecate toward a less-stable version). Deprecation windows: alpha = removable any release, no notice; beta ≈ 9 months / 3 releases; GA = not removed within a major.
+- **Protobuf/buf**: per-package version suffix (`foo.v1beta1`), independent lifecycles; `ignore_unstable_packages` drops alpha/beta packages from breaking-change enforcement (the maturity token in the name changes the guarantee); stable packages must not import unstable; `reserved` prevents field-id reuse.
+- **SemVer**: per-artifact by construction; pre-release token lives IN the string (`1.0.0-alpha.1`), signals "unstable, may not satisfy compat"; precedence `alpha < alpha.1 < beta < rc < release`.
+- **Stripe** (counter-example): global date-based version, NOT per-object — chosen so accounts pin a frozen snapshot with server-side shims. Confirms per-object is a deliberate alternative, not the only way.
+- **Rust feature-gates** (secondary precedent): per-feature independent staging, but mode via side channel (nightly channel + opt-in), not in an identifier.
+
+**Synthesis relevant to our Decision:**
+1. **String is effectively mandatory for per-object staging.** Every system that stages maturity per-object uses a string with the token embedded; a bare Int encodes *revision*, not *maturity* — it cannot say "still breakable". ⇒ the existing Decision (String) is correct and industry-backed.
+2. **Mode-in-the-blob is right for wire formats specifically.** A wire blob travels alone with no ambient channel, so the receiver must decide "may I rely on this shape?" from the blob's own token (Kubernetes/semver model), not a side channel (Rust/Stripe model).
+3. **Mixed String/Int has NO major precedent — uniformity is the norm.** Reason: the version field is itself a wire-format contract; a heterogeneous rule forces every reader/validator to branch on which format it is, and a small format that later grows would have to switch its own field type (a wire break — exactly what versioning avoids). **A born-stable format is just the string with no pre-release token (`"1"`)** — as simple as an int, one parser, and it can enter alpha later without a type change. ⇒ owner's "strings for big, ints for small" is superseded by "uniform strings; small/stable = bare `"1"`"; the Int-for-QR path stays only as the narrow exit ramp already in the Decision.
+
+**Live drift identified (the real open item):** the Decision was closed 2026-07-07, **before** TASK-136 (2026-07-18) shipped canonical ECS with `Preset`/`Profile` `schemaVersion: Int = 2`. So the two most-central wire formats currently **violate** this Decision (Int, not String; no `-alpha` mode token). The Decision's "Applies to" list predates the ECS reshape and does not cover converting them. Pre-release ⇒ conversion is a cheap clean-in-place edit (Article XX). **Proposed Decision revision (pending owner approval):** (a) fold in synthesis point 3 (uniform strings; stable = bare token; mixed only as exit ramp); (b) add `Preset`/`Profile` to "Applies to" with Int→String conversion (`2` → `"2-alpha.0"` or reset to `"1-alpha.N"`, TBD) as part of first implementation; (c) keep everything else as closed 2026-07-07.
 
 <!-- SECTION:DISCUSSION:END -->
