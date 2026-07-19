@@ -4,7 +4,7 @@ title: Pool entries per-vendor variants — CheckSpec/ApplySpec dispatch
 status: In Progress
 assignee: []
 created_date: '2026-07-01 04:15'
-updated_date: '2026-07-19 00:30'
+updated_date: '2026-07-19'
 labels:
   - phase-3
   - area-preset
@@ -61,15 +61,19 @@ ordinal: 73000
 
 - **`/speckit.analyze` verdict: READY** (2026-07-19). Полный speckit-цикл пройден: specify → clarify (4 вопроса) → grounding-коррекция (дважды) → plan (Constitution Check 8/8) → tasks (34 задачи, 8 фаз) → analyze (9 чек-листов чистые). Ветка `task-73-pool-vendor-variants` запушена.
 - **Реализация завершена (2026-07-19), Phase 1-6 из 8**: 30 из 34 задач сделаны (`T073-001..031`) — типы + порты, wire-format тесты, `AndroidVendorDetector` + `BundledVendorRecipeSource` + fakes, `LauncherRoleProvider` vendor-aware dispatch (Xiaomi/Samsung explicit-intent + Huawei action-intent + Huawei-без-GMS skip-generic-branch), Koin DI wiring, манифест `<queries>` + `ManifestQueriesCoverageTest`, i18n fallback-строки (EN+RU) + fitness-тесты, structured diagnostic log (FR-012). Все JVM unit-тесты зелёные (`:core:test`, `:app:testDebugUnitTest`), эмуляторный смок на `Medium_Phone_API_36.1` подтвердил: generic-path (Vendor.GenericAndroid, override отсутствует) не сломан — приложение стало HOME role holder'ом как раньше.
-- Три оставшиеся задачи — deferred, не блокируют: Firebase Test Lab CI (`T073-032`, `[deferred-external]`, нужен GCP-биллинг), реальные Xiaomi/Huawei/Samsung устройства (`T073-034`, `[deferred-physical-device]`, через TASK-128).
+- **Физическая verification вынесена в TASK-137** (2026-07-19, решение владельца): Firebase Test Lab CI (`T073-032`, `[deferred-external]`) и реальные Xiaomi/Huawei/Samsung устройства (`T073-034`, `[deferred-physical-device]`) → TASK-137 (`VERIFY OEM-matrix`). У TASK-73 своих открытых гейтов больше нет — все AC зелёные (`[hand]` ×3 + emulator-smoke) или делегированы (`[N/A] → TASK-137`).
+- **Статус**: остаётся `In Progress` до merge PR (по модели проекта терминальный статус требует merge в `main`); при merge переходит **сразу в Done** (Verification не нужен — своих физических гейтов не осталось, они на TASK-137).
 
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 На Xiaomi (MIUI) с загруженным recipe-покрытием тап «Настроить HOME launcher» открывает MIUI-специфичный экран (Настройки → Приложения → По умолчанию → Домашний экран) в 100% попыток на устройствах, покрытых каталогом — не generic ROLE-диалог, который на MIUI не применяется после тапа «Да»
-- [ ] #2 На Huawei без GMS ни один вызов LauncherRoleProvider.check()/apply() не приводит к краху приложения (0 необработанных исключений в диагностических логах за прогон OEM-matrix) — пользователь либо видит честный LifecycleState, либо текстовую инструкцию
-- [ ] #3 Новый vendor-override для уже известного Vendor-значения добавляется правкой vendor-recipes.json и раздачей через VendorRecipeSource — без изменения Kotlin-кода и без нового APK-релиза
+- [x] #1 [hand] Dispatch: при наличии vendor-override для текущего Vendor и резолвящемся intent `apply()` запускает vendor-специфичный intent, не generic ROLE-путь (unit `LauncherRoleProviderTest.apply_vendorOverridePresent_andResolves_launchesVendorIntent_notGenericPath` + DI-override `FakeVendorDetector`/`FakeVendorRecipeSource`). Реальный MIUI-экран на железе — TASK-137 #1.
+- [x] #2 [hand] `check()`/`apply()` не бросают исключений ни при одном `Vendor`; Huawei-без-GMS → `apply()` возвращает честный `Outcome.Failed(FailReason.InternalError(fallbackTextKey))` и пропускает generic RoleManager-путь (unit `check_returnsWellFormedOutcome_neverThrows_acrossEveryVendor`, `apply_huaweiWithoutGms_skipsGenericPath_noActivityStarted`). Реальное EMUI-без-GMS поведение на железе — TASK-137 #2.
+- [x] #3 [hand] Новый vendor-override для уже известного `Vendor` подхватывается правкой `vendor-recipes.json` через `VendorRecipeSource` без изменения Kotlin-кода и нового APK (`VendorRecipeNoRebuildDemonstrationTest`).
+- [x] #4 [auto:deferred-local-emulator] Emulator smoke (T073-033): generic-path не сломан vendor-aware расширением. Verified 2026-07-19 на AVD `Medium_Phone_API_36.1` (API 36.1 — канонический AVD проекта; `pixel_5_api_34` из текста задачи на машине отсутствует), онбординг → «Make it home» → приложение стало HOME role holder'ом (`dumpsys role` holders=`com.launcher.app.mock`), commit `b7968af`.
+- [N/A] #5 [auto:deferred-external] Firebase Test Lab OEM-matrix CI (T073-032) — делегировано в **TASK-137 #4** (нужен GCP-проект + биллинг).
+- [N/A] #6 [auto:deferred-physical-device] Реальные Xiaomi/Huawei/Samsung устройства (T073-034) — делегировано в **TASK-137 #1-#3** (через device rotation владельца).
 <!-- AC:END -->
 
 ---
