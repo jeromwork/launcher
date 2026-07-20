@@ -1,5 +1,7 @@
 # Feature Specification: Preset Composition Foundation
 
+> **Historical.** Superseded by TASK-136 (canonical ECS, [ADR-013](../../docs/adr/ADR-013-canonical-ecs.md)) for the model, and by [`docs/architecture/wire-format.md`](../../docs/architecture/wire-format.md) for versioning — FR-016's `schemaVersion: Int` no longer reflects the discipline. Kept as history; do not use as a current reference.
+
 **Feature Branch**: `task-120-preset-composition`
 **Created**: 2026-07-10
 **Status**: Draft

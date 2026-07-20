@@ -38,13 +38,9 @@ Add an abstraction today **only** if not adding it would force a future *rewrite
 
 ## 5. Wire-format and contract versioning
 
-Anything that leaves the device or persists across app versions is a wire format and behaves like a public API:
+Anything that leaves the device or persists across app versions is a wire format and behaves like a public API.
 
-- Carries an explicit schema-version field from the first commit.
-- Backward-compatible reads MUST be possible for at least one major release.
-- Adding fields is fine; renaming or removing requires a versioned migration written **before** the breaking change ships.
-
-This applies to: persisted configuration, documents in any cloud store, QR-code payloads, deep-link URLs, exported config files, persisted preferences with non-trivial structure.
+**The rules live in one place: [`docs/architecture/wire-format.md`](docs/architecture/wire-format.md)** — version field shape, reader/writer gating, unknown-version behavior, change discipline, tests, and the pre-MVP override. Read its AI-TLDR before changing any versioned format. Do not restate those rules here or anywhere else; that file wins on conflict and must be updated in the same commit as any rule change (`wire-format.md` §12). Skill: `wire-format` (rules) / `checklist-wire-format` (spec audit).
 
 ## 6. Mock-first development
 

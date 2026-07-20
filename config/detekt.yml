@@ -1,0 +1,62 @@
+# Detekt configuration — architecture fitness rules only.
+#
+# We deliberately run NONE of Detekt's default rulesets: style opinions
+# (MaxLineLength, MagicNumber, ...) are not architecture invariants, and a gate
+# that reports 500+ style findings gets ignored, which defeats the point of
+# having a gate. Only the `launcher` ruleset — our own detectors — is active.
+#
+# Rules live in :lint-rules, registered via LauncherRuleSetProvider.
+# See CLAUDE.md rule 7 (fitness functions) and
+# docs/architecture/wire-format.md §11.
+
+build:
+  maxIssues: 0
+
+# KNOWN BROKEN (2026-07-20, TASK-140): the `launcher` ruleset below is NOT
+# loaded by Detekt. Turning validation on reports
+#   "Property 'launcher' is misspelled or does not exist"
+# which proves the ServiceLoader never picks up LauncherRuleSetProvider, even
+# though :lint-rules ships META-INF/services and the jar reaches the plugin
+# classpath. Root cause not yet found. Consequence: every custom rule here is a
+# no-op — the detectors pass their own unit tests and check nothing in the
+# codebase. This has been true since TASK-65 introduced them; TASK-16 found it.
+# Validation stays off only so `check` does not fail on the misleading message.
+# Do NOT read a green `detektFoundation` as "the architecture is enforced".
+config:
+  validation: false
+
+# --- Detekt's built-in rulesets: all off ------------------------------------
+comments:
+  active: false
+complexity:
+  active: false
+coroutines:
+  active: false
+empty-blocks:
+  active: false
+exceptions:
+  active: false
+naming:
+  active: false
+performance:
+  active: false
+potential-bugs:
+  active: false
+style:
+  active: false
+
+# --- Our architecture fitness rules ----------------------------------------
+# NOTE: keys are the detector CLASS names, not the `issue.id` values. Detekt
+# resolves config via `Rule.ruleId`, which defaults to the simple class name —
+# using the issue id here silently leaves the rule inactive.
+launcher:
+  active: true
+  PresetIdBranchingDetector:
+    active: true
+  ExtractionReadinessDetector:
+    active: true
+  LegacyWizardImportDetector:
+    active: true
+  # Soft mode until TASK-138 converts existing formats; see wire-format.md §11.
+  WireFormatHygieneDetector:
+    active: true

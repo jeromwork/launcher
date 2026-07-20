@@ -67,18 +67,11 @@ Multi-level subject allowed (`role.home`, `permission.post-notifications`) — u
 
 ---
 
-## Versioning (per-pool `schemaVersion`)
+## Versioning (per-pool)
 
-Each pool has its own `schemaVersion: Int`:
-```kotlin
-data class Pool(
-    val id: String,
-    val schemaVersion: Int,    // bumped on breaking structural change to PoolEntry shape
-    val entries: List<PoolEntry>
-)
-```
+Each pool carries its own version fields. **Shape, type, and bump rules: [`wire-format.md`](wire-format.md)** — the single source; not restated here. (Pool currently still carries the pre-discipline integer form; it converts on next touch per `wire-format.md` §11 / TASK-138.)
 
-**Per-pool, not per-entry**. Bumping pool schema = all entries re-parsed under new schema.
+**Per-pool, not per-entry**. Bumping a pool's version = all its entries re-parsed under the new schema.
 
 **When to bump**:
 - New required field on `PoolEntry`. (E.g., added `documentationUrl: String` without default.)

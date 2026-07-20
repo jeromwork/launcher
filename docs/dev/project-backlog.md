@@ -602,7 +602,7 @@
 ### TODO-ARCH-015: Config schema transformers (lazy migration) 🟢
 
 - **What**: При каждом breaking schema bump для `/config` (`schemaVersion: N → N+1`) — написать **транзформер** `vN → vN+1`, который применяется при чтении старых snapshot'ов из `/config/history/`. Цепочка транзформеров покрывает rollback на любую старую версию (`v1 → v2 → ... → current`).
-- **Why**: Без транзформеров spec 9 FR-44 ведёт к (А) drop-incompatible — старые snapshot'ы при schema bump становятся неоткатываемы. Это **обнуляет историю** при каждом breaking change. CLAUDE.md rule 5 требует «backward-compatible reads MUST be possible for at least one major release» — это и есть транзформер.
+- **Why**: Без транзформеров spec 9 FR-44 ведёт к (А) drop-incompatible — старые snapshot'ы при schema bump становятся неоткатываемы. Это **обнуляет историю** при каждом breaking change. Правила обратной совместимости чтения ([`wire-format.md`](../architecture/wire-format.md)) и есть требование транзформера.
 - **How**:
   - Каждый транзформер — pure function `JsonObject (vN) → JsonObject (vN+1)`. Расположение: `core/api/config/migrations/Vn_To_Vn1.kt`.
   - При rollback читаем snapshot'a `schemaVersion = N`, текущий код — `schemaVersion = M`, где `M > N`. Применяем `Vn_To_Vn1`, потом `V(n+1)_To_V(n+2)`, ..., до `V(m-1)_To_Vm`. Результат отдаётся в rollback flow.

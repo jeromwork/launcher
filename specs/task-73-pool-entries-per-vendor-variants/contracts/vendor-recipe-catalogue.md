@@ -1,5 +1,7 @@
 # Wire Contract: `vendor-recipes.json` (`VendorRecipeCatalogue`)
 
+> **Versioning statements below are historical (pre-2026-07-20).** They quote a version of CLAUDE.md rule 5 that no longer holds and reinterpret it locally. The authoritative discipline is [`docs/architecture/wire-format.md`](../../../docs/architecture/wire-format.md); this format converts to it on next touch (TASK-138). Read the rest of this contract for the format's *shape*, not for versioning rules.
+
 **Location**: bundled asset, `app/src/main/assets/preset/vendor-recipes.json`, loaded via `VendorRecipeSource` port / `BundledVendorRecipeSource` adapter.
 **Schema owner**: `core/src/commonMain/kotlin/com/launcher/preset/model/VendorRecipeCatalogue.kt`.
 **Current version**: `schemaVersion = 1` (first commit of this format — no predecessor exists).

@@ -22,6 +22,10 @@ domains:
     file: external-services.md
     scope: Firebase Auth, FCM, future third-party integrations.
     status: skeleton — full content pending.
+  - id: wire-format
+    file: wire-format.md
+    scope: Versioning and evolution discipline for every format that leaves the device or survives an app upgrade — version fields, reader/writer gating, change discipline, enforcement. Single source; other docs link, never restate.
+    status: v1 (2026-07-20, TASK-16). Existing formats convert on next touch (TASK-138).
   - id: pool-naming
     file: pool-naming.md
     scope: Naming convention for pool entries (settings-cubes) that presets pick and compose. Wire-format-adjacent invariant.
