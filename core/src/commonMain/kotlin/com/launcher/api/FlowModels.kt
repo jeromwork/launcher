@@ -1,9 +1,10 @@
 package com.launcher.api
 
 import com.launcher.api.action.Action
+import com.launcher.wire.WireVersion
 
 data class FlowDescriptor(
-    val schemaVersion: Int,
+    val schemaVersion: WireVersion,
     val id: String,
     val name: String,
     val templateId: String,

@@ -1,5 +1,7 @@
 package com.launcher.preset.engine
 
+import com.launcher.wire.WireVersion
+
 import com.launcher.preset.fakes.FakeCapabilityContract
 import com.launcher.preset.model.CapabilityFlag
 import com.launcher.preset.model.Component
@@ -32,8 +34,22 @@ class PresetValidatorTest {
     }
 
     @Test
-    fun schemaVersionTooHigh_returnsError() {
-        val preset = simpleLauncherPreset().copy(schemaVersion = 9)
+    fun newerWriterAlone_isAccepted() {
+        // wire-format.md §3 — schemaVersion is diagnostics only. A preset authored by a much newer
+        // build validates fine as long as it does not claim to need a newer reader. Before the
+        // conversion this case was rejected, which is what the three-field model set out to fix.
+        val preset = simpleLauncherPreset().copy(schemaVersion = WireVersion(9, 0))
+        val errors = PresetValidator(emptyContract).validate(preset, mvpPool())
+        assertTrue(errors.isEmpty(), "expected no errors, got $errors")
+    }
+
+    @Test
+    fun higherMinReaderVersion_returnsError() {
+        val preset = simpleLauncherPreset().copy(
+            schemaVersion = WireVersion(9, 0),
+            minReaderVersion = WireVersion(9, 0),
+            minWriterVersion = WireVersion(9, 0),
+        )
         val errors = PresetValidator(emptyContract).validate(preset, mvpPool())
         assertEquals(1, errors.size)
         assertIs<ValidationError.SchemaVersionUnsupported>(errors.single())

@@ -1,5 +1,10 @@
 package com.launcher.preset.model
 
+import com.launcher.wire.WireVersion
+import com.launcher.wire.WireVersionHeader
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
+
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlin.reflect.KClass
@@ -40,9 +45,15 @@ data class Entity(
     val critical: Boolean = false,
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class Profile(
-    val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val schemaVersion: WireVersion = SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minReaderVersion: WireVersion = MIN_READER_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minWriterVersion: WireVersion = MIN_WRITER_VERSION,
     val basedOnPreset: String,
     val presetVersion: Int,
     /**
@@ -60,7 +71,7 @@ data class Profile(
     val snapshotTimestamp: Long? = null,
     val unknownRefs: List<String> = emptyList(),
     val state: ProfileState = ProfileState(),
-) {
+) : WireVersionHeader {
     /**
      * Set the apply-state of entity [id] by swapping its [LifecycleState]
      * component in the bag (was `mark(id, ComponentStatus)`).
@@ -81,7 +92,14 @@ data class Profile(
         )
 
     companion object {
-        const val CURRENT_SCHEMA_VERSION: Int = 2
+        /** What this build writes. Was the integer 2 before the conversion — never lowered (I3). */
+        val SCHEMA_VERSION: WireVersion = WireVersion(2, 0)
+
+        /** Entities and tags are additive; unknown ones fail loud today (TASK-131 will soften that), never silently misread. */
+        val MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+
+        /** A profile is synced (TASK-70) and could be written back by another device. Raise this once a field appears that an older writer would drop, unless §6 preservation lands first. */
+        val MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
     }
 }
 

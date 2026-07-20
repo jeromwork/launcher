@@ -1,5 +1,7 @@
 package com.launcher.ui.navigation
 
+import com.launcher.wire.WireVersion
+
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.resume
@@ -48,7 +50,7 @@ class FlowComponentTest {
         payload = ActionPayload.Phone("+1"),
     )
     private val sampleFlow = FlowDescriptor(
-        schemaVersion = 1,
+        schemaVersion = WireVersion(1, 0),
         id = "f",
         name = "Family",
         templateId = "contacts",

@@ -1,5 +1,10 @@
 package com.launcher.preset.model
 
+import com.launcher.wire.WireVersion
+import com.launcher.wire.WireVersionHeader
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
+
 import kotlinx.serialization.Serializable
 
 /**
@@ -12,13 +17,26 @@ import kotlinx.serialization.Serializable
  * shareable/user-facing artifact (CLAUDE.md rule 9 does not apply) — see
  * contracts/vendor-recipe-catalogue.md "Not a shareable/user-facing artifact".
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class VendorRecipeCatalogue(
-    val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val schemaVersion: WireVersion = SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minReaderVersion: WireVersion = MIN_READER_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minWriterVersion: WireVersion = MIN_WRITER_VERSION,
     val entries: Map<String, Map<String, VendorOverride>> = emptyMap(),
-) {
+) : WireVersionHeader {
     companion object {
-        const val CURRENT_SCHEMA_VERSION: Int = 1
+        /** What this build writes. Was the integer 1 before the conversion — never lowered (I3). */
+        val SCHEMA_VERSION: WireVersion = WireVersion(1, 0)
+
+        /** Vendor overrides are additive; unknown component types are dropped at read. */
+        val MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+
+        /** Catalogue is a bundled asset, rewritten wholesale. */
+        val MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
     }
 }
 

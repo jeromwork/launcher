@@ -1,5 +1,7 @@
 package com.launcher.adapters.config
 
+import com.launcher.wire.WireVersion
+
 import com.launcher.api.FlowDescriptor
 import com.launcher.api.FlowRepository
 import com.launcher.api.FlowTemplate
@@ -106,7 +108,10 @@ class ConfigBackedFlowRepository(
     private fun ConfigDocument.toFlowDescriptors(): List<FlowDescriptor> =
         flows.map { flow ->
             FlowDescriptor(
-                schemaVersion = schemaVersion,
+                // TODO(TASK-138 wave 3): ConfigDocument still carries the pre-conversion integer
+                // version. Drop this shim when that format converts — it is here only so the two
+                // formats can coexist mid-migration (wire-format.md §11, "converts on next touch").
+                schemaVersion = WireVersion(schemaVersion, 0),
                 id = flow.id.value,
                 name = flow.title,
                 // Spec 010 keeps the spec 005 `templateId` field for backward

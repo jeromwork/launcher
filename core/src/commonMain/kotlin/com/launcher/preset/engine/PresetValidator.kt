@@ -1,5 +1,10 @@
 package com.launcher.preset.engine
 
+import com.launcher.wire.CorruptWireFormatException
+import com.launcher.wire.UnknownWireVersionException
+import com.launcher.wire.WireVersion
+import com.launcher.wire.accessFor
+
 import com.launcher.preset.model.CapabilityFlag
 import com.launcher.preset.model.Component
 import com.launcher.preset.model.Pool
@@ -34,14 +39,22 @@ sealed class PresetValidationResult {
  */
 class PresetValidator(
     private val contract: CapabilityContract,
-    private val supportedSchemaVersion: Int = Preset.CURRENT_SCHEMA_VERSION,
+    private val readerLevel: WireVersion = Preset.SCHEMA_VERSION,
 ) {
 
     fun validate(preset: Preset, pool: Pool): List<ValidationError> {
         val errors = mutableListOf<ValidationError>()
 
-        if (preset.schemaVersion > supportedSchemaVersion) {
-            errors += ValidationError.SchemaVersionUnsupported(preset.schemaVersion, supportedSchemaVersion)
+        // Version header gate (wire-format.md §3). Previously this compared schemaVersion, which
+        // refused presets authored by a newer build even when every addition was one we could
+        // safely ignore. Only a raised minReaderVersion refuses now.
+        try {
+            preset.accessFor(readerLevel)
+        } catch (_: UnknownWireVersionException) {
+            errors += ValidationError.SchemaVersionUnsupported(preset.minReaderVersion, readerLevel)
+            return errors
+        } catch (_: CorruptWireFormatException) {
+            errors += ValidationError.SchemaVersionUnsupported(preset.minReaderVersion, readerLevel)
             return errors
         }
 

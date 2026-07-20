@@ -1,5 +1,7 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": "2.0",
+  "minReaderVersion": "1.0",
+  "minWriterVersion": "1.0",
   "presetId": "simple-launcher",
   "version": 1,
   "layoutKey": "layout.grid.2x3",

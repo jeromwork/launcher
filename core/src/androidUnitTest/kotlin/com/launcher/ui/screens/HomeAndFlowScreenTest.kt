@@ -1,5 +1,7 @@
 package com.launcher.ui.screens
 
+import com.launcher.wire.WireVersion
+
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -44,7 +46,7 @@ class HomeAndFlowScreenTest {
     }
 
     private val sampleFlow = FlowDescriptor(
-        schemaVersion = 1,
+        schemaVersion = WireVersion(1, 0),
         id = "flow_main",
         name = "Главная",
         templateId = "contacts",

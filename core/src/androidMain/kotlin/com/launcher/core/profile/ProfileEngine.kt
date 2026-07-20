@@ -5,6 +5,7 @@ import com.launcher.api.DegradationReason
 import com.launcher.api.EffectivePreset
 import com.launcher.api.ResolvedPresetSnapshot
 import com.launcher.core.events.EventRouter
+import com.launcher.wire.WireVersion
 import com.launcher.core.modules.ModuleRegistry
 import com.launcher.api.ProjectEvent
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,7 +16,6 @@ import java.io.BufferedReader
 import java.nio.charset.StandardCharsets
 
 private const val ASSET_DEFAULT_PROFILE = "default_profile.json"
-private const val SUPPORTED_SCHEMA = 1
 
 /**
  * Loads bundled profile, validates structure, applies safe fallback (contracts/profile-bootstrap.md).
@@ -28,7 +28,7 @@ class ProfileEngine(
 ) {
     private var generationCounter = 0
     private val _effectiveProfile = MutableStateFlow(fallbackEffective(ResolvedPresetSnapshot(
-        schemaVersion = SUPPORTED_SCHEMA,
+        schemaVersion = ResolvedPresetSnapshot.SCHEMA_VERSION,
         id = "builtin-fallback",
         moduleFlags = emptyMap(),
         accessibilityPreset = null,
@@ -79,14 +79,14 @@ class ProfileEngine(
     private fun loadBundledDefaultSnapshot(): ResolvedPresetSnapshot {
         val json = readAsset(ASSET_DEFAULT_PROFILE)
             ?: return ResolvedPresetSnapshot(
-                schemaVersion = SUPPORTED_SCHEMA,
+                schemaVersion = ResolvedPresetSnapshot.SCHEMA_VERSION,
                 id = "default",
                 moduleFlags = emptyMap(),
                 accessibilityPreset = null,
                 layoutHints = emptyMap(),
             )
         return parseProfile(json) ?: ResolvedPresetSnapshot(
-            schemaVersion = SUPPORTED_SCHEMA,
+            schemaVersion = ResolvedPresetSnapshot.SCHEMA_VERSION,
             id = "default",
             moduleFlags = emptyMap(),
             accessibilityPreset = null,
@@ -97,9 +97,15 @@ class ProfileEngine(
     private fun parseProfile(jsonText: String): ResolvedPresetSnapshot? =
         runCatching {
             val o = JSONObject(jsonText)
+            // Version header gate (wire-format.md §3, §4). A pre-conversion document carries the
+            // integer form; parse() rejects it rather than reading it as "N.0", and the caller
+            // falls back to the bundled default.
             if (!o.has("schemaVersion")) return null
-            val schema = o.getInt("schemaVersion")
-            if (schema != SUPPORTED_SCHEMA) return null
+            val schema = WireVersion.parseOrNull(o.getString("schemaVersion")) ?: return null
+            val minReader = WireVersion.parseOrNull(
+                o.optString("minReaderVersion", ResolvedPresetSnapshot.MIN_READER_VERSION.toString()),
+            ) ?: return null
+            if (ResolvedPresetSnapshot.SCHEMA_VERSION < minReader) return null
             val id = if (o.has("id")) o.getString("id") else "unknown"
             val flags = mutableMapOf<String, Boolean>()
             if (o.has("moduleFlags")) {

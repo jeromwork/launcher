@@ -1,5 +1,7 @@
 package com.launcher.preset.wire
 
+import com.launcher.wire.WireVersion
+
 import com.launcher.preset.model.VendorOverride
 import com.launcher.preset.model.VendorRecipeCatalogue
 import com.launcher.preset.model.filterKnown
@@ -27,7 +29,7 @@ class VendorRecipeCatalogueWireFormatTest {
     @Test
     fun v1Catalogue_withThreeVendorOverrides_roundtrips() {
         val catalogue = VendorRecipeCatalogue(
-            schemaVersion = 1,
+            schemaVersion = WireVersion(1, 0),
             entries = mapOf(
                 "LauncherRole" to mapOf(
                     "Xiaomi" to VendorOverride(
@@ -53,7 +55,7 @@ class VendorRecipeCatalogueWireFormatTest {
         val decoded = json.decodeFromString(VendorRecipeCatalogue.serializer(), encoded)
 
         assertEquals(catalogue, decoded)
-        assertEquals(1, decoded.schemaVersion)
+        assertEquals(WireVersion(1, 0), decoded.schemaVersion)
         assertEquals(3, decoded.entries.getValue("LauncherRole").size)
     }
 
@@ -61,7 +63,7 @@ class VendorRecipeCatalogueWireFormatTest {
     fun unknownComponentTypeKey_isDropped_doesNotFailParse() {
         val wire = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "entries": {
                 "LauncherRole": {
                   "Xiaomi": { "fallbackTextKey": "launcher_role.fallback.xiaomi" }
@@ -90,7 +92,7 @@ class VendorRecipeCatalogueWireFormatTest {
     fun unknownVendorNameKey_isDropped_doesNotFailParse() {
         val wire = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "entries": {
                 "LauncherRole": {
                   "Xiaomi": { "fallbackTextKey": "launcher_role.fallback.xiaomi" },

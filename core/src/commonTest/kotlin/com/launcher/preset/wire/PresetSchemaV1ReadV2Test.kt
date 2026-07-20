@@ -1,5 +1,7 @@
 package com.launcher.preset.wire
 
+import com.launcher.wire.WireVersion
+
 import com.launcher.preset.model.Preset
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
@@ -28,7 +30,7 @@ class PresetSchemaV1ReadV2Test {
         // Hard-coded v1 wire format — no `hintFlow`, no `wizardPresentation`.
         val v1Json = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "presetId": "legacy-preset",
               "version": 1,
               "layoutKey": "simple",
@@ -40,7 +42,7 @@ class PresetSchemaV1ReadV2Test {
 
         val decoded = json.decodeFromString(Preset.serializer(), v1Json)
 
-        assertEquals(1, decoded.schemaVersion)
+        assertEquals(WireVersion(1, 0), decoded.schemaVersion)
         assertEquals("legacy-preset", decoded.presetId)
         assertNull(decoded.hintFlow, "v2 model must default hintFlow to null on v1 JSON")
         assertNull(decoded.wizardPresentation, "v2 model must default wizardPresentation to null on v1 JSON")
@@ -51,7 +53,7 @@ class PresetSchemaV1ReadV2Test {
         // v2 blob that omits the two v2-only optional fields — still valid.
         val v2JsonNoOpts = """
             {
-              "schemaVersion": 2,
+              "schemaVersion": "2.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "presetId": "empty-v2",
               "version": 1,
               "layoutKey": "simple",
@@ -63,7 +65,7 @@ class PresetSchemaV1ReadV2Test {
 
         val decoded = json.decodeFromString(Preset.serializer(), v2JsonNoOpts)
 
-        assertEquals(2, decoded.schemaVersion)
+        assertEquals(WireVersion(2, 0), decoded.schemaVersion)
         assertNull(decoded.hintFlow)
         assertNull(decoded.wizardPresentation)
     }
@@ -75,7 +77,7 @@ class PresetSchemaV1ReadV2Test {
         // contract: unknown fields are skipped rather than throwing.
         val v2JsonWithExtras = """
             {
-              "schemaVersion": 2,
+              "schemaVersion": "2.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "presetId": "future-preset",
               "version": 1,
               "layoutKey": "simple",

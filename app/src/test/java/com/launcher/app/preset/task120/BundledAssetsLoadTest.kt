@@ -1,5 +1,7 @@
 package com.launcher.app.preset.task120
 
+import com.launcher.wire.WireVersion
+
 import androidx.test.core.app.ApplicationProvider
 import com.launcher.app.preset.task120.adapter.BundledPoolSource
 import com.launcher.app.preset.task120.adapter.BundledPresetSource
@@ -34,7 +36,7 @@ class BundledAssetsLoadTest {
     fun poolJson_loadsAndParses() = runTest {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val pool = BundledPoolSource(ctx).loadPool()
-        assertEquals(1, pool.schemaVersion)
+        assertEquals(WireVersion(1, 0), pool.schemaVersion)
         // 4 behavioural (font/whatsapp/sos/toolbar) + 5 structural blueprints
         // added by TASK-127 T127-025 (workspace, 2 flows, 2 toolbar buttons).
         assertEquals(9, pool.declarations.size)
