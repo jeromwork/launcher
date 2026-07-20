@@ -1,7 +1,7 @@
 ---
 id: TASK-16
 title: 'Wire format evolution discipline — versioning convention + fitness rule + shape reference'
-status: Draft
+status: In Progress
 assignee: []
 created_date: '2026-06-23 05:38'
 updated_date: '2026-07-19'
