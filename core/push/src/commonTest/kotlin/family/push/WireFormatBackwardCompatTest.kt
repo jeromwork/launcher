@@ -1,5 +1,7 @@
 package family.push
 
+import family.wire.WireVersion
+
 import family.push.internal.PushPayloadWireFormat
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -30,7 +32,7 @@ class WireFormatBackwardCompatTest {
         // Here we test the **new** wire format с linkId field set
         // (FR-051 — additive change preservation).
         val flatMap = mapOf(
-            "schemaVersion" to "1",
+            "schemaVersion" to "1.0", "minReaderVersion" to "1.0", "minWriterVersion" to "1.0",
             "eventType" to "config-updated",
             "ownerUid" to "uid-legacy",
             "triggerId" to "trigger-legacy-001",
@@ -48,7 +50,7 @@ class WireFormatBackwardCompatTest {
     fun parse_payloadWithoutLinkId_linkIdIsNull() {
         // F-5c canonical shape — no linkId on new events.
         val flatMap = mapOf(
-            "schemaVersion" to "1",
+            "schemaVersion" to "1.0", "minReaderVersion" to "1.0", "minWriterVersion" to "1.0",
             "eventType" to "config-updated",
             "ownerUid" to "uid-1",
             "triggerId" to "trigger-001",

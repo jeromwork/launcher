@@ -1,5 +1,8 @@
 package com.launcher.app.preset.task120.adapter
 
+import family.wire.UnknownWireVersionException
+import family.wire.accessFor
+
 import android.content.Context
 import android.util.Log
 import com.launcher.preset.model.VendorRecipeCatalogue
@@ -40,17 +43,21 @@ class BundledVendorRecipeSource(
 
         val decoded = try {
             json.decodeFromString(VendorRecipeCatalogue.serializer(), text)
+        } catch (e: UnknownWireVersionException) {
+            // Distinct from malformed (§8): the file is intact, its version is one we cannot read.
+            Log.w(TAG, "vendor-recipes.json has an unreadable wire version, falling back", e)
+            return@withContext VendorRecipeCatalogue()
         } catch (e: SerializationException) {
             Log.w(TAG, "vendor-recipes.json malformed, falling back to generic-only dispatch", e)
             return@withContext VendorRecipeCatalogue()
         }
 
-        if (decoded.schemaVersion > VendorRecipeCatalogue.CURRENT_SCHEMA_VERSION) {
-            Log.w(
-                TAG,
-                "vendor-recipes.json schemaVersion=${decoded.schemaVersion} unsupported " +
-                    "(max ${VendorRecipeCatalogue.CURRENT_SCHEMA_VERSION}), falling back to generic-only dispatch",
-            )
+        // Version header gate (wire-format.md §3) — a newer catalogue is still usable unless it
+        // says it needs a newer reader; unknown component types are dropped by filterKnown below.
+        try {
+            decoded.accessFor(VendorRecipeCatalogue.SCHEMA_VERSION)
+        } catch (e: Exception) {
+            Log.w(TAG, "vendor-recipes.json needs a newer reader, falling back to generic-only dispatch", e)
             return@withContext VendorRecipeCatalogue()
         }
 

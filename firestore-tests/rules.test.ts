@@ -81,7 +81,7 @@ function unauthCtx(): RulesTestContext {
 async function seedPairing(opts: { claimed: boolean }): Promise<void> {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(ctx.firestore(), `pairings/${TOKEN}`), {
-      schemaVersion: 1,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       pairingType: "admin-managed-link",
       managedDeviceId: "device-uuid",
       managedDeviceFirebaseUid: MANAGED_UID,
@@ -96,7 +96,7 @@ async function seedPairing(opts: { claimed: boolean }): Promise<void> {
 async function seedLink(): Promise<void> {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(ctx.firestore(), `links/${LINK_ID}`), {
-      schemaVersion: 1,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       adminId: ADMIN_UID,
       managedDeviceId: "device-uuid",
       managedDeviceFirebaseUid: MANAGED_UID,
@@ -113,7 +113,7 @@ describe("/pairings/{token}", () => {
   test("managed_can_create_with_own_uid", async () => {
     const fs = managedCtx().firestore();
     await assertSucceeds(setDoc(doc(fs, `pairings/${TOKEN}`), {
-      schemaVersion: 1,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       pairingType: "admin-managed-link",
       managedDeviceId: "device-uuid",
       managedDeviceFirebaseUid: MANAGED_UID,
@@ -125,7 +125,7 @@ describe("/pairings/{token}", () => {
   test("unauthenticated_cannot_create_pairing", async () => {
     const fs = unauthCtx().firestore();
     await assertFails(setDoc(doc(fs, `pairings/${TOKEN}`), {
-      schemaVersion: 1,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       managedDeviceFirebaseUid: "spoofed-uid",
       claimed: false,
       expiresAt: new Date(),
@@ -135,7 +135,7 @@ describe("/pairings/{token}", () => {
   test("create_with_spoofed_managedUid_rejected", async () => {
     const fs = managedCtx().firestore();
     await assertFails(setDoc(doc(fs, `pairings/${TOKEN}`), {
-      schemaVersion: 1,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       managedDeviceFirebaseUid: "different-uid",
       claimed: false,
       expiresAt: new Date(),
@@ -146,7 +146,7 @@ describe("/pairings/{token}", () => {
     // Bypass: nobody should be able to short-circuit the claim flow.
     const fs = managedCtx().firestore();
     await assertFails(setDoc(doc(fs, `pairings/${TOKEN}`), {
-      schemaVersion: 1,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       managedDeviceFirebaseUid: MANAGED_UID,
       claimed: true,
       expiresAt: new Date(),
@@ -201,7 +201,7 @@ describe("/links/{linkId}", () => {
 
   test("admin_can_create_link_with_own_uid", async () => {
     await assertSucceeds(setDoc(doc(adminCtx().firestore(), `links/${LINK_ID}`), {
-      schemaVersion: 1,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       adminId: ADMIN_UID,
       managedDeviceId: "device-uuid",
       managedDeviceFirebaseUid: MANAGED_UID,
@@ -211,7 +211,7 @@ describe("/links/{linkId}", () => {
   test("create_with_spoofed_adminId_rejected", async () => {
     // Some other authenticated user cannot claim adminId for someone else.
     await assertFails(setDoc(doc(strangerCtx().firestore(), `links/${LINK_ID}`), {
-      schemaVersion: 1,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       adminId: ADMIN_UID,
       managedDeviceId: "device-uuid",
       managedDeviceFirebaseUid: MANAGED_UID,
@@ -261,7 +261,7 @@ describe("/links/{linkId}/state", () => {
   test("managed_can_create_state_with_schemaVersion_1", async () => {
     await seedLink();
     await assertSucceeds(setDoc(doc(managedCtx().firestore(), `links/${LINK_ID}/state/current`), {
-      schemaVersion: 1,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       appliedAt: serverTimestamp(),
       presetId: "simple-launcher",
       fcmToken: "fcm-tok",
@@ -271,7 +271,7 @@ describe("/links/{linkId}/state", () => {
   test("admin_cannot_write_state", async () => {
     await seedLink();
     await assertFails(setDoc(doc(adminCtx().firestore(), `links/${LINK_ID}/state/current`), {
-      schemaVersion: 1,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       appliedAt: serverTimestamp(),
       presetId: "simple-launcher",
     }));
@@ -281,7 +281,7 @@ describe("/links/{linkId}/state", () => {
     await seedLink();
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), `links/${LINK_ID}/state/current`), {
-        schemaVersion: 1, appliedAt: serverTimestamp(), presetId: "simple-launcher",
+        schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0", appliedAt: serverTimestamp(), presetId: "simple-launcher",
       });
     });
     await assertSucceeds(getDoc(doc(adminCtx().firestore(), `links/${LINK_ID}/state/current`)));
@@ -291,7 +291,7 @@ describe("/links/{linkId}/state", () => {
     await seedLink();
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), `links/${LINK_ID}/state/current`), {
-        schemaVersion: 1, appliedAt: serverTimestamp(), presetId: "simple-launcher",
+        schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0", appliedAt: serverTimestamp(), presetId: "simple-launcher",
       });
     });
     await assertFails(getDoc(doc(strangerCtx().firestore(), `links/${LINK_ID}/state/current`)));
@@ -306,7 +306,7 @@ describe("/links/{linkId}/config (spec 008 collaborative editing)", () => {
   test("admin_can_create_config", async () => {
     await seedLink();
     await assertSucceeds(setDoc(doc(adminCtx().firestore(), `links/${LINK_ID}/config/current`), {
-      schemaVersion: 1,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       presetId: "simple-launcher",
     }));
   });
@@ -315,7 +315,7 @@ describe("/links/{linkId}/config (spec 008 collaborative editing)", () => {
     // Spec 008 grants Managed-as-editor write privileges (FR-011, US-3).
     await seedLink();
     await assertSucceeds(setDoc(doc(managedCtx().firestore(), `links/${LINK_ID}/config/current`), {
-      schemaVersion: 1,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       presetId: "simple-launcher",
     }));
   });
@@ -323,16 +323,16 @@ describe("/links/{linkId}/config (spec 008 collaborative editing)", () => {
   test("foreign_uid_cannot_create_config", async () => {
     await seedLink();
     await assertFails(setDoc(doc(strangerCtx().firestore(), `links/${LINK_ID}/config/current`), {
-      schemaVersion: 1,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       presetId: "simple-launcher",
     }));
   });
 
-  test("schemaVersion_must_be_1_on_create", async () => {
+  test("schemaVersion_must_be_a_valid_header_on_create", async () => {
     // Schema invariant from contracts/config.md §Security Rules.
     await seedLink();
     await assertFails(setDoc(doc(adminCtx().firestore(), `links/${LINK_ID}/config/current`), {
-      schemaVersion: 999,
+      schemaVersion: "999.0", minReaderVersion: "999.0", minWriterVersion: "999.0",
       presetId: "simple-launcher",
     }));
   });
@@ -341,12 +341,12 @@ describe("/links/{linkId}/config (spec 008 collaborative editing)", () => {
     // Spec 008 contract: update preserves invariant `newSchemaVersion >= existingSchemaVersion`.
     await seedLink();
     await setDoc(doc(adminCtx().firestore(), `links/${LINK_ID}/config/current`), {
-      schemaVersion: 1,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       presetId: "simple-launcher",
     });
     // Attempt to downgrade — must fail.
     await assertFails(updateDoc(doc(adminCtx().firestore(), `links/${LINK_ID}/config/current`), {
-      schemaVersion: 0,
+      schemaVersion: "0.0", minReaderVersion: "0.0", minWriterVersion: "0.0",
     }));
   });
 
@@ -354,7 +354,7 @@ describe("/links/{linkId}/config (spec 008 collaborative editing)", () => {
     // Bidirectional: admin creates, managed updates (US-3 scenario).
     await seedLink();
     await setDoc(doc(adminCtx().firestore(), `links/${LINK_ID}/config/current`), {
-      schemaVersion: 1,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       presetId: "simple-launcher",
     });
     await assertSucceeds(updateDoc(doc(managedCtx().firestore(), `links/${LINK_ID}/config/current`), {
@@ -366,7 +366,7 @@ describe("/links/{linkId}/config (spec 008 collaborative editing)", () => {
     // Revoke path — only managed deletes (matches /links delete invariant).
     await seedLink();
     await setDoc(doc(adminCtx().firestore(), `links/${LINK_ID}/config/current`), {
-      schemaVersion: 1,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       presetId: "simple-launcher",
     });
     // Admin cannot delete.

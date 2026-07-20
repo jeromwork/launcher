@@ -1,5 +1,10 @@
 package com.launcher.preset.model
 
+import family.wire.WireVersion
+import family.wire.WireVersionHeader
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
+
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -68,9 +73,15 @@ data class ActiveComponentEntry(
     val parentRef: String? = null,
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class Preset(
-    val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val schemaVersion: WireVersion = SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minReaderVersion: WireVersion = MIN_READER_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minWriterVersion: WireVersion = MIN_WRITER_VERSION,
     val presetId: String,
     val version: Int,
     val layoutKey: String,
@@ -80,9 +91,16 @@ data class Preset(
     // T015 (FR-007, FR-003): v2 additions. Nullable defaults keep v1 fixtures deserializing.
     val hintFlow: List<HintFlowEntry>? = null,
     val wizardPresentation: WizardPresentation? = null,
-) {
+) : WireVersionHeader {
     companion object {
         /** v2: adds `hintFlow` + `wizardPresentation` (TASK-126). */
-        const val CURRENT_SCHEMA_VERSION: Int = 2
+        /** What this build writes. Was the integer 2 before the conversion — never lowered (I3). */
+        val SCHEMA_VERSION: WireVersion = WireVersion(2, 0)
+
+        /** Component entries are additive; a stray unknown entry is dropped, not misread. */
+        val MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+
+        /** Presets are shipped assets, rewritten wholesale rather than merged. */
+        val MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
     }
 }

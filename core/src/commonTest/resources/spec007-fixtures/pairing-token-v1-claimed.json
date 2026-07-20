@@ -1,5 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": "1.0",
+  "minReaderVersion": "1.0",
+  "minWriterVersion": "1.0",
   "pairingType": "admin-managed-link",
   "managedDeviceId": "0c8e3a5e-1e7c-4f7b-9a1d-2b3c4d5e6f7a",
   "managedDeviceFirebaseUid": "anonUidAbc123",

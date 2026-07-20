@@ -1,5 +1,7 @@
 package com.launcher.preset.wire
 
+import family.wire.WireVersion
+
 import com.launcher.preset.model.Component
 import com.launcher.preset.model.Blueprint
 import com.launcher.preset.model.Pool
@@ -28,7 +30,7 @@ class PoolSchemaV2RoundtripTest {
     @Test
     fun v2Pool_withRequiresAndRequired_roundtrips() {
         val pool = Pool(
-            schemaVersion = 2,
+            schemaVersion = WireVersion(2, 0),
             declarations = listOf(
                 Blueprint(
                     id = "launcher-role",
@@ -85,7 +87,7 @@ class PoolSchemaV2RoundtripTest {
         val decoded = json.decodeFromString(Pool.serializer(), encoded)
 
         assertEquals(pool, decoded)
-        assertEquals(2, decoded.schemaVersion)
+        assertEquals(WireVersion(2, 0), decoded.schemaVersion)
 
         val whatsapp = decoded.byId("app-tile-whatsapp")
         assertEquals(listOf("launcher-role"), whatsapp?.requires)

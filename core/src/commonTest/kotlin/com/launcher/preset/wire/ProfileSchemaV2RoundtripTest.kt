@@ -1,5 +1,7 @@
 package com.launcher.preset.wire
 
+import family.wire.WireVersion
+
 import com.launcher.preset.model.Component
 import com.launcher.preset.model.Entity
 import com.launcher.preset.model.LifecycleState
@@ -55,7 +57,7 @@ class ProfileSchemaV2RoundtripTest {
 
     /** The owner's target screen (US-4), stored flat with the tree in `parentId`. */
     private fun hierarchicalProfile() = Profile(
-        schemaVersion = 2,
+        schemaVersion = WireVersion(2, 0),
         basedOnPreset = "simple-launcher",
         presetVersion = 2,
         layoutKey = "grid",
@@ -97,8 +99,12 @@ class ProfileSchemaV2RoundtripTest {
     fun schemaVersion_staysTwo_becauseEveryAdditionIsAdditive() {
         val encoded = json.encodeToString(Profile.serializer(), hierarchicalProfile())
 
-        assertEquals(2, Profile.CURRENT_SCHEMA_VERSION)
-        assertEquals(true, encoded.contains("\"schemaVersion\":2"))
+        // "2.0", not 2: the number did not change across the wire-format conversion (I3 forbids
+        // lowering it, and nothing about the shape changed), only its representation.
+        assertEquals(WireVersion(2, 0), Profile.SCHEMA_VERSION)
+        assertEquals(true, encoded.contains("\"schemaVersion\":\"2.0\""))
+        assertEquals(true, encoded.contains("\"minReaderVersion\":\"1.0\""))
+        assertEquals(true, encoded.contains("\"minWriterVersion\":\"1.0\""))
     }
 
     // ---- backward compatibility with profiles written before TASK-127 ----
@@ -109,7 +115,7 @@ class ProfileSchemaV2RoundtripTest {
         // fallback). This pins that entity-level `tags` deserialize from the wire.
         val jsonText = """
             {
-              "schemaVersion": 2,
+              "schemaVersion": "2.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "basedOnPreset": "p",
               "presetVersion": 2,
               "layoutKey": "grid",
@@ -134,7 +140,7 @@ class ProfileSchemaV2RoundtripTest {
     fun missingParentId_readsAsRoot_soPreTask127ProfilesStillLoad() {
         val jsonText = """
             {
-              "schemaVersion": 2,
+              "schemaVersion": "2.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "basedOnPreset": "p",
               "presetVersion": 2,
               "layoutKey": "grid",
@@ -161,7 +167,7 @@ class ProfileSchemaV2RoundtripTest {
         // the components bag.
         val jsonText = """
             {
-              "schemaVersion": 2,
+              "schemaVersion": "2.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "basedOnPreset": "p",
               "presetVersion": 2,
               "layoutKey": "grid",
@@ -202,7 +208,7 @@ class ProfileSchemaV2RoundtripTest {
     fun unknownTagValue_failsLoud_untilLenientReaderShips() {
         val jsonText = """
             {
-              "schemaVersion": 2, "basedOnPreset": "p", "presetVersion": 2, "layoutKey": "grid",
+              "schemaVersion": "2.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0", "basedOnPreset": "p", "presetVersion": 2, "layoutKey": "grid",
               "entities": [
                 {
                   "id": "t",
@@ -223,7 +229,7 @@ class ProfileSchemaV2RoundtripTest {
     fun unknownComponentType_failsLoud_untilLenientReaderShips() {
         val jsonText = """
             {
-              "schemaVersion": 2, "basedOnPreset": "p", "presetVersion": 2, "layoutKey": "grid",
+              "schemaVersion": "2.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0", "basedOnPreset": "p", "presetVersion": 2, "layoutKey": "grid",
               "entities": [
                 {
                   "id": "x",
@@ -245,7 +251,7 @@ class ProfileSchemaV2RoundtripTest {
         // state variant is an unknown polymorphic component type and must fail loud.
         val jsonText = """
             {
-              "schemaVersion": 2, "basedOnPreset": "p", "presetVersion": 2, "layoutKey": "grid",
+              "schemaVersion": "2.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0", "basedOnPreset": "p", "presetVersion": 2, "layoutKey": "grid",
               "entities": [
                 {
                   "id": "t",
@@ -268,7 +274,7 @@ class ProfileSchemaV2RoundtripTest {
     fun unknownKey_isIgnored_soAddingOptionalFieldsStaysSafe() {
         val jsonText = """
             {
-              "schemaVersion": 2, "basedOnPreset": "p", "presetVersion": 2, "layoutKey": "grid",
+              "schemaVersion": "2.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0", "basedOnPreset": "p", "presetVersion": 2, "layoutKey": "grid",
               "futureTopLevelField": "ignored",
               "entities": [
                 {

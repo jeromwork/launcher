@@ -1,5 +1,7 @@
 package com.launcher.api.config
 
+import family.wire.WireVersion
+
 import com.launcher.api.result.Outcome
 import com.launcher.api.sync.BackendError
 import kotlinx.serialization.json.JsonArray
@@ -10,6 +12,7 @@ import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -30,15 +33,19 @@ import kotlinx.serialization.json.put
  * FR-006) — for now the parseSchemaVersionOnly helper supports that future.
  */
 object ConfigDocumentWireFormat {
-    const val CURRENT_SCHEMA_VERSION: Int = ConfigDocument.SCHEMA_VERSION
+    /** This reader's level for the gate of `docs/architecture/wire-format.md` §3. */
+    val READER_LEVEL: WireVersion = ConfigDocument.SCHEMA_VERSION
 
-    fun parseSchemaVersionOnly(json: JsonElement): Int? {
+    /** Diagnostics only (§3) — no reader decision may depend on this. */
+    fun parseSchemaVersionOnly(json: JsonElement): WireVersion? {
         val obj = json as? JsonObject ?: return null
-        return obj["schemaVersion"]?.jsonPrimitive?.intOrNull
+        return obj["schemaVersion"]?.jsonPrimitive?.contentOrNull?.let { WireVersion.parseOrNull(it) }
     }
 
     fun serialize(config: ConfigDocument): JsonObject = buildJsonObject {
-        put("schemaVersion", CURRENT_SCHEMA_VERSION)
+        put("schemaVersion", config.schemaVersion.toString())
+        put("minReaderVersion", config.minReaderVersion.toString())
+        put("minWriterVersion", config.minWriterVersion.toString())
         put("serverUpdatedAt", buildJsonObject {
             put("epochSeconds", config.serverUpdatedAt.epochSeconds)
             put("nanoseconds", config.serverUpdatedAt.nanoseconds)
@@ -58,17 +65,28 @@ object ConfigDocumentWireFormat {
         val obj = json as? JsonObject
             ?: return Outcome.Failure(BackendError.Unknown("config payload is not a JsonObject"))
 
-        // CHK002: read schemaVersion FIRST.
-        val version = obj["schemaVersion"]?.jsonPrimitive?.intOrNull
-            ?: return Outcome.Failure(BackendError.Unknown("config missing schemaVersion"))
+        // Read the version header FIRST (CHK002, wire-format.md §4) and gate on minReaderVersion,
+        // not schemaVersion: a document written by a newer build whose additions we can ignore
+        // must still be readable (§3). Only a raised reader minimum refuses.
+        val minReader = obj["minReaderVersion"]?.jsonPrimitive?.contentOrNull
+            ?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(BackendError.Unknown("config missing/unreadable minReaderVersion"))
 
-        if (version > CURRENT_SCHEMA_VERSION) {
+        if (READER_LEVEL < minReader) {
             return Outcome.Failure(
                 BackendError.Unknown(
-                    "config schemaVersion=$version > supported $CURRENT_SCHEMA_VERSION — upgrade reader (see OUT-006 app-version-compatibility)"
+                    "config requires a reader at $minReader; this build is $READER_LEVEL — " +
+                        "upgrade reader (see OUT-006 app-version-compatibility)"
                 )
             )
         }
+
+        val schemaVersion = obj["schemaVersion"]?.jsonPrimitive?.contentOrNull
+            ?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(BackendError.Unknown("config missing/unreadable schemaVersion"))
+        val minWriter = obj["minWriterVersion"]?.jsonPrimitive?.contentOrNull
+            ?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(BackendError.Unknown("config missing/unreadable minWriterVersion"))
 
         val serverUpdatedAt = parseServerTimestamp(obj["serverUpdatedAt"])
             ?: return Outcome.Failure(BackendError.Unknown("config missing/invalid serverUpdatedAt"))
@@ -114,7 +132,9 @@ object ConfigDocumentWireFormat {
 
         return Outcome.Success(
             ConfigDocument(
-                schemaVersion = version,
+                schemaVersion = schemaVersion,
+                minReaderVersion = minReader,
+                minWriterVersion = minWriter,
                 serverUpdatedAt = serverUpdatedAt,
                 lastWriterDeviceId = lastWriterDeviceId,
                 presetId = presetId,

@@ -1,5 +1,7 @@
 package com.launcher.preset.roundtrip
 
+import family.wire.WireVersion
+
 import com.launcher.preset.model.ActiveComponentEntry
 import com.launcher.preset.model.Component
 import com.launcher.preset.model.Blueprint
@@ -14,7 +16,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 internal fun mvpPool(): Pool = Pool(
-    schemaVersion = 1,
+    schemaVersion = WireVersion(1, 0),
     declarations = listOf(
         Blueprint(
             id = "font-tile",
@@ -64,7 +66,7 @@ internal fun mvpPool(): Pool = Pool(
 )
 
 internal fun simpleLauncherPreset(): Preset = Preset(
-    schemaVersion = 2,
+    schemaVersion = WireVersion(2, 0),
     presetId = "simple-launcher",
     version = 1,
     layoutKey = "layout.grid.2x3",
@@ -119,7 +121,7 @@ internal fun launcherPreset(): Preset = simpleLauncherPreset().copy(
 )
 
 internal fun workspacePreset(): Preset = Preset(
-    schemaVersion = 2,
+    schemaVersion = WireVersion(2, 0),
     presetId = "workspace",
     version = 1,
     layoutKey = "layout.grid.2x3",

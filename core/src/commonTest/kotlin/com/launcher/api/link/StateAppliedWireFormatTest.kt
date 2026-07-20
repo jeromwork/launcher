@@ -1,5 +1,7 @@
 package com.launcher.api.link
 
+import family.wire.WireVersion
+
 import com.launcher.api.config.ElementId
 import com.launcher.api.config.ServerTimestamp
 import com.launcher.api.config.SlotKind
@@ -129,7 +131,7 @@ class StateAppliedWireFormatTest {
         // should be silently dropped (not crash). Other reasons preserved.
         val wire = json.parseToJsonElement("""
             {
-              "schemaVersion": 1,
+              "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "appliedAt": 1747166410000,
               "presetId": "simple-launcher",
               "updatedAt": 1747166410000,
@@ -160,7 +162,7 @@ class StateAppliedWireFormatTest {
     @Test
     fun future_schema_version_rejected() {
         val wire = json.parseToJsonElement("""
-            {"schemaVersion": 999, "appliedAt": 1, "presetId": "x", "updatedAt": 1}
+            {"schemaVersion": "999.0", "minReaderVersion": "999.0", "minWriterVersion": "999.0", "appliedAt": 1, "presetId": "x", "updatedAt": 1}
         """.trimIndent()) as JsonObject
         val result = StateAppliedWireFormat.deserialize(wire)
         assertTrue(result is Outcome.Failure)

@@ -1,5 +1,7 @@
 package com.launcher.preset.engine
 
+import family.wire.WireVersion
+
 import com.launcher.preset.fakes.FakeCapabilityContract
 import com.launcher.preset.model.ActiveComponentEntry
 import com.launcher.preset.model.Component
@@ -29,7 +31,7 @@ class PresetValidatorResultTest {
 
     // Pool where `app-tile-whatsapp` requires `launcher-role` earlier in wizardFlow.
     private fun poolWithRequires(): Pool = Pool(
-        schemaVersion = 2,
+        schemaVersion = WireVersion(2, 0),
         declarations = listOf(
             Blueprint(
                 id = "launcher-role",
@@ -140,7 +142,7 @@ class PresetValidatorResultTest {
     @Test
     fun blankLocale_returnsFailureWithNullLocale() {
         val pool = Pool(
-            schemaVersion = 2,
+            schemaVersion = WireVersion(2, 0),
             declarations = listOf(
                 Blueprint(
                     id = "language-blank",

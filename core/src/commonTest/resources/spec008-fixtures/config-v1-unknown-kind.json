@@ -1,5 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": "1.0",
+  "minReaderVersion": "1.0",
+  "minWriterVersion": "1.0",
   "serverUpdatedAt": {"epochSeconds": 1747166400, "nanoseconds": 0},
   "lastWriterDeviceId": "0c8e3a5e-1e7c-4f7b-9a1d-2b3c4d5e6f7a",
   "presetId": "simple-launcher",

@@ -1,12 +1,14 @@
 package com.launcher.api.link
 
+import family.wire.WireVersion
+
 import com.launcher.api.identity.AdminIdentity
 import com.launcher.api.result.Outcome
 import com.launcher.api.sync.BackendError
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
@@ -20,15 +22,25 @@ import kotlinx.serialization.json.longOrNull
  * Forward-compat policy: same as [com.launcher.api.pairing.PairingWireFormat].
  */
 object LinkWireFormat {
-    const val CURRENT_SCHEMA_VERSION: Int = 1
+    /** What this build writes. Was the integer 1 before the conversion — never lowered (I3). */
+    val SCHEMA_VERSION: WireVersion = WireVersion(1, 0)
 
-    fun parseSchemaVersionOnly(json: JsonElement): Int? {
+    /** Fields are additive; an older reader safely ignores what it does not know (§3). */
+    val MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+
+    /** Write-once payload — never read-modify-written by a second party. */
+    val MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
+
+    /** Diagnostics only (§3) — no reader decision may depend on this. */
+    fun parseSchemaVersionOnly(json: JsonElement): WireVersion? {
         val obj = (json as? JsonObject) ?: return null
-        return obj["schemaVersion"]?.jsonPrimitive?.intOrNull
+        return obj["schemaVersion"]?.jsonPrimitive?.contentOrNull?.let { WireVersion.parseOrNull(it) }
     }
 
     data class Parsed(
-        val schemaVersion: Int,
+        val schemaVersion: WireVersion,
+        val minReaderVersion: WireVersion,
+        val minWriterVersion: WireVersion,
         val adminId: AdminIdentity,
         val managedDeviceId: String,
         val managedDeviceFirebaseUid: String,
@@ -44,7 +56,9 @@ object LinkWireFormat {
         updatedAt: Long? = null,
     ): JsonObject {
         val map = buildMap<String, JsonElement> {
-            put("schemaVersion", JsonPrimitive(CURRENT_SCHEMA_VERSION))
+            put("schemaVersion", JsonPrimitive(SCHEMA_VERSION.toString()))
+        put("minReaderVersion", JsonPrimitive(MIN_READER_VERSION.toString()))
+        put("minWriterVersion", JsonPrimitive(MIN_WRITER_VERSION.toString()))
             put("adminId", JsonPrimitive(adminId.firebaseAuthUid))
             put("managedDeviceId", JsonPrimitive(managedDeviceId))
             put("managedDeviceFirebaseUid", JsonPrimitive(managedDeviceFirebaseUid))
@@ -58,12 +72,18 @@ object LinkWireFormat {
         val obj = (json as? JsonObject)
             ?: return Outcome.Failure(BackendError.Unknown("link payload is not a JsonObject"))
 
-        val version = obj["schemaVersion"]?.jsonPrimitive?.intOrNull
-            ?: return Outcome.Failure(BackendError.Unknown("link payload missing schemaVersion"))
+        // Read the header first (§4), then gate on minReaderVersion rather than schemaVersion:
+        // a payload from a newer writer whose additions we can ignore must stay readable (§3).
+        val version = obj["schemaVersion"]?.jsonPrimitive?.contentOrNull?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(BackendError.Unknown("link payload missing/unreadable schemaVersion"))
+        val minReader = obj["minReaderVersion"]?.jsonPrimitive?.contentOrNull?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(BackendError.Unknown("link payload missing/unreadable minReaderVersion"))
+        val minWriter = obj["minWriterVersion"]?.jsonPrimitive?.contentOrNull?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(BackendError.Unknown("link payload missing/unreadable minWriterVersion"))
 
-        if (version > CURRENT_SCHEMA_VERSION) {
+        if (SCHEMA_VERSION < minReader) {
             return Outcome.Failure(BackendError.Unknown(
-                "link schemaVersion=$version > supported $CURRENT_SCHEMA_VERSION — upgrade reader"
+                "link payload requires a reader at $minReader; this build is $SCHEMA_VERSION — upgrade reader"
             ))
         }
 
@@ -76,6 +96,8 @@ object LinkWireFormat {
 
         return Outcome.Success(Parsed(
             schemaVersion = version,
+            minReaderVersion = minReader,
+            minWriterVersion = minWriter,
             adminId = AdminIdentity(adminUid),
             managedDeviceId = managedDeviceId,
             managedDeviceFirebaseUid = managedDeviceFirebaseUid,

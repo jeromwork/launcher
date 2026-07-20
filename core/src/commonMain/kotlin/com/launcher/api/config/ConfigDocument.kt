@@ -1,5 +1,10 @@
 package com.launcher.api.config
 
+import family.wire.WireVersion
+import family.wire.WireVersionHeader
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
+
 import kotlinx.serialization.Serializable
 
 /**
@@ -24,9 +29,17 @@ import kotlinx.serialization.Serializable
  * Forward-compat handling: spec 008 ships v=1 only; admin-v2 ↔ Managed-v1
  * mismatch handled by future spec `app-version-compatibility` (OUT-006).
  */
+// @EncodeDefault: sync documents are encoded with `encodeDefaults = false`, and I1 requires the
+// version fields on every document.
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class ConfigDocument(
-    val schemaVersion: Int = SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val schemaVersion: WireVersion = SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minReaderVersion: WireVersion = MIN_READER_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minWriterVersion: WireVersion = MIN_WRITER_VERSION,
     val serverUpdatedAt: ServerTimestamp,
     val lastWriterDeviceId: String,
     val presetId: String,
@@ -38,8 +51,20 @@ data class ConfigDocument(
      * spec 008 FR-006). Spec 012 will populate.
      */
     val presetOverrides: PresetSettings? = null,
-) {
+) : WireVersionHeader {
     companion object {
-        const val SCHEMA_VERSION: Int = 1
+        /** What this build writes. Was the integer 1 before the conversion — never lowered (I3). */
+        val SCHEMA_VERSION: WireVersion = WireVersion(1, 0)
+
+        /** Optional additions (presetOverrides) are ignorable by an older reader per §3. */
+        val MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+
+        /**
+         * Both admin and managed device edit this document (FR-050 «единый editor pattern»), so
+         * an older writer really can round-trip a document authored by a newer one. Raise this
+         * the moment a field appears that such a writer would drop, unless §6 unknown-field
+         * preservation lands first.
+         */
+        val MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
     }
 }

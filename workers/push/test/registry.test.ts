@@ -32,7 +32,7 @@ describe("EVENT_TYPES registry", () => {
   it("collapseKey is pure deterministic function", () => {
     const entry = EVENT_TYPES["config-updated"]!;
     const req = {
-      schemaVersion: 1 as const,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       eventType: "config-updated",
       targetScope: "own-and-grants" as const,
       ownerUid: "owner-1",
@@ -47,7 +47,7 @@ describe("EVENT_TYPES registry", () => {
   it("collapseKey handles missing field gracefully", () => {
     const entry = EVENT_TYPES["config-updated"]!;
     const req = {
-      schemaVersion: 1 as const,
+      schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
       eventType: "config-updated",
       targetScope: "own-devices" as const,
       ownerUid: "owner-1",

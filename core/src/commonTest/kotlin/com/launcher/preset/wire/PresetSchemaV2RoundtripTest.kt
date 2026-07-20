@@ -1,5 +1,7 @@
 package com.launcher.preset.wire
 
+import family.wire.WireVersion
+
 import com.launcher.preset.model.ActiveComponentEntry
 import com.launcher.preset.model.HintFlowEntry
 import com.launcher.preset.model.Preset
@@ -31,7 +33,7 @@ class PresetSchemaV2RoundtripTest {
     @Test
     fun v2Preset_withHintFlowAndWizardPresentation_roundtrips() {
         val preset = Preset(
-            schemaVersion = 2,
+            schemaVersion = WireVersion(2, 0),
             presetId = "simple-launcher",
             version = 2,
             layoutKey = "simple",
@@ -76,7 +78,7 @@ class PresetSchemaV2RoundtripTest {
         val decoded = json.decodeFromString(Preset.serializer(), encoded)
 
         assertEquals(preset, decoded)
-        assertEquals(2, decoded.schemaVersion)
+        assertEquals(WireVersion(2, 0), decoded.schemaVersion)
         assertEquals(1, decoded.hintFlow?.size)
         assertEquals("hint-launcher-role", decoded.hintFlow?.first()?.hintId)
         assertEquals(TypographyScale.Large, decoded.wizardPresentation?.typographyScale)

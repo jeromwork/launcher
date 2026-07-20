@@ -52,7 +52,7 @@ class HintPoolSourceTest {
     fun load_validJson_parsesEntries() = runTest {
         val json = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "hints": [
                 {"hintId":"h1","targetComponentId":"font-tile","textKey":"hint.font"},
                 {"hintId":"h2","targetComponentId":"sos-main","textKey":"hint.sos"}

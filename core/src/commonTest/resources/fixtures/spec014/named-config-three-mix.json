@@ -1,8 +1,12 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": "1.0",
+  "minReaderVersion": "1.0",
+  "minWriterVersion": "1.0",
   "configs": [
     {
-      "schemaVersion": 1,
+      "schemaVersion": "1.0",
+      "minReaderVersion": "1.0",
+      "minWriterVersion": "1.0",
       "configName": "default",
       "description": "",
       "isDefault": true,
@@ -11,7 +15,9 @@
       "activeDeviceIds": ["0c8e3a5e-1e7c-4f7b-9a1d-2b3c4d5e6f7a"]
     },
     {
-      "schemaVersion": 1,
+      "schemaVersion": "1.0",
+      "minReaderVersion": "1.0",
+      "minWriterVersion": "1.0",
       "configName": "job",
       "description": "Workspace для работы",
       "isDefault": false,
@@ -20,7 +26,9 @@
       "activeDeviceIds": ["1f8e3a5e-2e7c-5f7b-aa1d-3b3c4d5e6f7b"]
     },
     {
-      "schemaVersion": 1,
+      "schemaVersion": "1.0",
+      "minReaderVersion": "1.0",
+      "minWriterVersion": "1.0",
       "configName": "old",
       "description": "",
       "isDefault": false,

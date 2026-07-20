@@ -1,5 +1,7 @@
 package com.launcher.fake.sync
 
+import family.wire.WireVersion
+
 import com.launcher.api.result.Outcome
 import com.launcher.api.sync.BackendError
 import com.launcher.api.sync.DocPath
@@ -33,19 +35,19 @@ class FakeRemoteSyncBackendTest {
     @Test
     fun write_then_read_returns_same_data() = runTest {
         val backend = FakeRemoteSyncBackend()
-        backend.writeDoc(path, sampleData, schemaVersion = 1).assertSuccess()
+        backend.writeDoc(path, sampleData, schemaVersion = WireVersion(1, 0)).assertSuccess()
 
         val read = backend.readDoc(path).assertSuccessValue()
         assertNotNull(read)
         assertEquals(sampleData, read.data)
-        assertEquals(1, read.schemaVersion)
+        assertEquals(WireVersion(1, 0), read.schemaVersion)
         assertEquals(false, read.isStale)
     }
 
     @Test
     fun delete_removes_doc() = runTest {
         val backend = FakeRemoteSyncBackend()
-        backend.writeDoc(path, sampleData, 1).assertSuccess()
+        backend.writeDoc(path, sampleData, WireVersion(1, 0)).assertSuccess()
         backend.deleteDoc(path).assertSuccess()
         val read = backend.readDoc(path).assertSuccessValue()
         assertNull(read)
@@ -54,7 +56,7 @@ class FakeRemoteSyncBackendTest {
     @Test
     fun observer_emits_initial_then_updates() = runTest {
         val backend = FakeRemoteSyncBackend()
-        backend.writeDoc(path, sampleData, 1).assertSuccess()
+        backend.writeDoc(path, sampleData, WireVersion(1, 0)).assertSuccess()
 
         val first = backend.observe(path).first()
         val firstSnap = (first as Outcome.Success).value
@@ -66,7 +68,7 @@ class FakeRemoteSyncBackendTest {
     fun transaction_commits_on_success() = runTest {
         val backend = FakeRemoteSyncBackend()
         val result = backend.runTransaction {
-            set(path, sampleData, 1)
+            set(path, sampleData, WireVersion(1, 0))
             "ok"
         }
         assertEquals("ok", result.assertSuccessValue())
@@ -78,7 +80,7 @@ class FakeRemoteSyncBackendTest {
     fun transaction_sees_its_own_writes() = runTest {
         val backend = FakeRemoteSyncBackend()
         val readBack: DocSnapshot? = backend.runTransaction {
-            set(path, sampleData, 1)
+            set(path, sampleData, WireVersion(1, 0))
             get(path)
         }.assertSuccessValue()
         assertNotNull(readBack)
@@ -89,7 +91,7 @@ class FakeRemoteSyncBackendTest {
     fun transaction_rolls_back_on_exception() = runTest {
         val backend = FakeRemoteSyncBackend()
         val result = backend.runTransaction<Unit> {
-            set(path, sampleData, 1)
+            set(path, sampleData, WireVersion(1, 0))
             error("boom")
         }
         assertTrue(result is Outcome.Failure)
@@ -100,11 +102,11 @@ class FakeRemoteSyncBackendTest {
     @Test
     fun offline_queues_writes_and_reads_are_stale() = runTest {
         val backend = FakeRemoteSyncBackend()
-        backend.writeDoc(path, sampleData, 1).assertSuccess()
+        backend.writeDoc(path, sampleData, WireVersion(1, 0)).assertSuccess()
         backend.setOnline(false)
 
         val updated = buildJsonObject { put("k", JsonPrimitive("v2")) }
-        backend.writeDoc(path, updated, 1).assertSuccess()
+        backend.writeDoc(path, updated, WireVersion(1, 0)).assertSuccess()
         assertEquals(1, backend.queuedOperationCount(), "write should be queued offline")
 
         // Read while offline returns last-known stale.
@@ -121,8 +123,8 @@ class FakeRemoteSyncBackendTest {
 
         val first = buildJsonObject { put("seq", JsonPrimitive(1)) }
         val second = buildJsonObject { put("seq", JsonPrimitive(2)) }
-        backend.writeDoc(path, first, 1).assertSuccess()
-        backend.writeDoc(path, second, 1).assertSuccess()
+        backend.writeDoc(path, first, WireVersion(1, 0)).assertSuccess()
+        backend.writeDoc(path, second, WireVersion(1, 0)).assertSuccess()
         assertEquals(2, backend.queuedOperationCount())
 
         backend.setOnline(true)

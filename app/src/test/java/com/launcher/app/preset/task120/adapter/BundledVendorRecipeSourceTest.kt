@@ -1,5 +1,7 @@
 package com.launcher.app.preset.task120.adapter
 
+import family.wire.WireVersion
+
 import android.content.Context
 import android.content.res.AssetManager
 import androidx.test.core.app.ApplicationProvider
@@ -32,15 +34,17 @@ class BundledVendorRecipeSourceTest {
 
         val catalogue = source.loadCatalogue()
 
-        assertEquals(1, catalogue.schemaVersion)
+        assertEquals(WireVersion(1, 0), catalogue.schemaVersion)
         assertTrue(catalogue.entries.isEmpty())
     }
 
     @Test
     fun unsupportedSchemaVersion_returnsEmptyCatalogue_noException() = runTest {
+        // Newer writer AND a raised reader minimum — under §3 the version alone no longer refuses,
+        // so this fixture has to state that it genuinely needs a reader we do not have.
         val json = """
             {
-              "schemaVersion": 99,
+              "schemaVersion": "99.0", "minReaderVersion": "99.0", "minWriterVersion": "99.0",
               "entries": {
                 "LauncherRole": {
                   "Xiaomi": { "fallbackTextKey": "launcher_role.fallback.xiaomi" }
@@ -74,7 +78,7 @@ class BundledVendorRecipeSourceTest {
     fun validJson_parsesAndFiltersToKnownComponentTypes() = runTest {
         val json = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "entries": {
                 "LauncherRole": {
                   "Xiaomi": { "fallbackTextKey": "launcher_role.fallback.xiaomi" },

@@ -1,5 +1,7 @@
 package com.launcher.api.auth.internal
 
+import family.wire.WireVersion
+
 /**
  * Тестовые фикстуры для wire-format тестов [SessionRecord] v1.
  *
@@ -18,7 +20,7 @@ internal object SessionRecordFixtures {
      */
     const val V1_CANONICAL: String = """
         {
-          "schemaVersion": 1,
+          "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
           "stableId": "550e8400-e29b-41d4-a716-446655440000",
           "expiresAtEpochMillis": 1739456789000,
           "refreshToken": "1//04test-refresh-token-stable-fixture",
@@ -35,7 +37,7 @@ internal object SessionRecordFixtures {
      */
     const val V2_HYPOTHETICAL: String = """
         {
-          "schemaVersion": 2,
+          "schemaVersion": "2.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
           "stableId": "550e8400-e29b-41d4-a716-446655440000",
           "newFieldFromV2": "value-not-in-v1-schema"
         }

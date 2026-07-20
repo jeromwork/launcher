@@ -1,5 +1,7 @@
 package com.launcher.core.profile
 
+import family.wire.WireVersion
+
 import com.launcher.api.DegradationReason
 import com.launcher.api.ResolvedPresetSnapshot
 import com.launcher.core.modules.ModuleResolutionState
@@ -12,7 +14,7 @@ class CompositionResolverTest {
 
     @Test
     fun contractIncompatibilityTakesPrecedenceOverAbsentFromBuild() {
-        val raw = ResolvedPresetSnapshot(1, "p", mapOf("m" to true), null, emptyMap())
+        val raw = ResolvedPresetSnapshot(WireVersion(1, 0), "p", mapOf("m" to true), null, emptyMap())
         val states = listOf(
             ModuleResolutionState(
                 moduleId = "m",
@@ -28,7 +30,7 @@ class CompositionResolverTest {
 
     @Test
     fun moduleUnavailableWhenPresentButContractSatisfiedAndMissingFromGraph() {
-        val raw = ResolvedPresetSnapshot(1, "p", mapOf("ghost" to true), null, emptyMap())
+        val raw = ResolvedPresetSnapshot(WireVersion(1, 0), "p", mapOf("ghost" to true), null, emptyMap())
         val eff = CompositionResolver.resolve(raw, 1, emptyList())
         assertEquals(false, eff.effectiveModuleFlags["ghost"])
         assertTrue(eff.degradation.reasonCodes.contains(DegradationReason.MODULE_UNAVAILABLE))
@@ -37,7 +39,7 @@ class CompositionResolverTest {
     @Test
     fun reflectsProfileWhenModuleHealthy() {
         val raw = ResolvedPresetSnapshot(
-            1,
+            WireVersion(1, 0),
             "p",
             mapOf("a" to true, "b" to false),
             null,
@@ -56,7 +58,7 @@ class CompositionResolverTest {
 
     @Test
     fun moduleUnavailableDisablesWhenProfileWantsButNotInBuild() {
-        val raw = ResolvedPresetSnapshot(1, "p", mapOf("m" to true), null, emptyMap())
+        val raw = ResolvedPresetSnapshot(WireVersion(1, 0), "p", mapOf("m" to true), null, emptyMap())
         val states = listOf(
             ModuleResolutionState("m", presentInBuild = false, contractSatisfied = true),
         )

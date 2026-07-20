@@ -30,6 +30,8 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            // :core:wire travels into the shared SDK alongside this module — both are leaves.
+            api(project(":core:wire"))
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.datetime)

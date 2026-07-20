@@ -1,5 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": "1.0",
+  "minReaderVersion": "1.0",
+  "minWriterVersion": "1.0",
   "eventType": "config-updated",
   "targetScope": "own-and-grants",
   "ownerUid": "TestUid1234567890123456789AB",

@@ -1,5 +1,7 @@
 package com.launcher.api.push
 
+import family.wire.WireVersion
+
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlin.test.Test
@@ -22,7 +24,7 @@ class PushPayloadWireFormatTest {
             linkId = "abc123XYZ",
         )
         val encoded = PushPayloadWireFormat.encode(original)
-        assertEquals("1", encoded["schemaVersion"])
+        assertEquals("1.0", encoded["schemaVersion"])
         assertEquals("config-changed", encoded["type"])
         assertEquals("abc123XYZ", encoded["linkId"])
         val parsed = PushPayloadWireFormat.parse(encoded)
@@ -50,7 +52,7 @@ class PushPayloadWireFormatTest {
         // Old Managed app receiving a payload from a future server with a new
         // type — must drop silently per contract §Backward compatibility.
         val malformed = mapOf(
-            "schemaVersion" to "1",
+            "schemaVersion" to "1.0", "minReaderVersion" to "1.0", "minWriterVersion" to "1.0",
             "type" to "incoming-call-future-type",
             "linkId" to "abc123XYZ",
         )
@@ -70,7 +72,7 @@ class PushPayloadWireFormatTest {
     @Test
     fun future_schema_version_drops() {
         val futureVersion = mapOf(
-            "schemaVersion" to "999",
+            "schemaVersion" to "999.0", "minReaderVersion" to "999.0", "minWriterVersion" to "999.0",
             "type" to "config-changed",
             "linkId" to "abc123XYZ",
         )
@@ -80,7 +82,7 @@ class PushPayloadWireFormatTest {
     @Test
     fun missing_linkId_drops() {
         val malformed = mapOf(
-            "schemaVersion" to "1",
+            "schemaVersion" to "1.0", "minReaderVersion" to "1.0", "minWriterVersion" to "1.0",
             "type" to "config-changed",
         )
         assertNull(PushPayloadWireFormat.parse(malformed))
@@ -88,8 +90,8 @@ class PushPayloadWireFormatTest {
 
     @Test
     fun parseSchemaVersionOnly_extracts_from_data_map() {
-        val data = mapOf("schemaVersion" to "1", "type" to "config-changed", "linkId" to "x")
-        assertEquals(1, PushPayloadWireFormat.parseSchemaVersionOnly(data))
+        val data = mapOf("schemaVersion" to "1.0", "minReaderVersion" to "1.0", "minWriterVersion" to "1.0", "type" to "config-changed", "linkId" to "x")
+        assertEquals(WireVersion(1, 0), PushPayloadWireFormat.parseSchemaVersionOnly(data))
     }
 
     @Test
@@ -97,7 +99,7 @@ class PushPayloadWireFormatTest {
         // FcmReceiverContract is the seam used by FirebaseMessagingService —
         // verify it delegates correctly.
         val data = mapOf(
-            "schemaVersion" to "1",
+            "schemaVersion" to "1.0", "minReaderVersion" to "1.0", "minWriterVersion" to "1.0",
             "type" to "config-changed",
             "linkId" to "abc",
         )

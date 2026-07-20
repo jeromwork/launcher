@@ -1,5 +1,10 @@
 package com.launcher.api.push
 
+import family.wire.WireVersion
+import family.wire.WireVersionHeader
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
+
 import kotlinx.serialization.json.JsonObject
 
 /**
@@ -15,12 +20,24 @@ import kotlinx.serialization.json.JsonObject
  *    (contract §Idempotency).
  */
 data class PushPayload(
-    val schemaVersion: Int = SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val schemaVersion: WireVersion = SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minReaderVersion: WireVersion = MIN_READER_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minWriterVersion: WireVersion = MIN_WRITER_VERSION,
     val type: PushType,
     val linkId: String,
     val extra: JsonObject? = null,
-) {
+) : WireVersionHeader {
     companion object {
-        const val SCHEMA_VERSION: Int = 1
+        /** What this build writes. Was the integer 1 before the conversion — never lowered (I3). */
+        val SCHEMA_VERSION: WireVersion = WireVersion(1, 0)
+
+        /** Push bodies are additive; unknown fields carry no meaning for an older reader. */
+        val MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+
+        /** Write-once transport payload — never read-modify-written. */
+        val MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
     }
 }

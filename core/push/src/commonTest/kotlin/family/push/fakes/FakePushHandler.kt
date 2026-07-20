@@ -1,5 +1,7 @@
 package family.push.fakes
 
+import family.wire.WireVersion
+
 import family.push.api.PushHandler
 import family.push.api.PushPayload
 

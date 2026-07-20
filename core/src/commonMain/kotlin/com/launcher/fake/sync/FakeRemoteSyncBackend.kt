@@ -1,5 +1,7 @@
 package com.launcher.fake.sync
 
+import family.wire.WireVersion
+
 import com.launcher.api.result.Outcome
 import com.launcher.api.sync.BackendError
 import com.launcher.api.sync.DocPath
@@ -55,7 +57,7 @@ class FakeRemoteSyncBackend : RemoteSyncBackend {
 
     private sealed interface QueuedOp {
         val path: DocPath
-        data class Write(override val path: DocPath, val data: JsonElement, val schemaVersion: Int) : QueuedOp
+        data class Write(override val path: DocPath, val data: JsonElement, val schemaVersion: WireVersion) : QueuedOp
         data class Delete(override val path: DocPath) : QueuedOp
     }
 
@@ -90,7 +92,7 @@ class FakeRemoteSyncBackend : RemoteSyncBackend {
     override suspend fun writeDoc(
         path: DocPath,
         data: JsonElement,
-        schemaVersion: Int,
+        schemaVersion: WireVersion,
     ): Outcome<Unit, BackendError> {
         if (!online.value) {
             offlineQueue.add(QueuedOp.Write(path, data, schemaVersion))
@@ -167,7 +169,7 @@ class FakeRemoteSyncBackend : RemoteSyncBackend {
 
     // ---- Internals -------------------------------------------------------
 
-    private fun commitWrite(path: DocPath, data: JsonElement, schemaVersion: Int) {
+    private fun commitWrite(path: DocPath, data: JsonElement, schemaVersion: WireVersion) {
         val snapshot = DocSnapshot(
             path = path,
             data = data,
@@ -219,7 +221,7 @@ class FakeRemoteSyncBackend : RemoteSyncBackend {
             return store[path.rawPath]?.snapshot
         }
 
-        override suspend fun set(path: DocPath, data: JsonElement, schemaVersion: Int) {
+        override suspend fun set(path: DocPath, data: JsonElement, schemaVersion: WireVersion) {
             pendingOps.add(QueuedOp.Write(path, data, schemaVersion))
         }
 

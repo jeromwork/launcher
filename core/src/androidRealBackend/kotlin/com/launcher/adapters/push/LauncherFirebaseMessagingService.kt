@@ -66,10 +66,10 @@ class LauncherFirebaseMessagingService : FirebaseMessagingService() {
             Log.w(TAG, "F-5c payload malformed — drop: $data")
             return
         }
-        if (payload.schemaVersion > WireFormatVersion.MAX_SUPPORTED_SCHEMA_VERSION) {
-            Log.w(TAG, "F-5c payload schemaVersion=${payload.schemaVersion} unsupported — drop")
-            return
-        }
+        // No version check here on purpose. parseFromFcmData already applies the gate and returns
+        // null for anything needing a newer reader (see PushPayloadWireFormat). The check that
+        // used to sit here duplicated it — and after the wire-format conversion it was also
+        // wrong, comparing schemaVersion where §3 says only minReaderVersion may refuse.
         val eventType = EventType.fromWireOrNull(payload.eventType)
         if (eventType == null) {
             Log.w(TAG, "F-5c unknown eventType=${payload.eventType} — drop")

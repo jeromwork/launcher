@@ -1,5 +1,7 @@
 package com.launcher.api.link
 
+import family.wire.WireVersion
+
 import com.launcher.api.result.Outcome
 import com.launcher.api.sync.BackendError
 import com.launcher.api.wireformat.WireFormatJson
@@ -54,7 +56,7 @@ class LinkBootstrapWireFormatTest {
         // fields and ignore the rest.
         val wire = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "appliedAt": 1746974400000,
               "presetId": "simple-launcher",
               "fcmToken": "tok",
@@ -71,7 +73,7 @@ class LinkBootstrapWireFormatTest {
     fun unknown_future_version_rejected() {
         val wire = """
             {
-              "schemaVersion": 999,
+              "schemaVersion": "999.0", "minReaderVersion": "999.0", "minWriterVersion": "999.0",
               "appliedAt": 1746974400000,
               "presetId": "simple-launcher"
             }
@@ -82,9 +84,9 @@ class LinkBootstrapWireFormatTest {
     }
 
     @Test
-    fun parseSchemaVersionOnly_returns_int() {
-        val element = json.parseToJsonElement("""{"schemaVersion": 1}""")
-        assertEquals(1, LinkBootstrapWireFormat.parseSchemaVersionOnly(element))
+    fun parseSchemaVersionOnly_returnsTheDottedVersion() {
+        val element = json.parseToJsonElement("""{"schemaVersion": "1.0"}""")
+        assertEquals(WireVersion(1, 0), LinkBootstrapWireFormat.parseSchemaVersionOnly(element))
     }
 
     @Test

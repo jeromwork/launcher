@@ -1,5 +1,7 @@
 package com.launcher.adapters.config
 
+import family.wire.WireVersion
+
 import com.launcher.api.FlowDescriptor
 import com.launcher.api.FlowRepository
 import com.launcher.api.FlowTemplate

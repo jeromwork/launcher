@@ -1,5 +1,7 @@
 package family.push.fakes
 
+import family.wire.WireVersion
+
 import family.push.api.EventType
 import family.push.api.Outcome
 import family.push.api.PushTrigger

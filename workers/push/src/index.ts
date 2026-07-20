@@ -16,7 +16,8 @@ import type { Env } from "./env.js";
 import { getAccessToken, ServiceAccountError } from "./auth/service-account.js";
 import {
   parsePushTriggerRequest,
-  MAX_SUPPORTED_SCHEMA_VERSION,
+  SCHEMA_VERSION,
+  versionOrder,
   type PushTriggerResponse,
 } from "./contract/wire-format.js";
 import { lookupEventType } from "./registry/event-types.js";
@@ -53,17 +54,20 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
   if (bodyRaw === null) {
     return json(400, { ok: false, error: "malformed-body" });
   }
-  // Schema version fail-fast (Worker fail-closed — see WireFormatVersion.kt).
-  const schemaVersion = (bodyRaw as { schemaVersion?: unknown }).schemaVersion;
-  if (
-    typeof schemaVersion === "number" &&
-    schemaVersion > MAX_SUPPORTED_SCHEMA_VERSION
-  ) {
-    return json(400, {
-      ok: false,
-      error: "unsupported-schema-version",
-      message: `MAX_SUPPORTED=${MAX_SUPPORTED_SCHEMA_VERSION}`,
-    });
+  // Version fail-fast (Worker stays fail-CLOSED, unlike the fail-soft receiver). Gates on
+  // minReaderVersion per docs/architecture/wire-format.md §3: a client from a newer build is
+  // served normally unless it declares it needs a reader this Worker does not have.
+  const minReaderVersion = (bodyRaw as { minReaderVersion?: unknown }).minReaderVersion;
+  if (typeof minReaderVersion === "string") {
+    const required = versionOrder(minReaderVersion);
+    const ourLevel = versionOrder(SCHEMA_VERSION);
+    if (required === null || ourLevel === null || ourLevel < required) {
+      return json(400, {
+        ok: false,
+        error: "unsupported-schema-version",
+        message: `this Worker reads up to ${SCHEMA_VERSION}`,
+      });
+    }
   }
   const requestBody = parsePushTriggerRequest(bodyRaw);
   if (!requestBody) {

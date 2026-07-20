@@ -1,5 +1,7 @@
 {
-  "schemaVersion": 999,
+  "schemaVersion": "999.0",
+  "minReaderVersion": "1.0",
+  "minWriterVersion": "1.0",
   "providerId": "whatsapp",
   "displayName": "WhatsApp",
   "iconId": "bundled:whatsapp",

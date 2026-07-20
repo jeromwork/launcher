@@ -1,5 +1,7 @@
 package com.launcher.preset.model
 
+import family.wire.WireVersion
+
 /**
  * Typed validation error surface (FR-019, CL-8).
  *
@@ -16,7 +18,7 @@ sealed class ValidationError {
     ) : ValidationError()
 
     data class UnknownPoolRef(val ref: String) : ValidationError()
-    data class SchemaVersionUnsupported(val actual: Int, val expected: Int) : ValidationError()
+    data class SchemaVersionUnsupported(val required: WireVersion, val readerLevel: WireVersion) : ValidationError()
     data class CircularOrdering(val cycle: List<String>) : ValidationError()
 
     /** T018 (FR-006): [offenderId] declares `requires = [..., missingId, ...]` but

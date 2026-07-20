@@ -1,5 +1,7 @@
 package com.launcher.ui.navigation
 
+import family.wire.WireVersion
+
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.destroy
@@ -41,7 +43,7 @@ class HomeComponentLoadingStateTest {
     fun resetMainDispatcher() = Dispatchers.resetMain()
 
     private fun createSampleFlow(id: String) = FlowDescriptor(
-        schemaVersion = 1,
+        schemaVersion = WireVersion(1, 0),
         id = id,
         name = "Flow $id",
         templateId = "template-$id",

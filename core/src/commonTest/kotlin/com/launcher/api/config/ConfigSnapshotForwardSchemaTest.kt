@@ -1,5 +1,7 @@
 package com.launcher.api.config
 
+import family.wire.WireVersion
+
 import com.launcher.api.result.Outcome
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -14,7 +16,9 @@ class ConfigSnapshotForwardSchemaTest {
     @Test
     fun future_version_returns_unsupported_error() {
         val future = ConfigSnapshot(
-            snapshotSchemaVersion = 99,
+            schemaVersion = WireVersion(99, 0),
+            minReaderVersion = WireVersion(99, 0),
+            minWriterVersion = WireVersion(99, 0),
             config = ConfigDocument(
                 serverUpdatedAt = ServerTimestamp(epochSeconds = 1, nanoseconds = 0),
                 lastWriterDeviceId = "0c8e3a5e-1e7c-4f7b-9a1d-2b3c4d5e6f7a",
@@ -25,17 +29,17 @@ class ConfigSnapshotForwardSchemaTest {
             recordedAt = 1,
             recordedFromDeviceId = "0c8e3a5e-1e7c-4f7b-9a1d-2b3c4d5e6f7a",
         )
-        val r = SnapshotMigrator.migrate(future, toVersion = 1)
+        val r = SnapshotMigrator.migrate(future)
         assertTrue(r is Outcome.Failure)
         val err = r.error
         assertTrue(err is MigrationError.UnsupportedVersion)
-        assertEquals(99, err.version)
+        assertEquals(WireVersion(99, 0), err.requiredReaderVersion)
     }
 
     @Test
     fun v1_passes_through() {
         val v1 = ConfigSnapshot(
-            snapshotSchemaVersion = 1,
+            schemaVersion = WireVersion(1, 0),
             config = ConfigDocument(
                 serverUpdatedAt = ServerTimestamp(epochSeconds = 1, nanoseconds = 0),
                 lastWriterDeviceId = "0c8e3a5e-1e7c-4f7b-9a1d-2b3c4d5e6f7a",

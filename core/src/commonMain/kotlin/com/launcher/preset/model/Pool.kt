@@ -1,5 +1,10 @@
 package com.launcher.preset.model
 
+import family.wire.WireVersion
+import family.wire.WireVersionHeader
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
+
 import kotlinx.serialization.Serializable
 
 /**
@@ -25,16 +30,29 @@ data class Blueprint(
     val required: Boolean = false,
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class Pool(
-    val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val schemaVersion: WireVersion = SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minReaderVersion: WireVersion = MIN_READER_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minWriterVersion: WireVersion = MIN_WRITER_VERSION,
     val declarations: List<Blueprint>,
-) {
+) : WireVersionHeader {
     fun byId(id: String): Blueprint? =
         declarations.firstOrNull { it.id == id }
 
     companion object {
         /** v2: adds `requires` + `required` to Blueprint (TASK-126). */
-        const val CURRENT_SCHEMA_VERSION: Int = 2
+        /** What this build writes. Was the integer 2 before the conversion — never lowered (I3). */
+        val SCHEMA_VERSION: WireVersion = WireVersion(2, 0)
+
+        /** Blueprints and entries are additive; an old reader ignores what it does not know. */
+        val MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+
+        /** Pools are authored by us and shipped as bundled assets, never merged by two writers. */
+        val MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
     }
 }

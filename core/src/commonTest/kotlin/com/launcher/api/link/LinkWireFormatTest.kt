@@ -1,5 +1,7 @@
 package com.launcher.api.link
 
+import family.wire.WireVersion
+
 import com.launcher.api.identity.AdminIdentity
 import com.launcher.api.result.Outcome
 import com.launcher.api.sync.BackendError
@@ -28,7 +30,7 @@ class LinkWireFormatTest {
             updatedAt = 1746974400000L,
         )
         val parsed = LinkWireFormat.deserialize(out).orFail()
-        assertEquals(1, parsed.schemaVersion)
+        assertEquals(WireVersion(1, 0), parsed.schemaVersion)
         assertEquals("anonUidAdminXyz", parsed.adminId.firebaseAuthUid)
         assertEquals("device-uuid", parsed.managedDeviceId)
         assertEquals("uid-managed", parsed.managedDeviceFirebaseUid)
@@ -40,7 +42,7 @@ class LinkWireFormatTest {
     fun backwardCompat_unknown_extra_fields_tolerated() {
         val wire = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "adminId": "anonUidAdminXyz",
               "managedDeviceId": "device-uuid",
               "managedDeviceFirebaseUid": "uid-managed",
@@ -58,7 +60,7 @@ class LinkWireFormatTest {
     fun unknown_future_version_handled_gracefully() {
         val wire = """
             {
-              "schemaVersion": 999,
+              "schemaVersion": "999.0", "minReaderVersion": "999.0", "minWriterVersion": "999.0",
               "adminId": "anonUidAdminXyz",
               "managedDeviceId": "device-uuid",
               "managedDeviceFirebaseUid": "uid-managed"
@@ -72,7 +74,7 @@ class LinkWireFormatTest {
 
     @Test
     fun missing_required_field_fails() {
-        val wire = """{"schemaVersion": 1, "adminId": "u"}"""
+        val wire = """{"schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0", "adminId": "u"}"""
         val element = json.parseToJsonElement(wire)
         val result = LinkWireFormat.deserialize(element)
         assertTrue(result is Outcome.Failure)

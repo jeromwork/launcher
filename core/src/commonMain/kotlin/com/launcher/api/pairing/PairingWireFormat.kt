@@ -1,5 +1,7 @@
 package com.launcher.api.pairing
 
+import family.wire.WireVersion
+
 import com.launcher.api.result.Outcome
 import com.launcher.api.sync.BackendError
 import com.launcher.api.wireformat.WireFormatJson
@@ -7,7 +9,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
@@ -22,24 +24,34 @@ import kotlinx.serialization.json.longOrNull
  *
  * **Forward-compat policy** (CLAUDE.md §5):
  *  - Unknown fields → ignored (additive evolution is non-breaking).
- *  - `schemaVersion > CURRENT_SCHEMA_VERSION` → [deserialize] returns
+ *  - a payload declaring `minReaderVersion` above ours → [deserialize] returns
  *    [BackendError.Unknown] so the reader logs and surfaces "update the app".
- *  - Renaming or removing a field requires bumping [CURRENT_SCHEMA_VERSION]
+ *  - Renaming or removing a field requires bumping [SCHEMA_VERSION] and [MIN_READER_VERSION]
  *    and shipping a reader migration **before** the breaking write lands.
  */
 object PairingWireFormat {
-    const val CURRENT_SCHEMA_VERSION: Int = 1
+    /** What this build writes. Was the integer 1 before the conversion — never lowered (I3). */
+    val SCHEMA_VERSION: WireVersion = WireVersion(1, 0)
+
+    /** Fields are additive; an older reader safely ignores what it does not know (§3). */
+    val MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+
+    /** Write-once payload — never read-modify-written by a second party. */
+    val MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
 
     /** Cheap version probe — used by routers that decide which deserializer to invoke
      *  without paying for the full parse. Returns `null` if the field is missing or
      *  not an Int. */
-    fun parseSchemaVersionOnly(json: JsonElement): Int? {
+    /** Diagnostics only (§3) — no reader decision may depend on this. */
+    fun parseSchemaVersionOnly(json: JsonElement): WireVersion? {
         val obj = (json as? JsonObject) ?: return null
-        return obj["schemaVersion"]?.jsonPrimitive?.intOrNull
+        return obj["schemaVersion"]?.jsonPrimitive?.contentOrNull?.let { WireVersion.parseOrNull(it) }
     }
 
     data class Parsed(
-        val schemaVersion: Int,
+        val schemaVersion: WireVersion,
+        val minReaderVersion: WireVersion,
+        val minWriterVersion: WireVersion,
         val pairingType: PairingType,
         val managedDeviceId: String,
         val managedDeviceFirebaseUid: String,
@@ -69,7 +81,9 @@ object PairingWireFormat {
         // token is encoded in the document id (path key), NOT in the body — kept
         // out of the body to avoid drift between key and field.
         val map = buildMap<String, JsonElement> {
-            put("schemaVersion", JsonPrimitive(CURRENT_SCHEMA_VERSION))
+            put("schemaVersion", JsonPrimitive(SCHEMA_VERSION.toString()))
+        put("minReaderVersion", JsonPrimitive(MIN_READER_VERSION.toString()))
+        put("minWriterVersion", JsonPrimitive(MIN_WRITER_VERSION.toString()))
             put("pairingType", JsonPrimitive(pairingType.wireValue))
             put("managedDeviceId", JsonPrimitive(managedDeviceId))
             put("managedDeviceFirebaseUid", JsonPrimitive(managedDeviceFirebaseUid))
@@ -89,15 +103,21 @@ object PairingWireFormat {
         val obj = (json as? JsonObject)
             ?: return Outcome.Failure(BackendError.Unknown("pairing payload is not a JsonObject"))
 
-        val version = obj["schemaVersion"]?.jsonPrimitive?.intOrNull
-            ?: return Outcome.Failure(BackendError.Unknown("pairing payload missing schemaVersion"))
+        // Read the header first (§4), then gate on minReaderVersion rather than schemaVersion:
+        // a payload from a newer writer whose additions we can ignore must stay readable (§3).
+        val version = obj["schemaVersion"]?.jsonPrimitive?.contentOrNull?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(BackendError.Unknown("pairing payload missing/unreadable schemaVersion"))
+        val minReader = obj["minReaderVersion"]?.jsonPrimitive?.contentOrNull?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(BackendError.Unknown("pairing payload missing/unreadable minReaderVersion"))
+        val minWriter = obj["minWriterVersion"]?.jsonPrimitive?.contentOrNull?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(BackendError.Unknown("pairing payload missing/unreadable minWriterVersion"))
 
         // Future-version policy: a newer producer wrote a payload this reader
         // cannot safely interpret. Surface as Unknown so the UI can prompt
         // "update the app" rather than silently dropping fields. (T026)
-        if (version > CURRENT_SCHEMA_VERSION) {
+        if (SCHEMA_VERSION < minReader) {
             return Outcome.Failure(BackendError.Unknown(
-                "pairing schemaVersion=$version > supported $CURRENT_SCHEMA_VERSION — upgrade reader"
+                "pairing payload requires a reader at $minReader; this build is $SCHEMA_VERSION — upgrade reader"
             ))
         }
 
@@ -115,6 +135,8 @@ object PairingWireFormat {
 
         return Outcome.Success(Parsed(
             schemaVersion = version,
+            minReaderVersion = minReader,
+            minWriterVersion = minWriter,
             pairingType = pairingType,
             managedDeviceId = managedDeviceId,
             managedDeviceFirebaseUid = managedDeviceFirebaseUid,

@@ -1,5 +1,7 @@
 package com.launcher.api.edit
 
+import family.wire.WireVersion
+
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -46,7 +48,7 @@ class EditErrorExhaustivenessTest {
             StoreError.NameAlreadyExists("dummy"),
             StoreError.NotFound,
             StoreError.DefaultMustExist,
-            StoreError.UnsupportedSchemaVersion(found = 2, supported = 1),
+            StoreError.UnsupportedSchemaVersion(required = WireVersion(2, 0), readerLevel = WireVersion(1, 0)),
         )
 
         cases.forEach { err ->
@@ -56,7 +58,7 @@ class EditErrorExhaustivenessTest {
                 is StoreError.NameAlreadyExists -> "name-exists:${err.name}"
                 is StoreError.NotFound -> "not-found"
                 is StoreError.DefaultMustExist -> "default-must-exist"
-                is StoreError.UnsupportedSchemaVersion -> "unsupported:${err.found}/${err.supported}"
+                is StoreError.UnsupportedSchemaVersion -> "unsupported:${err.required}/${err.readerLevel}"
             }
             assertEquals(true, handled.isNotEmpty())
         }

@@ -1,9 +1,13 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": "1.0",
+  "minReaderVersion": "1.0",
+  "minWriterVersion": "1.0",
   "providerId": "whatsapp",
   "payload": { "kind": "whatsapp_message", "contactRef": "alice" },
   "fallback": {
-    "schemaVersion": 1,
+    "schemaVersion": "1.0",
+    "minReaderVersion": "1.0",
+    "minWriterVersion": "1.0",
     "providerId": "app",
     "payload": {
       "kind": "open_app",
@@ -11,7 +15,9 @@
       "storeUrlHint": "market://details?id=com.whatsapp"
     },
     "fallback": {
-      "schemaVersion": 1,
+      "schemaVersion": "1.0",
+      "minReaderVersion": "1.0",
+      "minWriterVersion": "1.0",
       "providerId": "browser",
       "payload": { "kind": "url", "url": "https://wa.me/" }
     }

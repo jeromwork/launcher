@@ -5,7 +5,6 @@ import type { JwksCacheKv } from "@familycare/auth-jwt";
 export interface Env {
   // Vars (wrangler.toml [vars]).
   readonly FIREBASE_PROJECT_ID: string;
-  readonly MAX_SUPPORTED_SCHEMA_VERSION: string;
 
   // KV namespaces (wrangler.toml [[kv_namespaces]]).
   readonly JWKS_CACHE: KVNamespace & JwksCacheKv;

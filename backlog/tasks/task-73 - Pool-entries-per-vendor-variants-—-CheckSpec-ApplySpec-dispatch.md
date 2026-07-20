@@ -1,10 +1,10 @@
 ---
 id: TASK-73
 title: Pool entries per-vendor variants — CheckSpec/ApplySpec dispatch
-status: In Progress
+status: Paused
 assignee: []
 created_date: '2026-07-01 04:15'
-updated_date: '2026-07-19'
+updated_date: '2026-07-20 07:15'
 labels:
   - phase-3
   - area-preset
@@ -75,6 +75,12 @@ ordinal: 73000
 - [N/A] #5 [auto:deferred-external] Firebase Test Lab OEM-matrix CI (T073-032) — делегировано в **TASK-137 #4** (нужен GCP-проект + биллинг).
 - [N/A] #6 [auto:deferred-physical-device] Реальные Xiaomi/Huawei/Samsung устройства (T073-034) — делегировано в **TASK-137 #1-#3** (через device rotation владельца).
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Paused 2026-07-20: owner switched to TASK-138 (wire-format conversion). Partial work: specs/task-73-pool-entries-per-vendor-variants/ — full speckit set present (spec.md, plan.md, tasks.md, data-model.md, research.md, analyze-report.md, contracts/), committed on main. No feature branch, working tree clean, nothing stashed. Resume = branch off + /speckit.implement against that tasks.md.
+<!-- SECTION:NOTES:END -->
 
 ---
 

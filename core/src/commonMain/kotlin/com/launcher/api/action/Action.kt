@@ -1,5 +1,9 @@
 package com.launcher.api.action
 
+import family.wire.WireVersion
+import family.wire.WireVersionHeader
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -18,22 +22,47 @@ import kotlin.jvm.JvmInline
  * synchronised via backend (spec 007), and may be embedded in QR-share payloads
  * (spec 010). Any change here is a wire-format change.
  *
+ * Versioned per [`docs/architecture/wire-format.md`](docs/architecture/wire-format.md) — the three
+ * fields are gated at dispatch via [accessFor], not by comparing [schemaVersion] (§3: schemaVersion
+ * is diagnostics only). A document written by a newer build is dispatched normally unless it says
+ * it needs a newer reader.
+ *
  * Invariants validated at parse / dispatch time:
- *  - [schemaVersion] >= 1; readers reject unknown future versions at dispatch.
+ *  - Version header gate (§3), applied by `AndroidActionDispatcher`.
  *  - Fallback chain depth <= [MAX_FALLBACK_DEPTH] (deeper -> Failure at dispatch).
  *  - [providerId] regex check at construction via [ProviderId.fromWire].
  */
+// @EncodeDefault keeps the three version fields on the wire even at their defaults: invariant I1
+// says every document carries them, and this format encodes with `encodeDefaults = false`.
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class Action(
-    val schemaVersion: Int = SUPPORTED_SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val schemaVersion: WireVersion = SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minReaderVersion: WireVersion = MIN_READER_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minWriterVersion: WireVersion = MIN_WRITER_VERSION,
     val providerId: ProviderId,
     val payload: ActionPayload,
     val fallback: Action? = null,
     val sourceModuleId: String? = null,
-) {
+) : WireVersionHeader {
     companion object {
-        /** Wire-format version recognised by this build. Reader rejects > this at dispatch. */
-        const val SUPPORTED_SCHEMA_VERSION: Int = 1
+        /** What this build writes. Was the integer `1` before the conversion — never lowered (I3). */
+        val SCHEMA_VERSION: WireVersion = WireVersion(1, 0)
+
+        /**
+         * Every field this format has today is understandable by the original v1 reader, so nothing
+         * requires a newer one. Raise only when an existing field changes meaning (§3).
+         */
+        val MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+
+        /**
+         * Unknown fields survive a read-modify-write, so an older writer cannot destroy meaning
+         * here. Raise when that stops being true.
+         */
+        val MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
 
         /** Maximum recursive depth allowed in fallback chain. action + fallback + fallback-of-fallback. */
         const val MAX_FALLBACK_DEPTH: Int = 2

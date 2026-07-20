@@ -1,5 +1,10 @@
 package family.push.internal
 
+import family.wire.WireVersion
+import family.wire.WireVersionHeader
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
+
 import family.push.api.WireFormatVersion
 import kotlinx.serialization.Serializable
 
@@ -15,11 +20,17 @@ import kotlinx.serialization.Serializable
  * (R10). Mitigation: T402 fitness function (CI script) + integration test
  * (T082, Worker integration.test.ts).
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 internal data class PushTriggerRequest(
-    val schemaVersion: Int = WireFormatVersion.MAX_SUPPORTED_SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val schemaVersion: WireVersion = WireFormatVersion.SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minReaderVersion: WireVersion = WireFormatVersion.MIN_READER_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minWriterVersion: WireVersion = WireFormatVersion.MIN_WRITER_VERSION,
     val eventType: String,
     val targetScope: String,
     val ownerUid: String,
     val payload: Map<String, String> = emptyMap(),
-)
+) : WireVersionHeader

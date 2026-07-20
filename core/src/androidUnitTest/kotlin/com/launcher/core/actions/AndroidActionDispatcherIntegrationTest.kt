@@ -2,6 +2,7 @@ package com.launcher.core.actions
 
 import com.launcher.api.ProjectEvent
 import com.launcher.api.action.Action
+import family.wire.WireVersion
 import com.launcher.api.action.ActionPayload
 import com.launcher.api.action.DispatchResult
 import com.launcher.api.action.ProviderAvailability
@@ -164,16 +165,32 @@ class AndroidActionDispatcherIntegrationTest {
     }
 
     @Test
-    fun futureSchemaVersion_returnsFailure() = runTest {
-        val futureAction = Action(
-            schemaVersion = 99,
+    fun futureSchemaVersionAlone_stillDispatches() = runTest {
+        // wire-format.md §3 — schemaVersion is diagnostics only. Before the conversion this
+        // action was refused; refusing it was the bug the three-field model fixes.
+        val newerWriter = Action(
+            schemaVersion = WireVersion.parse("99.0"),
             providerId = ProviderId.PHONE,
             payload = ActionPayload.Phone("+1"),
         )
         val r = dispatcher(handlers = mapOf(ProviderId.PHONE to handler(DispatchResult.Ok)))
-            .dispatch(futureAction)
+            .dispatch(newerWriter)
+        assertTrue("expected Ok, got $r", r is DispatchResult.Ok)
+    }
+
+    @Test
+    fun higherMinReaderVersion_returnsFailure() = runTest {
+        val needsNewerReader = Action(
+            schemaVersion = WireVersion.parse("2.0"),
+            minReaderVersion = WireVersion.parse("2.0"),
+            minWriterVersion = WireVersion.parse("2.0"),
+            providerId = ProviderId.PHONE,
+            payload = ActionPayload.Phone("+1"),
+        )
+        val r = dispatcher(handlers = mapOf(ProviderId.PHONE to handler(DispatchResult.Ok)))
+            .dispatch(needsNewerReader)
         assertTrue(r is DispatchResult.Failure)
-        assertTrue((r as DispatchResult.Failure).reason.contains("schemaVersion"))
+        assertTrue((r as DispatchResult.Failure).reason.contains("unsupported wire version"))
     }
 
     // -- contracts/diagnostics-events-v2.md Emission rules ---------------

@@ -1,5 +1,7 @@
 package com.launcher.api.config
 
+import family.wire.WireVersion
+
 import com.launcher.api.result.Outcome
 import com.launcher.api.sync.BackendError
 import com.launcher.api.wireformat.WireFormatJson
@@ -81,7 +83,7 @@ class ConfigDocumentWireFormatTest {
         // Defaults: empty lists (matches FR-006 additive policy).
         val wire = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "serverUpdatedAt": {"epochSeconds": 1747166400, "nanoseconds": 0},
               "lastWriterDeviceId": "0c8e3a5e-1e7c-4f7b-9a1d-2b3c4d5e6f7a",
               "presetId": "simple-launcher"
@@ -99,7 +101,7 @@ class ConfigDocumentWireFormatTest {
         // Future versions may add fields. v1 reader must ignore them, not crash.
         val wire = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "serverUpdatedAt": {"epochSeconds": 1747166400, "nanoseconds": 0},
               "lastWriterDeviceId": "0c8e3a5e-1e7c-4f7b-9a1d-2b3c4d5e6f7a",
               "presetId": "simple-launcher",
@@ -110,7 +112,7 @@ class ConfigDocumentWireFormatTest {
         """.trimIndent()
         val element = json.parseToJsonElement(wire) as JsonObject
         val parsed = ConfigDocumentWireFormat.deserialize(element).orFail()
-        assertEquals(1, parsed.schemaVersion)
+        assertEquals(WireVersion(1, 0), parsed.schemaVersion)
     }
 
     @Test
@@ -118,7 +120,7 @@ class ConfigDocumentWireFormatTest {
         // CHK009: unknown discriminator → Failure, not silent skip / not crash.
         val wire = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "serverUpdatedAt": {"epochSeconds": 1747166400, "nanoseconds": 0},
               "lastWriterDeviceId": "0c8e3a5e-1e7c-4f7b-9a1d-2b3c4d5e6f7a",
               "presetId": "simple-launcher",
@@ -138,12 +140,31 @@ class ConfigDocumentWireFormatTest {
     }
 
     @Test
-    fun future_schema_version_rejected() {
-        // Spec 008 ships v=1 only. v=2+ → reject (caller will surface to OUT-006
-        // app-version-compatibility flow в future spec).
+    fun newer_writer_alone_is_accepted() {
+        // §3 — schemaVersion is diagnostics only. A config written by a much newer build stays
+        // readable while it does not demand a newer reader. Before the conversion this was
+        // refused outright, which would have blocked an admin on an older phone from reading a
+        // config their own newer device had just written.
         val wire = """
             {
-              "schemaVersion": 999,
+              "schemaVersion": "999.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
+              "serverUpdatedAt": {"epochSeconds": 1747166400, "nanoseconds": 0},
+              "lastWriterDeviceId": "0c8e3a5e-1e7c-4f7b-9a1d-2b3c4d5e6f7a",
+              "presetId": "simple-launcher",
+              "flows": [],
+              "contacts": []
+            }
+        """.trimIndent()
+        val element = json.parseToJsonElement(wire) as JsonObject
+        val result = ConfigDocumentWireFormat.deserialize(element)
+        assertTrue(result is Outcome.Success, "Expected Success, got: $result")
+    }
+
+    @Test
+    fun document_requiring_a_newer_reader_is_rejected() {
+        val wire = """
+            {
+              "schemaVersion": "999.0", "minReaderVersion": "999.0", "minWriterVersion": "999.0",
               "serverUpdatedAt": {"epochSeconds": 1747166400, "nanoseconds": 0},
               "lastWriterDeviceId": "0c8e3a5e-1e7c-4f7b-9a1d-2b3c4d5e6f7a",
               "presetId": "simple-launcher",
@@ -158,23 +179,23 @@ class ConfigDocumentWireFormatTest {
 
     @Test
     fun missing_required_fields_rejected() {
-        val wire = """{"schemaVersion": 1}"""
+        val wire = """{"schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0"}"""
         val element = json.parseToJsonElement(wire) as JsonObject
         val result = ConfigDocumentWireFormat.deserialize(element)
         assertTrue(result is Outcome.Failure)
     }
 
     @Test
-    fun parseSchemaVersionOnly_returns_int() {
-        val element = json.parseToJsonElement("""{"schemaVersion": 1, "presetId": "x"}""") as JsonObject
-        assertEquals(1, ConfigDocumentWireFormat.parseSchemaVersionOnly(element))
+    fun parseSchemaVersionOnly_returnsTheDottedVersion() {
+        val element = json.parseToJsonElement("""{"schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0", "presetId": "x"}""") as JsonObject
+        assertEquals(WireVersion(1, 0), ConfigDocumentWireFormat.parseSchemaVersionOnly(element))
     }
 
     @Test
     fun invalid_uuid_id_rejected() {
         val wire = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "serverUpdatedAt": {"epochSeconds": 1747166400, "nanoseconds": 0},
               "lastWriterDeviceId": "0c8e3a5e-1e7c-4f7b-9a1d-2b3c4d5e6f7a",
               "presetId": "simple-launcher",

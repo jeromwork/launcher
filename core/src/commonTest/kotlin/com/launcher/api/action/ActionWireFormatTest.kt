@@ -1,5 +1,9 @@
 package com.launcher.api.action
 
+import family.wire.UnknownWireVersionException
+import family.wire.WireAccess
+import family.wire.WireVersion
+import family.wire.accessFor
 import kotlinx.serialization.SerializationException
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -174,7 +178,7 @@ class ActionWireFormatTest {
         // Per Clarification C1: parse must not fail on unknown providerId.
         // Dispatch (in production) translates this into ProviderUnavailable(UnknownInThisVersion).
         val wire = """
-            {"schemaVersion":1,"providerId":"smart_assistant","payload":{"kind":"custom","key":"ask"}}
+            {"schemaVersion":"1.0","minReaderVersion":"1.0","minWriterVersion":"1.0","providerId":"smart_assistant","payload":{"kind":"custom","key":"ask"}}
         """.trimIndent()
         val parsed = ActionWireFormat.decode(wire)
         assertEquals("smart_assistant", parsed.providerId.value)
@@ -185,7 +189,7 @@ class ActionWireFormatTest {
         // kotlinx.serialization throws on unknown discriminator value. Production
         // dispatcher translates this to DispatchResult.Failure("unknown payload kind").
         val wire = """
-            {"schemaVersion":1,"providerId":"smart_assistant","payload":{"kind":"hologram_call"}}
+            {"schemaVersion":"1.0","minReaderVersion":"1.0","minWriterVersion":"1.0","providerId":"smart_assistant","payload":{"kind":"hologram_call"}}
         """.trimIndent()
         assertFailsWith<SerializationException> {
             ActionWireFormat.decode(wire)
@@ -193,22 +197,69 @@ class ActionWireFormatTest {
     }
 
     @Test
-    fun futureSchemaVersion_parses_butIsRejectedAtDispatchTime() {
-        // schemaVersion > SUPPORTED_SCHEMA_VERSION must NOT throw at parse time —
-        // the caller (dispatcher) decides what to do (per spec §7.1 step 1).
+    fun futureSchemaVersionAlone_parsesAndStaysReadable() {
+        // wire-format.md §3: schemaVersion is diagnostics only. A document written by a much
+        // newer build is still fully usable as long as it does not ask for a newer reader —
+        // this is the case the old `schemaVersion > SUPPORTED` check got wrong, refusing
+        // documents whose additions we could safely ignore.
         val wire = """
-            {"schemaVersion":99,"providerId":"app","payload":{"kind":"open_app","packageHint":"x"}}
+            {"schemaVersion":"99.0","minReaderVersion":"1.0","minWriterVersion":"1.0",
+             "providerId":"app","payload":{"kind":"open_app","packageHint":"x"}}
         """.trimIndent()
         val parsed = ActionWireFormat.decode(wire)
-        assertEquals(99, parsed.schemaVersion)
-        assertTrue(parsed.schemaVersion > Action.SUPPORTED_SCHEMA_VERSION)
+        assertEquals(WireVersion.parse("99.0"), parsed.schemaVersion)
+        assertEquals(WireAccess.FULL, parsed.accessFor(Action.SCHEMA_VERSION))
+    }
+
+    @Test
+    fun higherMinWriterVersion_readsButGoesReadOnly() {
+        val wire = """
+            {"schemaVersion":"2.0","minReaderVersion":"1.0","minWriterVersion":"2.0",
+             "providerId":"app","payload":{"kind":"open_app","packageHint":"x"}}
+        """.trimIndent()
+        val parsed = ActionWireFormat.decode(wire)
+        assertEquals(WireAccess.READ_ONLY, parsed.accessFor(Action.SCHEMA_VERSION))
+    }
+
+    @Test
+    fun higherMinReaderVersion_parsesButRefusesAtGate() {
+        // Parsing still succeeds — the caller decides what to log (spec §7.1 step 1 preserved).
+        val wire = """
+            {"schemaVersion":"2.0","minReaderVersion":"2.0","minWriterVersion":"2.0",
+             "providerId":"app","payload":{"kind":"open_app","packageHint":"x"}}
+        """.trimIndent()
+        val parsed = ActionWireFormat.decode(wire)
+        assertFailsWith<UnknownWireVersionException> { parsed.accessFor(Action.SCHEMA_VERSION) }
+    }
+
+    @Test
+    fun integerSchemaVersion_failsClosed() {
+        // Pre-conversion documents carried `"schemaVersion": 1`. They must fail loudly rather
+        // than be read as "1.0" (wire-format.md §4). Pre-MVP (§10) permits the break.
+        val wire = """
+            {"schemaVersion":1,"providerId":"app","payload":{"kind":"open_app","packageHint":"x"}}
+        """.trimIndent()
+        assertFailsWith<UnknownWireVersionException> { ActionWireFormat.decode(wire) }
+    }
+
+    @Test
+    fun versionFieldsAreAlwaysOnTheWire_evenAtDefaults() {
+        // Invariant I1 — the format encodes with encodeDefaults = false, so the three fields
+        // carry @EncodeDefault(ALWAYS). Without it a default-versioned document would ship
+        // with no version at all.
+        val wire = ActionWireFormat.encode(
+            Action(providerId = ProviderId.PHONE, payload = ActionPayload.Phone(number = "+1")),
+        )
+        assertTrue("\"schemaVersion\":\"1.0\"" in wire, "wire: $wire")
+        assertTrue("\"minReaderVersion\":\"1.0\"" in wire, "wire: $wire")
+        assertTrue("\"minWriterVersion\":\"1.0\"" in wire, "wire: $wire")
     }
 
     @Test
     fun unknownPayloadField_isIgnored_perIgnoreUnknownKeys() {
         // Forward-compat: producers may add fields; older readers ignore them.
         val wire = """
-            {"schemaVersion":1,"providerId":"phone","payload":{"kind":"phone","number":"+1","newField":"value"}}
+            {"schemaVersion":"1.0","minReaderVersion":"1.0","minWriterVersion":"1.0","providerId":"phone","payload":{"kind":"phone","number":"+1","newField":"value"}}
         """.trimIndent()
         val parsed = ActionWireFormat.decode(wire)
         assertEquals("+1", (parsed.payload as ActionPayload.Phone).number)

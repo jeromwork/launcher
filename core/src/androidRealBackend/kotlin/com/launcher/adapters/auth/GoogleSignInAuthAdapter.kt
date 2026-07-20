@@ -186,7 +186,8 @@ internal class GoogleSignInAuthAdapter(
             // (намеренное скрытие). Наше поле остаётся в wire-format на случай
             // miграции к другому provider'у, где refresh token экспонируется.
             val record = SessionRecord(
-                schemaVersion = 1,
+                // Was a literal `1` here — §11 forbids version literals at call sites; the
+                // constructor default is the single source of this format's version.
                 stableId = stableId,
                 expiresAtEpochMillis = expiresAtEpochMillis,
                 refreshToken = null,
@@ -274,8 +275,11 @@ internal class GoogleSignInAuthAdapter(
                 val newUuid = UUID.randomUUID().toString()
                 txn.set(
                     identityLinkRef,
-                    mapOf(
-                        "schemaVersion" to 1L,
+                    IdentityDocumentWireFormat.header(
+                        schemaVersion = IdentityDocumentWireFormat.IdentityLink.SCHEMA_VERSION,
+                        minReaderVersion = IdentityDocumentWireFormat.IdentityLink.MIN_READER_VERSION,
+                        minWriterVersion = IdentityDocumentWireFormat.IdentityLink.MIN_WRITER_VERSION,
+                    ) + mapOf(
                         "stableId" to newUuid,
                         "createdAt" to FieldValue.serverTimestamp(),
                     ),
@@ -286,8 +290,11 @@ internal class GoogleSignInAuthAdapter(
 
         try {
             firestore.document("users/$stableId").set(
-                mapOf(
-                    "schemaVersion" to 1L,
+                IdentityDocumentWireFormat.header(
+                    schemaVersion = IdentityDocumentWireFormat.UserRoot.SCHEMA_VERSION,
+                    minReaderVersion = IdentityDocumentWireFormat.UserRoot.MIN_READER_VERSION,
+                    minWriterVersion = IdentityDocumentWireFormat.UserRoot.MIN_WRITER_VERSION,
+                ) + mapOf(
                     "stableId" to stableId,
                     "createdAt" to FieldValue.serverTimestamp(),
                 ),

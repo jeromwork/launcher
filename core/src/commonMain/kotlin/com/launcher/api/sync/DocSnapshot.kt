@@ -1,5 +1,7 @@
 package com.launcher.api.sync
 
+import family.wire.WireVersion
+
 import kotlinx.serialization.json.JsonElement
 
 /**
@@ -23,7 +25,8 @@ import kotlinx.serialization.json.JsonElement
 data class DocSnapshot(
     val path: DocPath,
     val data: JsonElement,
-    val schemaVersion: Int,
+    /** Diagnostics only (§3); null when the document predates the dotted-version conversion. */
+    val schemaVersion: WireVersion?,
     val updatedAt: Long?,
     val isStale: Boolean = false,
 )

@@ -20,9 +20,7 @@ compatibility_date = "2025-05-11"
 FIREBASE_PROJECT_ID = "launcher-old-dev"
 
 # Maximum supported wire-format schema version (mirrors Kotlin const
-# WireFormatVersion.MAX_SUPPORTED_SCHEMA_VERSION). T402 fitness function
 # verifies these stay in sync.
-MAX_SUPPORTED_SCHEMA_VERSION = "1"
 
 # KV namespaces — созданы 2026-06-22 через `wrangler kv namespace create`.
 # preview_id опущен — мы не используем `wrangler dev` локально для этого Worker'а,

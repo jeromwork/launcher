@@ -4,6 +4,7 @@ import com.launcher.api.push.PushError
 import com.launcher.api.push.PushSender
 import com.launcher.api.push.PushType
 import com.launcher.api.result.Outcome
+import family.wire.WireVersion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -45,7 +46,9 @@ class WorkerPushSender(
             ?: return@withContext Outcome.Failure(PushError.Unauthorized)
 
         val body = buildJsonObject {
-            put("schemaVersion", JsonPrimitive(1))
+            put("schemaVersion", JsonPrimitive(SCHEMA_VERSION.toString()))
+            put("minReaderVersion", JsonPrimitive(MIN_READER_VERSION.toString()))
+            put("minWriterVersion", JsonPrimitive(MIN_WRITER_VERSION.toString()))
             put("linkId", JsonPrimitive(linkId))
             put("type", JsonPrimitive(type.wireValue))
             if (extra != null) put("payload", extra)
@@ -95,6 +98,19 @@ class WorkerPushSender(
         // when we migrate off *.workers.dev. See project-backlog TODO-ARCH-001
         // and push-worker/README.md §Migration to custom domain.
         const val WORKER_BASE_URL: String = "https://launcher-push.gpt1-jeromwork.workers.dev"
+
+        // TASK-138. Per docs/architecture/wire-format.md §11 the version is a named constant
+        // beside the format rather than a literal in the body builder.
+        //
+        // NOTE — this request has no receiver today. The host below serves `/push` (workers/push);
+        // nothing in the repo answers `/notify`, so this POST would 404. The sender is wired in
+        // Koin but its only injection site is PairingService, where it sits under
+        // @Suppress("unused") "wired for spec 009 admin-side flows" — no call site exists either.
+        // Converted rather than deleted because removing it touches the pairing wiring and the
+        // spec-009 plan; retirement is a decision for the owner. See TASK-138 notes.
+        val SCHEMA_VERSION: WireVersion = WireVersion(1, 0)
+        val MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+        val MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
 
         private const val CONNECT_TIMEOUT_MS: Int = 10_000
         private const val READ_TIMEOUT_MS: Int = 15_000

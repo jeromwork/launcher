@@ -11,12 +11,15 @@ import com.launcher.api.action.UnavailabilityHint
 import com.launcher.core.actions.handlers.ActionHandler
 import com.launcher.core.actions.handlers.HandlerContext
 import com.launcher.core.events.EventRouter
+import family.wire.CorruptWireFormatException
+import family.wire.UnknownWireVersionException
+import family.wire.accessFor
 
 /**
  * Default Android implementation of [ActionDispatcher] per spec 005 §7.1.
  *
  * Algorithm (verbatim from spec):
- *  1. Reject `schemaVersion > SUPPORTED_SCHEMA_VERSION` with `Failure`.
+ *  1. Apply the version header gate (`docs/architecture/wire-format.md` §3); refusal → `Failure`.
  *  2. Look up handler by `providerId`. Missing → `ProviderUnavailable(UnknownInThisVersion)`,
  *     recurse into fallback if any.
  *  3. Probe `providerRegistry.availability(providerId)`. `Missing`/`NotApplicable`
@@ -63,11 +66,15 @@ class AndroidActionDispatcher(
             return DispatchResult.Failure("fallback chain too deep")
         }
 
-        // Step 1: schemaVersion gate.
-        if (action.schemaVersion > Action.SUPPORTED_SCHEMA_VERSION) {
-            return DispatchResult.Failure(
-                "unsupported schemaVersion ${action.schemaVersion}; max ${Action.SUPPORTED_SCHEMA_VERSION}"
-            )
+        // Step 1: version header gate (wire-format.md §3). Note this is NOT a schemaVersion
+        // comparison: a document written by a newer build dispatches fine unless it declares that
+        // it needs a newer reader. READ_ONLY is irrelevant here — dispatch never writes back.
+        try {
+            action.accessFor(Action.SCHEMA_VERSION)
+        } catch (e: UnknownWireVersionException) {
+            return DispatchResult.Failure("unsupported wire version: ${e.message}")
+        } catch (e: CorruptWireFormatException) {
+            return DispatchResult.Failure("corrupt wire version header: ${e.message}")
         }
 
         // Step 2: handler lookup. Unknown providerId → fall back if possible.

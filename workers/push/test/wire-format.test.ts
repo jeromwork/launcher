@@ -3,19 +3,19 @@
 import { describe, it, expect } from "vitest";
 import {
   parsePushTriggerRequest,
-  MAX_SUPPORTED_SCHEMA_VERSION,
+  SCHEMA_VERSION,
   isValidTargetScope,
 } from "../src/contract/wire-format.js";
 
-describe("MAX_SUPPORTED_SCHEMA_VERSION", () => {
+describe("SCHEMA_VERSION", () => {
   it("matches Kotlin WireFormatVersion (T402 invariant)", () => {
-    expect(MAX_SUPPORTED_SCHEMA_VERSION).toBe(1);
+    expect(SCHEMA_VERSION).toBe("1.0");
   });
 });
 
 describe("parsePushTriggerRequest", () => {
   const valid = {
-    schemaVersion: 1,
+    schemaVersion: "1.0", minReaderVersion: "1.0", minWriterVersion: "1.0",
     eventType: "config-updated",
     targetScope: "own-and-grants",
     ownerUid: "owner-1",

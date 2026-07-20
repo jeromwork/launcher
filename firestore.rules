@@ -26,6 +26,53 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // ─── wire-format versions (docs/architecture/wire-format.md) ───────
+    //
+    // Versions travel as dotted "MAJOR.MINOR" strings (§2). Rules MUST NOT compare them with
+    // <, >, <= or >= directly: those operators order strings lexicographically, which puts
+    // "10.0" BELOW "9.0". Every monotonic guard here exists to stop a rollback to an older,
+    // possibly weaker document, so a lexicographic compare would silently invert exactly the
+    // check it is meant to enforce — permitting "10.0" → "9.0" and rejecting the legitimate
+    // "9.0" → "10.0".
+    //
+    // versionOrder() collapses the parts into one comparable integer. MINOR is bounded at
+    // 100000, far above anything a data shape will reach.
+    //
+    // Pre-release tokens (§10, e.g. "3.0-beta") are NOT parseable here: int() fails on them and
+    // the rule denies. That is the correct outcome — a pre-release document has no business in
+    // a collection guarded by a monotonic rule — but it means a format must drop its token
+    // before it can be written to a versioned path.
+    //
+    // Verified against the emulator (rules.wire-version.test.ts): the rules engine does support
+    // split()/int(), and the 9→10 boundary orders correctly in both directions.
+    function versionOrder(v) {
+      return int(v.split('\\.')[0]) * 100000 + int(v.split('\\.')[1]);
+    }
+
+    // The highest reader requirement these rules will accept on a write. Deployed rules must be
+    // updated BEFORE clients start writing a higher one — same constraint the old `== 1` checks
+    // imposed, kept deliberately.
+    function maxAcceptedReaderVersion() {
+      return "1.0";
+    }
+
+    // Shape check for the three-field header (§3): all present, correctly ordered, and not
+    // demanding a reader newer than this deployment knows about.
+    //
+    // That last clause is the anti-abuse part, and it is why this is not merely a shape check.
+    // A rogue client could otherwise write minReaderVersion "999.0" into a shared document and
+    // every legitimate device — including the owner's — would refuse to read it, with no way to
+    // repair it client-side. schemaVersion itself stays unbounded: it is diagnostics (§3), so a
+    // newer writer may stamp whatever it likes as long as it does not lock anyone out.
+    function hasValidVersionHeader(d) {
+      return d.schemaVersion is string
+          && d.minReaderVersion is string
+          && d.minWriterVersion is string
+          && versionOrder(d.minReaderVersion) <= versionOrder(d.minWriterVersion)
+          && versionOrder(d.minWriterVersion) <= versionOrder(d.schemaVersion)
+          && versionOrder(d.minReaderVersion) <= versionOrder(maxAcceptedReaderVersion());
+    }
+
     function isManagedUid(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
@@ -46,7 +93,7 @@ service cloud.firestore {
       return isSignedIn()
         && newDoc().managedDeviceFirebaseUid == request.auth.uid
         && newDoc().claimed == false
-        && newDoc().schemaVersion == 1;
+        && hasValidVersionHeader(newDoc());
     }
 
     // Atomic claim: caller flips claimed false→true. No other field may
@@ -117,7 +164,7 @@ service cloud.firestore {
         && newDoc().adminId == request.auth.uid
         && newDoc().managedDeviceFirebaseUid is string
         && newDoc().managedDeviceId is string
-        && newDoc().schemaVersion == 1;
+        && hasValidVersionHeader(newDoc());
 
       // Root doc is immutable post-create (contract §Security Rules).
       allow update: if false;
@@ -133,10 +180,10 @@ service cloud.firestore {
       match /state/{stateId} {
         allow read:   if isLinkParty(linkId);
         allow create: if isLinkManaged(linkId)
-                       && newDoc().schemaVersion == 1;
+                       && hasValidVersionHeader(newDoc());
         // Managed may update fcmToken / presetId; cannot lower schemaVersion.
         allow update: if isLinkManaged(linkId)
-                       && newDoc().schemaVersion >= existingDoc().schemaVersion;
+                       && versionOrder(newDoc().schemaVersion) >= versionOrder(existingDoc().schemaVersion);
         allow delete: if isLinkManaged(linkId);
       }
 
@@ -154,9 +201,9 @@ service cloud.firestore {
       match /config/{configId} {
         allow read:   if isLinkParty(linkId);
         allow create: if isLinkParty(linkId)
-                       && newDoc().schemaVersion == 1;
+                       && hasValidVersionHeader(newDoc());
         allow update: if isLinkParty(linkId)
-                       && newDoc().schemaVersion >= existingDoc().schemaVersion;
+                       && versionOrder(newDoc().schemaVersion) >= versionOrder(existingDoc().schemaVersion);
         // Delete only via revoke path (Managed side, deletes whole subtree).
         allow delete: if isLinkManaged(linkId);
       }
@@ -184,8 +231,13 @@ service cloud.firestore {
         allow read: if isLinkParty(linkId);
         allow create: if isLinkParty(linkId)
                        && request.resource.data.recordedFromDeviceId == request.auth.uid
-                       && request.resource.data.snapshotSchemaVersion is int
-                       && request.resource.data.snapshotSchemaVersion >= 1;
+                       // The envelope versions independently of the config it carries, so it
+                       // has its own three fields under snapshot* names (spec 009 C-2).
+                       && request.resource.data.snapshotSchemaVersion is string
+                       && request.resource.data.snapshotMinReaderVersion is string
+                       && request.resource.data.snapshotMinWriterVersion is string
+                       && versionOrder(request.resource.data.snapshotMinReaderVersion)
+                          <= versionOrder(request.resource.data.snapshotSchemaVersion);
         allow update: if false;
         // Housekeeping deletes oldest entries when count exceeds 10.
         // Client-orchestrated until SRV-CONFIG-001.
@@ -231,7 +283,7 @@ service cloud.firestore {
 
         function hasRequiredFields() {
           let d = request.resource.data;
-          return d.schemaVersion == 1
+          return hasValidVersionHeader(d)
               && d.deviceId is string
               && d.publicKey is string
               && d.signingPublicKey is string
@@ -332,8 +384,8 @@ service cloud.firestore {
 
       allow create: if isGoogleLinkIdForCaller(linkId)
                     && !exists(/databases/$(database)/documents/identity-links/$(linkId))
-                    && request.resource.data.keys().hasOnly(['schemaVersion', 'stableId', 'createdAt'])
-                    && request.resource.data.schemaVersion == 1
+                    && request.resource.data.keys().hasOnly(['schemaVersion', 'minReaderVersion', 'minWriterVersion', 'stableId', 'createdAt'])
+                    && hasValidVersionHeader(request.resource.data)
                     && isValidUuidV4(request.resource.data.stableId)
                     && request.resource.data.createdAt == request.time;
 
@@ -345,8 +397,8 @@ service cloud.firestore {
       allow create: if request.auth != null
                     && exists(ownerIdentityLink(request.auth.uid))
                     && get(ownerIdentityLink(request.auth.uid)).data.stableId == stableId
-                    && request.resource.data.keys().hasOnly(['schemaVersion', 'stableId', 'createdAt'])
-                    && request.resource.data.schemaVersion == 1
+                    && request.resource.data.keys().hasOnly(['schemaVersion', 'minReaderVersion', 'minWriterVersion', 'stableId', 'createdAt'])
+                    && hasValidVersionHeader(request.resource.data)
                     && request.resource.data.stableId == stableId
                     && request.resource.data.createdAt == request.time;
 

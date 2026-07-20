@@ -1,11 +1,13 @@
 package com.launcher.api.link
 
+import family.wire.WireVersion
+
 import com.launcher.api.result.Outcome
 import com.launcher.api.sync.BackendError
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
@@ -14,20 +16,24 @@ import kotlinx.serialization.json.longOrNull
  * (contracts/state-bootstrap.md v1).
  *
  * **Spec 008 will extend this** with flows/slots/appliedCapabilities as
- * additive fields. [CURRENT_SCHEMA_VERSION] stays `1` until a rename or
+ * additive fields. [LinkBootstrap.SCHEMA_VERSION] stays `"1.0"` until a rename or
  * removal is required (see contract §Backward compatibility).
  */
 object LinkBootstrapWireFormat {
-    const val CURRENT_SCHEMA_VERSION: Int = LinkBootstrap.SCHEMA_VERSION
+    /** This reader's level for the gate of `docs/architecture/wire-format.md` §3. */
+    val READER_LEVEL: WireVersion = LinkBootstrap.SCHEMA_VERSION
 
-    fun parseSchemaVersionOnly(json: JsonElement): Int? {
+    /** Diagnostics only (§3) — no reader decision may depend on this. */
+    fun parseSchemaVersionOnly(json: JsonElement): WireVersion? {
         val obj = (json as? JsonObject) ?: return null
-        return obj["schemaVersion"]?.jsonPrimitive?.intOrNull
+        return obj["schemaVersion"]?.jsonPrimitive?.contentOrNull?.let { WireVersion.parseOrNull(it) }
     }
 
     fun serialize(bootstrap: LinkBootstrap): JsonObject {
         val map = buildMap<String, JsonElement> {
-            put("schemaVersion", JsonPrimitive(CURRENT_SCHEMA_VERSION))
+            put("schemaVersion", JsonPrimitive(LinkBootstrap.SCHEMA_VERSION.toString()))
+        put("minReaderVersion", JsonPrimitive(LinkBootstrap.MIN_READER_VERSION.toString()))
+        put("minWriterVersion", JsonPrimitive(LinkBootstrap.MIN_WRITER_VERSION.toString()))
             put("appliedAt", JsonPrimitive(bootstrap.appliedAt))
             put("presetId", JsonPrimitive(bootstrap.presetId))
             if (bootstrap.fcmToken != null) {
@@ -41,12 +47,17 @@ object LinkBootstrapWireFormat {
         val obj = (json as? JsonObject)
             ?: return Outcome.Failure(BackendError.Unknown("state-bootstrap payload is not a JsonObject"))
 
-        val version = obj["schemaVersion"]?.jsonPrimitive?.intOrNull
-            ?: return Outcome.Failure(BackendError.Unknown("state-bootstrap missing schemaVersion"))
+        // Header first (§4), gate on minReaderVersion rather than schemaVersion (§3).
+        val version = obj["schemaVersion"]?.jsonPrimitive?.contentOrNull?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(BackendError.Unknown("state-bootstrap missing/unreadable schemaVersion"))
+        val minReader = obj["minReaderVersion"]?.jsonPrimitive?.contentOrNull?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(BackendError.Unknown("state-bootstrap missing/unreadable minReaderVersion"))
+        val minWriter = obj["minWriterVersion"]?.jsonPrimitive?.contentOrNull?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(BackendError.Unknown("state-bootstrap missing/unreadable minWriterVersion"))
 
-        if (version > CURRENT_SCHEMA_VERSION) {
+        if (READER_LEVEL < minReader) {
             return Outcome.Failure(BackendError.Unknown(
-                "state-bootstrap schemaVersion=$version > supported $CURRENT_SCHEMA_VERSION — upgrade reader"
+                "state-bootstrap requires a reader at $minReader; this build is $READER_LEVEL — upgrade reader"
             ))
         }
 

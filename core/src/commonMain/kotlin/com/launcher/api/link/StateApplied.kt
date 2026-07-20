@@ -1,5 +1,10 @@
 package com.launcher.api.link
 
+import family.wire.WireVersion
+import family.wire.WireVersionHeader
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
+
 import com.launcher.api.config.ElementId
 import com.launcher.api.config.ServerTimestamp
 import com.launcher.api.config.SlotKind
@@ -23,9 +28,15 @@ import kotlinx.serialization.Serializable
  *  - [flowsApplied], [contactsApplied], [partialApplyReasons]: NEW в 008 — what
  *    Managed really applied (may differ from /config if provider missing etc.).
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class StateApplied(
-    val schemaVersion: Int = SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val schemaVersion: WireVersion = SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minReaderVersion: WireVersion = MIN_READER_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minWriterVersion: WireVersion = MIN_WRITER_VERSION,
     val appliedAt: Long,
     val presetId: String,
     val fcmToken: String?,
@@ -35,9 +46,16 @@ data class StateApplied(
     val flowsApplied: List<FlowApplied>? = null,
     val contactsApplied: List<ContactApplied>? = null,
     val partialApplyReasons: List<PartialReason> = emptyList(),
-) {
+) : WireVersionHeader {
     companion object {
-        const val SCHEMA_VERSION: Int = 1
+        /** What this build writes. Was the integer 1 before the conversion — never lowered (I3). */
+        val SCHEMA_VERSION: WireVersion = WireVersion(1, 0)
+
+        /** Applied-state fields are additive per the spec-007 to spec-008 extension. */
+        val MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+
+        /** Rewritten wholesale by the managed device on every apply. */
+        val MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
     }
 }
 

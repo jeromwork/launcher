@@ -1,5 +1,7 @@
 package com.launcher.api.sync
 
+import family.wire.WireVersion
+
 import com.launcher.api.result.Outcome
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.JsonElement
@@ -29,7 +31,7 @@ interface RemoteSyncBackend {
     suspend fun writeDoc(
         path: DocPath,
         data: JsonElement,
-        schemaVersion: Int,
+        schemaVersion: WireVersion,
     ): Outcome<Unit, BackendError>
 
     /** `Outcome.Success(null)` means the document does not exist (NOT an error);
