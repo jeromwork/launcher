@@ -66,6 +66,33 @@ describe("identity-links/google_{sub} (single doc-id)", () => {
     );
   });
 
+  test("the pre-conversion integer version is refused", async () => {
+    // Regression guard. These two documents are assembled as ad-hoc Firestore maps rather than
+    // from a Kotlin type, so when every typed format moved to the dotted string (TASK-138) the
+    // compiler had nothing to complain about — the adapter kept writing `schemaVersion: 1` while
+    // the rules had already switched to requiring a string. Sign-in was rejected at write time
+    // and no test noticed, because every test here builds its own correct header.
+    const ctx = testEnv.authenticatedContext(SUB_A);
+    await assertFails(
+      setDoc(doc(ctx.firestore(), `identity-links/google_${SUB_A}`), {
+        schemaVersion: 1,
+        stableId: STABLE_ID_A,
+        createdAt: serverTimestamp(),
+      }),
+    );
+  });
+
+  test("a header missing minReaderVersion is refused", async () => {
+    const ctx = testEnv.authenticatedContext(SUB_A);
+    await assertFails(
+      setDoc(doc(ctx.firestore(), `identity-links/google_${SUB_A}`), {
+        schemaVersion: "1.0", minWriterVersion: "1.0",
+        stableId: STABLE_ID_A,
+        createdAt: serverTimestamp(),
+      }),
+    );
+  });
+
   test("owner cannot create a link with mismatched providerAccountId", async () => {
     const ctx = testEnv.authenticatedContext(SUB_A);
     await assertFails(

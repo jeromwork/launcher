@@ -275,8 +275,11 @@ internal class GoogleSignInAuthAdapter(
                 val newUuid = UUID.randomUUID().toString()
                 txn.set(
                     identityLinkRef,
-                    mapOf(
-                        "schemaVersion" to 1L,
+                    IdentityDocumentWireFormat.header(
+                        schemaVersion = IdentityDocumentWireFormat.IdentityLink.SCHEMA_VERSION,
+                        minReaderVersion = IdentityDocumentWireFormat.IdentityLink.MIN_READER_VERSION,
+                        minWriterVersion = IdentityDocumentWireFormat.IdentityLink.MIN_WRITER_VERSION,
+                    ) + mapOf(
                         "stableId" to newUuid,
                         "createdAt" to FieldValue.serverTimestamp(),
                     ),
@@ -287,8 +290,11 @@ internal class GoogleSignInAuthAdapter(
 
         try {
             firestore.document("users/$stableId").set(
-                mapOf(
-                    "schemaVersion" to 1L,
+                IdentityDocumentWireFormat.header(
+                    schemaVersion = IdentityDocumentWireFormat.UserRoot.SCHEMA_VERSION,
+                    minReaderVersion = IdentityDocumentWireFormat.UserRoot.MIN_READER_VERSION,
+                    minWriterVersion = IdentityDocumentWireFormat.UserRoot.MIN_WRITER_VERSION,
+                ) + mapOf(
                     "stableId" to stableId,
                     "createdAt" to FieldValue.serverTimestamp(),
                 ),
