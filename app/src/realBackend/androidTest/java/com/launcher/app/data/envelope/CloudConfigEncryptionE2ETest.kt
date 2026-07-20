@@ -5,16 +5,16 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import cryptokit.keys.api.AsyncConfigPushQueue
-import cryptokit.keys.api.AuthIdentity
-import cryptokit.keys.api.ConfigSaver
-import cryptokit.keys.api.DeviceId
-import cryptokit.keys.api.EnvelopeBootstrap
-import cryptokit.keys.api.IdentityError
-import cryptokit.keys.api.IdentityProof
-import cryptokit.keys.api.Outcome
-import cryptokit.keys.api.RemoteStorage
-import cryptokit.keys.api.internal.DeviceIdentity
+import family.keys.api.AsyncConfigPushQueue
+import family.keys.api.AuthIdentity
+import family.keys.api.ConfigSaver
+import family.keys.api.DeviceId
+import family.keys.api.EnvelopeBootstrap
+import family.keys.api.IdentityError
+import family.keys.api.IdentityProof
+import family.keys.api.Outcome
+import family.keys.api.RemoteStorage
+import family.keys.api.internal.DeviceIdentity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -121,17 +121,17 @@ class CloudConfigEncryptionE2ETest {
         // IdentityProof, the prod-wired EnvelopeBootstrap / ConfigSaver keep
         // their original closed-over references).
         single<ConfigSaver>(createdAtStart = true) {
-            cryptokit.keys.impl.LocalFirstConfigSaver(
+            family.keys.impl.LocalFirstConfigSaver(
                 storage = get<RemoteStorage>(),
                 identity = get<IdentityProof>(),
                 pushQueue = get<AsyncConfigPushQueue>()
             )
         }
         single<EnvelopeBootstrap>(createdAtStart = true) {
-            cryptokit.keys.impl.DefaultEnvelopeBootstrap(
+            family.keys.impl.DefaultEnvelopeBootstrap(
                 identity = get<IdentityProof>(),
                 deviceIdentity = get<DeviceIdentity>(),
-                directory = get<cryptokit.keys.api.internal.PublicKeyDirectory>()
+                directory = get<family.keys.api.internal.PublicKeyDirectory>()
             )
         }
     }
@@ -168,7 +168,7 @@ class CloudConfigEncryptionE2ETest {
         val boot = envelopeBootstrap.bootstrap()
         assertTrue("bootstrap must succeed, got $boot", boot is Outcome.Success)
         val uid = auth.currentUser!!.uid
-        val key = cryptokit.keys.api.ConfigSaver.keyOf(testConfigName)
+        val key = family.keys.api.ConfigSaver.keyOf(testConfigName)
         val payload = "owner config payload — version ${System.currentTimeMillis()}".encodeToByteArray()
         // Drive the storage layer directly to surface adapter errors verbatim
         // (ConfigSaver wraps everything to StorageError.Network with no cause).
@@ -192,7 +192,7 @@ class CloudConfigEncryptionE2ETest {
         assertTrue("bootstrap must succeed, got $boot", boot is Outcome.Success)
 
         val uid = auth.currentUser!!.uid
-        val key = cryptokit.keys.api.ConfigSaver.keyOf(testConfigName)
+        val key = family.keys.api.ConfigSaver.keyOf(testConfigName)
         val marker = "Bobby Tables 555-1234"
         val payload = """{"contact": {"name":"prefix:$marker:suffix"}}""".encodeToByteArray()
         val save = remoteStorage.put(uid, key, payload)

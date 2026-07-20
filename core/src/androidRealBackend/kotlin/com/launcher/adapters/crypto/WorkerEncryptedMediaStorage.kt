@@ -3,9 +3,9 @@ package com.launcher.adapters.crypto
 import android.util.Log
 import com.launcher.adapters.push.FirebaseTokenSupplier
 import com.launcher.adapters.push.WorkerPushSender
-import cryptokit.crypto.exception.CryptoException
-import cryptokit.pairing.api.EncryptedEnvelope
-import cryptokit.pairing.api.EncryptedMediaStorage
+import family.crypto.exception.CryptoException
+import family.pairing.api.EncryptedEnvelope
+import family.pairing.api.EncryptedMediaStorage
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlin.uuid.ExperimentalUuidApi
@@ -28,7 +28,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * FR-030..033, server-roadmap SRV-CRYPTO-001).
  *
  * TASK-51 Phase 6 — Outcome<T, CryptoError> → throws CryptoException; imports
- * cryptokit.pairing.api.*. Universal logging contract (FR-017) — operation /
+ * family.pairing.api.*. Universal logging contract (FR-017) — operation /
  * exceptionClass / messageHash; никаких raw bytes / link-ids / uuids в логах.
  */
 @OptIn(ExperimentalUuidApi::class, ExperimentalSerializationApi::class)

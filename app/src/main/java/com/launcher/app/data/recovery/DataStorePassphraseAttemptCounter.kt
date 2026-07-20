@@ -6,7 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import cryptokit.keys.api.PassphraseAttemptCounter
+import family.keys.api.PassphraseAttemptCounter
 import kotlinx.coroutines.flow.first
 
 /**

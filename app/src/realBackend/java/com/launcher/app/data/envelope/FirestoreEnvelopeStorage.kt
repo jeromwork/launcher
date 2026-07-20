@@ -3,10 +3,10 @@ package com.launcher.app.data.envelope
 import com.google.firebase.firestore.Blob
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
-import cryptokit.keys.api.Envelope
-import cryptokit.keys.api.Outcome
-import cryptokit.keys.api.internal.EnvelopeStorage
-import cryptokit.keys.api.internal.EnvelopeStorageError
+import family.keys.api.Envelope
+import family.keys.api.Outcome
+import family.keys.api.internal.EnvelopeStorage
+import family.keys.api.internal.EnvelopeStorageError
 import kotlinx.coroutines.tasks.await
 
 /**

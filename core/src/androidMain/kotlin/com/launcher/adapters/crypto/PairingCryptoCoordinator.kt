@@ -2,17 +2,17 @@ package com.launcher.adapters.crypto
 
 import android.util.Log
 import com.launcher.api.identity.DeviceIdProvider
-import cryptokit.crypto.api.AsymmetricCrypto
-import cryptokit.crypto.api.SecureKeyStore
-import cryptokit.crypto.api.values.KeyId
-import cryptokit.crypto.exception.CryptoException
-import cryptokit.pairing.api.DeviceId
-import cryptokit.pairing.api.DeviceIdentity
-import cryptokit.pairing.api.DeviceIdentityRepository
-import cryptokit.pairing.api.ED25519_SIGNATURE_SIZE
-import cryptokit.pairing.api.PublicKey
-import cryptokit.pairing.api.SUPPORTED_SCHEMA_VERSION
-import cryptokit.pairing.api.SigningPublicKey
+import family.crypto.api.AsymmetricCrypto
+import family.crypto.api.SecureKeyStore
+import family.crypto.api.values.KeyId
+import family.crypto.exception.CryptoException
+import family.pairing.api.DeviceId
+import family.pairing.api.DeviceIdentity
+import family.pairing.api.DeviceIdentityRepository
+import family.pairing.api.ED25519_SIGNATURE_SIZE
+import family.pairing.api.PublicKey
+import family.pairing.api.SUPPORTED_SCHEMA_VERSION
+import family.pairing.api.SigningPublicKey
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 
@@ -236,7 +236,7 @@ class PairingCryptoCoordinator(
 
     companion object {
         // cryptokit KeyIds (media- namespace fits paired-device crypto). Priv +
-        // pub stored separately because cryptokit.AsymmetricCrypto не exposes
+        // pub stored separately because family.AsymmetricCrypto не exposes
         // scalar-mult-base from priv → pub; storing pub avoids re-derive on the
         // hot path.
         val ENC_KEY_ID = KeyId("media-pairing-x25519-priv-v1")

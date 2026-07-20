@@ -9,8 +9,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.launcher.api.auth.internal.SessionRecord
 import com.launcher.api.auth.internal.SessionStore
-import cryptokit.crypto.api.SecureKeyStore
-import cryptokit.crypto.api.values.KeyId
+import family.crypto.api.SecureKeyStore
+import family.crypto.api.values.KeyId
 import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.verify

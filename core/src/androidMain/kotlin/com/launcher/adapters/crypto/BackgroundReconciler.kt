@@ -1,7 +1,7 @@
 package com.launcher.adapters.crypto
 
-import cryptokit.crypto.exception.CryptoException
-import cryptokit.pairing.api.EncryptedMediaStorage
+import family.crypto.exception.CryptoException
+import family.pairing.api.EncryptedMediaStorage
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException

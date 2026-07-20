@@ -21,12 +21,12 @@ class NoFakeCryptoInAppTest {
 
     @Test
     fun productionAppCodeMustNotImportFakeCryptoAdapters() {
-        // TASK-51 T076 — scope extended to include cryptokit.pairing.fake.*
+        // TASK-51 T076 — scope extended to include family.pairing.fake.*
         // (FakeDeviceIdentityRepository / FakeEncryptedMediaStorage / FakeRecipientResolver
-        // added in Phase 8 alongside the cryptokit.crypto.fake.* set).
+        // added in Phase 8 alongside the family.crypto.fake.* set).
         val forbiddenPrefixes = listOf(
-            "cryptokit.crypto.fake",
-            "cryptokit.pairing.fake",
+            "family.crypto.fake",
+            "family.pairing.fake",
         )
         val violations = Konsist
             .scopeFromProduction("app")
@@ -35,7 +35,7 @@ class NoFakeCryptoInAppTest {
             .map { it.path }
         check(violations.isEmpty()) {
             "Spec 016 SC-011 / TASK-51 FR-007 violated — production app files " +
-                "import cryptokit.{crypto,pairing}.fake.*:\n" +
+                "import family.{crypto,pairing}.fake.*:\n" +
                 violations.joinToString("\n  - ", prefix = "  - ")
         }
     }

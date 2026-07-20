@@ -7,23 +7,23 @@ import com.launcher.adapters.crypto.PairRecipientResolver
 import com.launcher.adapters.crypto.PairingCryptoCoordinator
 import com.launcher.adapters.crypto.SqlDelightBlobReferenceLedger
 import com.launcher.adapters.crypto.db.CryptoStore
-import cryptokit.crypto.api.AeadCipher
-import cryptokit.crypto.api.AsymmetricCrypto
-import cryptokit.crypto.api.KeyDerivation
-import cryptokit.crypto.api.KeyEscrow
-import cryptokit.crypto.api.KeyRotation
-import cryptokit.crypto.api.KeyStoreContext
-import cryptokit.crypto.api.RandomSource
-import cryptokit.crypto.api.SecureKeyStore
-import cryptokit.crypto.libsodium.LibsodiumAeadCipher
-import cryptokit.crypto.libsodium.LibsodiumAsymmetricCrypto
-import cryptokit.crypto.libsodium.LibsodiumKeyDerivation
-import cryptokit.crypto.libsodium.LibsodiumRandomSource
-import cryptokit.crypto.stubs.StubKeyEscrow
-import cryptokit.crypto.stubs.StubKeyRotation
-import cryptokit.pairing.api.DeviceIdentityRepository
-import cryptokit.pairing.api.EncryptedMediaStorage
-import cryptokit.pairing.api.RecipientResolver
+import family.crypto.api.AeadCipher
+import family.crypto.api.AsymmetricCrypto
+import family.crypto.api.KeyDerivation
+import family.crypto.api.KeyEscrow
+import family.crypto.api.KeyRotation
+import family.crypto.api.KeyStoreContext
+import family.crypto.api.RandomSource
+import family.crypto.api.SecureKeyStore
+import family.crypto.libsodium.LibsodiumAeadCipher
+import family.crypto.libsodium.LibsodiumAsymmetricCrypto
+import family.crypto.libsodium.LibsodiumKeyDerivation
+import family.crypto.libsodium.LibsodiumRandomSource
+import family.crypto.stubs.StubKeyEscrow
+import family.crypto.stubs.StubKeyRotation
+import family.pairing.api.DeviceIdentityRepository
+import family.pairing.api.EncryptedMediaStorage
+import family.pairing.api.RecipientResolver
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
@@ -49,7 +49,7 @@ import org.koin.dsl.module
  * `:core/androidRealBackend` and `:core/androidMockBackend` `backendModule` —
  * this module composes the orchestrator + ledger + reconciler on top.
  *
- * Fake* adapters from `cryptokit.crypto.fake` are TEST-ONLY and MUST NEVER appear in
+ * Fake* adapters from `family.crypto.fake` are TEST-ONLY and MUST NEVER appear in
  * this module. The [assertNoFakeCryptoInRelease] helper invoked by
  * `LauncherApplication.onCreate` detects accidental wiring at runtime (SC-011);
  * Detekt rule `FakeCryptoInReleaseRule` catches imports at compile time; R8
@@ -111,7 +111,7 @@ val cryptokitModule = module {
 /**
  * Fail-fast guard for release builds (FR-018, SC-011).
  *
- * Walks the resolved ports and confirms none come from `cryptokit.crypto.fake.*`. Crashes
+ * Walks the resolved ports and confirms none come from `family.crypto.fake.*`. Crashes
  * the app with a loud message if any do — that's by design, fake crypto in production
  * is worse than a crash.
  *
@@ -127,7 +127,7 @@ fun assertNoFakeCryptoInRelease(get: (Class<*>) -> Any) {
     for (port in ports) {
         val impl = get(port)
         val pkg = impl.javaClass.`package`?.name.orEmpty()
-        check(!pkg.startsWith("cryptokit.crypto.fake")) {
+        check(!pkg.startsWith("family.crypto.fake")) {
             "FATAL: ${impl.javaClass.simpleName} from package $pkg is a Fake crypto adapter " +
                 "wired in a release build. Fake adapters MUST NOT appear in production DI. " +
                 "Check CryptokitModule.kt and build variant."

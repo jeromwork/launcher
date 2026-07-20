@@ -29,18 +29,18 @@ import androidx.compose.ui.unit.dp
 import com.launcher.adapters.crypto.PairingCryptoCoordinator
 import com.launcher.api.identity.DeviceIdProvider
 import com.launcher.ui.theme.LauncherTheme
-import cryptokit.crypto.api.AeadCipher
-import cryptokit.crypto.api.AsymmetricCrypto
-import cryptokit.crypto.api.SecureKeyStore
-import cryptokit.crypto.api.values.Ciphertext
-import cryptokit.pairing.api.CIPHER_SUITE_ID_V1
-import cryptokit.pairing.api.DeviceId
-import cryptokit.pairing.api.EncryptedEnvelope
-import cryptokit.pairing.api.EncryptedMediaStorage
-import cryptokit.pairing.api.POLY1305_MAC_SIZE
-import cryptokit.pairing.api.Recipient
-import cryptokit.pairing.api.SUPPORTED_SCHEMA_VERSION
-import cryptokit.pairing.api.XCHACHA20_NONCE_SIZE
+import family.crypto.api.AeadCipher
+import family.crypto.api.AsymmetricCrypto
+import family.crypto.api.SecureKeyStore
+import family.crypto.api.values.Ciphertext
+import family.pairing.api.CIPHER_SUITE_ID_V1
+import family.pairing.api.DeviceId
+import family.pairing.api.EncryptedEnvelope
+import family.pairing.api.EncryptedMediaStorage
+import family.pairing.api.POLY1305_MAC_SIZE
+import family.pairing.api.Recipient
+import family.pairing.api.SUPPORTED_SCHEMA_VERSION
+import family.pairing.api.XCHACHA20_NONCE_SIZE
 import java.security.MessageDigest
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -235,7 +235,7 @@ private fun SmokeScreen(
                                 return@launch
                             }
                         try {
-                            val sealedBlob = cryptokit.crypto.api.values.SealedBlob(recipient.sealedCEK)
+                            val sealedBlob = family.crypto.api.values.SealedBlob(recipient.sealedCEK)
                             val cek = asymm.openSealed(sealedBlob, ownPriv)
                             try {
                                 val decoded = aead.decrypt(Ciphertext(envelope.ciphertext), cek)

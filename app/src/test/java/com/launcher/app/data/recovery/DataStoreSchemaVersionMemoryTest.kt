@@ -1,7 +1,7 @@
 package com.launcher.app.data.recovery
 
 import androidx.test.core.app.ApplicationProvider
-import cryptokit.keys.api.SchemaVersionMemory
+import family.keys.api.SchemaVersionMemory
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

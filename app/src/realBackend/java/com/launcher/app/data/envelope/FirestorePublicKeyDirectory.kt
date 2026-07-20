@@ -3,11 +3,11 @@ package com.launcher.app.data.envelope
 import com.google.firebase.firestore.Blob
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
-import cryptokit.keys.api.DeviceId
-import cryptokit.keys.api.Outcome
-import cryptokit.keys.api.RecipientPubKey
-import cryptokit.keys.api.internal.DirectoryError
-import cryptokit.keys.api.internal.PublicKeyDirectory
+import family.keys.api.DeviceId
+import family.keys.api.Outcome
+import family.keys.api.RecipientPubKey
+import family.keys.api.internal.DirectoryError
+import family.keys.api.internal.PublicKeyDirectory
 import kotlinx.coroutines.tasks.await
 
 /**

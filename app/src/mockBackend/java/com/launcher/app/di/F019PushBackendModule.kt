@@ -1,8 +1,8 @@
 package com.launcher.app.di
 
 import com.launcher.app.push.FcmTokenBootstrapPublisher
-import cryptokit.keys.api.ConfigChangeNotifier
-import cryptokit.keys.impl.NoOpConfigChangeNotifier
+import family.keys.api.ConfigChangeNotifier
+import family.keys.impl.NoOpConfigChangeNotifier
 import family.push.api.BackgroundDispatcher
 import family.push.api.FcmTokenPublisher
 import family.push.api.FcmTokenPublisherError

@@ -30,7 +30,7 @@ class Spec011IsolationTest {
         val dir = locateCommonMain().resolve("kotlin/com/launcher/api/crypto")
         if (!dir.isDirectory) return
         // TASK-51 T074 — extended ban list. The directory itself is gone after
-        // Phase 7 (`com.launcher.api.crypto` collapsed into `cryptokit.*`),
+        // Phase 7 (`com.launcher.api.crypto` collapsed into `family.*`),
         // so this test no-ops in practice — kept as structural guard against
         // accidental resurrection of the old layout.
         val forbidden = listOf(

@@ -3,7 +3,7 @@ package com.launcher.adapters.link
 import com.google.firebase.firestore.FirebaseFirestore
 import com.launcher.adapters.push.FcmRegistration
 import com.launcher.adapters.sync.FirestoreDocMapper
-import cryptokit.pairing.api.EncryptedMediaStorage
+import family.pairing.api.EncryptedMediaStorage
 import com.launcher.api.link.Link
 import com.launcher.api.link.LinkRegistry
 import com.launcher.api.result.Outcome

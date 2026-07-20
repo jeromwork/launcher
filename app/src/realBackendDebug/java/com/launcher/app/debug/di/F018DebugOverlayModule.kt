@@ -1,8 +1,8 @@
 package com.launcher.app.debug.di
 
 import com.launcher.app.data.envelope.InMemoryAsyncConfigPushQueueImpl
-import cryptokit.keys.api.AsyncConfigPushQueue
-import cryptokit.keys.api.RemoteStorage
+import family.keys.api.AsyncConfigPushQueue
+import family.keys.api.RemoteStorage
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
