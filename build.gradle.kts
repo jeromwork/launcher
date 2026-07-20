@@ -11,17 +11,21 @@ plugins {
     alias(libs.plugins.detekt) apply false
 }
 
-// TASK-65 R5 — detektFoundation alias runs the 2 custom rules
-// (PresetIdBranching + ExtractionReadiness) against core/ and app/.
-// Configuration kept minimal; rules live in :lint-rules.
+// detektFoundation runs our architecture fitness rules against core/ and app/.
+// Rules live in :lint-rules, registered via LauncherRuleSetProvider (the
+// META-INF/services entry is what makes Detekt discover them — without it the
+// detectors compile, pass their own unit tests, and check nothing; that was the
+// state from TASK-65 until TASK-16 fixed the wiring on 2026-07-20).
+// config/detekt.yml disables every built-in ruleset: style findings are not
+// architecture invariants, and a gate reporting 500+ of them stops being a gate.
 subprojects {
     if (name in setOf("core", "app")) {
         plugins.apply("io.gitlab.arturbosch.detekt")
         extensions.configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
-            // Disable the default rules — we only want our 2 custom rules.
             buildUponDefaultConfig = false
             allRules = false
             ignoreFailures = false
+            config.setFrom(rootProject.files("config/detekt.yml"))
             source.setFrom(files("src"))
         }
         dependencies {
@@ -32,7 +36,7 @@ subprojects {
 
 tasks.register("detektFoundation") {
     group = "verification"
-    description = "Runs the 2 TASK-65 custom Detekt rules across core/ and app/."
+    description = "Runs the custom architecture fitness rules across core/ and app/."
     dependsOn(":core:detekt", ":app:detekt")
 }
 
