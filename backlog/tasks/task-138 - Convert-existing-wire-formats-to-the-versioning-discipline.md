@@ -1,9 +1,10 @@
 ---
 id: TASK-138
 title: Convert existing wire formats to the versioning discipline
-status: Draft
+status: In Progress
 assignee: []
 created_date: '2026-07-20 05:46'
+updated_date: '2026-07-20 07:13'
 labels:
   - wire-format
   - migration
