@@ -1,8 +1,12 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": "1.0",
+  "minReaderVersion": "1.0",
+  "minWriterVersion": "1.0",
   "configs": [
     {
-      "schemaVersion": 1,
+      "schemaVersion": "1.0",
+      "minReaderVersion": "1.0",
+      "minWriterVersion": "1.0",
       "configName": "default",
       "description": "",
       "isDefault": true,

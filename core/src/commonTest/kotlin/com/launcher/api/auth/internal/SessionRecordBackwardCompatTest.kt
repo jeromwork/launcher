@@ -1,5 +1,7 @@
 package com.launcher.api.auth.internal
 
+import com.launcher.wire.WireVersion
+
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,7 +31,7 @@ class SessionRecordBackwardCompatTest {
     fun readsV1FixtureCorrectly() {
         val decoded = json.decodeFromString<SessionRecord>(SessionRecordFixtures.V1_CANONICAL)
 
-        assertEquals(1, decoded.schemaVersion)
+        assertEquals(WireVersion(1, 0), decoded.schemaVersion)
         assertEquals("550e8400-e29b-41d4-a716-446655440000", decoded.stableId)
         assertEquals(1739456789000L, decoded.expiresAtEpochMillis)
         assertEquals("1//04test-refresh-token-stable-fixture", decoded.refreshToken)
@@ -65,6 +67,6 @@ class SessionRecordBackwardCompatTest {
             json.decodeFromString<SessionRecord>(SessionRecordFixtures.V1_CANONICAL)
         }.getOrNull()
         assertNotNull(decodedV1)
-        assertEquals(1, decodedV1.schemaVersion)
+        assertEquals(WireVersion(1, 0), decodedV1.schemaVersion)
     }
 }

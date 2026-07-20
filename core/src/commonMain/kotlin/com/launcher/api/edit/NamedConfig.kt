@@ -1,5 +1,10 @@
 package com.launcher.api.edit
 
+import com.launcher.wire.WireVersion
+import com.launcher.wire.WireVersionHeader
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
+
 import kotlinx.serialization.Serializable
 
 /**
@@ -30,9 +35,17 @@ import kotlinx.serialization.Serializable
  * TODO(server-roadmap): F-014.1 добавит `RemoteNamedConfigsStore` adapter;
  *   merge local + remote at use site через MergedNamedConfigsRepository.
  */
+// @EncodeDefault: this format encodes with `encodeDefaults = false`, and I1 requires the version
+// fields on every document.
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class NamedConfig(
-    val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val schemaVersion: WireVersion = SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minReaderVersion: WireVersion = MIN_READER_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minWriterVersion: WireVersion = MIN_WRITER_VERSION,
     val configName: String,
     val description: String = "",
     val isDefault: Boolean = false,
@@ -41,7 +54,7 @@ data class NamedConfig(
     val activeDeviceIds: Set<String>,
     /** Epoch millis — set when `activeDeviceIds.isEmpty()` becomes true. Used for UI countdown. */
     val orphanedAt: Long? = null,
-) {
+) : WireVersionHeader {
     /** Derived: lifecycle ACTIVE when at least one device uses this config. */
     val isActive: Boolean get() = activeDeviceIds.isNotEmpty()
 
@@ -49,7 +62,18 @@ data class NamedConfig(
     val isOrphan: Boolean get() = activeDeviceIds.isEmpty() && orphanedAt != null
 
     companion object {
-        const val CURRENT_SCHEMA_VERSION: Int = 1
+        /** What this build writes. Was the integer 1 before the conversion — never lowered (I3). */
+        val SCHEMA_VERSION: WireVersion = WireVersion(1, 0)
+
+        /** Every field is independent and additive; nothing here needs a newer reader. */
+        val MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+
+        /**
+         * Named configs are shared between an admin's devices (F-014.1 adds a remote store), so a
+         * document can be written back by a device that did not author it. Raise once a field
+         * appears that an older writer would silently drop, unless §6 preservation lands first.
+         */
+        val MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
         const val MAX_CONFIG_NAME_LENGTH: Int = 32
         const val MAX_DESCRIPTION_LENGTH: Int = 200
 

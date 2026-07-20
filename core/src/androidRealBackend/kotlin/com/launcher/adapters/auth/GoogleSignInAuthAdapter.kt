@@ -186,7 +186,8 @@ internal class GoogleSignInAuthAdapter(
             // (намеренное скрытие). Наше поле остаётся в wire-format на случай
             // miграции к другому provider'у, где refresh token экспонируется.
             val record = SessionRecord(
-                schemaVersion = 1,
+                // Was a literal `1` here — §11 forbids version literals at call sites; the
+                // constructor default is the single source of this format's version.
                 stableId = stableId,
                 expiresAtEpochMillis = expiresAtEpochMillis,
                 refreshToken = null,

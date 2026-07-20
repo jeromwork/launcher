@@ -1,5 +1,7 @@
 package com.launcher.api.edit
 
+import com.launcher.wire.WireVersion
+
 import com.launcher.api.result.Outcome
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -108,32 +110,57 @@ class NamedConfigWireFormatTest {
     // ─── T041 — fail-closed forward-compat ────────────────────────────────
 
     @Test
-    fun T041_envelope_with_future_schema_version_returns_UnsupportedSchemaVersion() {
-        val futureVersion = """
+    fun T041_envelope_needing_a_newer_reader_returns_UnsupportedSchemaVersion() {
+        val needsNewerReader = """
             {
-              "schemaVersion": 99,
+              "schemaVersion": "99.0",
+              "minReaderVersion": "99.0",
+              "minWriterVersion": "99.0",
               "configs": []
             }
         """.trimIndent()
 
-        val result = NamedConfigWireFormat.deserialize(futureVersion)
+        val result = NamedConfigWireFormat.deserialize(needsNewerReader)
 
         assertTrue(result is Outcome.Failure, "expected Failure, got: $result")
         val err = result.error
         assertTrue(err is StoreError.UnsupportedSchemaVersion, "expected UnsupportedSchemaVersion, got: $err")
-        assertEquals(99, err.found)
-        assertEquals(NamedConfig.CURRENT_SCHEMA_VERSION, err.supported)
+        assertEquals(WireVersion(99, 0), err.required)
+        assertEquals(NamedConfigWireFormat.SCHEMA_VERSION, err.readerLevel)
     }
 
     @Test
-    fun T041_inner_config_with_future_schema_version_returns_UnsupportedSchemaVersion() {
-        // Container is v1, но inner config claims v2 — also fail-closed.
+    fun T041_newerWriterAlone_isAccepted() {
+        // §3 — a container written by a much newer build is readable as long as it does not ask
+        // for a newer reader. Before the conversion this was refused on schemaVersion alone.
+        val newerWriter = """
+            {
+              "schemaVersion": "99.0",
+              "minReaderVersion": "1.0",
+              "minWriterVersion": "1.0",
+              "configs": []
+            }
+        """.trimIndent()
+
+        val result = NamedConfigWireFormat.deserialize(newerWriter)
+
+        assertTrue(result is Outcome.Success, "expected Success, got: $result")
+    }
+
+    @Test
+    fun T041_inner_config_needing_a_newer_reader_returns_UnsupportedSchemaVersion() {
+        // Container is readable, but a carried config is not — fail the whole read rather than
+        // silently dropping one of the admin's configs.
         val futureInner = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": "1.0",
+              "minReaderVersion": "1.0",
+              "minWriterVersion": "1.0",
               "configs": [
                 {
-                  "schemaVersion": 2,
+                  "schemaVersion": "2.0",
+                  "minReaderVersion": "2.0",
+                  "minWriterVersion": "2.0",
                   "configName": "default",
                   "isDefault": true,
                   "presetId": "workspace",
@@ -149,11 +176,11 @@ class NamedConfigWireFormatTest {
         assertTrue(result is Outcome.Failure, "expected Failure for inner v2: $result")
         val err = result.error
         assertTrue(err is StoreError.UnsupportedSchemaVersion)
-        assertEquals(2, err.found)
+        assertEquals(WireVersion(2, 0), err.required)
     }
 
     @Test
-    fun T041_malformed_json_returns_UnsupportedSchemaVersion_with_minus_one() {
+    fun T041_malformed_json_returns_UnsupportedSchemaVersion_withNoRequiredVersion() {
         val malformed = "this is not json {"
 
         val result = NamedConfigWireFormat.deserialize(malformed)
@@ -161,7 +188,9 @@ class NamedConfigWireFormatTest {
         assertTrue(result is Outcome.Failure)
         val err = result.error
         assertTrue(err is StoreError.UnsupportedSchemaVersion)
-        assertEquals(-1, err.found)
+        // No version could be read at all — the sentinel -1 it used to carry was a number that
+        // never meant a version.
+        assertEquals(null, err.required)
     }
 
     // ─── T042 — defaults for missing optional fields ──────────────────────
@@ -170,10 +199,10 @@ class NamedConfigWireFormatTest {
     fun T042_missing_description_defaults_to_empty_string() {
         val minimal = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "configs": [
                 {
-                  "schemaVersion": 1,
+                  "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
                   "configName": "default",
                   "isDefault": true,
                   "presetId": "workspace",
@@ -193,10 +222,10 @@ class NamedConfigWireFormatTest {
     fun T042_missing_orphanedAt_defaults_to_null() {
         val minimal = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "configs": [
                 {
-                  "schemaVersion": 1,
+                  "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
                   "configName": "default",
                   "isDefault": true,
                   "presetId": "workspace",
@@ -225,7 +254,7 @@ class NamedConfigWireFormatTest {
         val result = NamedConfigWireFormat.deserialize(noSchemaVersion)
 
         assertTrue(result is Outcome.Success, "expected Success when schemaVersion missing: $result")
-        assertEquals(NamedConfig.CURRENT_SCHEMA_VERSION, result.value.schemaVersion)
+        assertEquals(NamedConfig.SCHEMA_VERSION, result.value.schemaVersion)
     }
 
     // ─── helpers ──────────────────────────────────────────────────────────

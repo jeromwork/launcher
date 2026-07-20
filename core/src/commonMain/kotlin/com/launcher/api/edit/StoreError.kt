@@ -1,5 +1,7 @@
 package com.launcher.api.edit
 
+import com.launcher.wire.WireVersion
+
 /**
  * Domain error variants для [NamedConfigsLocalStore] operations (FR-003c,
  * FR-003a, contracts/named-config-local.md §Invariants).
@@ -37,5 +39,5 @@ sealed class StoreError {
      * Fail-closed per contracts/named-config-local.md §Forward compatibility.
      * Presentation layer shows "Обновите приложение для использования этого конфига".
      */
-    data class UnsupportedSchemaVersion(val found: Int, val supported: Int) : StoreError()
+    data class UnsupportedSchemaVersion(val required: WireVersion?, val readerLevel: WireVersion) : StoreError()
 }

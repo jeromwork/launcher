@@ -1,5 +1,7 @@
 package com.launcher.adapters.auth
 
+import com.launcher.wire.WireVersion
+
 import android.content.Context
 import androidx.credentials.CredentialManager
 import androidx.test.core.app.ApplicationProvider
@@ -60,7 +62,7 @@ class GoogleSignInAuthAdapterSignOutTest {
         // Populate session store with a mock user session
         sessionStore.save(
             SessionRecord(
-                schemaVersion = 1,
+                schemaVersion = WireVersion(1, 0),
                 stableId = "recovery-uid-test-12345",
                 expiresAtEpochMillis = System.currentTimeMillis() + 100000L,
                 refreshToken = null,

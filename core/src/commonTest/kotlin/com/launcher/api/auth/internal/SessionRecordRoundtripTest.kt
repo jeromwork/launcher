@@ -1,5 +1,7 @@
 package com.launcher.api.auth.internal
 
+import com.launcher.wire.WireVersion
+
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
@@ -21,7 +23,7 @@ class SessionRecordRoundtripTest {
     @Test
     fun encodeDecodeIdentity() {
         val original = SessionRecord(
-            schemaVersion = 1,
+            schemaVersion = WireVersion(1, 0),
             stableId = "550e8400-e29b-41d4-a716-446655440000",
             expiresAtEpochMillis = 1739456789000L,
             refreshToken = "1//04test-refresh-token-stable-fixture",
@@ -39,7 +41,7 @@ class SessionRecordRoundtripTest {
         // expiresAtEpochMillis + refreshToken nullable — local-only session
         // (анонимная или с протухшим refresh token, до signOut'а).
         val original = SessionRecord(
-            schemaVersion = 1,
+            schemaVersion = WireVersion(1, 0),
             stableId = "00000000-0000-0000-0000-000000000000",
             expiresAtEpochMillis = null,
             refreshToken = null,
