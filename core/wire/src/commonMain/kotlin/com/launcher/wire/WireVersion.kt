@@ -2,6 +2,7 @@ package com.launcher.wire
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -91,6 +92,20 @@ internal object WireVersionSerializer : KSerializer<WireVersion> {
         encoder.encodeString(value.toString())
     }
 
-    override fun deserialize(decoder: Decoder): WireVersion =
-        WireVersion.parse(decoder.decodeString())
+    override fun deserialize(decoder: Decoder): WireVersion {
+        // A non-string token here is a pre-conversion document carrying the old integer form.
+        // The format-level decoder would report that as a generic decoding failure, which reads
+        // as "corrupt" — but the document is intact, we are simply too old to know its shape.
+        // §8 requires those two to stay distinguishable, so translate to the unknown-version error.
+        val text = try {
+            decoder.decodeString()
+        } catch (e: SerializationException) {
+            throw UnknownWireVersionException(
+                "Wire version is not a string — this is the pre-conversion integer form. " +
+                    "Expected a dotted version such as \"1.0\".",
+                e,
+            )
+        }
+        return WireVersion.parse(text)
+    }
 }

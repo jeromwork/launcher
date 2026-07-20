@@ -74,4 +74,14 @@ class WireVersionTest {
             Json.decodeFromString(WireVersion.serializer(), "\"2\"")
         }
     }
+
+    @Test
+    fun deserialize_preConversionIntegerReportsUnknownVersion_notCorrupt() {
+        // The bare integer is what every format wrote before the conversion. The JSON decoder
+        // rejects the token before our parse() runs, and its generic error reads as corrupt data —
+        // §8 needs these distinguishable, so the serializer translates it.
+        assertFailsWith<UnknownWireVersionException> {
+            Json.decodeFromString(WireVersion.serializer(), "2")
+        }
+    }
 }

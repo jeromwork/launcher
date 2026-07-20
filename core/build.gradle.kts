@@ -31,6 +31,9 @@ kotlin {
             // are imported by pairing-side adapters (Background reconciler, fakes)
             // and by core's androidMain Firestore/Worker adapters.
             implementation(project(":core:crypto"))
+            // `api`, not `implementation`: WireVersion appears in the public shape of
+            // every wire format here, so consumers must see the type.
+            api(project(":core:wire"))
             implementation(libs.kotlinx.coroutines.core)
 
             // Compose Multiplatform — UI runtime + Material 3 (per ADR-005 §1, §6)
