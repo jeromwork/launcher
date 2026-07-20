@@ -71,7 +71,7 @@ ordinal: 65000
 - **3 bundled preset'а** + 1 fixture: `simple-launcher.preset.json`, `launcher.preset.json`, `workspace.preset.json`, `test-preset.json` (androidTest).
 - **Settings entry** «Сменить preset» + boot-time + onResume reminders.
 
-**Fitness functions (Detekt — новый `lint-rules/` Gradle module)**:
+**Fitness functions** (исторически — Detekt-модуль `lint-rules/`; удалён в TASK-140, правила живут в `ArchitectureFitnessTest`):
 - **`PresetIdBranchingDetector`** — ловит `if (presetId == "...")`, `when (presetId)` вне whitelisted `core/preset/` packages.
 - **`ExtractionReadinessDetector`** — запрещает launcher-specific imports (`com.launcher.app.tiles.*`) в foundation packages — обеспечивает cross-app extraction готовность.
 - Pre-commit hook script + `detektFoundation` Gradle alias.
