@@ -1,5 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": "1.0",
+  "minReaderVersion": "1.0",
+  "minWriterVersion": "1.0",
   "appliedAt": 1746974400000,
   "presetId": "simple-launcher"
 }
