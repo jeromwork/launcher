@@ -11,6 +11,7 @@ labels:
 milestone: m-2
 dependencies:
   - TASK-16
+  - TASK-140
 priority: high
 ordinal: 138000
 ---
