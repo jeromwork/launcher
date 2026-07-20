@@ -176,6 +176,37 @@ class ArchitectureFitnessTest {
         )
     }
 
+    @Test
+    fun everyWireFormatHasDeclaredRoundtripCoverage() {
+        val declared = ROUNDTRIP_COVERAGE.keys
+        val found = productionSources().flatMap { it.wireFormatDeclarations() }.toSet()
+        check(found.size >= 15) {
+            "Only ${found.size} wire formats detected — the parser is not matching the codebase, " +
+                "so this rule would pass vacuously. Found: ${found.sorted()}"
+        }
+
+        val undeclared = (found - declared).map {
+            "$it — implements WireVersionHeader but declares no roundtrip test"
+        }
+        val stale = declared.filterNot { it in found }.map {
+            "$it — listed in ROUNDTRIP_COVERAGE but no longer a wire format"
+        }
+        val missingTests = ROUNDTRIP_COVERAGE.entries
+            .filter { (_, test) -> testSources().none { it.name == test } }
+            .map { (format, test) -> "$format — declared test file $test does not exist" }
+
+        report(
+            undeclared + stale + missingTests,
+            "WireFormatRoundtripCoverage",
+            "Every wire format needs a roundtrip test (wire-format.md §11) — write → read → " +
+                "assert equal — and the test must be named here so the pairing is checked rather " +
+                "than assumed. The machine finds the formats; this map is the human claim about " +
+                "which test covers each. A name-matching heuristic was tried first and produced " +
+                "false positives in both directions, which is worse than no rule: it reports " +
+                "coverage that does not exist.",
+        )
+    }
+
     // --- PresetIdBranching (TASK-65 FR-020) ---------------------------------
 
     @Test
@@ -247,9 +278,14 @@ class ArchitectureFitnessTest {
             ?: error("repo root not found — no settings.gradle.kts up the tree")
     }
 
-    /** Production Kotlin sources of the modules `detektFoundation` used to cover. */
+    /**
+     * Production Kotlin sources. Started as the modules `detektFoundation` covered; `core/push`
+     * and `core/wire` were added in TASK-142 because they carry wire formats of their own and
+     * were invisible to every rule here — `PushTriggerRequest` went undetected until the
+     * coverage rule reported it as a stale entry rather than a missing format.
+     */
     private fun productionSources(): List<File> =
-        listOf("core", "app")
+        listOf("core", "app", "core/push", "core/wire")
             .map { File(repoRoot, "$it/src") }
             .filter { it.isDirectory }
             .flatMap { it.walkTopDown().toList() }
@@ -283,6 +319,44 @@ class ArchitectureFitnessTest {
             val next = text.indexOf("@Serializable", match.range.last + 1)
             val body = text.substring(match.range.last + 1, if (next > 0) next else text.length)
             match.groupValues[1] to body
+        }.toList()
+    }
+
+    /** Test sources of the modules this scan covers — used to check a declared test exists. */
+    private fun testSources(): List<File> =
+        listOf("core", "app", "core/push")
+            .map { File(repoRoot, "$it/src") }
+            .filter { it.isDirectory }
+            .flatMap { it.walkTopDown().toList() }
+            .filter { it.isFile && it.extension == "kt" }
+            .filter { f -> TEST_PATH_MARKERS.any { f.unixPath().contains(it) } }
+
+    /**
+     * Names of the types in this file that implement `WireVersionHeader`.
+     *
+     * Walks the constructor's parentheses rather than pattern-matching across them. A regex
+     * spanning `class X(...) : WireVersionHeader` reaches past the closing paren into the NEXT
+     * declaration's supertype list — it reported nested value types as formats, and because
+     * matches do not overlap it also swallowed the text of real formats and hid them. Pool,
+     * Preset and Profile all disappeared that way.
+     */
+    private fun File.wireFormatDeclarations(): List<String> {
+        val text = readText()
+        if (text.contains("interface WireVersionHeader")) return emptyList()
+        return CLASS_HEADER.findAll(text).mapNotNull { match ->
+            var index = match.range.last
+            var depth = 0
+            while (index < text.length) {
+                when (text[index]) {
+                    '(' -> depth++
+                    ')' -> if (--depth == 0) break
+                }
+                index++
+            }
+            if (index >= text.length) return@mapNotNull null
+            val supertypes = text.substring(index + 1, minOf(text.length, index + 200))
+                .substringBefore('{')
+            if (supertypes.contains(HEADER_INTERFACE)) match.groupValues[1] else null
         }.toList()
     }
 
@@ -388,6 +462,40 @@ class ArchitectureFitnessTest {
          * the same line, so they do not match.
          */
         val PARAMETER_SEPARATOR = Regex("""[,(][ \t]*\r?\n""")
+
+        /** `class Name(` — the start of a declaration whose supertypes are examined by hand. */
+        val CLASS_HEADER = Regex("""\bclass\s+(\w+)\s*\(""")
+
+        /**
+         * Which test proves each format survives a write → read → compare cycle
+         * (`wire-format.md` §11). The machine finds the formats; this map is the claim about
+         * coverage, checked in both directions — a new format missing here fails the build, and
+         * so does an entry naming a test that no longer exists.
+         *
+         * Deliberately a declaration rather than a name-matching heuristic. The heuristic was
+         * written first and got both directions wrong: it credited `Capability` to an unrelated
+         * base64 test that merely mentioned the word, and reported `SessionRecord` as uncovered
+         * while `SessionRecordRoundtripTest` sat right there.
+         */
+        val ROUNDTRIP_COVERAGE = mapOf(
+            "Action" to "ActionWireFormatTest.kt",
+            "Capability" to "CapabilityWireFormatTest.kt",
+            "ConfigDocument" to "ConfigDocumentWireFormatTest.kt",
+            "ConfigSnapshot" to "ConfigSnapshotRoundtripTest.kt",
+            "Envelope" to "NamedConfigWireFormatTest.kt",
+            "Health" to "HealthWireFormatTest.kt",
+            "LauncherSettings" to "LauncherSettingsWireFormatTest.kt",
+            "LinkBootstrap" to "LinkBootstrapWireFormatTest.kt",
+            "NamedConfig" to "NamedConfigWireFormatTest.kt",
+            "Pool" to "PoolSchemaV2RoundtripTest.kt",
+            "Preset" to "PresetSchemaV2RoundtripTest.kt",
+            "Profile" to "ProfileSchemaV2RoundtripTest.kt",
+            "PushPayload" to "PushPayloadWireFormatTest.kt",
+            "PushTriggerRequest" to "WireFormatRoundtripTest.kt",
+            "SessionRecord" to "SessionRecordRoundtripTest.kt",
+            "StateApplied" to "StateAppliedWireFormatTest.kt",
+            "VendorRecipeCatalogue" to "VendorRecipeCatalogueWireFormatTest.kt",
+        )
 
         // --- cross-language --------------------------------------------------
 

@@ -43,6 +43,16 @@ PATH_PATTERNS = (
 # What makes a Kotlin file a wire format rather than ordinary code.
 KOTLIN_MARKERS = ("WireVersionHeader", "schemaVersion", "minReaderVersion", "WireVersion(")
 
+# Test sources never define a format. Found by the hook firing on its own author: editing
+# ArchitectureFitnessTest — which mentions every marker because it checks for them — asked for a
+# version bump on a test-only change. A reminder that cries wolf gets ignored, so this matters
+# more than it looks.
+TEST_MARKERS = (
+    "/test/", "/androidTest/", "/commonTest/", "/jvmTest/", "/androidUnitTest/",
+    "/androidInstrumentedTest/", "/iosTest/", "/androidRealBackendUnitTest/", "/testFixtures/",
+    "firestore-tests/",
+)
+
 
 def already_fired(session_id):
     """True when this session has been reminded. Marker lives under .git/, which is never
@@ -66,6 +76,8 @@ def already_fired(session_id):
 
 def is_wire_format(path):
     unix = path.replace("\\", "/")
+    if any(marker in unix for marker in TEST_MARKERS):
+        return False
     if not any(pattern.search(unix) for pattern in PATH_PATTERNS):
         return False
     if not unix.endswith(".kt"):

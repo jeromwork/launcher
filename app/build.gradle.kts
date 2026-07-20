@@ -313,6 +313,8 @@ tasks.withType<Test>().configureEach {
     inputs.files(
         rootProject.fileTree("core/src") { include("**/*.kt") },
         rootProject.fileTree("app/src") { include("**/*.kt") },
+        rootProject.fileTree("core/push/src") { include("**/*.kt") },
+        rootProject.fileTree("core/wire/src") { include("**/*.kt") },
         // The cross-language rule reads the Worker's TypeScript constants. Omitting this let a
         // deliberate Kotlin/TypeScript desync pass — the same UP-TO-DATE silence, one directory
         // over. Any rule reading a new location must extend this list, or it does not run.
