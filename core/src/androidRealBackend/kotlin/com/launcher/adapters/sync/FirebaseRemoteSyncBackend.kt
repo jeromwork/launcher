@@ -49,7 +49,12 @@ class FirebaseRemoteSyncBackend(
         schemaVersion: WireVersion,
     ): Outcome<Unit, BackendError> = runCatchingMapped {
         val payload = FirestoreDocMapper.toFirestore(data).toMutableMap()
-        payload["schemaVersion"] = schemaVersion
+        // `.toString()` is load-bearing. Handing Firestore the WireVersion object makes it
+        // serialize the data class into a nested map {major, minor, preRelease}; the reader in
+        // FirestoreDocMapper does `as? String` and gets null, and the monotonic guard in
+        // firestore.rules ends up comparing two maps. Nothing type-checks this — the payload is
+        // Map<String, Any>.
+        payload["schemaVersion"] = schemaVersion.toString()
         payload["updatedAt"] = FieldValue.serverTimestamp()
         firestore.document(path.rawPath).set(payload).await()
     }

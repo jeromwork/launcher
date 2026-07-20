@@ -136,6 +136,50 @@ describe("versionOrder() — numeric ordering of dotted versions", () => {
   });
 });
 
+describe("users/{uid}/config — the mirrored version written by the sync adapter", () => {
+  // This path stores schemaVersion at the document root as a mirror for fast routing; the real
+  // three-field header lives inside the body. The adapter used to assign the WireVersion object
+  // itself, which Firestore stores as a nested map {major, minor, preRelease} — the reader's
+  // `as? String` then yielded null and this very guard compared two maps.
+  const UID = "config-owner-uid";
+
+  function configRef() {
+    return doc(
+      testEnv.authenticatedContext(UID).firestore(),
+      `users/${UID}/config/current`,
+    );
+  }
+
+  async function seedConfig(schemaVersion: unknown): Promise<void> {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `users/${UID}/config/current`), {
+        schemaVersion,
+        body: "opaque",
+      });
+    });
+  }
+
+  test("upgrade across the single-to-double digit boundary is allowed", async () => {
+    await seedConfig("9.0");
+    await assertSucceeds(setDoc(configRef(), { schemaVersion: "10.0", body: "opaque" }));
+  });
+
+  test("rollback across the same boundary is refused", async () => {
+    await seedConfig("10.0");
+    await assertFails(setDoc(configRef(), { schemaVersion: "9.0", body: "opaque" }));
+  });
+
+  test("the object form the adapter used to write is refused", async () => {
+    // Regression guard for the nested-map shape. versionOrder() cannot parse it, the rule errors
+    // and the write is denied — fail closed, which is what we want, but the real fix is that the
+    // adapter now writes `schemaVersion.toString()`.
+    await seedConfig("1.0");
+    await assertFails(
+      setDoc(configRef(), { schemaVersion: { major: 2, minor: 0 }, body: "opaque" }),
+    );
+  });
+});
+
 describe("hasValidVersionHeader() — anti-lockout ceiling", () => {
   test("a header demanding a newer reader than the rules know is refused", async () => {
     // Without this, a rogue client could write minReaderVersion "999.0" into a shared document

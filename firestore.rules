@@ -475,10 +475,12 @@ service cloud.firestore {
       allow read, create, delete: if request.auth != null
                                   && request.auth.uid == uid;
 
-      // FR-028a (H-2 mitigation).
+      // FR-028a (H-2 mitigation). Compared through versionOrder(): the mirror is a dotted
+      // string now, and a raw >= would compare it lexicographically — ordering "10.0" below
+      // "9.0" and so permitting exactly the rollback this guard exists to block.
       allow update: if request.auth != null
                     && request.auth.uid == uid
-                    && newDoc().schemaVersion >= existingDoc().schemaVersion;
+                    && versionOrder(newDoc().schemaVersion) >= versionOrder(existingDoc().schemaVersion);
     }
 
     // ─── Spec 018 F-5b — Envelope Storage (RemoteStorage backend) ────────
