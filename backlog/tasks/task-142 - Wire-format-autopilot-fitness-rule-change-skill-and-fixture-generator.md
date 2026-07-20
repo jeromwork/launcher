@@ -1,9 +1,10 @@
 ---
 id: TASK-142
 title: 'Wire-format autopilot: fitness rule, change-skill and fixture generator'
-status: Draft
+status: In Progress
 assignee: []
 created_date: '2026-07-20 12:37'
+updated_date: '2026-07-20 13:45'
 labels:
   - wire-format
   - tooling

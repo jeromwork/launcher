@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.PathSensitivity
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -293,4 +295,25 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+// TASK-142 — make the fitness rules' real inputs visible to Gradle.
+//
+// ArchitectureFitnessTest scans the text of core/ and app/ sources at runtime. Gradle derives a
+// test task's inputs from its runtime classpath, which does not contain the sources of other
+// build variants — so editing a `realBackend` file left `testMockBackendDebugUnitTest`
+// UP-TO-DATE and the rules silently did not run. Verified by deliberately writing an integer
+// version into a realBackend adapter: the build passed in 3 seconds without executing a single
+// rule, and only `--rerun-tasks` surfaced the violation.
+//
+// This is the TASK-140 failure mode wearing different clothes: there a Detekt rule failed to
+// load and reported nothing; here the rule exists and is correct, and simply is not run. Both
+// look identical from the outside — a green build.
+tasks.withType<Test>().configureEach {
+    inputs.files(
+        rootProject.fileTree("core/src") { include("**/*.kt") },
+        rootProject.fileTree("app/src") { include("**/*.kt") },
+    )
+        .withPropertyName("fitnessScannedSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }

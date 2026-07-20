@@ -37,7 +37,9 @@ internal class FirebaseTransactionScope(
         // Ensure schemaVersion is present in the body — adapters write it
         // even if the caller forgot, so readers can short-circuit version
         // routing without re-parsing the payload.
-        payload["schemaVersion"] = schemaVersion
+        // `.toString()` — see FirebaseRemoteSyncBackend.writeDoc: the object form serializes to a
+        // nested map that the reader cannot parse and the rules cannot compare.
+        payload["schemaVersion"] = schemaVersion.toString()
         // Server-side updatedAt per FR-030. Read-back will surface this as
         // a real Long via FirestoreDocMapper.
         payload["updatedAt"] = FieldValue.serverTimestamp()

@@ -52,6 +52,98 @@ class ArchitectureFitnessTest {
         )
     }
 
+    // --- Wire-format strict mode (TASK-142) ---------------------------------
+    //
+    // Four rules, each calibrated against the codebase before being written: every one of them
+    // is at zero violations today except where a documented exception says otherwise, so a
+    // failure means something new broke rather than something old was never fixed.
+
+    @Test
+    fun serializableFormatsDeclareTheVersionHeader() {
+        val violations = productionSources().flatMap { file ->
+            file.serializableDeclarations()
+                .filter { (_, body) -> VERSION_PROPERTY.containsMatchIn(body) }
+                .filterNot { (_, body) -> body.contains(HEADER_INTERFACE) }
+                .map { (name, _) -> "${file.relativePath()} — $name" }
+        }
+        report(
+            violations,
+            "WireVersionHeaderRequired",
+            "A @Serializable type carrying a version must implement `WireVersionHeader` " +
+                "(wire-format.md invariant I1). Implementing it is what forces all three " +
+                "fields to exist: declare `schemaVersion` alone and a reader has no way to " +
+                "tell 'I cannot read this' from 'I can read but must not write it back'.",
+        )
+    }
+
+    @Test
+    fun versionFieldsAreAlwaysEncoded() {
+        val violations = productionSources()
+            .filter { it.readText().contains(HEADER_INTERFACE) }
+            .flatMap { file ->
+                val text = file.readText()
+                VERSION_FIELDS.mapNotNull { field ->
+                    val at = Regex("""override\s+val\s+$field\s*:""").find(text)
+                        ?: return@mapNotNull null
+                    // Only the segment belonging to THIS parameter. Two traps here, both found by
+                    // deliberately breaking the rule: a fixed-size lookback reaches into the
+                    // neighbouring parameter and is satisfied by ITS annotation, and any lookback
+                    // ending at the nearest '(' stops inside `@EncodeDefault(...)` itself. A
+                    // parameter separator is a comma or open paren that ends its line.
+                    val separator = PARAMETER_SEPARATOR
+                        .findAll(text.substring(0, at.range.first))
+                        .lastOrNull()?.range?.last ?: 0
+                    val own = text.substring(separator, at.range.first)
+                    if (own.contains("EncodeDefault")) null
+                    else "${file.relativePath()} — $field"
+                }
+            }
+        report(
+            violations,
+            "VersionFieldsAlwaysEncoded",
+            "Each of the three version fields needs @EncodeDefault(EncodeDefault.Mode.ALWAYS). " +
+                "Without it a field left at its default is omitted from the output entirely, so " +
+                "the document ships with no version at all and the next reader cannot gate on " +
+                "what is not there — invariant I1, and the exact bug hit during TASK-138.",
+        )
+    }
+
+    @Test
+    fun handWrittenDocumentsCarryAllThreeVersionFields() {
+        val exempt = CRYPTO_PENDING_TASK_141 + VERSION_MIRROR_WRITERS
+        val violations = productionSources()
+            .filterNot { f -> exempt.any { f.unixPath().contains(it) } }
+            .filter { SCHEMA_VERSION_WRITE.containsMatchIn(it.readText()) }
+            .filter { file ->
+                val text = file.readText()
+                VERSION_FIELDS.drop(1).any { !text.contains(""""$it"""") }
+            }
+            .map { "${it.relativePath()} — writes schemaVersion without the other two" }
+        report(
+            violations,
+            "HandWrittenHeaderComplete",
+            "A document assembled by hand (a Firestore map, a buildJsonObject) must write all " +
+                "three version fields, not just schemaVersion. Nothing type-checks these — which " +
+                "is why the sign-in documents kept writing the pre-conversion shape through the " +
+                "whole of TASK-138 while the security rules had already moved on, and account " +
+                "creation was rejected at write time with every test still green.",
+        )
+    }
+
+    @Test
+    fun noIntegerVersionReachesTheWire() {
+        val violations = productionSources().flatMap { file ->
+            file.matches(INTEGER_VERSION_ON_WIRE) { it.trim() }
+        }
+        report(
+            violations,
+            "NoIntegerVersionOnTheWire",
+            "Versions travel as dotted strings (\"1.0\"), never bare integers — wire-format.md " +
+                "§2. An integer also silently inverts every comparison in firestore.rules, which " +
+                "compares strings and would order \"10.0\" below \"9.0\".",
+        )
+    }
+
     // --- PresetIdBranching (TASK-65 FR-020) ---------------------------------
 
     @Test
@@ -148,6 +240,20 @@ class ArchitectureFitnessTest {
             regex.find(line)?.let { "${relativePath()}:${i + 1} — ${describe(it.value)}" }
         }
 
+    /**
+     * Each `@Serializable` declaration in the file as `name to body`, where the body runs to the
+     * next `@Serializable` or end of file. Per-declaration rather than per-file so that a file
+     * holding several types reports the offending one by name.
+     */
+    private fun File.serializableDeclarations(): List<Pair<String, String>> {
+        val text = readText()
+        return SERIALIZABLE_DECLARATION.findAll(text).map { match ->
+            val next = text.indexOf("@Serializable", match.range.last + 1)
+            val body = text.substring(match.range.last + 1, if (next > 0) next else text.length)
+            match.groupValues[1] to body
+        }.toList()
+    }
+
     private fun File.importMatches(predicate: (String) -> Boolean): List<String> =
         readLines().withIndex().mapNotNull { (i, line) ->
             if (!line.startsWith("import ")) return@mapNotNull null
@@ -187,5 +293,73 @@ class ArchitectureFitnessTest {
          * selecting behaviour per preset. Widening this flags that as a violation.
          */
         val PRESET_ID_BRANCH = Regex("""when\s*\(\s*presetId\s*\)|if\s*\([^)]*\bpresetId\s*==""")
+
+        // --- wire-format strict mode ---------------------------------------
+
+        const val HEADER_INTERFACE = "WireVersionHeader"
+
+        val VERSION_FIELDS = listOf("schemaVersion", "minReaderVersion", "minWriterVersion")
+
+        val SERIALIZABLE_DECLARATION = Regex("""@Serializable[\s\S]{0,400}?\b(?:data\s+)?class\s+(\w+)""")
+
+        /**
+         * A declared version property. Matches the `override val` on a format and the plain
+         * `val` on a type that should have been one — which is the case this rule exists to
+         * catch.
+         */
+        val VERSION_PROPERTY = Regex("""\b(?:override\s+)?val\s+schemaVersion\s*:""")
+
+        /**
+         * An integer written to a version key: `"schemaVersion" to 1`, `"schemaVersion": 1`,
+         * `put("schemaVersion", JsonPrimitive(1))`. A reference to a constant or a `.toString()`
+         * does not match — those are the correct shapes.
+         */
+        val INTEGER_VERSION_ON_WIRE = Regex(
+            """"(?:schemaVersion|minReaderVersion|minWriterVersion)"\s*(?:to|:|,)\s*""" +
+                """(?:JsonPrimitive\()?\s*\d""",
+        )
+
+        /**
+         * Crypto formats still carry the integer version by design: moving version handling out
+         * of the crypto modules is TASK-141, deliberately split off so that `:core:crypto` and
+         * `:core:keys` stay extractable without a dependency on the versioning module. Listed
+         * explicitly rather than skipped silently — when TASK-141 lands this list goes away, and
+         * an empty list is the signal that it did.
+         */
+        val CRYPTO_PENDING_TASK_141 = listOf(
+            "adapters/crypto/FirestoreDeviceIdentityRepository.kt",
+            "data/envelope/FirestoreEnvelopeStorage.kt",
+            "data/envelope/FirestorePublicKeyDirectory.kt",
+            "data/recovery/FirestoreRecoveryKeyBackup.kt",
+        )
+
+        /**
+         * Writing a version key, as opposed to reading one. `"schemaVersion" to x`,
+         * `["schemaVersion"] = x`, `put("schemaVersion", x)`. A reader — `data["schemaVersion"]`,
+         * `getString("schemaVersion")` — does not match, which matters because most files
+         * mentioning the key only read it.
+         */
+        val SCHEMA_VERSION_WRITE = Regex(
+            """"schemaVersion"\s+to\b|\["schemaVersion"\]\s*=|put\(\s*"schemaVersion"""",
+        )
+
+        /**
+         * Adapters that mirror the version at the document root for routing, while the real
+         * three-field header travels inside the body. Requiring all three here would duplicate
+         * the header rather than complete it. Both are generic document writers that receive one
+         * `WireVersion` through `RemoteSyncBackend`, so they could not write the other two even
+         * if we wanted them to — the port does not carry them.
+         */
+        /**
+         * A constructor-parameter boundary: a comma or open paren that ends its line. Annotation
+         * parentheses (`@EncodeDefault(EncodeDefault.Mode.ALWAYS)`) are followed by more text on
+         * the same line, so they do not match.
+         */
+        val PARAMETER_SEPARATOR = Regex("""[,(][ \t]*\r?\n""")
+
+        val VERSION_MIRROR_WRITERS = listOf(
+            "adapters/sync/FirebaseRemoteSyncBackend.kt",
+            "adapters/sync/FirebaseTransactionScope.kt",
+        )
     }
 }
