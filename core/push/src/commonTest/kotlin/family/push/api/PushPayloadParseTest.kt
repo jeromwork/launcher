@@ -1,5 +1,7 @@
 package family.push.api
 
+import com.launcher.wire.WireVersion
+
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -15,7 +17,7 @@ class PushPayloadParseTest {
     @Test
     fun parseFromFcmData_validNewShape_returnsPayload() {
         val data = mapOf(
-            "schemaVersion" to "1",
+            "schemaVersion" to "1.0", "minReaderVersion" to "1.0", "minWriterVersion" to "1.0",
             "eventType" to "config-updated",
             "ownerUid" to "owner-1",
             "triggerId" to "trigger-001",
@@ -37,7 +39,7 @@ class PushPayloadParseTest {
     @Test
     fun parseFromFcmData_missingTriggerId_returnsNull() {
         val data = mapOf(
-            "schemaVersion" to "1",
+            "schemaVersion" to "1.0", "minReaderVersion" to "1.0", "minWriterVersion" to "1.0",
             "eventType" to "config-updated",
             "ownerUid" to "owner-1",
         )
@@ -47,7 +49,7 @@ class PushPayloadParseTest {
     @Test
     fun parseFromFcmData_futureSchemaVersion_returnsNull_failSoft() {
         val data = mapOf(
-            "schemaVersion" to "2",
+            "schemaVersion" to "2.0", "minReaderVersion" to "2.0", "minWriterVersion" to "2.0",
             "eventType" to "config-updated",
             "ownerUid" to "owner-1",
             "triggerId" to "t-1",

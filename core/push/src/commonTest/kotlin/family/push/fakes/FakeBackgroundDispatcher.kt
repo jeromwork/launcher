@@ -1,5 +1,7 @@
 package family.push.fakes
 
+import com.launcher.wire.WireVersion
+
 import family.push.api.BackgroundDispatcher
 import family.push.api.RetryStrategy
 import kotlin.time.Duration

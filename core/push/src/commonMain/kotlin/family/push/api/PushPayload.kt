@@ -1,5 +1,10 @@
 package family.push.api
 
+import com.launcher.wire.WireVersion
+import com.launcher.wire.WireVersionHeader
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
+
 import family.push.internal.PushPayloadWireFormat
 import kotlinx.serialization.Serializable
 
@@ -28,22 +33,28 @@ import kotlinx.serialization.Serializable
  *    TODO(removal SRV-PUSH-FOUNDATION future): drop в schemaVersion 2 после
  *    8-files migration ships and pairing path rewritten.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class PushPayload(
-    val schemaVersion: Int = WireFormatVersion.MAX_SUPPORTED_SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val schemaVersion: WireVersion = WireFormatVersion.SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minReaderVersion: WireVersion = WireFormatVersion.MIN_READER_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minWriterVersion: WireVersion = WireFormatVersion.MIN_WRITER_VERSION,
     val eventType: String,
     val ownerUid: String? = null,
     val triggerId: String,
     val fields: Map<String, String> = emptyMap(),
     val linkId: String? = null,
-) {
+) : WireVersionHeader {
     companion object {
         /**
          * Public parse façade — receiver-side entry point.
          *
          * Parses flat FCM data-map (per FCM constraint `Map<String, String>`) into
          * domain [PushPayload]. Returns null on any invariant violation (missing
-         * required field, schemaVersion > MAX_SUPPORTED, unparseable shape) —
+         * required field, a raised minReaderVersion, unparseable shape) —
          * caller MUST drop silently (FR-075).
          *
          * Wraps internal [PushPayloadWireFormat.parse] — keeps wire encoding

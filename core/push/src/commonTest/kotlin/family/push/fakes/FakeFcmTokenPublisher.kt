@@ -1,5 +1,7 @@
 package family.push.fakes
 
+import com.launcher.wire.WireVersion
+
 import family.push.api.FcmTokenPublisher
 import family.push.api.FcmTokenPublisherError
 import family.push.api.Outcome

@@ -1,5 +1,7 @@
 package family.push
 
+import com.launcher.wire.WireVersion
+
 import family.push.api.PushPayload
 import family.push.api.WireFormatVersion
 import family.push.internal.PushPayloadWireFormat
@@ -29,18 +31,18 @@ class WireFormatRoundtripTest {
 
     /** Matches `commonTest/resources/push-payload-v1.json`. */
     private val pushPayloadFixture = """
-        {"schemaVersion":1,"eventType":"config-updated","ownerUid":"TestUid1234567890123456789AB","triggerId":"550e8400-e29b-41d4-a716-446655440000","fields":{"configName":"main"}}
+        {"schemaVersion":"1.0","minReaderVersion":"1.0","minWriterVersion":"1.0","eventType":"config-updated","ownerUid":"TestUid1234567890123456789AB","triggerId":"550e8400-e29b-41d4-a716-446655440000","fields":{"configName":"main"}}
     """.trimIndent()
 
     /** Matches `commonTest/resources/push-trigger-request-v1.json`. */
     private val pushTriggerRequestFixture = """
-        {"schemaVersion":1,"eventType":"config-updated","targetScope":"own-and-grants","ownerUid":"TestUid1234567890123456789AB","payload":{"configName":"main"}}
+        {"schemaVersion":"1.0","minReaderVersion":"1.0","minWriterVersion":"1.0","eventType":"config-updated","targetScope":"own-and-grants","ownerUid":"TestUid1234567890123456789AB","payload":{"configName":"main"}}
     """.trimIndent()
 
     @Test
     fun pushPayload_jsonRoundtrip_isEqual() {
         val decoded = json.decodeFromString<PushPayload>(pushPayloadFixture)
-        assertEquals(1, decoded.schemaVersion)
+        assertEquals(WireVersion(1, 0), decoded.schemaVersion)
         assertEquals("config-updated", decoded.eventType)
         assertEquals("TestUid1234567890123456789AB", decoded.ownerUid)
         assertEquals("550e8400-e29b-41d4-a716-446655440000", decoded.triggerId)
@@ -49,7 +51,7 @@ class WireFormatRoundtripTest {
 
         // Re-encode and ensure stable shape (linkId absent — default null).
         val expectedRoundtrip = PushPayload(
-            schemaVersion = 1,
+            schemaVersion = WireVersion(1, 0),
             eventType = "config-updated",
             ownerUid = "TestUid1234567890123456789AB",
             triggerId = "550e8400-e29b-41d4-a716-446655440000",
@@ -62,14 +64,14 @@ class WireFormatRoundtripTest {
     @Test
     fun pushTriggerRequest_jsonRoundtrip_isEqual() {
         val decoded = json.decodeFromString<PushTriggerRequest>(pushTriggerRequestFixture)
-        assertEquals(1, decoded.schemaVersion)
+        assertEquals(WireVersion(1, 0), decoded.schemaVersion)
         assertEquals("config-updated", decoded.eventType)
         assertEquals("own-and-grants", decoded.targetScope)
         assertEquals("TestUid1234567890123456789AB", decoded.ownerUid)
         assertEquals("main", decoded.payload["configName"])
 
         val expected = PushTriggerRequest(
-            schemaVersion = 1,
+            schemaVersion = WireVersion(1, 0),
             eventType = "config-updated",
             targetScope = "own-and-grants",
             ownerUid = "TestUid1234567890123456789AB",
@@ -81,7 +83,7 @@ class WireFormatRoundtripTest {
     @Test
     fun pushPayload_flatMapRoundtrip_preservesAllFields() {
         val original = PushPayload(
-            schemaVersion = 1,
+            schemaVersion = WireVersion(1, 0),
             eventType = "config-updated",
             ownerUid = "TestUid1234567890123456789AB",
             triggerId = "550e8400-e29b-41d4-a716-446655440000",
@@ -96,7 +98,7 @@ class WireFormatRoundtripTest {
     @Test
     fun pushPayload_flatMapRoundtrip_withLinkIdLegacy_preservesLinkId() {
         val original = PushPayload(
-            schemaVersion = 1,
+            schemaVersion = WireVersion(1, 0),
             eventType = "config-updated",
             ownerUid = "TestUid1234567890123456789AB",
             triggerId = "550e8400-e29b-41d4-a716-446655440000",
@@ -112,6 +114,6 @@ class WireFormatRoundtripTest {
     @Test
     fun pushPayload_constants_matchWireFormatVersion() {
         // T402-adjacent invariant — MAX_SUPPORTED_SCHEMA_VERSION = 1 mirrors TS side.
-        assertEquals(1, WireFormatVersion.MAX_SUPPORTED_SCHEMA_VERSION)
+        assertEquals(WireVersion(1, 0), WireFormatVersion.SCHEMA_VERSION)
     }
 }

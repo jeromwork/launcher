@@ -1,5 +1,7 @@
 package family.push
 
+import com.launcher.wire.WireVersion
+
 import family.push.api.EventType
 import family.push.api.IdTokenProvider
 import family.push.api.Outcome

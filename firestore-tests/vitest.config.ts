@@ -10,5 +10,12 @@ export default defineConfig({
     include: ["**/*.test.ts"],
     environment: "node",
     testTimeout: 30_000, // emulator round-trips can be slow on cold start
+
+    // Every suite shares ONE emulator and each calls clearFirestore() in beforeEach, so running
+    // files in parallel lets one suite wipe another's seeded data mid-test. With four files this
+    // happened to pass; adding a fifth surfaced it as failures scattered across unrelated suites.
+    // Serial execution is the correct fix — the emulator is a single shared resource, not
+    // something each worker owns a copy of.
+    fileParallelism: false,
   },
 });

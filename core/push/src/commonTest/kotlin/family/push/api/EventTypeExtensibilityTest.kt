@@ -1,5 +1,7 @@
 package family.push.api
 
+import com.launcher.wire.WireVersion
+
 import family.push.fakes.FakePushHandler
 import family.push.fakes.FakePushTrigger
 import family.push.impl.DefaultPushHandlerRegistry

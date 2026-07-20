@@ -49,13 +49,28 @@ service cloud.firestore {
       return int(v.split('\\.')[0]) * 100000 + int(v.split('\\.')[1]);
     }
 
-    // Shape check for the three-field header (§3): all present, correctly ordered.
+    // The highest reader requirement these rules will accept on a write. Deployed rules must be
+    // updated BEFORE clients start writing a higher one — same constraint the old `== 1` checks
+    // imposed, kept deliberately.
+    function maxAcceptedReaderVersion() {
+      return "1.0";
+    }
+
+    // Shape check for the three-field header (§3): all present, correctly ordered, and not
+    // demanding a reader newer than this deployment knows about.
+    //
+    // That last clause is the anti-abuse part, and it is why this is not merely a shape check.
+    // A rogue client could otherwise write minReaderVersion "999.0" into a shared document and
+    // every legitimate device — including the owner's — would refuse to read it, with no way to
+    // repair it client-side. schemaVersion itself stays unbounded: it is diagnostics (§3), so a
+    // newer writer may stamp whatever it likes as long as it does not lock anyone out.
     function hasValidVersionHeader(d) {
       return d.schemaVersion is string
           && d.minReaderVersion is string
           && d.minWriterVersion is string
           && versionOrder(d.minReaderVersion) <= versionOrder(d.minWriterVersion)
-          && versionOrder(d.minWriterVersion) <= versionOrder(d.schemaVersion);
+          && versionOrder(d.minWriterVersion) <= versionOrder(d.schemaVersion)
+          && versionOrder(d.minReaderVersion) <= versionOrder(maxAcceptedReaderVersion());
     }
 
     function isManagedUid(uid) {
@@ -78,7 +93,7 @@ service cloud.firestore {
       return isSignedIn()
         && newDoc().managedDeviceFirebaseUid == request.auth.uid
         && newDoc().claimed == false
-        && newDoc().schemaVersion == 1;
+        && hasValidVersionHeader(newDoc());
     }
 
     // Atomic claim: caller flips claimed false→true. No other field may
@@ -149,7 +164,7 @@ service cloud.firestore {
         && newDoc().adminId == request.auth.uid
         && newDoc().managedDeviceFirebaseUid is string
         && newDoc().managedDeviceId is string
-        && newDoc().schemaVersion == 1;
+        && hasValidVersionHeader(newDoc());
 
       // Root doc is immutable post-create (contract §Security Rules).
       allow update: if false;
@@ -165,10 +180,10 @@ service cloud.firestore {
       match /state/{stateId} {
         allow read:   if isLinkParty(linkId);
         allow create: if isLinkManaged(linkId)
-                       && newDoc().schemaVersion == 1;
+                       && hasValidVersionHeader(newDoc());
         // Managed may update fcmToken / presetId; cannot lower schemaVersion.
         allow update: if isLinkManaged(linkId)
-                       && newDoc().schemaVersion >= existingDoc().schemaVersion;
+                       && versionOrder(newDoc().schemaVersion) >= versionOrder(existingDoc().schemaVersion);
         allow delete: if isLinkManaged(linkId);
       }
 
@@ -186,9 +201,9 @@ service cloud.firestore {
       match /config/{configId} {
         allow read:   if isLinkParty(linkId);
         allow create: if isLinkParty(linkId)
-                       && newDoc().schemaVersion == 1;
+                       && hasValidVersionHeader(newDoc());
         allow update: if isLinkParty(linkId)
-                       && newDoc().schemaVersion >= existingDoc().schemaVersion;
+                       && versionOrder(newDoc().schemaVersion) >= versionOrder(existingDoc().schemaVersion);
         // Delete only via revoke path (Managed side, deletes whole subtree).
         allow delete: if isLinkManaged(linkId);
       }
@@ -216,8 +231,13 @@ service cloud.firestore {
         allow read: if isLinkParty(linkId);
         allow create: if isLinkParty(linkId)
                        && request.resource.data.recordedFromDeviceId == request.auth.uid
-                       && request.resource.data.snapshotSchemaVersion is int
-                       && request.resource.data.snapshotSchemaVersion >= 1;
+                       // The envelope versions independently of the config it carries, so it
+                       // has its own three fields under snapshot* names (spec 009 C-2).
+                       && request.resource.data.snapshotSchemaVersion is string
+                       && request.resource.data.snapshotMinReaderVersion is string
+                       && request.resource.data.snapshotMinWriterVersion is string
+                       && versionOrder(request.resource.data.snapshotMinReaderVersion)
+                          <= versionOrder(request.resource.data.snapshotSchemaVersion);
         allow update: if false;
         // Housekeeping deletes oldest entries when count exceeds 10.
         // Client-orchestrated until SRV-CONFIG-001.
@@ -263,7 +283,7 @@ service cloud.firestore {
 
         function hasRequiredFields() {
           let d = request.resource.data;
-          return d.schemaVersion == 1
+          return hasValidVersionHeader(d)
               && d.deviceId is string
               && d.publicKey is string
               && d.signingPublicKey is string
@@ -364,8 +384,8 @@ service cloud.firestore {
 
       allow create: if isGoogleLinkIdForCaller(linkId)
                     && !exists(/databases/$(database)/documents/identity-links/$(linkId))
-                    && request.resource.data.keys().hasOnly(['schemaVersion', 'stableId', 'createdAt'])
-                    && request.resource.data.schemaVersion == 1
+                    && request.resource.data.keys().hasOnly(['schemaVersion', 'minReaderVersion', 'minWriterVersion', 'stableId', 'createdAt'])
+                    && hasValidVersionHeader(request.resource.data)
                     && isValidUuidV4(request.resource.data.stableId)
                     && request.resource.data.createdAt == request.time;
 
@@ -377,8 +397,8 @@ service cloud.firestore {
       allow create: if request.auth != null
                     && exists(ownerIdentityLink(request.auth.uid))
                     && get(ownerIdentityLink(request.auth.uid)).data.stableId == stableId
-                    && request.resource.data.keys().hasOnly(['schemaVersion', 'stableId', 'createdAt'])
-                    && request.resource.data.schemaVersion == 1
+                    && request.resource.data.keys().hasOnly(['schemaVersion', 'minReaderVersion', 'minWriterVersion', 'stableId', 'createdAt'])
+                    && hasValidVersionHeader(request.resource.data)
                     && request.resource.data.stableId == stableId
                     && request.resource.data.createdAt == request.time;
 

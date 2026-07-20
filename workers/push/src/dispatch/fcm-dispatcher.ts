@@ -7,8 +7,11 @@
 
 import type { Env } from "../env.js";
 import type { EventTypeRegistryEntry } from "../registry/event-types.js";
-import type {
-  PushTriggerRequest,
+import type { PushTriggerRequest } from "../contract/wire-format.js";
+import {
+  MIN_READER_VERSION,
+  MIN_WRITER_VERSION,
+  SCHEMA_VERSION,
 } from "../contract/wire-format.js";
 import type { RecipientDevice } from "../recipient/resolver.js";
 
@@ -153,7 +156,10 @@ function buildFcmData(
   // configName etc.). PushTriggerRequest.payload — flat string map by design.
   // Use field_-prefix per Kotlin PushPayloadWireFormat encoding.
   const data: Record<string, string> = {
-    schemaVersion: "1",
+    // Mirrors Kotlin PushPayloadWireFormat: three dotted-version fields the receiver gates on.
+    schemaVersion: SCHEMA_VERSION,
+    minReaderVersion: MIN_READER_VERSION,
+    minWriterVersion: MIN_WRITER_VERSION,
     eventType: request.eventType,
     ownerUid: request.ownerUid,
     triggerId,

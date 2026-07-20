@@ -1,18 +1,28 @@
 // T070 — TypeScript DTOs mirroring Kotlin `core/push/commonMain/internal/PushTriggerRequest.kt`
 // + `core/push/commonMain/api/PushPayload.kt`. Per spec 019 contracts/.
 //
-// T402 fitness function (CI script) verifies MAX_SUPPORTED_SCHEMA_VERSION
-// constant matches Kotlin `family.push.api.WireFormatVersion`. Manual sync
-// для DTO fields — drift catches via integration tests (T082).
+// Versions follow docs/architecture/wire-format.md: dotted "MAJOR.MINOR" strings, three fields,
+// and the reader gates on minReaderVersion rather than schemaVersion (§3).
+//
+// These constants MUST equal Kotlin `family.push.api.WireFormatVersion`. The "T402 fitness
+// function" referenced by the previous comment here does not exist — it was never committed, so
+// nothing currently catches drift between the two sides. Tracked in TASK-138.
 
-/**
- * Maximum supported wire-format schema version. Mirror Kotlin
- * `family.push.api.WireFormatVersion.MAX_SUPPORTED_SCHEMA_VERSION`.
- *
- * Worker fail-CLOSED policy: incoming schemaVersion > MAX_SUPPORTED → 400.
- * (Different from receiver-side fail-SOFT — атомарный deploy у Worker'а.)
- */
-export const MAX_SUPPORTED_SCHEMA_VERSION = 1;
+/** What this Worker writes. Mirror of Kotlin `WireFormatVersion.SCHEMA_VERSION`. */
+export const SCHEMA_VERSION = "1.0";
+
+/** Minimum reader this Worker's payloads require. Mirror of Kotlin `MIN_READER_VERSION`. */
+export const MIN_READER_VERSION = "1.0";
+
+/** Minimum writer required to rewrite one. Mirror of Kotlin `MIN_WRITER_VERSION`. */
+export const MIN_WRITER_VERSION = "1.0";
+
+/** Parses a dotted "MAJOR.MINOR" version into a numerically comparable value. */
+export function versionOrder(v: string): number | null {
+  const m = /^(\d+)\.(\d+)$/.exec(v);
+  if (m === null) return null;
+  return Number(m[1]) * 100000 + Number(m[2]);
+}
 
 /** Wire-format target scope enum values. */
 export const TARGET_SCOPES = ["own-devices", "own-and-grants"] as const;
@@ -26,7 +36,9 @@ export function isValidTargetScope(value: string): value is TargetScope {
  * HTTP body для POST /push. Mirror of Kotlin `PushTriggerRequest`.
  */
 export interface PushTriggerRequest {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: string;
+  readonly minReaderVersion: string;
+  readonly minWriterVersion: string;
   readonly eventType: string;
   readonly targetScope: TargetScope;
   readonly ownerUid: string;
@@ -65,7 +77,19 @@ export function parsePushTriggerRequest(
   if (typeof body !== "object" || body === null) return null;
   const b = body as Record<string, unknown>;
 
-  if (b["schemaVersion"] !== 1) return null;
+  // Gate on minReaderVersion, not schemaVersion (§3): a client from a newer build whose extra
+  // fields this Worker can ignore must not be rejected. Worker stays fail-CLOSED on anything it
+  // genuinely cannot interpret, unlike the receiver which fails soft.
+  const schemaVersion = b["schemaVersion"];
+  const minReaderVersion = b["minReaderVersion"];
+  const minWriterVersion = b["minWriterVersion"];
+  if (typeof schemaVersion !== "string") return null;
+  if (typeof minReaderVersion !== "string") return null;
+  if (typeof minWriterVersion !== "string") return null;
+  const ourLevel = versionOrder(SCHEMA_VERSION);
+  const required = versionOrder(minReaderVersion);
+  if (ourLevel === null || required === null) return null;
+  if (ourLevel < required) return null;
   if (typeof b["eventType"] !== "string" || (b["eventType"] as string).length === 0) {
     return null;
   }
@@ -88,7 +112,9 @@ export function parsePushTriggerRequest(
   }
 
   return {
-    schemaVersion: 1,
+    schemaVersion,
+    minReaderVersion,
+    minWriterVersion,
     eventType: b["eventType"] as string,
     targetScope: b["targetScope"] as TargetScope,
     ownerUid: b["ownerUid"] as string,

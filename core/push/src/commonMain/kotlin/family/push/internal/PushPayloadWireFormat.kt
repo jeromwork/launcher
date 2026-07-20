@@ -1,5 +1,7 @@
 package family.push.internal
 
+import com.launcher.wire.WireVersion
+
 import family.push.api.PushPayload
 import family.push.api.WireFormatVersion
 
@@ -24,6 +26,8 @@ import family.push.api.WireFormatVersion
 internal object PushPayloadWireFormat {
 
     private const val KEY_SCHEMA_VERSION = "schemaVersion"
+    private const val KEY_MIN_READER_VERSION = "minReaderVersion"
+    private const val KEY_MIN_WRITER_VERSION = "minWriterVersion"
     private const val KEY_EVENT_TYPE = "eventType"
     private const val KEY_OWNER_UID = "ownerUid"
     private const val KEY_TRIGGER_ID = "triggerId"
@@ -31,17 +35,19 @@ internal object PushPayloadWireFormat {
     private const val FIELD_PREFIX = "field_"
 
     private val RESERVED_KEYS = setOf(
-        KEY_SCHEMA_VERSION, KEY_EVENT_TYPE, KEY_OWNER_UID,
-        KEY_TRIGGER_ID, KEY_LINK_ID,
+        KEY_SCHEMA_VERSION, KEY_MIN_READER_VERSION, KEY_MIN_WRITER_VERSION,
+        KEY_EVENT_TYPE, KEY_OWNER_UID, KEY_TRIGGER_ID, KEY_LINK_ID,
     )
 
     /** Cheap version probe — used before full parse. */
-    fun parseSchemaVersionOnly(data: Map<String, String>): Int? =
-        data[KEY_SCHEMA_VERSION]?.toIntOrNull()
+    fun parseSchemaVersionOnly(data: Map<String, String>): WireVersion? =
+        data[KEY_SCHEMA_VERSION]?.let { WireVersion.parseOrNull(it) }
 
     /** Encode для Worker → FCM dispatch. Все значения становятся String. */
     fun encode(payload: PushPayload): Map<String, String> = buildMap {
         put(KEY_SCHEMA_VERSION, payload.schemaVersion.toString())
+        put(KEY_MIN_READER_VERSION, payload.minReaderVersion.toString())
+        put(KEY_MIN_WRITER_VERSION, payload.minWriterVersion.toString())
         put(KEY_EVENT_TYPE, payload.eventType)
         payload.ownerUid?.let { put(KEY_OWNER_UID, it) }
         put(KEY_TRIGGER_ID, payload.triggerId)
@@ -56,9 +62,12 @@ internal object PushPayloadWireFormat {
      * violation. Receiver MUST drop silently на null (FR-075).
      */
     fun parse(data: Map<String, String>): PushPayload? {
-        val version = data[KEY_SCHEMA_VERSION]?.toIntOrNull() ?: return null
-        // Forward-compat: future schemaVersion → silent ignore at receiver (fail-soft).
-        if (version > WireFormatVersion.MAX_SUPPORTED_SCHEMA_VERSION) return null
+        // Header first (§4). The gate is on minReaderVersion, not schemaVersion (§3): a payload
+        // from a newer Worker whose extra fields we can ignore must still be delivered.
+        val version = data[KEY_SCHEMA_VERSION]?.let { WireVersion.parseOrNull(it) } ?: return null
+        val minReader = data[KEY_MIN_READER_VERSION]?.let { WireVersion.parseOrNull(it) } ?: return null
+        val minWriter = data[KEY_MIN_WRITER_VERSION]?.let { WireVersion.parseOrNull(it) } ?: return null
+        if (WireFormatVersion.SCHEMA_VERSION < minReader) return null
         val eventType = data[KEY_EVENT_TYPE] ?: return null
         val triggerId = data[KEY_TRIGGER_ID] ?: return null
         val ownerUid = data[KEY_OWNER_UID]
@@ -74,6 +83,8 @@ internal object PushPayloadWireFormat {
 
         return PushPayload(
             schemaVersion = version,
+            minReaderVersion = minReader,
+            minWriterVersion = minWriter,
             eventType = eventType,
             ownerUid = ownerUid,
             triggerId = triggerId,

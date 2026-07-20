@@ -1,5 +1,7 @@
 package family.push
 
+import com.launcher.wire.WireVersion
+
 import family.push.internal.PushPayloadWireFormat
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -18,10 +20,10 @@ class WireFormatForwardCompatTest {
 
     @Test
     fun parse_futureSchemaVersion_returnsNull_silentIgnore() {
-        // Receiver sees schemaVersion = 2 (added в future build). Per fail-soft
+        // Receiver sees schemaVersion = WireVersion(2, 0) (added в future build). Per fail-soft
         // policy → return null → LauncherFirebaseMessagingService logs + ignores.
         val flatMap = mapOf(
-            "schemaVersion" to "2",
+            "schemaVersion" to "2.0", "minReaderVersion" to "2.0", "minWriterVersion" to "2.0",
             "eventType" to "config-updated",
             "ownerUid" to "uid-1",
             "triggerId" to "trigger-001",
@@ -42,7 +44,7 @@ class WireFormatForwardCompatTest {
         // This is the safe default — а new producer MUST also send same data
         // через documented field_ prefix or reserved key.
         val flatMap = mapOf(
-            "schemaVersion" to "1",
+            "schemaVersion" to "1.0", "minReaderVersion" to "1.0", "minWriterVersion" to "1.0",
             "eventType" to "config-updated",
             "ownerUid" to "uid-1",
             "triggerId" to "trigger-001",
@@ -62,7 +64,7 @@ class WireFormatForwardCompatTest {
         // that's responsibility of LauncherFirebaseMessagingService via
         // EventType.fromWireOrNull. Parser just decodes shape.
         val flatMap = mapOf(
-            "schemaVersion" to "1",
+            "schemaVersion" to "1.0", "minReaderVersion" to "1.0", "minWriterVersion" to "1.0",
             "eventType" to "future-feature-not-known-yet",
             "ownerUid" to "uid-1",
             "triggerId" to "trigger-001",
@@ -86,7 +88,7 @@ class WireFormatForwardCompatTest {
     @Test
     fun parse_missingTriggerId_returnsNull() {
         val flatMap = mapOf(
-            "schemaVersion" to "1",
+            "schemaVersion" to "1.0", "minReaderVersion" to "1.0", "minWriterVersion" to "1.0",
             "eventType" to "config-updated",
             "ownerUid" to "uid-1",
         )
@@ -96,7 +98,7 @@ class WireFormatForwardCompatTest {
     @Test
     fun parse_missingEventType_returnsNull() {
         val flatMap = mapOf(
-            "schemaVersion" to "1",
+            "schemaVersion" to "1.0", "minReaderVersion" to "1.0", "minWriterVersion" to "1.0",
             "ownerUid" to "uid-1",
             "triggerId" to "trigger-001",
         )
