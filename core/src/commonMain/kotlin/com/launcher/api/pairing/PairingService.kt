@@ -88,7 +88,7 @@ class PairingService(
             expiresAt = expiresAt,
             claimed = false,
         )
-        val write = backend.writeDoc(DocPath.Pairings(token), body, PairingWireFormat.CURRENT_SCHEMA_VERSION)
+        val write = backend.writeDoc(DocPath.Pairings(token), body, PairingWireFormat.SCHEMA_VERSION)
         if (write is Outcome.Failure) return Outcome.Failure(write.error.toPairingError())
 
         stateFlow.value = PairingState.WaitingForClaim(token, expiresAt)
@@ -136,7 +136,7 @@ class PairingService(
         val stateWrite = backend.writeDoc(
             DocPath.LinkState(awaiting.linkId),
             stateBody,
-            LinkBootstrapWireFormat.CURRENT_SCHEMA_VERSION,
+            LinkBootstrap.SCHEMA_VERSION,
         )
         if (stateWrite is Outcome.Failure) return Outcome.Failure(stateWrite.error.toPairingError())
 
@@ -236,7 +236,7 @@ class PairingService(
                 linkId = effectiveLinkId,
                 adminId = adminUid,
             )
-            set(DocPath.Pairings(token), updatedPairing, PairingWireFormat.CURRENT_SCHEMA_VERSION)
+            set(DocPath.Pairings(token), updatedPairing, PairingWireFormat.SCHEMA_VERSION)
 
             // Create /links/{linkId} root doc only on first pair. Reconnect
             // reuses the existing doc — its body is immutable post-create
@@ -247,7 +247,7 @@ class PairingService(
                     managedDeviceId = parsed.managedDeviceId,
                     managedDeviceFirebaseUid = parsed.managedDeviceFirebaseUid,
                 )
-                set(DocPath.Links(effectiveLinkId), linkBody, LinkWireFormat.CURRENT_SCHEMA_VERSION)
+                set(DocPath.Links(effectiveLinkId), linkBody, LinkWireFormat.SCHEMA_VERSION)
             }
 
             Link(

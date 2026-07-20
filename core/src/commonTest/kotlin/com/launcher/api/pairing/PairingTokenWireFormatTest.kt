@@ -1,5 +1,7 @@
 package com.launcher.api.pairing
 
+import com.launcher.wire.WireVersion
+
 import com.launcher.api.result.Outcome
 import com.launcher.api.sync.BackendError
 import com.launcher.api.wireformat.WireFormatJson
@@ -38,7 +40,7 @@ class PairingTokenWireFormatTest {
             updatedAt = 1746974100000L,
         )
         val parsed = PairingWireFormat.deserialize(out).orFail()
-        assertEquals(1, parsed.schemaVersion)
+        assertEquals(WireVersion(1, 0), parsed.schemaVersion)
         assertEquals(PairingType.AdminManagedLink, parsed.pairingType)
         assertEquals("device-uuid", parsed.managedDeviceId)
         assertEquals("uid-managed", parsed.managedDeviceFirebaseUid)
@@ -54,7 +56,7 @@ class PairingTokenWireFormatTest {
         // parse known fields successfully and ignore the unknown one.
         val wire = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "pairingType": "admin-managed-link",
               "managedDeviceId": "device-uuid",
               "managedDeviceFirebaseUid": "uid-managed",
@@ -72,7 +74,7 @@ class PairingTokenWireFormatTest {
     fun unknown_future_version_handled_gracefully() {
         val wire = """
             {
-              "schemaVersion": 999,
+              "schemaVersion": "999.0", "minReaderVersion": "999.0", "minWriterVersion": "999.0",
               "pairingType": "admin-managed-link",
               "managedDeviceId": "device-uuid",
               "managedDeviceFirebaseUid": "uid-managed",
@@ -94,7 +96,7 @@ class PairingTokenWireFormatTest {
         // Older fixtures may omit pairingType — backward-compat per contract.
         val wire = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
               "managedDeviceId": "device-uuid",
               "managedDeviceFirebaseUid": "uid-managed",
               "claimed": false,
@@ -108,9 +110,9 @@ class PairingTokenWireFormatTest {
 
     @Test
     fun parseSchemaVersionOnly_extracts_without_full_parse() {
-        val wire = """{"schemaVersion": 1, "other": "ignored"}"""
+        val wire = """{"schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0", "other": "ignored"}"""
         val element = json.parseToJsonElement(wire) as JsonObject
-        assertEquals(1, PairingWireFormat.parseSchemaVersionOnly(element))
+        assertEquals(WireVersion(1, 0), PairingWireFormat.parseSchemaVersionOnly(element))
     }
 
     private fun Outcome<PairingWireFormat.Parsed, BackendError>.orFail(): PairingWireFormat.Parsed =

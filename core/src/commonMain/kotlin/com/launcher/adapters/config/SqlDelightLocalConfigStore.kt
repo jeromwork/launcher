@@ -62,7 +62,12 @@ class SqlDelightLocalConfigStore(
                 linkId = linkId,
                 configJson = encoded,
                 appliedAt = nowMillis(),
-                schemaVersion = config.schemaVersion.toLong(),
+                // The column is INTEGER and write-only: every read path decodes the version from
+                // `configJson`, which carries the full dotted form. Storing MAJOR keeps the column
+                // meaningful for eyeballing the DB without a schema migration.
+                // TODO(TASK-138): the column is redundant with configJson — drop it the next time
+                // this table needs a migration for another reason.
+                schemaVersion = config.schemaVersion.major.toLong(),
             )
         }
     }

@@ -1,5 +1,7 @@
 package com.launcher.api.sync
 
+import com.launcher.wire.WireVersion
+
 import kotlinx.serialization.json.JsonElement
 
 /**
@@ -17,6 +19,6 @@ import kotlinx.serialization.json.JsonElement
  */
 interface TransactionScope {
     suspend fun get(path: DocPath): DocSnapshot?
-    suspend fun set(path: DocPath, data: JsonElement, schemaVersion: Int)
+    suspend fun set(path: DocPath, data: JsonElement, schemaVersion: WireVersion)
     suspend fun delete(path: DocPath)
 }

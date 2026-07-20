@@ -1,5 +1,7 @@
 package com.launcher.api.pairing
 
+import com.launcher.wire.WireVersion
+
 import com.launcher.api.link.Link
 import com.launcher.api.push.PushPayload
 import com.launcher.api.push.PushType
@@ -86,13 +88,13 @@ class PairingEndToEndTest {
 
             // 3. Admin writes /config/current and fires the push.
             val configBody: JsonElement = buildJsonObject {
-                put("schemaVersion", JsonPrimitive(1))
+                put("schemaVersion", JsonPrimitive("1.0")); put("minReaderVersion", JsonPrimitive("1.0")); put("minWriterVersion", JsonPrimitive("1.0"))
                 put("displayName", JsonPrimitive("Babushka's Home Screen"))
             }
             sharedBackend.writeDoc(
                 path = DocPath.LinkConfig(link.linkId),
                 data = configBody,
-                schemaVersion = 1,
+                schemaVersion = WireVersion(1, 0),
             ).assertOk()
 
             val pushOutcome = pushSender.notify(

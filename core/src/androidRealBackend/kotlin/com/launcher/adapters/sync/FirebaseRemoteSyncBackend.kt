@@ -1,5 +1,7 @@
 package com.launcher.adapters.sync
 
+import com.launcher.wire.WireVersion
+
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -44,7 +46,7 @@ class FirebaseRemoteSyncBackend(
     override suspend fun writeDoc(
         path: DocPath,
         data: JsonElement,
-        schemaVersion: Int,
+        schemaVersion: WireVersion,
     ): Outcome<Unit, BackendError> = runCatchingMapped {
         val payload = FirestoreDocMapper.toFirestore(data).toMutableMap()
         payload["schemaVersion"] = schemaVersion

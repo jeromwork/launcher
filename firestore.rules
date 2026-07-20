@@ -26,6 +26,38 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // ─── wire-format versions (docs/architecture/wire-format.md) ───────
+    //
+    // Versions travel as dotted "MAJOR.MINOR" strings (§2). Rules MUST NOT compare them with
+    // <, >, <= or >= directly: those operators order strings lexicographically, which puts
+    // "10.0" BELOW "9.0". Every monotonic guard here exists to stop a rollback to an older,
+    // possibly weaker document, so a lexicographic compare would silently invert exactly the
+    // check it is meant to enforce — permitting "10.0" → "9.0" and rejecting the legitimate
+    // "9.0" → "10.0".
+    //
+    // versionOrder() collapses the parts into one comparable integer. MINOR is bounded at
+    // 100000, far above anything a data shape will reach.
+    //
+    // Pre-release tokens (§10, e.g. "3.0-beta") are NOT parseable here: int() fails on them and
+    // the rule denies. That is the correct outcome — a pre-release document has no business in
+    // a collection guarded by a monotonic rule — but it means a format must drop its token
+    // before it can be written to a versioned path.
+    //
+    // Verified against the emulator (rules.wire-version.test.ts): the rules engine does support
+    // split()/int(), and the 9→10 boundary orders correctly in both directions.
+    function versionOrder(v) {
+      return int(v.split('\\.')[0]) * 100000 + int(v.split('\\.')[1]);
+    }
+
+    // Shape check for the three-field header (§3): all present, correctly ordered.
+    function hasValidVersionHeader(d) {
+      return d.schemaVersion is string
+          && d.minReaderVersion is string
+          && d.minWriterVersion is string
+          && versionOrder(d.minReaderVersion) <= versionOrder(d.minWriterVersion)
+          && versionOrder(d.minWriterVersion) <= versionOrder(d.schemaVersion);
+    }
+
     function isManagedUid(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }

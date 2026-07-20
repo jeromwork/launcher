@@ -1,5 +1,7 @@
 package com.launcher.api.link
 
+import com.launcher.wire.WireVersion
+
 import com.launcher.api.config.ElementId
 import com.launcher.api.config.ServerTimestamp
 import com.launcher.api.config.SlotKind
@@ -9,6 +11,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
@@ -28,16 +31,20 @@ import kotlinx.serialization.json.put
  * reader gracefully handles spec 008 docs), partial-apply serialization.
  */
 object StateAppliedWireFormat {
-    const val CURRENT_SCHEMA_VERSION: Int = StateApplied.SCHEMA_VERSION
+    /** This reader's level for the gate of `docs/architecture/wire-format.md` §3. */
+    val READER_LEVEL: WireVersion = StateApplied.SCHEMA_VERSION
 
-    fun parseSchemaVersionOnly(json: JsonElement): Int? {
+    /** Diagnostics only (§3) — no reader decision may depend on this. */
+    fun parseSchemaVersionOnly(json: JsonElement): WireVersion? {
         val obj = json as? JsonObject ?: return null
-        return obj["schemaVersion"]?.jsonPrimitive?.intOrNull
+        return obj["schemaVersion"]?.jsonPrimitive?.contentOrNull?.let { WireVersion.parseOrNull(it) }
     }
 
     fun serialize(state: StateApplied): JsonObject = buildJsonObject {
         // Spec 007 baseline fields (kept identical с LinkBootstrapWireFormat).
-        put("schemaVersion", CURRENT_SCHEMA_VERSION)
+        put("schemaVersion", StateApplied.SCHEMA_VERSION.toString())
+        put("minReaderVersion", StateApplied.MIN_READER_VERSION.toString())
+        put("minWriterVersion", StateApplied.MIN_WRITER_VERSION.toString())
         put("appliedAt", state.appliedAt)
         put("presetId", state.presetId)
         if (state.fcmToken != null) put("fcmToken", state.fcmToken)
@@ -67,12 +74,17 @@ object StateAppliedWireFormat {
         val obj = json as? JsonObject
             ?: return Outcome.Failure(BackendError.Unknown("state-applied payload is not a JsonObject"))
 
-        val version = obj["schemaVersion"]?.jsonPrimitive?.intOrNull
-            ?: return Outcome.Failure(BackendError.Unknown("state-applied missing schemaVersion"))
+        // Header first (§4), gate on minReaderVersion rather than schemaVersion (§3).
+        val version = obj["schemaVersion"]?.jsonPrimitive?.contentOrNull?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(BackendError.Unknown("state-applied missing/unreadable schemaVersion"))
+        val minReader = obj["minReaderVersion"]?.jsonPrimitive?.contentOrNull?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(BackendError.Unknown("state-applied missing/unreadable minReaderVersion"))
+        val minWriter = obj["minWriterVersion"]?.jsonPrimitive?.contentOrNull?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(BackendError.Unknown("state-applied missing/unreadable minWriterVersion"))
 
-        if (version > CURRENT_SCHEMA_VERSION) {
+        if (READER_LEVEL < minReader) {
             return Outcome.Failure(BackendError.Unknown(
-                "state-applied schemaVersion=$version > supported $CURRENT_SCHEMA_VERSION"
+                "state-applied requires a reader at $minReader; this build is $READER_LEVEL — upgrade reader"
             ))
         }
 

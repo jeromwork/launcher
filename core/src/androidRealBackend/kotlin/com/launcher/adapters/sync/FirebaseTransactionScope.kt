@@ -1,5 +1,7 @@
 package com.launcher.adapters.sync
 
+import com.launcher.wire.WireVersion
+
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Transaction
@@ -29,7 +31,7 @@ internal class FirebaseTransactionScope(
         return FirestoreDocMapper.fromFirestore(path, snapshot)
     }
 
-    override suspend fun set(path: DocPath, data: JsonElement, schemaVersion: Int) {
+    override suspend fun set(path: DocPath, data: JsonElement, schemaVersion: WireVersion) {
         val ref = firestore.document(path.rawPath)
         val payload = FirestoreDocMapper.toFirestore(data).toMutableMap()
         // Ensure schemaVersion is present in the body — adapters write it

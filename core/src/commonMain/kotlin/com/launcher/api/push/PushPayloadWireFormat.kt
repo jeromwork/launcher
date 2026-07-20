@@ -1,5 +1,7 @@
 package com.launcher.api.push
 
+import com.launcher.wire.WireVersion
+
 import com.launcher.api.result.Outcome
 import com.launcher.api.sync.BackendError
 import kotlinx.serialization.json.JsonObject
@@ -17,27 +19,32 @@ import kotlinx.serialization.json.buildJsonObject
  *  - Unknown fields → ignored (additive).
  *  - Unknown `type` value → [parse] returns `null` so the receiver **drops**
  *    the push gracefully (old Managed app receiving a new push type).
- *  - `schemaVersion > CURRENT_SCHEMA_VERSION` → drop (return null). FCM
+ *  - a payload declaring `minReaderVersion` above ours → drop (return null). FCM
  *    re-delivery is not useful here — server-side bump would have to wait
  *    for client roll-out.
  */
 object PushPayloadWireFormat {
-    const val CURRENT_SCHEMA_VERSION: Int = PushPayload.SCHEMA_VERSION
+    /** This reader's level for the gate of `docs/architecture/wire-format.md` §3. */
+    val READER_LEVEL: WireVersion = PushPayload.SCHEMA_VERSION
 
     private const val KEY_SCHEMA_VERSION = "schemaVersion"
+    private const val KEY_MIN_READER_VERSION = "minReaderVersion"
+    private const val KEY_MIN_WRITER_VERSION = "minWriterVersion"
     private const val KEY_TYPE = "type"
     private const val KEY_LINK_ID = "linkId"
     private const val KEY_CMD_ID = "cmdId"
 
     /** Cheap version probe over the flat data-map. Returns `null` if the field
      *  is missing or not parseable as Int. */
-    fun parseSchemaVersionOnly(data: Map<String, String>): Int? =
-        data[KEY_SCHEMA_VERSION]?.toIntOrNull()
+    fun parseSchemaVersionOnly(data: Map<String, String>): WireVersion? =
+        data[KEY_SCHEMA_VERSION]?.let { WireVersion.parseOrNull(it) }
 
     /** Build the data-map sent by Worker → FCM. Stringifies all values. */
     fun encode(payload: PushPayload): Map<String, String> {
         val map = buildMap {
-            put(KEY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION.toString())
+            put(KEY_SCHEMA_VERSION, payload.schemaVersion.toString())
+        put(KEY_MIN_READER_VERSION, payload.minReaderVersion.toString())
+        put(KEY_MIN_WRITER_VERSION, payload.minWriterVersion.toString())
             put(KEY_TYPE, payload.type.wireValue)
             put(KEY_LINK_ID, payload.linkId)
             // Promote type-specific extras to top-level (FCM data is flat).
@@ -55,10 +62,12 @@ object PushPayloadWireFormat {
      *  Returns `null` if the message is malformed or unsupported — the
      *  receiver MUST drop silently (FCM may redeliver an old/new type). */
     fun parse(data: Map<String, String>): PushPayload? {
-        val version = data[KEY_SCHEMA_VERSION]?.toIntOrNull() ?: return null
+        val version = data[KEY_SCHEMA_VERSION]?.let { WireVersion.parseOrNull(it) } ?: return null
+        val minReader = data[KEY_MIN_READER_VERSION]?.let { WireVersion.parseOrNull(it) } ?: return null
+        val minWriter = data[KEY_MIN_WRITER_VERSION]?.let { WireVersion.parseOrNull(it) } ?: return null
         // Future-version policy: a newer producer wrote a payload this reader
         // cannot interpret. Drop silently — no UI surface since silent push. (T026)
-        if (version > CURRENT_SCHEMA_VERSION) return null
+        if (READER_LEVEL < minReader) return null
 
         val type = PushType.fromWireOrNull(data[KEY_TYPE]) ?: return null
         val linkId = data[KEY_LINK_ID] ?: return null
@@ -69,6 +78,8 @@ object PushPayloadWireFormat {
 
         return PushPayload(
             schemaVersion = version,
+            minReaderVersion = minReader,
+            minWriterVersion = minWriter,
             type = type,
             linkId = linkId,
             extra = extra,

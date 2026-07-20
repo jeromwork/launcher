@@ -1,5 +1,8 @@
 package com.launcher.adapters.history
 
+import com.launcher.api.config.SnapshotMigrator
+import com.launcher.wire.WireVersion
+
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
@@ -18,6 +21,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
@@ -118,15 +122,24 @@ class FirestoreConfigHistoryAdapter(
     }
 
     private fun serializeSnapshot(snapshot: ConfigSnapshot): JsonObject = buildJsonObject {
-        put("snapshotSchemaVersion", snapshot.snapshotSchemaVersion)
+        put("snapshotSchemaVersion", snapshot.schemaVersion.toString())
+        put("snapshotMinReaderVersion", snapshot.minReaderVersion.toString())
+        put("snapshotMinWriterVersion", snapshot.minWriterVersion.toString())
         put("recordedAt", snapshot.recordedAt)
         put("recordedFromDeviceId", snapshot.recordedFromDeviceId)
         put("config", ConfigDocumentWireFormat.serialize(snapshot.config))
     }
 
     private fun deserializeSnapshot(json: JsonObject): Outcome<ConfigSnapshot, RepositoryError> {
-        val ver = json["snapshotSchemaVersion"]?.jsonPrimitive?.intOrNull
-            ?: return Outcome.Failure(RepositoryError.Corrupt(IllegalStateException("missing snapshotSchemaVersion")))
+        val ver = json["snapshotSchemaVersion"]?.jsonPrimitive?.contentOrNull
+            ?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(RepositoryError.Corrupt(IllegalStateException("missing/unreadable snapshotSchemaVersion")))
+        val minReader = json["snapshotMinReaderVersion"]?.jsonPrimitive?.contentOrNull
+            ?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(RepositoryError.Corrupt(IllegalStateException("missing/unreadable snapshotMinReaderVersion")))
+        val minWriter = json["snapshotMinWriterVersion"]?.jsonPrimitive?.contentOrNull
+            ?.let { WireVersion.parseOrNull(it) }
+            ?: return Outcome.Failure(RepositoryError.Corrupt(IllegalStateException("missing/unreadable snapshotMinWriterVersion")))
         val recordedAt = json["recordedAt"]?.jsonPrimitive?.longOrNull
             ?: return Outcome.Failure(RepositoryError.Corrupt(IllegalStateException("missing recordedAt")))
         val recordedFromDeviceId = json["recordedFromDeviceId"]?.jsonPrimitive
@@ -140,14 +153,25 @@ class FirestoreConfigHistoryAdapter(
                 RepositoryError.Corrupt(IllegalStateException("config deser failed: ${r.error}")),
             )
         }
-        return Outcome.Success(
-            ConfigSnapshot(
-                snapshotSchemaVersion = ver,
-                config = config,
-                recordedAt = recordedAt,
-                recordedFromDeviceId = recordedFromDeviceId,
-            ),
+        val snapshot = ConfigSnapshot(
+            schemaVersion = ver,
+            minReaderVersion = minReader,
+            minWriterVersion = minWriter,
+            config = config,
+            recordedAt = recordedAt,
+            recordedFromDeviceId = recordedFromDeviceId,
         )
+        // Apply the version gate. Until TASK-138 this call was missing entirely: SnapshotMigrator
+        // documented a fail-closed reader policy and had zero production callers, so the read path
+        // accepted any envelope version. The guarantee existed only in the KDoc.
+        return when (val gated = SnapshotMigrator.migrate(snapshot)) {
+            is Outcome.Success -> Outcome.Success(gated.value)
+            is Outcome.Failure -> Outcome.Failure(
+                RepositoryError.Corrupt(
+                    IllegalStateException("snapshot needs a newer reader: ${gated.error}"),
+                ),
+            )
+        }
     }
 
     // ─── Firestore <-> JsonObject helpers ───────────────────────────────

@@ -1,5 +1,7 @@
 package com.launcher.fake
 
+import com.launcher.wire.WireVersion
+
 import com.launcher.api.identity.AdminIdentity
 import com.launcher.api.identity.ManagedIdentity
 import com.launcher.api.link.Link
@@ -65,7 +67,7 @@ class FakeAdaptersSmokeTest {
             claimed = false,
             pairingType = PairingType.AdminManagedLink,
         )
-        backend.writeDoc(DocPath.Pairings(token), pairingDoc, 1)
+        backend.writeDoc(DocPath.Pairings(token), pairingDoc, WireVersion(1, 0))
 
         // 3. Admin reads the pairing doc (simulates QR scan + Firestore read).
         val read = backend.readDoc(DocPath.Pairings(token))

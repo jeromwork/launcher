@@ -1,5 +1,7 @@
 package com.launcher.adapters.sync
 
+import com.launcher.wire.WireVersion
+
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentSnapshot
 import com.launcher.api.sync.BackendError
@@ -44,7 +46,11 @@ internal object FirestoreDocMapper {
         val data = snapshot.data ?: return null
         val json = mapToJson(data) as? JsonObject
             ?: return null
-        val schemaVersion = (data["schemaVersion"] as? Number)?.toInt() ?: 0
+        // Diagnostics only (wire-format.md §3) — the per-format readers gate on minReaderVersion,
+        // this mapper just carries what the document says. An unreadable value means the document
+        // predates the conversion, and a null here keeps that visible instead of inventing a 0
+        // that would sort below every real version.
+        val schemaVersion = (data["schemaVersion"] as? String)?.let { WireVersion.parseOrNull(it) }
         val updatedAt = (data["updatedAt"] as? Timestamp)?.toMillis()
         return DocSnapshot(
             path = path,
