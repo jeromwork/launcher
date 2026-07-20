@@ -17,7 +17,7 @@ Any work touching: ECS, entity, component, tag, query/family, preset, profile, p
 1. **Entity = free bag of `components` + `tags`, `parentId`.** No `status` field — apply-state is a `LifecycleState` component. At most one component per Kotlin type (⇒ `get<T>()` unambiguous).
 2. **Profile is self-contained for behaviour + home render; presentation (`settingsMap`) lives on the Preset**, re-read at runtime. Transfer / share / remote unit = **Profile + its Preset** (I1-I3). We mirror korge-fleks `snapshot + AssetStore` reference-by-id.
 3. **Domain (`core/preset/`) has zero Android/vendor imports.** UI/VM depend on **ports only**, never the engine directly — use a purpose-shaped gateway seam (e.g. `SettingsGateway`) with the engine behind it. No `when(component)` and no Android calls in engine or UI (fitness).
-4. **Wire formats carry `schemaVersion`; additive only; roundtrip + backward-compat tests** (rule 5). Storage is flat; the screen tree is computed by queries, never nested.
+4. **Versioning of Preset/Profile/Pool is owned by [`wire-format.md`](../../../docs/architecture/wire-format.md)** (skill: `wire-format`) — not restated here. Storage is flat; the screen tree is computed by queries, never nested.
 5. **Do NOT adopt an external game ECS engine** (Fleks / Bevy / Unity DOTS / Ashley …) nor bring one across the Rust FFI bridge — rejected in `ecs.md` §11c (no config layer, unused per-frame scheduler, vendor-type leak violating rule 1/2). The hand-rolled core (`core/preset/ecs/`, Fleks-*named* for readability) is the **permanent, correct choice**; growth is additive (more providers / components / tags), the reconcile way.
 
 ## Hard sync rule

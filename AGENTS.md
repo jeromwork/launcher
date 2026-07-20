@@ -53,7 +53,7 @@
 2. **Anti-Corruption Layer для каждого external dependency.** Если vendor исчезнет — должно меняться меньше файлов, чем в одном adapter-модуле.
 3. **One-way vs two-way doors.** Перед non-trivial change классифицировать. Для one-way door — **обязательно exit ramp** (как откатить).
 4. **Minimum Viable Architecture.** Абстракция добавляется только если без неё будущее изменение = переписывание, не дописывание.
-5. **Wire-format versioning.** Всё, что уходит с устройства или persistent across версий, имеет `schemaVersion` с первого коммита. Backward-compat reads на 1+ major release.
+5. **Wire-format versioning.** Всё, что уходит с устройства или persistent across версий, — wire format. Правила целиком в [`docs/architecture/wire-format.md`](docs/architecture/wire-format.md) (единственный источник; здесь не дублируем).
 6. **Mock-first development.** Domain + UI строятся против fake adapter'ов до интеграции реальных SDK.
 7. **Fitness functions.** Архитектурные инварианты — lint/test, не manual review.
 8. **Server migration tracking.** Каждое client-side обходное решение фиксируется в `docs/dev/server-roadmap.md` + inline TODO `// TODO(server-roadmap): ...`.

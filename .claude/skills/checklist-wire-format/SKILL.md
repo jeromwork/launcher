@@ -1,65 +1,78 @@
 ---
 name: checklist-wire-format
-description: Verifies wire formats (anything that leaves the device or persists across app versions) carry schema-version, have roundtrip tests, and follow backward-compat rules per CLAUDE.md rule 5 and Article VII. Triggered by mentions of JSON, schema, persistence, SharedPreferences, DataStore, SQLDelight, deep-link, QR, sync, contracts.
+description: Audits a spec against the ecosystem wire-format versioning discipline — version fields present, reader/writer gating declared, unknown-version behavior specified, roundtrip and golden-corpus tests planned. The rules themselves live in docs/architecture/wire-format.md; this skill only checks compliance. Triggered by mentions of JSON, schema, schemaVersion, persistence, SharedPreferences, DataStore, SQLDelight, deep-link, QR, sync, push payload, encrypted blob, contracts.
 ---
 
-# Checklist: wire-format
+# Checklist: wire-format (spec audit)
 
-Enforces **wire-format and contract versioning** per [`CLAUDE.md`](CLAUDE.md) rule 5 and Article VII §3 of [`/.specify/memory/constitution.md`](/.specify/memory/constitution.md).
+**This skill audits; it does not define.** The rules are in [`docs/architecture/wire-format.md`](../../../docs/architecture/wire-format.md) — read its AI-TLDR before applying this checklist, and cite section numbers in findings. If a gate here and `wire-format.md` disagree, **`wire-format.md` wins** — fix this file.
 
-A "wire format" is anything that:
-- leaves the device (network sync, deep-link, QR, exported file),
-- persists across app versions (SharedPreferences with structure, DataStore Proto, SQLDelight tables, files in app storage),
-- crosses module boundaries with versioning needs (cross-platform contracts).
+Scope of "wire format": `wire-format.md` §1. Companion skill: [`wire-format`](../wire-format/SKILL.md) answers "what are the rules"; this one answers "does this spec comply".
 
 ---
 
-## Schema version
+## Version fields (§2, §3)
 
-- [ ] CHK001 Every wire format carries an explicit `schemaVersion: Int` field from its first commit.
-- [ ] CHK002 `schemaVersion` field is **read first** during deserialization (so unsupported versions can be detected before parsing the rest).
-- [ ] CHK003 Currently-supported `schemaVersion` constant is documented in code (single source of truth — no magic number scattered).
+- [ ] CHK001 Every wire format carries all three fields — `schemaVersion`, `minReaderVersion`, `minWriterVersion` — from its first commit.
+- [ ] CHK002 Version values are dotted strings (`"2.0"`), not integers, not SemVer-shaped. Ordering `minReader ≤ minWriter ≤ schemaVersion` holds.
+- [ ] CHK003 One named constant per format (`SCHEMA_VERSION` / `MIN_READER_VERSION` / `MIN_WRITER_VERSION`) declared beside the type — no version literals at call sites (§11).
+- [ ] CHK004 Version fields are **read first** during deserialization, before parsing the rest.
+- [ ] CHK005 No shipped version number decreases (I3). A pre-release token does not reset the counter.
 
-## Backward compatibility
+## Reader behavior (§3, §4, §8)
 
-- [ ] CHK004 Reads of **previous** schema versions remain possible for at least one major release.
-- [ ] CHK005 Adding a field is allowed; the deserializer handles missing fields with documented defaults.
-- [ ] CHK006 Renaming or removing a field requires a versioned migration **written before the breaking change ships**.
-- [ ] CHK007 Migration code is **scoped** — `migrateLegacy(json): Action` style — not branching `if (version == 1) ... else ...` everywhere.
+- [ ] CHK006 Spec states what happens when `minReaderVersion` exceeds support: typed error, fail closed, no best-effort parse.
+- [ ] CHK007 Spec states the read-only path when `minWriterVersion` exceeds support — including what the user is shown.
+- [ ] CHK008 Unknown-version errors are distinguishable by callers from corrupt-data errors.
+- [ ] CHK009 Corrupt input fails loudly; no on-the-fly repair (§8).
+- [ ] CHK010 Open discriminators (`kind: "..."`) yield a typed failure on unknown values, never a crash.
 
-## Forward compatibility
+## Change discipline (§5)
 
-- [ ] CHK008 Reading **newer** schema versions is handled gracefully (skip unknown fields, fail-closed on unknown discriminator OR explicit upgrade prompt — choice documented).
-- [ ] CHK009 If discriminator (e.g. `kind: "..."`) is open: an unknown value yields `Failure("unknown kind")`, not a crash.
+- [ ] CHK011 New fields carry defaults; enums carry an unknown/default variant.
+- [ ] CHK012 No removed field name is reused; no field changes type.
+- [ ] CHK013 Any rename carries both names through a transition (`@JsonNames`), or the change is classified as breaking per §3.
+- [ ] CHK014 If the change is breaking, the spec says so and raises MAJOR + `minReaderVersion` — with the writer's reasoning recorded (§3 decision procedure).
 
-## Tests
+## Round-trip safety (§6)
 
-- [ ] CHK010 Roundtrip test exists for every wire-format type: write → read → assertEquals.
-- [ ] CHK011 Backward-compat test exists: a fixture from previous schema version reads successfully.
-- [ ] CHK012 Test fixtures are **stored as files** in `commonTest/resources/` (not literal strings in test code) — easier to detect drift.
+- [ ] CHK015 For formats that can be written back by a party that did not author them: unknown fields survive read-modify-write. `ignoreUnknownKeys = true` alone does **not** satisfy this.
+- [ ] CHK016 A preservation test is planned (fixture with undeclared fields → modify → write → assert undeclared fields unchanged).
 
-## Persistence specifics
+## Encrypted formats (§7)
 
-- [ ] CHK013 SharedPreferences/DataStore: keys namespaced (`<domain>.<feature>.<key>`), not bare strings.
-- [ ] CHK014 SQLDelight: every migration script has a corresponding test that loads an N-1 schema and applies the migration.
-- [ ] CHK015 If a stored type is **removed** entirely (feature gone): one-shot cleanup written; documented with grep-anchor comment.
+- [ ] CHK017 Version is cleartext, outside the ciphertext, readable before any crypto operation.
+- [ ] CHK018 No trial decryption on unrecognized versions.
+- [ ] CHK019 Any must-understand field list sits inside the authenticated/signed region.
+- [ ] CHK020 Server treats the blob as opaque — no routing or transforming on version (rule 13).
 
-## Deep-link / QR / exported config
+## Tests and enforcement (§11)
 
-- [ ] CHK016 URL/QR payload embeds `schemaVersion` in the path or first JSON field.
-- [ ] CHK017 Truncated/corrupted payload yields user-facing error, not crash (defense against scan misreads).
+- [ ] CHK021 Roundtrip test per format: write → read → assertEquals.
+- [ ] CHK022 Golden corpus covers **every** historically shipped version, not just the previous one (no retention window ⇒ pairwise checks are insufficient).
+- [ ] CHK023 Fixtures are files in test resources, not literal strings in test code.
+- [ ] CHK024 `wire-format-hygiene` passes; any `@Suppress("WireFormatHygiene")` carries a justification.
 
-## Contract folder
+## Maturity marker (§10)
 
-- [ ] CHK018 If `contracts/` exists: each contract file lists its semantic version, breaking-change policy, and a link to roundtrip test fixture.
+- [ ] CHK025 If a pre-release token is used, an expiry is declared where the format is defined. No expiry ⇒ no token.
+
+## Persistence and payload specifics
+
+- [ ] CHK026 SharedPreferences/DataStore keys namespaced (`<domain>.<feature>.<key>`).
+- [ ] CHK027 SQLDelight: every migration script has a test loading the N-1 schema.
+- [ ] CHK028 A removed stored type has a one-shot cleanup, documented with a grep-anchor comment.
+- [ ] CHK029 QR/deep-link payloads embed the version in the path or first JSON field; truncated payloads yield a user-facing error, not a crash.
 
 ---
 
 ## How to apply
 
-1. Identify every wire format introduced or touched by spec.
-2. Walk the gates per format.
-3. Failures → add `schemaVersion`, write tests, document migrations.
+1. Identify every wire format introduced or touched by the spec.
+2. Walk the gates per format, skipping sections that do not apply (encrypted, round-trippable, QR).
+3. Failures → cite the `wire-format.md` section, propose the corrected shape.
+
+**Transitional note**: formats predating `wire-format.md` still carry integer `schemaVersion` and no reader/writer fields. That is expected — they convert on next touch (TASK-138). Flag it as a finding only if the spec *touches* such a format without converting it.
 
 ## Output
 

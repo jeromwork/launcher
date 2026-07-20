@@ -20,7 +20,7 @@ Domain-код не импортирует SDK, HTTP-клиенты, Android-си
 Необратимые решения (KDF-параметры, wire format, MLS-выбор, identifier-модель) принимаются медленно с явным exit ramp. Reversible решения — быстро.
 
 **Rule 5 — Wire-format versioning.**
-Всё что уходит с устройства или сохраняется между версиями app'а имеет `schemaVersion` поле с первого коммита. Добавление поля — ок. Переименование / удаление — только через versioned migration написанную до breaking change.
+Всё что уходит с устройства или сохраняется между версиями app'а — wire format. Правила целиком в [`docs/architecture/wire-format.md`](../architecture/wire-format.md) (единственный источник; здесь не дублируем).
 
 **Rule 6 — Mock-first.**
 Каждый port имеет fake-adapter для тестов. Real-adapter добавляется после того, как port-shape доказал себя на fake.

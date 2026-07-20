@@ -1,6 +1,6 @@
 # ECS — Ecosystem Configuration Model (Entity · Component · System)
 
-**This is the single source of truth for the ECS approach across the whole app ecosystem** — the launcher today, and every future ecosystem app that models configuration/state. It is named `ecs.md` (not `preset-model.md`) on purpose: the pattern is bigger than presets. If this file and any other doc disagree, **this file wins**. When you change the model, update this file **in the same commit** (see §12).
+**This is the single source of truth for the ECS approach across the whole app ecosystem** — the launcher today, and every future ecosystem app that models configuration/state. It is named `ecs.md` (not `preset-model.md`) on purpose: the pattern is bigger than presets. If this file and any other doc disagree, **this file wins** — except on **wire-format versioning**, which is owned by [`wire-format.md`](wire-format.md) (that file wins there; this one does not restate its rules). When you change the model, update this file **in the same commit** (see §12).
 
 <!-- AI-TLDR:BEGIN -->
 
@@ -34,7 +34,7 @@ Storage is **flat**; the screen tree is *computed* by queries, never nested in t
 - **Pool** — catalog of `Blueprint`s (bundled `pool.json`).
 - **Blueprint** — a **Bundle**: `id` + `components` + `tags` + wizardBehavior + critical + requires. **Spawn template only; discarded after spawn** (Bevy: "zero runtime significance after creation").
 - **Preset** — shareable JSON template (`schemaVersion` + `wizardFlow` + `settingsMap` + `activeComponents`). Shareable per rule 9. Holds **presentation metadata** (see I2).
-- **Profile** — device-local instance built from `Preset + Pool` by `ProfileFactory`. Runtime source of truth for behaviour + home render. Persisted, `schemaVersion = 2`. `entities: List<Entity>` is the World. Keeps `basedOnPreset` + `presetVersion` (a pointer, see I4).
+- **Profile** — device-local instance built from `Preset + Pool` by `ProfileFactory`. Runtime source of truth for behaviour + home render. Persisted; versioning per [`wire-format.md`](wire-format.md). `entities: List<Entity>` is the World. Keeps `basedOnPreset` + `presetVersion` (a pointer, see I4).
 - **Entity** — a row: `id` + `components: List<Component>` + `tags: Set<Tag>` + `parentId` + wizardBehavior + critical. **No single `component`; no `status` field.** At most one component per Kotlin type (fitness-enforced) ⇒ `get<T>()` unambiguous.
 - **Component** — `sealed interface`, closed set: 11 data subtypes (`AppTile`, `Sos`, `FontSize`, `Toolbar`, `LauncherRole`, `Theme`, `Language`, `StatusBarPolicy`, `Workspace`, `Flow`, `ToolbarButton`) + state component `LifecycleState`. No `tags` member.
 - **LifecycleState** — apply-state **as a component** (`Pending`/`Applied`/`Skipped`/`Unverifiable` data objects; `Failed(reason)`). Replaced the old `ComponentStatus` enum + `Entity.status` field. Transitioned by the System via `profile.setState(id, …)`.
@@ -84,7 +84,7 @@ The most common confusion is mistaking **lifecycle position** for **semantic tag
 
 ```
 Preset {                            // shareable JSON template
-    schemaVersion: 2,
+    schemaVersion: 2,               // ← current shipped value; form + rules: wire-format.md
     wizardFlow:  [ { poolRef, paramsOverride } ],   // ← LIFECYCLE: shown during first-run
     settingsMap: [ { poolRef, categoryKey, settingsIcon?, sensitivity, paramsOverride? } ],  // ← LIFECYCLE + PRESENTATION (see I2)
     activeComponents: [ { poolRef, paramsOverride, parentRef } ]  // ← LIFECYCLE: applied on device
@@ -131,7 +131,7 @@ Modes: **Wizard** (reads `Preset.wizardFlow`, uses `InteractionSink`), **BootChe
 1. Add an enum value to `Enums.kt` `Tag` — **additive only** (rule 5); never rename/remove.
 2. If commonly queried — add a selector to `ProfileQuery.kt`.
 3. Update `pool.json` bundles that should stamp it.
-4. No profile migration (tags additive within schemaVersion 2).
+4. No profile migration (tags are an additive change — see [`wire-format.md`](wire-format.md) §5).
 5. Document it in §6.
 
 ## 6. Tag Glossary
