@@ -174,7 +174,9 @@ A rule no test checks is decoration. Per format:
 - **Roundtrip test** — write → read → assert equal.
 - **Golden corpus** — a checked-in document for **every historically shipped version**, all read by the current reader. Not just the previous one: our documents have **no retention window**, so pairwise checks are insufficient (V1→V2 and V2→V3 passing says nothing about V1→V3).
 - **Round-trip preservation test** where §6 applies.
-- **`wire-format-hygiene`** — custom Detekt rule in [`lint-rules/`](../../lint-rules/) beside the existing detectors. Checks: three fields present and correctly ordered; version strings parse; a roundtrip test exists; in strict mode (post-GA) a golden fixture exists and renamed fields carry `@JsonNames`. Escape hatch: `@Suppress("WireFormatHygiene")` + justification.
+- **`wireFormatVersionsComeFromNamedConstants`** in [`ArchitectureFitnessTest`](../../app/src/test/java/com/launcher/app/fitness/ArchitectureFitnessTest.kt) — currently checks that every version value comes from a named constant, never a literal. Strict-mode checks (all three fields present and correctly ordered, golden fixture exists, renamed fields carry `@JsonNames`) land with TASK-138.
+
+  It is an ordinary unit test, not a Detekt rule, and deliberately so (TASK-140): these rules lived as custom Detekt detectors from TASK-65 to 2026-07-20 and **never ran once** — Detekt's plugin loader never registered them, and a rule that fails to load reports nothing and passes. Run via `./gradlew fitnessCheck`.
 
 **Naming**: one constant per format — `SCHEMA_VERSION`, `MIN_READER_VERSION`, `MIN_WRITER_VERSION` — declared beside the type. The constant is the single source of the value; no literals at call sites.
 

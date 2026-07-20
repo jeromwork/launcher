@@ -8,35 +8,17 @@ plugins {
     alias(libs.plugins.compose.multiplatform) apply false
     alias(libs.plugins.sqldelight) apply false
     alias(libs.plugins.google.services) apply false
-    alias(libs.plugins.detekt) apply false
 }
 
-// detektFoundation runs our architecture fitness rules against core/ and app/.
-// Rules live in :lint-rules, registered via LauncherRuleSetProvider (the
-// META-INF/services entry is what makes Detekt discover them — without it the
-// detectors compile, pass their own unit tests, and check nothing; that was the
-// state from TASK-65 until TASK-16 fixed the wiring on 2026-07-20).
-// config/detekt.yml disables every built-in ruleset: style findings are not
-// architecture invariants, and a gate reporting 500+ of them stops being a gate.
-subprojects {
-    if (name in setOf("core", "app")) {
-        plugins.apply("io.gitlab.arturbosch.detekt")
-        extensions.configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
-            buildUponDefaultConfig = false
-            allRules = false
-            ignoreFailures = false
-            config.setFrom(rootProject.files("config/detekt.yml"))
-            source.setFrom(files("src"))
-        }
-        dependencies {
-            "detektPlugins"(project(":lint-rules"))
-        }
-    }
-}
-
-tasks.register("detektFoundation") {
+// Architecture fitness rules run as ordinary unit tests
+// (app/src/test/java/com/launcher/app/fitness/). Detekt used to host them as
+// custom rules; it never loaded them (TASK-140) — and a rule that fails to load
+// reports nothing and passes, which is worse than having no rule. A test cannot
+// fail that way: if the file exists, Gradle runs it.
+tasks.register("fitnessCheck") {
     group = "verification"
-    description = "Runs the custom architecture fitness rules across core/ and app/."
-    dependsOn(":core:detekt", ":app:detekt")
+    description = "Runs the architecture fitness rules across core/ and app/."
+    dependsOn(":app:testMockBackendDebugUnitTest")
 }
+
 
