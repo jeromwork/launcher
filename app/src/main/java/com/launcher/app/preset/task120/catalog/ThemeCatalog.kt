@@ -1,6 +1,7 @@
 package com.launcher.app.preset.task120.catalog
 
 import android.content.Context
+import com.launcher.wire.WireVersion
 import com.launcher.preset.model.Component
 import com.launcher.preset.model.ShapeStyle
 import com.launcher.preset.model.TypographyScale
@@ -8,6 +9,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+
+/** Version this build reads for the theme-catalogue document (`wire-format.md` §11). */
+private val SCHEMA_VERSION: WireVersion = WireVersion(1, 0)
 
 /**
  * T036 — ThemeCatalog (FR-003, D3).
@@ -44,6 +48,17 @@ class ThemeCatalog(
     /** Names available in this catalog — useful for author-tooling UIs. */
     fun availableNames(): Set<String> = entries.keys
 
+    /**
+     * Applies the reader gate of `docs/architecture/wire-format.md` §3 to the catalogue root.
+     * Returns false when the document declares a reader we cannot satisfy, or when its version is
+     * missing or unparseable (§4 — fail closed, never guess the shape).
+     */
+    private fun isReadable(root: kotlinx.serialization.json.JsonObject): Boolean {
+        val minReader = root["minReaderVersion"]?.jsonPrimitive?.content
+            ?.let { WireVersion.parseOrNull(it) } ?: return false
+        return SCHEMA_VERSION >= minReader
+    }
+
     private fun loadEntries(): Map<String, Component.Theme> {
         val text = try {
             context.assets.open(assetPath).bufferedReader().use { it.readText() }
@@ -52,6 +67,12 @@ class ThemeCatalog(
         }
         return try {
             val root = json.parseToJsonElement(text).jsonObject
+            // Version header gate (wire-format.md §3, §4). Before TASK-138 the catalogue carried a
+            // schemaVersion that no production code read — the field existed but guaranteed
+            // nothing, so a catalogue from a future build would have been parsed on a guess. An
+            // unreadable or absent version now yields an empty catalogue, the same safe outcome
+            // this class already uses for a malformed file.
+            if (!isReadable(root)) return emptyMap()
             val themesArr = root["themes"]?.jsonArray ?: return emptyMap()
             themesArr.mapNotNull { element ->
                 val obj = element.jsonObject
