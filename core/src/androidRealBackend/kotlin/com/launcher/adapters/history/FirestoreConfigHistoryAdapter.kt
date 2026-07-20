@@ -1,7 +1,7 @@
 package com.launcher.adapters.history
 
 import com.launcher.api.config.SnapshotMigrator
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore

@@ -1,6 +1,6 @@
 package com.launcher.api.pairing
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import com.launcher.api.result.Outcome
 import com.launcher.api.sync.BackendError

@@ -1,6 +1,6 @@
 package com.launcher.api.edit
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 /**
  * Domain error variants для [NamedConfigsLocalStore] operations (FR-003c,

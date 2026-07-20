@@ -1,6 +1,6 @@
 package com.launcher.preset.wire
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import com.launcher.preset.model.ActiveComponentEntry
 import com.launcher.preset.model.HintFlowEntry

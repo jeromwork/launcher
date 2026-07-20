@@ -1,6 +1,6 @@
 package com.launcher.api
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 /**
  * Resolved preset view for UI and modules. Renamed from `ProfileSnapshot`

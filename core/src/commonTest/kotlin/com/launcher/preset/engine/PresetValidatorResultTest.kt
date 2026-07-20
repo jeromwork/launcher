@@ -1,6 +1,6 @@
 package com.launcher.preset.engine
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import com.launcher.preset.fakes.FakeCapabilityContract
 import com.launcher.preset.model.ActiveComponentEntry

@@ -3,7 +3,7 @@ package com.launcher.app.preset.task126
 import android.content.res.AssetManager
 import com.launcher.preset.model.HintFlowEntry
 import com.launcher.preset.port.HintPoolSource
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.JsonObject

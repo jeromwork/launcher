@@ -1,6 +1,6 @@
 package family.push
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import family.push.api.PushPayload
 import family.push.api.WireFormatVersion

@@ -1,6 +1,6 @@
 package family.push.fakes
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import family.push.api.EventType
 import family.push.api.PushHandler

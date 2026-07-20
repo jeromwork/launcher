@@ -5,7 +5,7 @@ import com.launcher.api.DegradationReason
 import com.launcher.api.EffectivePreset
 import com.launcher.api.ResolvedPresetSnapshot
 import com.launcher.core.events.EventRouter
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 import com.launcher.core.modules.ModuleRegistry
 import com.launcher.api.ProjectEvent
 import kotlinx.coroutines.flow.MutableStateFlow

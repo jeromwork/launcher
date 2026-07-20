@@ -1,8 +1,8 @@
 package com.launcher.api.capability
 
 import com.launcher.api.action.ProviderId
-import com.launcher.wire.WireVersion
-import com.launcher.wire.WireVersionHeader
+import family.wire.WireVersion
+import family.wire.WireVersionHeader
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable

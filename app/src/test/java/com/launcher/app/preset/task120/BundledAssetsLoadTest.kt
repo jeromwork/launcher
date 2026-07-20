@@ -1,6 +1,6 @@
 package com.launcher.app.preset.task120
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import androidx.test.core.app.ApplicationProvider
 import com.launcher.app.preset.task120.adapter.BundledPoolSource

@@ -1,4 +1,4 @@
-package com.launcher.wire
+package family.wire
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -86,7 +86,7 @@ data class WireVersion(
 
 internal object WireVersionSerializer : KSerializer<WireVersion> {
     override val descriptor: SerialDescriptor =
-        PrimitiveSerialDescriptor("com.launcher.wire.WireVersion", PrimitiveKind.STRING)
+        PrimitiveSerialDescriptor("family.wire.WireVersion", PrimitiveKind.STRING)
 
     override fun serialize(encoder: Encoder, value: WireVersion) {
         encoder.encodeString(value.toString())

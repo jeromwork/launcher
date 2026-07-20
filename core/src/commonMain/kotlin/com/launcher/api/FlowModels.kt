@@ -1,7 +1,7 @@
 package com.launcher.api
 
 import com.launcher.api.action.Action
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 data class FlowDescriptor(
     val schemaVersion: WireVersion,

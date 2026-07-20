@@ -1,6 +1,6 @@
 package com.launcher.adapters.auth
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import android.content.Context
 import androidx.credentials.CredentialManager

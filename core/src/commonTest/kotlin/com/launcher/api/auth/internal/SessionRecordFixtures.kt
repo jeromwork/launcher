@@ -1,6 +1,6 @@
 package com.launcher.api.auth.internal
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 /**
  * Тестовые фикстуры для wire-format тестов [SessionRecord] v1.

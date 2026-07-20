@@ -1,4 +1,4 @@
-package com.launcher.wire
+package family.wire
 
 /**
  * The three version fields every wire format carries from its first commit — invariant I1 of

@@ -1,6 +1,6 @@
 package com.launcher.api.link
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import com.launcher.api.config.ElementId
 import com.launcher.api.config.ServerTimestamp

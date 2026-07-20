@@ -1,5 +1,10 @@
 // :core:wire — the version identifier shared by every wire format in the ecosystem.
 //
+// Package root `family` means the FAMILY OF PRODUCTS (launcher, messenger, gallery), not the
+// target audience. The product deliberately refuses a family-only domain model — it must serve
+// a clinic, a managed device fleet and a self-configuring user equally (CLAUDE.md, personas vs
+// domain roles). Read `family.wire` as "our product family", never as "for families".
+//
 // Rules live in docs/architecture/wire-format.md (single source of truth). This module
 // implements §2 (the identifier + comparison), §3 (the three-outcome reader gate) and
 // §4 (fail closed with a typed error). It must stay a LEAF: every other module depends
@@ -31,9 +36,14 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(libs.kotlinx.serialization.json)
+            // Core, not JSON: this module describes the shape of a version, it does not decide
+            // how one is written. A consumer serializing to CBOR must not inherit the JSON artifact.
+            api(libs.kotlinx.serialization.core)
         }
         commonTest.dependencies {
+            // JSON is a TEST-only dependency on purpose: proving a version survives a roundtrip
+            // needs some concrete format, but the module itself must not commit to one.
+            implementation(libs.kotlinx.serialization.json)
             implementation(kotlin("test"))
             implementation(libs.kotest.assertions.core)
             implementation(libs.kotest.property)
@@ -47,7 +57,7 @@ kotlin {
 }
 
 android {
-    namespace = "com.launcher.wire"
+    namespace = "family.wire"
     compileSdk = libs.versions.compileSdk.get().toInt()
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()

@@ -1,6 +1,6 @@
 package com.launcher.api.capability
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 import com.launcher.api.action.ProviderId
 import com.launcher.api.wireformat.WireFormatJson
 import kotlinx.serialization.builtins.ListSerializer

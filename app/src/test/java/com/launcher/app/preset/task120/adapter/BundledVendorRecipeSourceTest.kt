@@ -1,6 +1,6 @@
 package com.launcher.app.preset.task120.adapter
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import android.content.Context
 import android.content.res.AssetManager

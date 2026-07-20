@@ -124,6 +124,10 @@ kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
+# Core only — descriptors and the Serializable contract, no concrete format. For modules that
+# describe a shape without deciding how it is written (`:core:wire`): pulling the JSON artifact
+# there would tie a format-neutral type to JSON for every future consumer.
+kotlinx-serialization-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-core", version.ref = "serialization" }
 # CBOR — для EncryptedEnvelope wire format (spec 011, contracts/crypto-envelope.md).
 # Binary-friendly, no base64 overhead, deterministic encoding (важно для Ed25519 signature над canonical payload).
 kotlinx-serialization-cbor = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-cbor", version.ref = "serialization" }

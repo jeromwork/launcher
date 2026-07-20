@@ -1,6 +1,6 @@
 package family.push.api
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 /**
  * T010 — Single source of truth для maximum supported wire-format schemaVersion

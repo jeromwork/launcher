@@ -1,6 +1,6 @@
 package com.launcher.fake
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import com.launcher.api.identity.AdminIdentity
 import com.launcher.api.identity.ManagedIdentity

@@ -1,6 +1,6 @@
 package com.launcher.adapters.sync
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentSnapshot

@@ -1,9 +1,9 @@
 package com.launcher.api.action
 
-import com.launcher.wire.UnknownWireVersionException
-import com.launcher.wire.WireAccess
-import com.launcher.wire.WireVersion
-import com.launcher.wire.accessFor
+import family.wire.UnknownWireVersionException
+import family.wire.WireAccess
+import family.wire.WireVersion
+import family.wire.accessFor
 import kotlinx.serialization.SerializationException
 import kotlin.test.Test
 import kotlin.test.assertEquals

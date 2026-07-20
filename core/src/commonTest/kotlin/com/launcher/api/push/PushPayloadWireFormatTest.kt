@@ -1,6 +1,6 @@
 package com.launcher.api.push
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject

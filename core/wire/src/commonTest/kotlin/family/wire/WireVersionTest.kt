@@ -1,4 +1,4 @@
-package com.launcher.wire
+package family.wire
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

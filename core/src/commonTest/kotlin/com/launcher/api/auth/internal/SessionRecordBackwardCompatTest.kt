@@ -1,6 +1,6 @@
 package com.launcher.api.auth.internal
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import kotlinx.serialization.json.Json
 import kotlin.test.Test

@@ -1,4 +1,4 @@
-package com.launcher.wire
+package family.wire
 
 /**
  * A document declares a version this reader cannot interpret, or the version string itself is

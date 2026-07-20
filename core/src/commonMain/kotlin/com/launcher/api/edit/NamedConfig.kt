@@ -1,7 +1,7 @@
 package com.launcher.api.edit
 
-import com.launcher.wire.WireVersion
-import com.launcher.wire.WireVersionHeader
+import family.wire.WireVersion
+import family.wire.WireVersionHeader
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 

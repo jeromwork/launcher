@@ -1,6 +1,6 @@
 package com.launcher.ui.navigation
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry

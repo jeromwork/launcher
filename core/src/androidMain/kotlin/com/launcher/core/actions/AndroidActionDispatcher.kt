@@ -11,9 +11,9 @@ import com.launcher.api.action.UnavailabilityHint
 import com.launcher.core.actions.handlers.ActionHandler
 import com.launcher.core.actions.handlers.HandlerContext
 import com.launcher.core.events.EventRouter
-import com.launcher.wire.CorruptWireFormatException
-import com.launcher.wire.UnknownWireVersionException
-import com.launcher.wire.accessFor
+import family.wire.CorruptWireFormatException
+import family.wire.UnknownWireVersionException
+import family.wire.accessFor
 
 /**
  * Default Android implementation of [ActionDispatcher] per spec 005 §7.1.

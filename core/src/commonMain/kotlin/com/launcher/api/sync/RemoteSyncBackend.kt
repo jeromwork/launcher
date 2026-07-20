@@ -1,6 +1,6 @@
 package com.launcher.api.sync
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import com.launcher.api.result.Outcome
 import kotlinx.coroutines.flow.Flow

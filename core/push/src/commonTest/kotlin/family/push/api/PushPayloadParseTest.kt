@@ -1,6 +1,6 @@
 package family.push.api
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

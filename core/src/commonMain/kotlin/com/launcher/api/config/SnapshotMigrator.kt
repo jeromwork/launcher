@@ -1,8 +1,8 @@
 package com.launcher.api.config
 
 import com.launcher.api.result.Outcome
-import com.launcher.wire.WireVersion
-import com.launcher.wire.accessFor
+import family.wire.WireVersion
+import family.wire.accessFor
 
 /**
  * Reader gate for [ConfigSnapshot] per `docs/architecture/wire-format.md` §3, and the future home

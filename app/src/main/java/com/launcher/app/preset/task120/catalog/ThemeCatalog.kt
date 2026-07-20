@@ -1,7 +1,7 @@
 package com.launcher.app.preset.task120.catalog
 
 import android.content.Context
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 import com.launcher.preset.model.Component
 import com.launcher.preset.model.ShapeStyle
 import com.launcher.preset.model.TypographyScale

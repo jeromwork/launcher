@@ -1,6 +1,6 @@
 package com.launcher.core.profile
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import com.launcher.api.DegradationReason
 import com.launcher.api.ResolvedPresetSnapshot

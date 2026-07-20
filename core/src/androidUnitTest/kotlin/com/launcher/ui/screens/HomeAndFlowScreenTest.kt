@@ -1,6 +1,6 @@
 package com.launcher.ui.screens
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule

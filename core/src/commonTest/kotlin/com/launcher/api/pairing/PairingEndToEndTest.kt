@@ -1,6 +1,6 @@
 package com.launcher.api.pairing
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import com.launcher.api.link.Link
 import com.launcher.api.push.PushPayload

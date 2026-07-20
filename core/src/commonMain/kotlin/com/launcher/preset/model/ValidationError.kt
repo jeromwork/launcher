@@ -1,6 +1,6 @@
 package com.launcher.preset.model
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 /**
  * Typed validation error surface (FR-019, CL-8).

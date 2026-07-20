@@ -1,6 +1,6 @@
 package com.launcher.api.config
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import com.launcher.api.result.Outcome
 import kotlin.test.Test

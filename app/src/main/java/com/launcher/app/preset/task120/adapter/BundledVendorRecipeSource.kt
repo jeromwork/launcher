@@ -1,7 +1,7 @@
 package com.launcher.app.preset.task120.adapter
 
-import com.launcher.wire.UnknownWireVersionException
-import com.launcher.wire.accessFor
+import family.wire.UnknownWireVersionException
+import family.wire.accessFor
 
 import android.content.Context
 import android.util.Log

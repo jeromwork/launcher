@@ -1,6 +1,6 @@
 package com.launcher.api.sync
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 
 import kotlinx.serialization.json.JsonElement
 

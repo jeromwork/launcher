@@ -1,6 +1,6 @@
 package com.launcher.api.health
 
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 import com.launcher.api.wireformat.WireFormatJson
 import kotlin.test.Test
 import kotlin.test.assertEquals

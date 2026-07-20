@@ -2,7 +2,7 @@ package com.launcher.core.actions
 
 import com.launcher.api.ProjectEvent
 import com.launcher.api.action.Action
-import com.launcher.wire.WireVersion
+import family.wire.WireVersion
 import com.launcher.api.action.ActionPayload
 import com.launcher.api.action.DispatchResult
 import com.launcher.api.action.ProviderAvailability
