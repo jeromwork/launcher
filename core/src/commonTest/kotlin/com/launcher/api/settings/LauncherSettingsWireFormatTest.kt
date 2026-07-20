@@ -1,5 +1,6 @@
 package com.launcher.api.settings
 
+import com.launcher.wire.WireVersion
 import com.launcher.api.wireformat.WireFormatJson
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -55,7 +56,7 @@ class LauncherSettingsWireFormatTest {
         val defaults = LauncherSettings.defaultsForPreset("simple-launcher")
         assertTrue(defaults.banners.airplane, "senior preset must enable airplane banner by default")
         assertTrue(defaults.banners.mute, "senior preset must enable mute banner by default")
-        assertEquals(1, defaults.schemaVersion)
+        assertEquals(WireVersion.parse("1.0"), defaults.schemaVersion)
     }
 
     @Test
@@ -87,7 +88,7 @@ class LauncherSettingsWireFormatTest {
         // Reserved field names from contract — спек 013 & 008 will populate
         // these without bumping schemaVersion. Spec 006 reader ignores them.
         val wire = """{
-            "schemaVersion": 999,
+            "schemaVersion": "999.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
             "banners": {
                 "airplane": true,
                 "mute": false,
@@ -101,7 +102,7 @@ class LauncherSettingsWireFormatTest {
             }
         }"""
         val parsed = json.decodeFromString(LauncherSettings.serializer(), wire)
-        assertEquals(999, parsed.schemaVersion)
+        assertEquals(WireVersion.parse("999.0"), parsed.schemaVersion)
         assertTrue(parsed.banners.airplane)
         assertFalse(parsed.banners.mute)
         // banners.offline ignored — not in v1 BannerToggles.
@@ -111,7 +112,7 @@ class LauncherSettingsWireFormatTest {
 
     @Test
     fun missingBannersField_usesDefault() {
-        val wire = """{"schemaVersion":1}"""
+        val wire = """{"schemaVersion":"1.0","minReaderVersion":"1.0","minWriterVersion":"1.0"}"""
         val parsed = json.decodeFromString(LauncherSettings.serializer(), wire)
         // BannerToggles default ctor → airplane=false, mute=false
         assertFalse(parsed.banners.airplane)
@@ -120,7 +121,7 @@ class LauncherSettingsWireFormatTest {
 
     @Test
     fun missingTogglesInBanners_useDefaults() {
-        val wire = """{"schemaVersion":1,"banners":{}}"""
+        val wire = """{"schemaVersion": "1.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0","banners":{}}"""
         val parsed = json.decodeFromString(LauncherSettings.serializer(), wire)
         assertFalse(parsed.banners.airplane)
         assertFalse(parsed.banners.mute)
@@ -130,6 +131,6 @@ class LauncherSettingsWireFormatTest {
     fun missingSchemaVersion_usesDefault() {
         val wire = """{"banners":{"airplane":true,"mute":true}}"""
         val parsed = json.decodeFromString(LauncherSettings.serializer(), wire)
-        assertEquals(1, parsed.schemaVersion)
+        assertEquals(WireVersion.parse("1.0"), parsed.schemaVersion)
     }
 }

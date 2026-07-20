@@ -1,5 +1,9 @@
 package com.launcher.api.health
 
+import com.launcher.wire.WireVersion
+import com.launcher.wire.WireVersionHeader
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 /**
@@ -23,9 +27,17 @@ import kotlinx.serialization.Serializable
  *  - [lastSeen] epoch millis of most recent foreground (RESUMED) event.
  *  - [appVersion] launcher's own `BuildConfig.VERSION_NAME`.
  */
+// @EncodeDefault: this format encodes with `encodeDefaults = false`, and I1 requires the version
+// fields on every document.
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class Health(
-    val schemaVersion: Int = SUPPORTED_SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val schemaVersion: WireVersion = SCHEMA_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minReaderVersion: WireVersion = MIN_READER_VERSION,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
+    override val minWriterVersion: WireVersion = MIN_WRITER_VERSION,
     val batteryPercent: Int,
     val charging: Boolean,
     val connectivity: Connectivity,
@@ -33,9 +45,15 @@ data class Health(
     val audioStreamMuted: Boolean,
     val lastSeen: Long,
     val appVersion: String,
-) {
+) : WireVersionHeader {
     companion object {
-        /** Wire-format version recognised by this build. Reader does NOT throw on > this (FR-043). */
-        const val SUPPORTED_SCHEMA_VERSION: Int = 1
+        /** What this build writes. Was the integer `1` before the conversion — never lowered (I3). */
+        val SCHEMA_VERSION: WireVersion = WireVersion(1, 0)
+
+        /** Nothing in this shape needs a newer reader; raise only on a meaning change (§3). */
+        val MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+
+        /** A snapshot is rewritten wholesale by the device that owns it, never merged. */
+        val MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
     }
 }

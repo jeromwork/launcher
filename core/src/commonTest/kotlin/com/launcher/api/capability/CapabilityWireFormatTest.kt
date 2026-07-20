@@ -1,5 +1,6 @@
 package com.launcher.api.capability
 
+import com.launcher.wire.WireVersion
 import com.launcher.api.action.ProviderId
 import com.launcher.api.wireformat.WireFormatJson
 import kotlinx.serialization.builtins.ListSerializer
@@ -85,7 +86,7 @@ class CapabilityWireFormatTest {
         val parsed = json.decodeFromString(Capability.serializer(), wire)
         assertNull(parsed.iconSha256)
         assertNull(parsed.versionCode)
-        assertEquals(1, parsed.schemaVersion) // companion default
+        assertEquals(WireVersion.parse("1.0"), parsed.schemaVersion) // companion default
     }
 
     // -- Forward-compat: future schemaVersion (FR-043, SC-015) -------------
@@ -96,7 +97,7 @@ class CapabilityWireFormatTest {
         // not crash; known fields populate; schemaVersion is preserved as-is so
         // consumer can decide to downgrade behaviour.
         val wire = """{
-            "schemaVersion": 999,
+            "schemaVersion": "999.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
             "providerId": "whatsapp",
             "displayName": "WhatsApp",
             "iconId": "bundled:whatsapp",
@@ -106,7 +107,7 @@ class CapabilityWireFormatTest {
             "anotherUnknown": [1, 2, 3]
         }"""
         val parsed = json.decodeFromString(Capability.serializer(), wire)
-        assertEquals(999, parsed.schemaVersion)
+        assertEquals(WireVersion.parse("999.0"), parsed.schemaVersion)
         assertEquals(ProviderId.WHATSAPP, parsed.providerId)
         assertEquals("WhatsApp", parsed.displayName)
         assertEquals("bundled:whatsapp", parsed.iconId)

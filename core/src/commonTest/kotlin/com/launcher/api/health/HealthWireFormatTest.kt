@@ -1,5 +1,6 @@
 package com.launcher.api.health
 
+import com.launcher.wire.WireVersion
 import com.launcher.api.wireformat.WireFormatJson
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -106,7 +107,7 @@ class HealthWireFormatTest {
         // Here we verify: known-enum forward-compat with extra unknown fields
         // doesn't crash.
         val wire = """{
-            "schemaVersion": 999,
+            "schemaVersion": "999.0", "minReaderVersion": "1.0", "minWriterVersion": "1.0",
             "batteryPercent": 80,
             "charging": false,
             "connectivity": "Wifi",
@@ -118,7 +119,7 @@ class HealthWireFormatTest {
             "anotherUnknown": [1, 2, 3]
         }"""
         val parsed = json.decodeFromString(Health.serializer(), wire)
-        assertEquals(999, parsed.schemaVersion)
+        assertEquals(WireVersion.parse("999.0"), parsed.schemaVersion)
         assertEquals(Connectivity.Wifi, parsed.connectivity)
         assertEquals(80, parsed.batteryPercent)
     }
@@ -137,10 +138,6 @@ class HealthWireFormatTest {
     fun wire_containsAllNonDefaultFields() {
         val original = sample()
         val wire = json.encodeToString(Health.serializer(), original)
-        // 7 of 8 fields appear in wire. `schemaVersion` is omitted by
-        // encodeDefaults=false policy (inherited from spec 005 ActionWireFormat.json)
-        // because the value equals SUPPORTED_SCHEMA_VERSION default. See separate
-        // test below for non-default schemaVersion serialisation.
         listOf(
             "batteryPercent", "charging", "connectivity",
             "ringerVolumePercent", "audioStreamMuted", "lastSeen", "appVersion",
@@ -150,10 +147,15 @@ class HealthWireFormatTest {
     }
 
     @Test
-    fun wire_omitsSchemaVersionWhenDefault() {
-        // encodeDefaults=false: default value не пишется в wire (smaller payloads).
-        // Reader восстановит default при чтении — round-trip корректен (verified above).
+    fun wire_alwaysCarriesTheVersionFields_evenAtDefaults() {
+        // Inverted by the wire-format conversion. Under encodeDefaults=false these fields used to
+        // be dropped when they held their defaults, so a document could ship with no version at
+        // all — invariant I1 forbids that, and @EncodeDefault(ALWAYS) on the format keeps them on
+        // the wire. Payload size was the wrong thing to optimise here: a version-less document is
+        // unreadable by any future reader that needs to know what wrote it.
         val wire = json.encodeToString(Health.serializer(), sample())
-        assertTrue(!wire.contains("schemaVersion"), "default schemaVersion should be omitted: $wire")
+        assertTrue(wire.contains("\"schemaVersion\":\"1.0\""), "wire: $wire")
+        assertTrue(wire.contains("\"minReaderVersion\":\"1.0\""), "wire: $wire")
+        assertTrue(wire.contains("\"minWriterVersion\":\"1.0\""), "wire: $wire")
     }
 }
