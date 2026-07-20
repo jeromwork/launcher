@@ -2,6 +2,7 @@
 id: TASK-56
 title: Rename family.keys.* → cryptokit.keys.* namespace
 status: Done
+superseded-by: TASK-141
 assignee: []
 created_date: '2026-06-26 09:44'
 updated_date: '2026-07-13'
@@ -56,3 +57,17 @@ Trivial. ~30 мин — это чистый find-replace + git mv + import updat
 - [x] #5 [hand] Wire literal `PrimitiveSerialDescriptor("family.keys.ByteArrayBase64")` переименован в `cryptokit.keys.ByteArrayBase64` (owner authorized 2026-07-13 — no production consumers)
 - [x] #6 [hand] Addendum consolidation: ByteArrayBase64Serializer унифицирован в :core:crypto (был продублирован в :core:crypto и :core:keys); :core:keys импортит из :core:crypto; SerialDescriptor name = `cryptokit.ByteArrayBase64` (stack-wide, не module-scoped)
 <!-- AC:END -->
+
+<!-- SECTION:SUPERSEDED:BEGIN -->
+
+## Отменена TASK-141 (2026-07-20)
+
+Это переименование **обращено вспять**. Решение владельца 2026-07-20: `family` становится единым корнем для всей выносной части экосистемы — `family.crypto`, `family.keys`, `family.push`, `family.wire`.
+
+**Почему прежнее решение отменено.** Оно опиралось на мандат владельца от 2026-06-26 («слово family меня смущает»), где `family` читалось как **целевая аудитория** — «для семей». В 2026-07-20 владелец уточнил, что имеет в виду **семейство продуктов** (лаунчер, мессенджер, галерея), и в этом значении корень возражений не вызывает. `cryptokit` отвергнут как общий корень по существу: это **один из модулей** внутри выносимой части, а не её название — под ним не лежат ни `wire`, ни `push`.
+
+**Что это тянет за собой** (делается в TASK-141, не здесь): правило `NoLegacyFamilyNamespaceTest` запрещает ровно те префиксы, к которым мы возвращаемся, — его список инвертируется в том же коммите, иначе переименование не соберётся.
+
+**Работа не пропала**: TASK-51 и TASK-56 свели три разных корня к одному. Меняется само слово, не структура.
+
+<!-- SECTION:SUPERSEDED:END -->
