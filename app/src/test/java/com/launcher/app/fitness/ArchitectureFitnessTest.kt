@@ -144,6 +144,38 @@ class ArchitectureFitnessTest {
         )
     }
 
+    @Test
+    fun kotlinAndTypeScriptAgreeOnThePushWireVersion() {
+        val kotlin = File(repoRoot, KOTLIN_PUSH_VERSIONS)
+        val typescript = File(repoRoot, TYPESCRIPT_PUSH_VERSIONS)
+        // Fail rather than pass when a side cannot be read. A comparison that quietly finds
+        // nothing to compare is the failure mode this whole task exists to remove.
+        check(kotlin.isFile) { "Cross-language check cannot find $KOTLIN_PUSH_VERSIONS" }
+        check(typescript.isFile) { "Cross-language check cannot find $TYPESCRIPT_PUSH_VERSIONS" }
+
+        val kotlinText = kotlin.readText()
+        val typescriptText = typescript.readText()
+        val violations = VERSION_CONSTANTS.mapNotNull { constant ->
+            val fromKotlin = KOTLIN_VERSION_CONSTANT(constant).find(kotlinText)
+                ?.let { "${it.groupValues[1]}.${it.groupValues[2]}" }
+                ?: return@mapNotNull "$constant — not found in $KOTLIN_PUSH_VERSIONS"
+            val fromTypeScript = TYPESCRIPT_VERSION_CONSTANT(constant).find(typescriptText)
+                ?.groupValues?.get(1)
+                ?: return@mapNotNull "$constant — not found in $TYPESCRIPT_PUSH_VERSIONS"
+            if (fromKotlin == fromTypeScript) null
+            else "$constant — Kotlin says \"$fromKotlin\", TypeScript says \"$fromTypeScript\""
+        }
+        report(
+            violations,
+            "PushWireVersionCrossLanguage",
+            "The client and the Worker speak one protocol and must agree on its version. They " +
+                "hold independent constants, so a bump on one side alone is invisible until a " +
+                "device talks to a Worker that refuses it. The comment in WireFormatVersion.kt " +
+                "used to claim a 'T402 fitness function' checked this; that script was never " +
+                "committed, and nothing checked it from spec 019 until now.",
+        )
+    }
+
     // --- PresetIdBranching (TASK-65 FR-020) ---------------------------------
 
     @Test
@@ -356,6 +388,24 @@ class ArchitectureFitnessTest {
          * the same line, so they do not match.
          */
         val PARAMETER_SEPARATOR = Regex("""[,(][ \t]*\r?\n""")
+
+        // --- cross-language --------------------------------------------------
+
+        const val KOTLIN_PUSH_VERSIONS =
+            "core/push/src/commonMain/kotlin/family/push/api/WireFormatVersion.kt"
+        const val TYPESCRIPT_PUSH_VERSIONS = "workers/push/src/contract/wire-format.ts"
+
+        val VERSION_CONSTANTS = listOf("SCHEMA_VERSION", "MIN_READER_VERSION", "MIN_WRITER_VERSION")
+
+        /** `val SCHEMA_VERSION: WireVersion = WireVersion(1, 0)` → captures 1 and 0. */
+        val KOTLIN_VERSION_CONSTANT: (String) -> Regex = { name ->
+            Regex("""val\s+$name\s*:\s*WireVersion\s*=\s*WireVersion\(\s*(\d+)\s*,\s*(\d+)\s*\)""")
+        }
+
+        /** `export const SCHEMA_VERSION = "1.0";` → captures 1.0. */
+        val TYPESCRIPT_VERSION_CONSTANT: (String) -> Regex = { name ->
+            Regex("""export\s+const\s+$name\s*=\s*"([^"]+)"""")
+        }
 
         val VERSION_MIRROR_WRITERS = listOf(
             "adapters/sync/FirebaseRemoteSyncBackend.kt",

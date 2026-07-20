@@ -6,9 +6,10 @@ import family.wire.WireVersion
  * T010 — Single source of truth для maximum supported wire-format schemaVersion
  * на client. Per spec 019 FR-013, data-model.md §WireFormatVersion.
  *
- * Mirror в TypeScript: `workers/push/src/contract/wire-format.ts`
- * `MAX_SUPPORTED_SCHEMA_VERSION` const + Worker var `MAX_SUPPORTED_SCHEMA_VERSION`.
- * T402 fitness function проверяет что обе константы equal.
+ * Mirror в TypeScript: `workers/push/src/contract/wire-format.ts` — те же три константы.
+ * Равенство обеих сторон проверяет `ArchitectureFitnessTest.kotlinAndTypeScriptAgreeOnThePushWireVersion`
+ * (TASK-142). Прежний комментарий здесь ссылался на «T402 fitness function» — тот скрипт
+ * никогда не коммитился, и со спеки 019 расхождение не ловило ничто.
  *
  * Asymmetric policy (forward-compat at receiver), expressed via the reader gate of
  * `docs/architecture/wire-format.md` §3 — the receiver drops only what asks for a newer reader:
