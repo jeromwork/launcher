@@ -85,7 +85,6 @@ class RecoveryFlowTest {
 
         assertTrue(s.backup.has(uid))
         val blob = (s.backup.fetchBlob(uid) as Outcome.Success<RecoveryKeyBackupBlob>).value
-        assertEquals(1, blob.schemaVersion)
         assertEquals(32, blob.salt.size)
         assertEquals(24, blob.nonce.size)
         assertTrue(blob.ciphertext.isNotEmpty())
@@ -252,7 +251,14 @@ class RecoveryFlowTest {
         val blob = (sA.backup.fetchBlob(uid) as Outcome.Success<RecoveryKeyBackupBlob>).value
 
         val sB = makeSetup()
-        val corrupted = blob.copy(ciphertext = ByteArray(48) { 0xFF.toByte() })
+        val corrupted = RecoveryKeyBackupBlob(
+            stableId = blob.stableId,
+            salt = blob.salt,
+            kdfParams = blob.kdfParams,
+            ciphertext = ByteArray(48) { 0xFF.toByte() },
+            nonce = blob.nonce,
+            createdAt = blob.createdAt,
+        )
         sB.backup.seed(uid, corrupted)
         sB.prompter.enqueueRecovery("correct-pw")
 

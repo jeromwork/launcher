@@ -1,11 +1,9 @@
 package family.keys.api
 
-import family.crypto.api.values.ByteArrayBase64Serializer
 import kotlinx.datetime.Instant
-import kotlinx.serialization.Serializable
 
 /**
- * Wire-format для passphrase-wrapped root key (contracts/recovery-key-backup-v1.md §3).
+ * Passphrase-wrapped root key (contracts/recovery-key-backup-v1.md §3).
  *
  * **Lifecycle**:
  *  • Setup: client generates root → user picks passphrase → derive wrapKey
@@ -13,8 +11,12 @@ import kotlinx.serialization.Serializable
  *  • Recovery: client signs in same UID → fetch blob → prompt passphrase →
  *    derive wrapKey same params (params живут внутри blob'а) → AEAD unwrap.
  *
- * **Versioning** (per CLAUDE.md rule 5):
- *  • `schemaVersion` — для backward-compat reads.
+ * **Pure crypto type** (`:core:keys`, TASK-141): carries no schema version and no
+ * serialization annotations (CLAUDE.md rule 1 crypto exception). The wire version +
+ * JSON serialization live above crypto, in the adapter that stores this blob — the
+ * `@Serializable RecoveryKeyBackupBlobDto` + `RecoveryBlobJsonCodec` in
+ * `com.launcher.app.data.recovery` (:app) own the `schemaVersion` and the reader
+ * gate. Fields:
  *  • `stableId` — required UUID v4 для provider-agnostic идентификации.
  *  • `salt` — 32 bytes raw (XChaCha20 standard).
  *  • `kdfParams` — Argon2id memoryKb/iterations/parallelism (см. [KdfParams]).
@@ -22,16 +24,11 @@ import kotlinx.serialization.Serializable
  *  • `nonce` — 24 bytes raw.
  *  • `createdAt` — ISO-8601 Instant.
  */
-@Serializable
-data class RecoveryKeyBackupBlob(
-    val schemaVersion: Int = SCHEMA_VERSION_V1,
+class RecoveryKeyBackupBlob(
     val stableId: StableId,
-    @Serializable(with = ByteArrayBase64Serializer::class)
     val salt: ByteArray,
     val kdfParams: KdfParams,
-    @Serializable(with = ByteArrayBase64Serializer::class)
     val ciphertext: ByteArray,
-    @Serializable(with = ByteArrayBase64Serializer::class)
     val nonce: ByteArray,
     val createdAt: Instant,
 ) {
@@ -45,8 +42,7 @@ data class RecoveryKeyBackupBlob(
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is RecoveryKeyBackupBlob) return false
-        return schemaVersion == other.schemaVersion &&
-            stableId == other.stableId &&
+        return stableId == other.stableId &&
             salt.contentEquals(other.salt) &&
             kdfParams == other.kdfParams &&
             ciphertext.contentEquals(other.ciphertext) &&
@@ -55,18 +51,12 @@ data class RecoveryKeyBackupBlob(
     }
 
     override fun hashCode(): Int {
-        var result = schemaVersion
-        result = 31 * result + stableId.hashCode()
+        var result = stableId.hashCode()
         result = 31 * result + salt.contentHashCode()
         result = 31 * result + kdfParams.hashCode()
         result = 31 * result + ciphertext.contentHashCode()
         result = 31 * result + nonce.contentHashCode()
         result = 31 * result + createdAt.hashCode()
         return result
-    }
-
-    companion object {
-        const val SCHEMA_VERSION_V1: Int = 1
-        const val SCHEMA_VERSION: Int = SCHEMA_VERSION_V1
     }
 }

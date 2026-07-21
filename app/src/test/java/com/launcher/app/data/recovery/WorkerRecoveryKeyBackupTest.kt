@@ -4,7 +4,6 @@ import family.keys.api.BackupError
 import family.keys.api.KdfParams
 import family.keys.api.Outcome
 import family.keys.api.RecoveryKeyBackupBlob
-import family.keys.impl.RecoveryBlobCodec
 import family.push.api.IdTokenProvider
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Instant
@@ -170,7 +169,7 @@ class WorkerRecoveryKeyBackupTest {
     @Test
     fun fetchHappyPathRoundtrips() = runTest {
         val blob = sampleBlob()
-        mock.respondAlwaysWith(200, RecoveryBlobCodec.encode(blob))
+        mock.respondAlwaysWith(200, RecoveryBlobJsonCodec.encode(blob))
         val result = adapter().fetchBlob("uid-1")
         val success = result as Outcome.Success<RecoveryKeyBackupBlob>
         assertEquals(blob, success.value)

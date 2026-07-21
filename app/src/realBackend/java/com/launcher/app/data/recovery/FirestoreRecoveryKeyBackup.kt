@@ -84,7 +84,7 @@ class FirestoreRecoveryKeyBackup(
     }
 
     private fun encodeBlob(blob: RecoveryKeyBackupBlob): Map<String, Any> = mapOf(
-        FIELD_SCHEMA_VERSION to blob.schemaVersion,
+        FIELD_SCHEMA_VERSION to RecoveryBlobJsonCodec.WIRE_SCHEMA_VERSION,
         FIELD_STABLE_ID to blob.stableId,
         FIELD_SALT to Blob.fromBytes(blob.salt),
         FIELD_KDF_PARAMS to mapOf(
@@ -99,32 +99,36 @@ class FirestoreRecoveryKeyBackup(
     )
 
     @Suppress("UNCHECKED_CAST")
-    private fun decodeBlob(data: Map<String, Any>): RecoveryKeyBackupBlob? = try {
-        val schemaVersion = (data[FIELD_SCHEMA_VERSION] as? Number)?.toInt() ?: return null
-        val stableId = data[FIELD_STABLE_ID] as? String ?: return null
-        val salt = (data[FIELD_SALT] as? Blob)?.toBytes() ?: return null
-        val kdfParamsMap = data[FIELD_KDF_PARAMS] as? Map<String, Any> ?: return null
-        val kdfParams = KdfParams(
-            algorithm = kdfParamsMap[FIELD_KDF_ALGORITHM] as? String ?: return null,
-            memoryKb = (kdfParamsMap[FIELD_KDF_MEMORY] as? Number)?.toInt() ?: return null,
-            iterations = (kdfParamsMap[FIELD_KDF_ITERATIONS] as? Number)?.toInt() ?: return null,
-            parallelism = (kdfParamsMap[FIELD_KDF_PARALLELISM] as? Number)?.toInt() ?: return null
-        )
-        val ciphertext = (data[FIELD_CIPHERTEXT] as? Blob)?.toBytes() ?: return null
-        val nonce = (data[FIELD_NONCE] as? Blob)?.toBytes() ?: return null
-        val createdAtStr = data[FIELD_CREATED_AT] as? String ?: return null
-        val createdAt = Instant.parse(createdAtStr)
-        RecoveryKeyBackupBlob(
-            schemaVersion = schemaVersion,
-            stableId = stableId,
-            salt = salt,
-            kdfParams = kdfParams,
-            ciphertext = ciphertext,
-            nonce = nonce,
-            createdAt = createdAt
-        )
-    } catch (t: Throwable) {
-        null
+    private fun decodeBlob(data: Map<String, Any>): RecoveryKeyBackupBlob? {
+        return try {
+            val schemaVersion = (data[FIELD_SCHEMA_VERSION] as? Number)?.toInt() ?: return null
+            // Reader gate (moved out of the crypto type per TASK-141): refuse a document
+            // from a newer writer instead of parsing a shape we do not understand.
+            if (schemaVersion > RecoveryBlobJsonCodec.WIRE_SCHEMA_VERSION) return null
+            val stableId = data[FIELD_STABLE_ID] as? String ?: return null
+            val salt = (data[FIELD_SALT] as? Blob)?.toBytes() ?: return null
+            val kdfParamsMap = data[FIELD_KDF_PARAMS] as? Map<String, Any> ?: return null
+            val kdfParams = KdfParams(
+                algorithm = kdfParamsMap[FIELD_KDF_ALGORITHM] as? String ?: return null,
+                memoryKb = (kdfParamsMap[FIELD_KDF_MEMORY] as? Number)?.toInt() ?: return null,
+                iterations = (kdfParamsMap[FIELD_KDF_ITERATIONS] as? Number)?.toInt() ?: return null,
+                parallelism = (kdfParamsMap[FIELD_KDF_PARALLELISM] as? Number)?.toInt() ?: return null
+            )
+            val ciphertext = (data[FIELD_CIPHERTEXT] as? Blob)?.toBytes() ?: return null
+            val nonce = (data[FIELD_NONCE] as? Blob)?.toBytes() ?: return null
+            val createdAtStr = data[FIELD_CREATED_AT] as? String ?: return null
+            val createdAt = Instant.parse(createdAtStr)
+            RecoveryKeyBackupBlob(
+                stableId = stableId,
+                salt = salt,
+                kdfParams = kdfParams,
+                ciphertext = ciphertext,
+                nonce = nonce,
+                createdAt = createdAt
+            )
+        } catch (t: Throwable) {
+            null
+        }
     }
 
     override suspend fun deleteBlob(uid: String): Outcome<Unit, BackupError> {

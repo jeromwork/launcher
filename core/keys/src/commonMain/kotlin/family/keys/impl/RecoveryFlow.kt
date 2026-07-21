@@ -121,10 +121,9 @@ class RecoveryFlow(
             }
         }
 
-        // Schema-version validation (H-3 analog для recovery blob).
-        if (blob.schemaVersion > RecoveryKeyBackupBlob.SCHEMA_VERSION) {
-            return Outcome.Failure(RecoveryError.MalformedVault)
-        }
+        // Wire-version gating happens in the storage adapter's JSON codec now
+        // (TASK-141 — crypto no longer decides about versions); an unreadable
+        // version surfaces as BackupError.UnsupportedSchema → MalformedVault above.
 
         // Algorithm guard (DZ-10, R16 post-review): blob carries kdfParams.algorithm;
         // we must refuse blobs whose algorithm we do not implement, instead of silently

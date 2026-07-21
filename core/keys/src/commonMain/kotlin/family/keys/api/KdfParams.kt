@@ -1,7 +1,5 @@
 package family.keys.api
 
-import kotlinx.serialization.Serializable
-
 /**
  * Argon2id KDF параметры для passphrase derivation (FR-006, data-model.md §5).
  *
@@ -22,7 +20,6 @@ import kotlinx.serialization.Serializable
  * @param memoryKb Объём памяти в KiB. Минимум 1024 (1 MiB).
  * @param parallelism Степень параллелизма. Минимум 1.
  */
-@Serializable
 data class KdfParams(
     val algorithm: String = ALGORITHM_ARGON2ID,
     val iterations: Int = DEFAULT_ITERATIONS,
