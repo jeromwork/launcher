@@ -1,8 +1,10 @@
 package com.launcher.app.di
 
+import com.launcher.adapters.crypto.FileKeyBlobStore
 import com.launcher.adapters.crypto.PairRecipientResolver
 import com.launcher.adapters.crypto.PairingCryptoCoordinator
 import family.crypto.api.AeadCipher
+import family.crypto.api.KeyBlobStore
 import family.crypto.api.AsymmetricCrypto
 import family.crypto.api.KeyDerivation
 import family.crypto.api.KeyEscrow
@@ -66,7 +68,10 @@ val cryptokitModule = module {
     single<AeadCipher> { LibsodiumAeadCipher(random = get()) }
     single<AsymmetricCrypto> { LibsodiumAsymmetricCrypto() }
     single<KeyDerivation> { LibsodiumKeyDerivation() }
-    single { KeyStoreContext(androidContext = androidContext()) }
+    // TASK-141 — SecureKeyStore no longer owns the on-disk KeyBlob format; it hands
+    // wrapped bytes to a KeyBlobStore. FileKeyBlobStore (:core) writes the versioned blob.
+    single<KeyBlobStore> { FileKeyBlobStore(androidContext()) }
+    single { KeyStoreContext(androidContext = androidContext(), blobStore = get()) }
     single { SecureKeyStore(context = get()) }
     single<KeyRotation> { StubKeyRotation() }
     single<KeyEscrow> { StubKeyEscrow() }

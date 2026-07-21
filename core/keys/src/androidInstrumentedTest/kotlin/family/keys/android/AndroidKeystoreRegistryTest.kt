@@ -3,6 +3,7 @@ package family.keys.android
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ionspin.kotlin.crypto.LibsodiumInitializer
+import family.crypto.api.InMemoryKeyBlobStore
 import family.crypto.api.KeyStoreContext
 import family.crypto.api.SecureKeyStore
 import family.crypto.libsodium.LibsodiumAeadCipher
@@ -48,7 +49,7 @@ class AndroidKeystoreRegistryTest {
     private suspend fun buildRegistry(): Pair<AndroidKeystoreRegistry, RootKeyManagerImpl> {
         if (!LibsodiumInitializer.isInitialized()) LibsodiumInitializer.initialize()
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val keystore = SecureKeyStore(KeyStoreContext(context))
+        val keystore = SecureKeyStore(KeyStoreContext(context, InMemoryKeyBlobStore()))
         val random = LibsodiumRandomSource()
         val aead = LibsodiumAeadCipher()
         val rootMgr = RootKeyManagerImpl(keystore, random, aead)

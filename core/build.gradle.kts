@@ -52,6 +52,9 @@ kotlin {
 
             // kotlinx.serialization — used for Decompose Config persistence + future config files
             implementation(libs.kotlinx.serialization.json)
+            // kotlinx-datetime — Instant in the KeyBlob wire format (moved here from
+            // :core:crypto in TASK-141).
+            implementation(libs.kotlinx.datetime)
 
             // SQLDelight — KMP local persistence для spec 008 LocalConfigStore.
             implementation(libs.sqldelight.runtime)

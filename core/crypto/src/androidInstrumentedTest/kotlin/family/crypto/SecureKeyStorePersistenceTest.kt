@@ -2,6 +2,7 @@ package family.crypto
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import family.crypto.api.InMemoryKeyBlobStore
 import family.crypto.api.KeyStoreContext
 import family.crypto.api.SecureKeyStore
 import family.crypto.api.values.KeyId
@@ -19,7 +20,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class SecureKeyStorePersistenceTest {
 
-    private val ctx = KeyStoreContext(ApplicationProvider.getApplicationContext())
+    private val ctx = KeyStoreContext(ApplicationProvider.getApplicationContext(), InMemoryKeyBlobStore())
     private val store = SecureKeyStore(ctx)
     private val testKeyId = KeyId("__internal-test-key-v1")
 

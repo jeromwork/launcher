@@ -4,14 +4,12 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
-import family.crypto.api.values.KeyBlob
 import family.crypto.api.values.KeyId
+import family.crypto.api.values.WrappedKeyMaterial
 import family.crypto.exception.CryptoException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
-import kotlinx.serialization.json.Json
-import java.io.File
 import java.security.KeyStore
 import java.security.KeyStoreException
 import java.security.UnrecoverableKeyException
@@ -21,11 +19,15 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /**
- * Android actual — wrap-pattern per research.md §R3 + contracts/key-blob-v1.md.
+ * Android actual — wrap-pattern per research.md §R3.
  *
- * Layer 1 (TEE): AES-256-GCM key in Android Keystore under [WRAP_KEY_ALIAS].
- * Layer 2 (file): wrapped private key bytes serialized as [KeyBlob] JSON under
- * `<filesDir>/keys/${keyId.raw}.blob`.
+ * Layer 1 (TEE): AES-256-GCM key in Android Keystore under [WRAP_KEY_ALIAS] wraps the
+ * raw private key bytes. The wrapped bytes are handed to a [KeyBlobStore] for persistence.
+ *
+ * TASK-141: this class no longer knows the on-disk format. It wraps/unwraps and hands the
+ * opaque [WrappedKeyMaterial] to [KeyStoreContext.blobStore]; the persistence adapter owns
+ * the `KeyBlob` wire shape + schema version + the reader gate (rule 1 crypto exception —
+ * crypto carries no version and no serialization).
  *
  * StrongBox-backed where available (Pixel Titan / Samsung Knox), falls back to TEE.
  * `setUserAuthenticationRequired(false)` — admin/identity keys MUST NOT block on
@@ -42,9 +44,7 @@ import javax.crypto.spec.GCMParameterSpec
  */
 actual class SecureKeyStore actual constructor(context: KeyStoreContext) {
 
-    private val androidContext: Context = context.androidContext
-    private val keysDir: File by lazy { File(androidContext.filesDir, KEYS_DIR).apply { mkdirs() } }
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val blobStore: KeyBlobStore = context.blobStore
 
     actual suspend fun store(keyId: KeyId, secret: ByteArray) = withContext(Dispatchers.IO) {
         try {
@@ -53,15 +53,16 @@ actual class SecureKeyStore actual constructor(context: KeyStoreContext) {
             cipher.init(Cipher.ENCRYPT_MODE, wrapKey)
             val wrapped = cipher.doFinal(secret)
             val iv = cipher.iv
-            val blob = KeyBlob(
-                algorithm = inferAlgorithm(secret),
-                createdAt = Clock.System.now(),
-                wrappedKey = wrapped,
-                iv = iv,
-                wrapKeyAlias = WRAP_KEY_ALIAS
+            blobStore.write(
+                keyId,
+                WrappedKeyMaterial(
+                    algorithm = inferAlgorithm(secret),
+                    createdAt = Clock.System.now(),
+                    wrappedKey = wrapped,
+                    iv = iv,
+                    wrapKeyAlias = WRAP_KEY_ALIAS,
+                ),
             )
-            val text = json.encodeToString(KeyBlob.serializer(), blob)
-            keyFile(keyId).writeBytes(text.encodeToByteArray())
         } catch (e: KeyStoreException) {
             throw CryptoException.KeystoreUnavailable("Android Keystore not available", e)
         } catch (e: UnrecoverableKeyException) {
@@ -70,27 +71,12 @@ actual class SecureKeyStore actual constructor(context: KeyStoreContext) {
     }
 
     actual suspend fun load(keyId: KeyId): ByteArray? = withContext(Dispatchers.IO) {
-        val file = keyFile(keyId)
-        if (!file.exists()) return@withContext null
-        val text = file.readBytes().decodeToString()
-        val blob = try {
-            json.decodeFromString(KeyBlob.serializer(), text)
-        } catch (e: Exception) {
-            throw CryptoException.KeyBlobDeserializationFailed(
-                "Cannot parse KeyBlob for ${keyId.raw}", e
-            )
-        }
-        if (blob.schemaVersion > KeyBlob.CURRENT_SCHEMA_VERSION) {
-            throw CryptoException.UnsupportedSchemaVersion(
-                found = blob.schemaVersion,
-                known = KeyBlob.CURRENT_SCHEMA_VERSION
-            )
-        }
-        val wrapKey = loadWrapKeyOrThrow(blob.wrapKeyAlias)
+        val material = blobStore.read(keyId) ?: return@withContext null
+        val wrapKey = loadWrapKeyOrThrow(material.wrapKeyAlias)
         val cipher = Cipher.getInstance(AES_GCM_NO_PADDING)
-        cipher.init(Cipher.DECRYPT_MODE, wrapKey, GCMParameterSpec(GCM_TAG_BITS, blob.iv))
+        cipher.init(Cipher.DECRYPT_MODE, wrapKey, GCMParameterSpec(GCM_TAG_BITS, material.iv))
         try {
-            cipher.doFinal(blob.wrappedKey)
+            cipher.doFinal(material.wrappedKey)
         } catch (e: Exception) {
             throw CryptoException.KeystoreInvalidated(
                 "Unwrap failed for ${keyId.raw} — wrap key may have been invalidated", e
@@ -99,11 +85,8 @@ actual class SecureKeyStore actual constructor(context: KeyStoreContext) {
     }
 
     actual suspend fun delete(keyId: KeyId) = withContext(Dispatchers.IO) {
-        keyFile(keyId).delete()
-        Unit
+        blobStore.delete(keyId)
     }
-
-    private fun keyFile(keyId: KeyId): File = File(keysDir, "${keyId.raw}.blob")
 
     private fun ensureWrapKey(): SecretKey {
         val ks = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
@@ -156,8 +139,10 @@ actual class SecureKeyStore actual constructor(context: KeyStoreContext) {
         const val AES_GCM_NO_PADDING = "AES/GCM/NoPadding"
         const val GCM_TAG_BITS = 128
         const val WRAP_KEY_SIZE_BITS = 256
-        const val KEYS_DIR = "keys"
     }
 }
 
-actual class KeyStoreContext(val androidContext: Context)
+actual class KeyStoreContext(
+    val androidContext: Context,
+    val blobStore: KeyBlobStore,
+)

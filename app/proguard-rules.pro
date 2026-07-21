@@ -6,6 +6,7 @@
 
 # Spec 016 — keep KeyBlob @Serializable shape stable for backward-compat reads
 # (contracts/key-blob-v1.md mandates that future minor releases parse v1 fixtures).
--keepnames class family.crypto.api.values.KeyBlob { *; }
--keepnames class family.crypto.api.values.KeyBlob$Companion { *; }
+# TASK-141 — KeyBlob moved out of :core:crypto into the adapter layer (:core).
+-keepnames class com.launcher.adapters.crypto.KeyBlob { *; }
+-keepnames class com.launcher.adapters.crypto.KeyBlob$Companion { *; }
 -keepnames class family.crypto.api.values.ByteArrayBase64Serializer { *; }

@@ -448,6 +448,10 @@ class ArchitectureFitnessTest {
             // dotted-string three-field header + firestore.rules is Part D, which
             // empties this whole list.
             "data/recovery/RecoveryBlobJsonCodec.kt",
+            // The on-disk KeyBlob format TASK-141 Part C moved out of :core:crypto. Local
+            // file (not a Firestore document), still on the integer schemaVersion; the
+            // dotted-string header is Part D along with the rest.
+            "adapters/crypto/KeyBlob.kt",
         )
 
         /**

@@ -1,7 +1,8 @@
-package family.crypto
+package com.launcher.app.data.crypto
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.launcher.adapters.crypto.FileKeyBlobStore
 import family.crypto.api.KeyStoreContext
 import family.crypto.api.SecureKeyStore
 import family.crypto.api.values.KeyId
@@ -12,15 +13,18 @@ import org.junit.runner.RunWith
 import java.io.File
 
 /**
- * Spec 016 SC-009 + Сценарий 4: stored blob file MUST NOT contain raw plaintext
- * private key bytes (the wrap pattern's whole point). Scans the blob file for any
- * 4-byte subsequence of the original secret.
+ * Spec 016 SC-009 + Сценарий 4: the persisted .blob file MUST NOT contain raw plaintext
+ * private key bytes (the wrap pattern's whole point). End-to-end across the real
+ * SecureKeyStore (TEE wrap) + the production FileKeyBlobStore (:core), which is why it
+ * moved here from :core:crypto in TASK-141 — the file adapter lives above crypto now.
+ *
+ * Scans the blob file for any 4-byte subsequence of the original secret.
  */
 @RunWith(AndroidJUnit4::class)
 class SecureKeyStoreNoPlaintextLeakTest {
 
     private val appContext = ApplicationProvider.getApplicationContext<android.content.Context>()
-    private val store = SecureKeyStore(KeyStoreContext(appContext))
+    private val store = SecureKeyStore(KeyStoreContext(appContext, FileKeyBlobStore(appContext)))
     private val testKeyId = KeyId("__internal-leak-test-v1")
 
     @After

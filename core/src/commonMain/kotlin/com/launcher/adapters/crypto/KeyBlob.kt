@@ -1,16 +1,20 @@
-package family.crypto.api.values
+package com.launcher.adapters.crypto
 
+import family.crypto.api.values.ByteArrayBase64Serializer
 import kotlinx.datetime.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * On-disk wire format for wrapped private key bytes. Per contracts/key-blob-v1.md (spec 016).
+ * On-disk wire format for wrapped private key bytes — the persistence twin of the crypto
+ * value `family.crypto.api.values.WrappedKeyMaterial`.
  *
- * Layout:
+ * TASK-141: this type carries the schema version + @Serializable that `:core:crypto` may
+ * not (rule 1 crypto exception). It lives in the adapter layer (`FileKeyBlobStore`), which
+ * maps it to/from `WrappedKeyMaterial`. Crypto never sees this shape.
+ *
+ * Layout (per contracts/key-blob-v1.md, spec 016):
  *  • [schemaVersion] — wire-format version. Current = [CURRENT_SCHEMA_VERSION].
- *    Readers MUST throw [family.crypto.exception.CryptoException.UnsupportedSchemaVersion]
- *    on schemas higher than known.
  *  • [wrappedKey] — AES-GCM-wrapped raw X25519/Ed25519 private key bytes.
  *  • [iv] — 12-byte IV used to wrap.
  *  • [wrapKeyAlias] — Android Keystore alias of the wrap AES key.
