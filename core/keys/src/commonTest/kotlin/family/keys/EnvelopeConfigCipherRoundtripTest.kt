@@ -154,7 +154,7 @@ class EnvelopeConfigCipherRoundtripTest {
         val aad = "test::owner::key".encodeToByteArray()
         val envelope = (c.seal("secret".encodeToByteArray(), listOf(alice.recipient), aad)
                 as Outcome.Success<Envelope>).value
-        val tampered = envelope.copy(
+        val tampered = envelope.copyWith(
             ciphertext = envelope.ciphertext.copyOf().also { it[0] = (it[0].toInt() xor 0xFF).toByte() }
         )
         val attempt = c.open(tampered, alice.privKey, alice.recipient.deviceId, aad)
@@ -174,26 +174,17 @@ class EnvelopeConfigCipherRoundtripTest {
         val brokenSealed = envelope.recipientKeys["alice"]!!.copyOf().also {
             it[0] = (it[0].toInt() xor 0xFF).toByte()
         }
-        val tampered = envelope.copy(recipientKeys = mapOf("alice" to brokenSealed))
+        val tampered = envelope.copyWith(recipientKeys = mapOf("alice" to brokenSealed))
         val attempt = c.open(tampered, alice.privKey, alice.recipient.deviceId, aad)
         assertIs<Outcome.Failure<CipherError>>(attempt)
         // sealForRecipient/openSealed surfaces DecryptionFailed which maps to AeadAuthFailed.
         assertEquals(CipherError.AeadAuthFailed, attempt.error)
     }
 
-    @Test
-    fun futureSchemaVersionRejected() = runTest {
-        init()
-        val c = cipher()
-        val alice = newRecipient("alice")
-        val aad = "test::owner::key".encodeToByteArray()
-        val envelope = (c.seal("x".encodeToByteArray(), listOf(alice.recipient), aad)
-                as Outcome.Success<Envelope>).value
-        val future = envelope.copy(schemaVersion = Envelope.SCHEMA_VERSION + 99)
-        val attempt = c.open(future, alice.privKey, alice.recipient.deviceId, aad)
-        assertIs<Outcome.Failure<CipherError>>(attempt)
-        assertEquals(CipherError.AlgorithmUnsupported, attempt.error)
-    }
+    // futureSchemaVersionRejected removed in TASK-141 — the wire-version gate moved
+    // out of the cipher into the storage adapter (FirestoreEnvelopeStorage.decode);
+    // its equivalent lives in FirestoreEnvelopeWireFormatTest. The algorithm gate
+    // (H-3) stays here — see unknownAlgorithmRejected below.
 
     @Test
     fun unknownAlgorithmRejected() = runTest {
@@ -203,7 +194,13 @@ class EnvelopeConfigCipherRoundtripTest {
         val aad = "test::owner::key".encodeToByteArray()
         val envelope = (c.seal("x".encodeToByteArray(), listOf(alice.recipient), aad)
                 as Outcome.Success<Envelope>).value
-        val forged = envelope.copy(algorithm = "unknown-experimental")
+        val forged = Envelope(
+            algorithm = "unknown-experimental",
+            ciphertext = envelope.ciphertext,
+            nonce = envelope.nonce,
+            aad = envelope.aad,
+            recipientKeys = envelope.recipientKeys,
+        )
         val attempt = c.open(forged, alice.privKey, alice.recipient.deviceId, aad)
         assertIs<Outcome.Failure<CipherError>>(attempt)
         assertEquals(CipherError.AlgorithmUnsupported, attempt.error)
@@ -301,10 +298,26 @@ class EnvelopeConfigCipherRoundtripTest {
                 as Outcome.Success<Envelope>).value
         // Sanity that two recipients survive equals + hashCode.
         assertEquals(2, envelope.recipientKeys.size)
-        val same = envelope.copy()
+        val same = envelope.copyWith()
         assertEquals(envelope, same)
         assertEquals(envelope.hashCode(), same.hashCode())
         assertNotNull(envelope.recipientKeys["alice"])
         assertNotNull(envelope.recipientKeys["bob"])
     }
+
+    // Envelope is no longer a data class (TASK-141 — pure crypto type, no @Serializable).
+    // This mirrors the data-class copy() the tamper tests relied on.
+    private fun Envelope.copyWith(
+        algorithm: String = this.algorithm,
+        ciphertext: ByteArray = this.ciphertext,
+        nonce: ByteArray = this.nonce,
+        aad: ByteArray = this.aad,
+        recipientKeys: Map<String, ByteArray> = this.recipientKeys,
+    ) = Envelope(
+        algorithm = algorithm,
+        ciphertext = ciphertext,
+        nonce = nonce,
+        aad = aad,
+        recipientKeys = recipientKeys,
+    )
 }

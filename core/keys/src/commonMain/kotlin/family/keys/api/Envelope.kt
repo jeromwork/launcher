@@ -1,8 +1,5 @@
 package family.keys.api
 
-import family.crypto.api.values.ByteArrayBase64Serializer
-import kotlinx.serialization.Serializable
-
 /**
  * Hybrid-encrypted envelope per [specs/011-contacts-and-e2e-encrypted-media §C-3]:
  *  1. A per-blob random Content Encryption Key (CEK) — 32 bytes — encrypts [ciphertext]
@@ -17,37 +14,27 @@ import kotlinx.serialization.Serializable
  * [ciphertext]. Recipients not in the map cannot read; `crypto_box_seal` is
  * anonymous, so absence of a key cannot be guessed by analyzing the blob.
  *
- * **Wire-format invariants** (CLAUDE.md rule 5):
- *  - [schemaVersion] is monotonic. Future bumps for algorithm changes.
- *  - [algorithm] = `"envelope-xchacha20poly1305-x25519-v1"`. New strings for new schemes.
- *  - [aad] is recomputed by the reader from `(namespace, key, schemaVersion)` and
- *    compared against the stored value to detect context confusion.
- *  - [recipientKeys] is a map; key is [DeviceId.value], value is the sealed CEK
- *    (48 + 32 = 80 bytes per recipient: ephemeralPub(32) + ciphertext(32) + mac(16)).
+ * **Pure crypto type** (`:core:keys`, TASK-141): carries no schema version and no
+ * serialization annotations (CLAUDE.md rule 1 crypto exception). The wire version +
+ * persistence live above crypto, in the adapter that stores this envelope
+ * (`FirestoreEnvelopeStorage` owns the `schemaVersion` field of the Firestore
+ * document and gates reads on it). [algorithm] stays here — it is a cryptographic
+ * parameter, not a wire version, and the reader legitimately refuses an unknown
+ * algorithm (H-3).
  *
  * **Multi-recipient = list with N entries**. F-5b MVP uses N=1..M depending on the
  * owner's device count plus delegated helpers; the wire format does not change as
  * recipients grow.
  */
-@Serializable
-data class Envelope(
-    val schemaVersion: Int = SCHEMA_VERSION,
+class Envelope(
     val algorithm: String = ALGORITHM_V1,
-
-    @Serializable(with = ByteArrayBase64Serializer::class)
     val ciphertext: ByteArray,
-
-    @Serializable(with = ByteArrayBase64Serializer::class)
     val nonce: ByteArray,
-
-    @Serializable(with = ByteArrayBase64Serializer::class)
     val aad: ByteArray,
-
-    /** DeviceId.value → Base64-encoded sealed CEK bytes. */
-    val recipientKeys: Map<String, @Serializable(with = ByteArrayBase64Serializer::class) ByteArray>
+    /** DeviceId.value → sealed CEK bytes. */
+    val recipientKeys: Map<String, ByteArray>
 ) {
     init {
-        require(schemaVersion >= 1) { "schemaVersion must be >= 1" }
         require(algorithm.isNotEmpty()) { "algorithm must not be empty" }
         require(nonce.size == NONCE_SIZE) { "nonce size ${nonce.size} != $NONCE_SIZE" }
         require(recipientKeys.isNotEmpty()) { "at least one recipient required" }
@@ -62,7 +49,6 @@ data class Envelope(
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is Envelope) return false
-        if (schemaVersion != other.schemaVersion) return false
         if (algorithm != other.algorithm) return false
         if (!ciphertext.contentEquals(other.ciphertext)) return false
         if (!nonce.contentEquals(other.nonce)) return false
@@ -76,8 +62,7 @@ data class Envelope(
     }
 
     override fun hashCode(): Int {
-        var r = schemaVersion
-        r = 31 * r + algorithm.hashCode()
+        var r = algorithm.hashCode()
         r = 31 * r + ciphertext.contentHashCode()
         r = 31 * r + nonce.contentHashCode()
         r = 31 * r + aad.contentHashCode()
@@ -88,7 +73,6 @@ data class Envelope(
     }
 
     companion object {
-        const val SCHEMA_VERSION: Int = 1
         const val ALGORITHM_V1: String = "envelope-xchacha20poly1305-x25519-v1"
 
         /** XChaCha20-Poly1305 nonce size (24 bytes). */

@@ -42,9 +42,9 @@ interface ConfigCipher2 {
      *  1. Locate `envelope.recipientKeys[myDeviceId.value]`. If absent →
      *     [CipherError.NotARecipient].
      *  2. Validate `envelope.aad == aad` (context-confusion defence).
-     *  3. Validate `envelope.schemaVersion` and `envelope.algorithm` are
-     *     supported (defence-in-depth: refuse forged future-version blobs
-     *     without touching the AEAD layer).
+     *  3. Validate `envelope.algorithm` is supported (H-3, defence-in-depth:
+     *     refuse an unknown algorithm without touching the AEAD layer). The wire
+     *     version is gated by the storage adapter, not here (TASK-141).
      *  4. Open sealed CEK with `crypto_box_seal_open` using [myPrivKey].
      *  5. Decrypt ciphertext with CEK + AEAD + [aad].
      *  6. Zeroize CEK.

@@ -1,6 +1,5 @@
 package family.keys
 
-import family.keys.api.Envelope
 import family.keys.api.KdfParams
 import family.keys.api.RecoveryKeyBackupBlob
 import kotlinx.datetime.Instant
@@ -13,38 +12,20 @@ import kotlin.test.assertTrue
 
 /**
  * JSON wire-format roundtrip sanity check for the surviving `:core:keys`
- * wire types (CLAUDE.md rule 5).
+ * @Serializable wire types (CLAUDE.md rule 5).
  *
+ * [Envelope] is no longer @Serializable (TASK-141 — it is a pure crypto type);
+ * its wire lives in the storage adapter (`FirestoreEnvelopeStorage`) and is
+ * covered by `FirestoreEnvelopeWireFormatTest` + [EnvelopeConfigCipherRoundtripTest]
+ * (crypto roundtrip) + [EnvelopeBackwardCompatTest] (frozen-ciphertext decrypt).
  * Full backward-compat fixture tests for [RecoveryKeyBackupBlob] live in
- * [RecoveryKeyBackupBlobContractBackwardCompatTest]. The envelope wire format
- * (Envelope) is covered by [EnvelopeConfigCipherRoundtripTest] +
- * [EnvelopeRemoteStorageTest].
+ * [RecoveryKeyBackupBlobContractBackwardCompatTest].
  */
 class WireFormatJsonTest {
 
     private val json = Json {
         prettyPrint = false
         encodeDefaults = true
-    }
-
-    @Test
-    fun envelopeRoundtrip() {
-        val original = Envelope(
-            ciphertext = ByteArray(64) { it.toByte() },
-            nonce = ByteArray(24) { (it + 100).toByte() },
-            aad = ByteArray(32) { (it + 200).toByte() },
-            recipientKeys = mapOf(
-                "phone-abc" to ByteArray(80) { it.toByte() },
-                "tablet-def" to ByteArray(80) { (it + 1).toByte() }
-            )
-        )
-        val text = json.encodeToString(original)
-        assertContains(text, "\"schemaVersion\":1")
-        assertContains(text, "\"algorithm\":\"envelope-xchacha20poly1305-x25519-v1\"")
-        assertContains(text, "\"phone-abc\"")
-        assertContains(text, "\"tablet-def\"")
-        val parsed = json.decodeFromString<Envelope>(text)
-        assertEquals(original, parsed)
     }
 
     @Test

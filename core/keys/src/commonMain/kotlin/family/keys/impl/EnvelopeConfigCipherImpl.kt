@@ -25,7 +25,8 @@ import family.keys.api.internal.ConfigCipher2
  *  5. Zeroize CEK.
  *
  * Workflow on [open]:
- *  1. Validate schemaVersion + algorithm (defence-in-depth, before touching AEAD).
+ *  1. Validate algorithm (H-3, defence-in-depth, before touching AEAD). Wire
+ *     version is gated by the storage adapter, not here (TASK-141).
  *  2. Look up own [DeviceId] inside envelope.recipientKeys; if absent → NotARecipient.
  *  3. Validate AAD matches caller-recomputed value (context-confusion defence).
  *  4. Open sealed CEK with own private key.
@@ -95,10 +96,10 @@ class EnvelopeConfigCipherImpl(
         myDeviceId: DeviceId,
         aad: ByteArray
     ): Outcome<ByteArray, CipherError> {
-        // H-3 — refuse unsupported versions BEFORE touching crypto layer.
-        if (envelope.schemaVersion > Envelope.SCHEMA_VERSION) {
-            return Outcome.Failure(CipherError.AlgorithmUnsupported)
-        }
+        // H-3 — refuse an unknown encryption algorithm BEFORE touching the crypto
+        // layer. This is a cryptographic-parameter check, not a wire-version gate:
+        // the version gate lives in the storage adapter now (TASK-141). Crypto
+        // legitimately refuses an algorithm it cannot execute.
         if (envelope.algorithm != Envelope.ALGORITHM_V1) {
             return Outcome.Failure(CipherError.AlgorithmUnsupported)
         }
