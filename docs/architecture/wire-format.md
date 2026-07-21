@@ -20,6 +20,8 @@
 
 Invariant: `minReaderVersion ≤ minWriterVersion ≤ schemaVersion`.
 
+**Read-once transports carry one field** (§3): a format with no read-modify-write cycle — read once and never written back (QR payloads, deep-link params) — is complete with `minReaderVersion` alone; the write-back gate and the diagnostic stamp describe states that cannot occur. Carry just the one where payload size is a cost (a QR scanned by hand gets denser with every character). Grounding: otpauth://, WiFi QR, age, EMV, CTAP — no read-once transport in the field carries a reader/writer split.
+
 **The writer decides, per change, not per release** (§3). The old reader cannot judge — it does not know what the new data means. Added a field with a default → raise nothing. Redefined an existing field's meaning → raise MAJOR + `minReaderVersion`.
 
 **Format** (§2): dotted string `"MAJOR.MINOR"` + optional pre-release token — `"2.0"`, `"3.0-beta"`. **NOT SemVer** — do not apply its grammar or precedence; comparison defined in §2. No patch component. Uniform across all formats; a born-stable small format is `"1.0"`.
@@ -98,6 +100,14 @@ Raising `minReaderVersion` is deliberate and rare. For the change being made:
 
 Judge the individual change, not the release. Matroska's canonical example: a new element that only improves seek precision does **not** raise the minimum, because playback works without it.
 
+### Read-once transports — a single field
+
+A format with **no read-modify-write cycle** — read once by the receiver and never written back (QR payloads, deep-link parameters, one-shot provisioning tokens) — is complete with a single field, `minReaderVersion`. The other two describe states that cannot occur: `minWriterVersion` gates a write-back that never happens, and `schemaVersion` is a diagnostic no reader acts on. The reader keeps only its refuse/accept outcomes — the read-only middle state is unreachable without a writer.
+
+Carry just the one field **where payload size is a cost** — a QR is scanned by hand from a phone screen, so every character is denser modules and a harder scan for the person it exists for. Three fields push the pairing link from a 29×29-module QR to as much as 41×41 for a field that gates nothing. A read-once format that already carries the three at no size cost (a push body cross-checked against a Worker) is not required to shed them — MVA (rule 4): no rewrite to remove dead weight that costs nothing.
+
+Grounding: no read-once transport in the field carries a reader/writer split. otpauth:// (Google Authenticator) and WiFi QR carry no version at all; age (`age-encryption.org/v1`), EMV (tag 9F08) and CTAP carry a single version indicator. The split — SQLite's read/write bytes, Matroska's `DocTypeVersion`/`DocTypeReadVersion` — exists only where a format is both read *and* written by differing-version software, and even there the "read version" is the min-reader instrument while the "write version" guards a write-back this class of format does not have. Adopted in TASK-143 (2026-07-21); the launcher's QR pairing link is the first format under it.
+
 ## 4. Unknown version → fail closed
 
 A reader hitting a `minReaderVersion` above what it supports, or an unparseable version string, **MUST** raise a typed error (`UnknownWireVersionException` or the format's equivalent) and stop. Never guess the shape, never best-effort parse, never decrypt to find out.
@@ -118,7 +128,7 @@ Compatibility is a structural property of the change, not a migration ladder:
 
 ## 6. Unknown-field preservation
 
-**Applies to formats that can be written back by a party that did not author them** (synced config and profiles). Not required for write-once formats (QR, push bodies, exports).
+**Applies to formats that can be written back by a party that did not author them** (synced config and profiles). Not required for write-once formats (QR, push bodies, exports) — the same read-once transports that carry a single version field (§3), since a format never written back has no round-trip in which to lose a field.
 
 Requirement: unrecognized fields **MUST survive the read-modify-write cycle** byte-for-byte.
 
@@ -146,7 +156,7 @@ RFC 9413 §4.1: on-the-fly repair entrenches the other side's bug, forces every 
 
 Changing one requires a `decision-supersedes` backlog task (rule 11), not an inline edit.
 
-- **I1** — Every wire format carries the three version fields from its first commit.
+- **I1** — Every wire format carries the three version fields from its first commit — except a **read-once transport** (no read-modify-write cycle), which is complete with `minReaderVersion` alone and carries just that where payload size is a cost (§3, TASK-143).
 - **I2** — Dotted string, uniform across all formats. Not SemVer, not an integer, not mixed.
 - **I3** — **A shipped version number never decreases.** Not when adopting a pre-release token, not ever. Readers in the field compare it; a decrease misroutes them silently. Firestore rules additionally enforce monotonicity server-side (§11).
 - **I4** — The writer decides whether a change is breaking, judged per change.
@@ -178,7 +188,9 @@ A rule no test checks is decoration. Per format:
 
   It is an ordinary unit test, not a Detekt rule, and deliberately so (TASK-140): these rules lived as custom Detekt detectors from TASK-65 to 2026-07-20 and **never ran once** — Detekt's plugin loader never registered them, and a rule that fails to load reports nothing and passes. Run via `./gradlew fitnessCheck`.
 
-**Naming**: one constant per format — `SCHEMA_VERSION`, `MIN_READER_VERSION`, `MIN_WRITER_VERSION` — declared beside the type. The constant is the single source of the value; no literals at call sites.
+**Naming**: one constant per format — `SCHEMA_VERSION`, `MIN_READER_VERSION`, `MIN_WRITER_VERSION` — declared beside the type. The constant is the single source of the value; no literals at call sites. A read-once transport (§3) declares only `MIN_READER_VERSION`.
+
+**Blind spot — URI-parameter formats.** The strict-mode checks key on `@Serializable` types implementing `WireVersionHeader` and on the JSON key names. A read-once transport carried as URI query parameters (the QR pairing link, `&v=`) matches none of those and is invisible to them — not exempt by decision but by shape. Its discipline is held instead by its own roundtrip test and by building the link through one named constant (no `&v=` literal at the call site), not by the fitness net. Do not read a green `fitnessCheck` as coverage of these.
 
 **Migration of existing formats.** Formats predating this document carry an integer `schemaVersion` and no reader/writer fields. They convert **on next touch**, not in one sweep — converting a format means: integer → dotted string at the *same or higher* number (never lower, I3), add the two fields, update fixtures and roundtrip tests, and update the Firestore security rule for that collection (rules compare `schemaVersion` numerically; string comparison is lexicographic and unsafe — `"10.0" < "9.0"`). Until a format is converted, its integer form remains valid.
 

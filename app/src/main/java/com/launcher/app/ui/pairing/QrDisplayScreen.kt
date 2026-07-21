@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.launcher.api.pairing.PairingToken
+import com.launcher.api.qr.QrDeepLinkParser
 import com.launcher.app.R
 import kotlinx.coroutines.delay
 
@@ -54,7 +55,9 @@ fun QrDisplayScreen(
 ) {
     val context = LocalContext.current
     val qrBitmap = remember(token) {
-        val deepLink = "launcher://pair?token=${token.raw}&v=1"
+        // The URI grammar (scheme, host, version field) lives in one place — the parser that
+        // also decodes it — so encode and decode can never drift apart.
+        val deepLink = QrDeepLinkParser.buildPairingDeepLink(token)
         QrBitmapGenerator.generate(deepLink).asImageBitmap()
     }
 
