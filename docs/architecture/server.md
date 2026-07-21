@@ -127,7 +127,7 @@ last-synced: 2026-07-08
 **Сервер НЕ отвечает за**:
 
 - Расшифровку чего-либо (никаких секретов на сервере).
-- Определение "кто может кого добавить/удалить" — это MLS group membership + profile reconciliation (см. [crypto.md § Revoke policy](crypto.md#revoke-policy)).
+- Определение "кто может кого добавить/удалить" — это MLS group membership + profile reconciliation (см. [crypto-pairing.md § Revoke](crypto-pairing.md) + TASK-102 Decision block).
 - Долгосрочное хранение сообщений (только очередь до FCM push + короткий poll fallback).
 
 ---
@@ -178,7 +178,7 @@ last-synced: 2026-07-08
 - **Verify**: signature, expiration, `iss`, `aud`, clock skew ≤ 60s.
 - **JWT claims used**: `identity_id` (rate limit dimension + roster check), `iat`, `exp`.
 - **Exception `[public]`** — только с явным reasoning (например, endpoint issuance самого JWT, `/health`).
-- **Anti-pattern (rejected)**: trust JWT для authorization без MLS roster check → attacker с чужим JWT получает group access. См. [топ-7 способов взорвать § 7](crypto.md#топ-7-способов-взорвать-систему-нашим-кодом).
+- **Anti-pattern (rejected)**: trust JWT для authorization без MLS roster check → attacker с чужим JWT получает group access. См. [crypto.md § Timeless failure modes](crypto.md) п.7.
 
 ### 2. Rate limiting — two tiers
 
@@ -241,8 +241,8 @@ last-synced: 2026-07-08
 
 | Endpoint | Что делает | Crypto scenario |
 |---|---|---|
-| `POST /v1/keypackage/publish` | Устройство upload'ит batch одноразовых KeyPackages + опционально last-resort | [crypto.md Сценарий 2](crypto.md#сценарий-2--таня-подключается-admin-к-бабушкиному-планшету-qr-pairing--mls-handshake) шаг 1 |
-| `POST /v1/keypackage/claim` | Устройство запрашивает один KP целевой identity для MLS Add | [crypto.md Сценарий 3](crypto.md#сценарий-3--bob-claimит-бабушкин-keypackage-защита-от-drain-атаки) |
+| `POST /v1/keypackage/publish` | Устройство upload'ит batch одноразовых KeyPackages + опционально last-resort | [crypto.md](crypto.md) KeyPackage/DS zone → TASK-104 Decision block |
+| `POST /v1/keypackage/claim` | Устройство запрашивает один KP целевой identity для MLS Add | [crypto.md](crypto.md) KeyPackage/DS zone → TASK-104 Decision block |
 
 - **Storage**: Cloudflare KV binding `KEYPACKAGE_POOL` (per-identity list), `LAST_RESORT_KEY` (per-identity single), `CLAIM_DEDUP` (TTL 600s).
 - **Pool cap**: 100 per identity. Cap hit → drop oldest.
@@ -254,7 +254,7 @@ last-synced: 2026-07-08
 
 | Endpoint | Что делает | Crypto scenario |
 |---|---|---|
-| `POST /v1/group/send` | Fanout MLS Commit / Welcome / AppMessage на recipients | [crypto.md Сценарий 4](crypto.md#сценарий-4--таня-отзывает-петю-через-редактирование-профиля-revoke-via-reconciliation) шаг 8 |
+| `POST /v1/group/send` | Fanout MLS Commit / Welcome / AppMessage на recipients | [crypto-pairing.md](crypto-pairing.md) revoke/membership → TASK-102 Decision block |
 | `GET /v1/group/inbox` | Polling fallback offline devices | (recovery / catch-up flows) |
 
 - **Storage**: Cloudflare KV `GROUP_INBOX` (per-recipient inbox, TTL 30 days).
@@ -265,7 +265,7 @@ last-synced: 2026-07-08
 
 | Endpoint | Что делает | Crypto scenario |
 |---|---|---|
-| `POST /v1/profile/lock` | Admin берёт edit lock перед изменением `authorized_devices` | [crypto.md Сценарий 4](crypto.md#сценарий-4--таня-отзывает-петю-через-редактирование-профиля-revoke-via-reconciliation) шаги 1-4 |
+| `POST /v1/profile/lock` | Admin берёт edit lock перед изменением `authorized_devices` | [crypto-pairing.md](crypto-pairing.md) revoke via reconciliation → TASK-102 Decision block |
 | `POST /v1/profile/unlock` | Release edit lock после upload'а нового профиля | |
 | `PUT /v1/profile/{identity_id}` | Upload encrypted profile payload (MLS AppMessage) | |
 | `GET /v1/profile/{identity_id}` | Sync profile для bab's device reconciliation | |
