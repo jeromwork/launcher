@@ -15,6 +15,7 @@ import family.pairing.api.ED25519_SIGNATURE_SIZE
 import family.pairing.api.PublicKey
 import family.pairing.api.SigningPublicKey
 import family.pairing.api.X25519_KEY_SIZE
+import family.wire.WireVersion
 import kotlin.uuid.ExperimentalUuidApi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.tasks.await
@@ -149,15 +150,20 @@ class FirestoreDeviceIdentityRepository(
 
         private const val LOG_TAG: String = "cryptokit"
 
-        // TASK-141 — DeviceIdentity carries no schemaVersion of its own (rule 1);
-        // the wire version lives here, in the adapter that owns the Firestore
-        // document `/links/{linkId}/devices/{deviceId}`. toMap stamps it, fromMap
-        // gates on it. If this format ever moves to a JSON-string blob, the
-        // standardized form is a @Serializable DTO class in this package.
-        internal const val WIRE_SCHEMA_VERSION: Int = 1
+        // TASK-141 — DeviceIdentity carries no version of its own (rule 1); the wire version lives
+        // here, in the adapter that owns the Firestore document `/links/{linkId}/devices/{deviceId}`.
+        // Part D: the header is the dotted three-field form (`docs/architecture/wire-format.md` §3),
+        // written as strings so firestore.rules' hasValidVersionHeader accepts it. toMap stamps all
+        // three, fromMap gates on minReaderVersion. If this format ever moves to a JSON-string blob,
+        // the standardized form is a @Serializable DTO class in this package.
+        internal val WIRE_SCHEMA_VERSION: WireVersion = WireVersion(1, 0)
+        internal val WIRE_MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+        internal val WIRE_MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
 
         internal fun toMap(d: DeviceIdentity): Map<String, Any> = mapOf(
-            "schemaVersion" to WIRE_SCHEMA_VERSION,
+            "schemaVersion" to WIRE_SCHEMA_VERSION.toString(),
+            "minReaderVersion" to WIRE_MIN_READER_VERSION.toString(),
+            "minWriterVersion" to WIRE_MIN_WRITER_VERSION.toString(),
             "deviceId" to d.deviceId.value,
             "publicKey" to d.publicKey.bytes.toBase64(),
             "signingPublicKey" to d.signingPublicKey.bytes.toBase64(),
@@ -170,8 +176,12 @@ class FirestoreDeviceIdentityRepository(
 
         internal fun fromMap(m: Map<String, Any?>): DeviceIdentity? {
             return try {
-                val sv = (m["schemaVersion"] as? Number)?.toInt() ?: return null
-                if (sv != WIRE_SCHEMA_VERSION) return null
+                // Version header (§3): schemaVersion is diagnostics; the reader gate is minReaderVersion.
+                // A pre-conversion integer parses to null here and the document is refused (fail closed).
+                (m["schemaVersion"] as? String)?.let { WireVersion.parseOrNull(it) } ?: return null
+                val minReader = (m["minReaderVersion"] as? String)?.let { WireVersion.parseOrNull(it) }
+                    ?: return null
+                if (minReader > WIRE_SCHEMA_VERSION) return null
                 val deviceIdStr = m["deviceId"] as? String ?: return null
                 val pubBytes = (m["publicKey"] as? String)?.fromBase64() ?: return null
                 val signingPubBytes = (m["signingPublicKey"] as? String)?.fromBase64() ?: return null

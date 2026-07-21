@@ -8,6 +8,7 @@ import family.keys.api.KdfParams
 import family.keys.api.RecoveryKeyBackup
 import family.keys.api.RecoveryKeyBackupBlob
 import family.keys.api.BackupError
+import family.wire.WireVersion
 import kotlinx.coroutines.tasks.await
 import kotlinx.datetime.Instant
 
@@ -84,7 +85,9 @@ class FirestoreRecoveryKeyBackup(
     }
 
     private fun encodeBlob(blob: RecoveryKeyBackupBlob): Map<String, Any> = mapOf(
-        FIELD_SCHEMA_VERSION to RecoveryBlobJsonCodec.WIRE_SCHEMA_VERSION,
+        FIELD_SCHEMA_VERSION to RecoveryBlobJsonCodec.WIRE_SCHEMA_VERSION.toString(),
+        FIELD_MIN_READER_VERSION to RecoveryBlobJsonCodec.WIRE_MIN_READER_VERSION.toString(),
+        FIELD_MIN_WRITER_VERSION to RecoveryBlobJsonCodec.WIRE_MIN_WRITER_VERSION.toString(),
         FIELD_STABLE_ID to blob.stableId,
         FIELD_SALT to Blob.fromBytes(blob.salt),
         FIELD_KDF_PARAMS to mapOf(
@@ -101,10 +104,13 @@ class FirestoreRecoveryKeyBackup(
     @Suppress("UNCHECKED_CAST")
     private fun decodeBlob(data: Map<String, Any>): RecoveryKeyBackupBlob? {
         return try {
-            val schemaVersion = (data[FIELD_SCHEMA_VERSION] as? Number)?.toInt() ?: return null
-            // Reader gate (moved out of the crypto type per TASK-141): refuse a document
-            // from a newer writer instead of parsing a shape we do not understand.
-            if (schemaVersion > RecoveryBlobJsonCodec.WIRE_SCHEMA_VERSION) return null
+            // Version header (§3): schemaVersion is diagnostics; the reader gate is minReaderVersion.
+            // Reader gate lives here (moved out of the crypto type per TASK-141). A pre-conversion
+            // integer parses to null → the document is refused rather than read on a guess.
+            (data[FIELD_SCHEMA_VERSION] as? String)?.let { WireVersion.parseOrNull(it) } ?: return null
+            val minReader = (data[FIELD_MIN_READER_VERSION] as? String)?.let { WireVersion.parseOrNull(it) }
+                ?: return null
+            if (minReader > RecoveryBlobJsonCodec.WIRE_SCHEMA_VERSION) return null
             val stableId = data[FIELD_STABLE_ID] as? String ?: return null
             val salt = (data[FIELD_SALT] as? Blob)?.toBytes() ?: return null
             val kdfParamsMap = data[FIELD_KDF_PARAMS] as? Map<String, Any> ?: return null
@@ -155,6 +161,8 @@ class FirestoreRecoveryKeyBackup(
         // Document field names — note for Phase 4: firestore.rules rule isValidRecoveryVaultBlob
         // will need updating to match these new field names per a1-resolution.md.
         const val FIELD_SCHEMA_VERSION: String = "schemaVersion"
+        const val FIELD_MIN_READER_VERSION: String = "minReaderVersion"
+        const val FIELD_MIN_WRITER_VERSION: String = "minWriterVersion"
         const val FIELD_STABLE_ID: String = "stableId"
         const val FIELD_SALT: String = "salt"
         const val FIELD_KDF_PARAMS: String = "kdfParams"

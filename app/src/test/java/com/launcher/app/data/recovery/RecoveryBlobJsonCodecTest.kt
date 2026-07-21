@@ -64,10 +64,11 @@ class RecoveryBlobJsonCodecTest {
     }
 
     @Test
-    fun jsonContainsSchemaVersionField() {
+    fun jsonContainsDottedVersionHeader() {
         val json = RecoveryBlobJsonCodec.encode(sampleBlob())
-        assertTrue(json.contains("\"schemaVersion\""))
-        assertTrue(json.contains("\"schemaVersion\":1") || json.contains("\"schemaVersion\": 1"))
+        assertTrue(json.contains("\"schemaVersion\":\"1.0\""))
+        assertTrue(json.contains("\"minReaderVersion\":\"1.0\""))
+        assertTrue(json.contains("\"minWriterVersion\":\"1.0\""))
     }
 
     // ── forward-compat / reader gate ────────────────────────────────────────
@@ -80,7 +81,15 @@ class RecoveryBlobJsonCodecTest {
     }
 
     @Test
-    fun missingSchemaVersionReturnsMalformed() {
+    fun preConversionIntegerVersionReturnsMalformed() {
+        // The retired integer form ("schemaVersion":1) has no string header — the reader refuses it
+        // rather than reading it on a guess (wire-format.md §4, fail closed). No user data exists.
+        val intForm = """{"schemaVersion":1,"stableId":"00000000-0000-4000-8000-000000000001","salt":"AAAA","kdfParams":{"algorithm":"Argon2id","iterations":3,"memoryKb":65536,"parallelism":1},"ciphertext":"AAAA","nonce":"AAAA","createdAt":"2026-06-28T10:00:00Z"}"""
+        assertTrue(decodeError(intForm) is BackupError.Malformed)
+    }
+
+    @Test
+    fun missingVersionHeaderReturnsMalformed() {
         val json = """{"stableId":"00000000-0000-4000-8000-000000000001","salt":"AAAA","kdfParams":{"algorithm":"Argon2id","iterations":3,"memoryKb":65536,"parallelism":1},"ciphertext":"AAAA","nonce":"AAAA","createdAt":"2026-06-28T10:00:00Z"}"""
         assertTrue(decodeError(json) is BackupError.Malformed)
     }
@@ -129,10 +138,12 @@ class RecoveryBlobJsonCodecTest {
             "email", "phoneNumber", "displayName", "recipientId", "groupId",
         )
 
-        // Frozen v1 fixture (contracts §8, immutable) — same bytes as the retired
-        // core/keys jvmTest resource recovery-blob-v1-sample.json.
-        const val V1_FIXTURE = """{"schemaVersion":1,"stableId":"00000000-0000-4000-8000-000000000001","salt":"Tx5LqK8mZ3JpV2cBgWQpA9Fk1tR8nXmYzQwLpEsT2cE=","kdfParams":{"algorithm":"Argon2id","iterations":3,"memoryKb":65536,"parallelism":1},"ciphertext":"P3vG2X5n0K8mZ3JpV2cBgWQpA9Fk1tR8nXmYzQwLpEsT2cD5fHaB+cD/eFgHiJkLmNoPqRsTuVwXyZ0123==","nonce":"B+gWQpA9Fk1tR8nXmYzQwLpEsT2cD5fH","createdAt":"2026-06-28T10:00:00Z"}"""
+        // v1 fixture in the Part D dotted-header form (the pre-conversion integer twin is retired;
+        // no user data exists). Same payload bytes as the retired core/keys jvmTest resource
+        // recovery-blob-v1-sample.json, only the version representation changed.
+        const val V1_FIXTURE = """{"schemaVersion":"1.0","minReaderVersion":"1.0","minWriterVersion":"1.0","stableId":"00000000-0000-4000-8000-000000000001","salt":"Tx5LqK8mZ3JpV2cBgWQpA9Fk1tR8nXmYzQwLpEsT2cE=","kdfParams":{"algorithm":"Argon2id","iterations":3,"memoryKb":65536,"parallelism":1},"ciphertext":"P3vG2X5n0K8mZ3JpV2cBgWQpA9Fk1tR8nXmYzQwLpEsT2cD5fHaB+cD/eFgHiJkLmNoPqRsTuVwXyZ0123==","nonce":"B+gWQpA9Fk1tR8nXmYzQwLpEsT2cD5fH","createdAt":"2026-06-28T10:00:00Z"}"""
 
-        const val V2_FUTURE_FIXTURE = """{"schemaVersion":2,"stableId":"00000000-0000-4000-8000-000000000001","salt":"Tx5LqK8mZ3JpV2cBgWQpA9Fk1tR8nXmYzQwLpEsT2cE=","kdfParams":{"algorithm":"Argon2id","iterations":3,"memoryKb":65536,"parallelism":1},"ciphertext":"P3vG2X5n0K8mZ3JpV2cBgWQpA9Fk1tR8nXmYzQwLpEsT2cD5fHaB+cD/eFgHiJkLmNoPqRsTuVwXyZ0123==","nonce":"B+gWQpA9Fk1tR8nXmYzQwLpEsT2cD5fH","createdAt":"2026-06-28T10:00:00Z"}"""
+        // A future document demanding a reader at 2.0 — above this build, so the gate refuses it.
+        const val V2_FUTURE_FIXTURE = """{"schemaVersion":"2.0","minReaderVersion":"2.0","minWriterVersion":"2.0","stableId":"00000000-0000-4000-8000-000000000001","salt":"Tx5LqK8mZ3JpV2cBgWQpA9Fk1tR8nXmYzQwLpEsT2cE=","kdfParams":{"algorithm":"Argon2id","iterations":3,"memoryKb":65536,"parallelism":1},"ciphertext":"P3vG2X5n0K8mZ3JpV2cBgWQpA9Fk1tR8nXmYzQwLpEsT2cD5fHaB+cD/eFgHiJkLmNoPqRsTuVwXyZ0123==","nonce":"B+gWQpA9Fk1tR8nXmYzQwLpEsT2cD5fH","createdAt":"2026-06-28T10:00:00Z"}"""
     }
 }

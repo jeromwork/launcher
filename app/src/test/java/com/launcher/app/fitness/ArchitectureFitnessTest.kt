@@ -318,7 +318,11 @@ class ArchitectureFitnessTest {
     private fun File.serializableDeclarations(): List<Pair<String, String>> {
         val text = readText()
         return SERIALIZABLE_DECLARATION.findAll(text).map { match ->
-            val next = text.indexOf("@Serializable", match.range.last + 1)
+            // Boundary = the next CLASS-LEVEL `@Serializable`, not a use-site `@Serializable(with =
+            // X::class)` on a property. A byte field carrying a custom serializer sits inside the
+            // constructor, before the `: WireVersionHeader` supertype; splitting on it would cut the
+            // body short and hide the supertype, reporting a compliant format as a violation.
+            val next = NEXT_CLASS_LEVEL_SERIALIZABLE.find(text, match.range.last + 1)?.range?.first ?: -1
             val body = text.substring(match.range.last + 1, if (next > 0) next else text.length)
             match.groupValues[1] to body
         }.toList()
@@ -415,6 +419,13 @@ class ArchitectureFitnessTest {
         val SERIALIZABLE_DECLARATION = Regex("""@Serializable[\s\S]{0,400}?\b(?:data\s+)?class\s+(\w+)""")
 
         /**
+         * The next class-level `@Serializable` — used to bound one declaration's body. The negative
+         * lookahead excludes a use-site `@Serializable(with = X::class)` on a property, which is a
+         * serializer reference, not the start of another type.
+         */
+        val NEXT_CLASS_LEVEL_SERIALIZABLE = Regex("""@Serializable(?!\()""")
+
+        /**
          * A declared version property. Matches the `override val` on a format and the plain
          * `val` on a type that should have been one — which is the case this rule exists to
          * catch.
@@ -432,27 +443,16 @@ class ArchitectureFitnessTest {
         )
 
         /**
-         * Crypto formats still carry the integer version by design: moving version handling out
-         * of the crypto modules is TASK-141, deliberately split off so that `:core:crypto` and
-         * `:core:keys` stay extractable without a dependency on the versioning module. Listed
-         * explicitly rather than skipped silently — when TASK-141 lands this list goes away, and
-         * an empty list is the signal that it did.
+         * Crypto formats used to carry the integer version by design while version handling was
+         * being moved out of the crypto modules (TASK-141), so that `:core:crypto` and `:core:keys`
+         * stay extractable without a dependency on the versioning module. TASK-141 Part D landed
+         * (2026-07-21): all six formats now carry the dotted three-field header and are gated in
+         * their adapters + firestore.rules, so this list is **empty** — that emptiness is the signal
+         * TASK-141 is done. It is kept (rather than deleted with its usages) so the wire-format rules
+         * read identically to how they were calibrated; a future crypto format needing a temporary
+         * waiver can be listed here again.
          */
-        val CRYPTO_PENDING_TASK_141 = listOf(
-            "adapters/crypto/FirestoreDeviceIdentityRepository.kt",
-            "data/envelope/FirestoreEnvelopeStorage.kt",
-            "data/envelope/FirestorePublicKeyDirectory.kt",
-            "data/recovery/FirestoreRecoveryKeyBackup.kt",
-            // The recovery-vault DTO/codec that TASK-141 Part B moved out of :core:keys.
-            // Still on the integer schemaVersion like the four adapters above; the
-            // dotted-string three-field header + firestore.rules is Part D, which
-            // empties this whole list.
-            "data/recovery/RecoveryBlobJsonCodec.kt",
-            // The on-disk KeyBlob format TASK-141 Part C moved out of :core:crypto. Local
-            // file (not a Firestore document), still on the integer schemaVersion; the
-            // dotted-string header is Part D along with the rest.
-            "adapters/crypto/KeyBlob.kt",
-        )
+        val CRYPTO_PENDING_TASK_141 = emptyList<String>()
 
         /**
          * Writing a version key, as opposed to reading one. `"schemaVersion" to x`,
@@ -499,6 +499,8 @@ class ArchitectureFitnessTest {
             "ConfigSnapshot" to "ConfigSnapshotRoundtripTest.kt",
             "Envelope" to "NamedConfigWireFormatTest.kt",
             "Health" to "HealthWireFormatTest.kt",
+            // TASK-141 Part D: crypto persistence/backup formats now carry WireVersionHeader.
+            "KeyBlob" to "KeyBlobWireFormatTest.kt",
             "LauncherSettings" to "LauncherSettingsWireFormatTest.kt",
             "LinkBootstrap" to "LinkBootstrapWireFormatTest.kt",
             "NamedConfig" to "NamedConfigWireFormatTest.kt",
@@ -507,6 +509,7 @@ class ArchitectureFitnessTest {
             "Profile" to "ProfileSchemaV2RoundtripTest.kt",
             "PushPayload" to "PushPayloadWireFormatTest.kt",
             "PushTriggerRequest" to "WireFormatRoundtripTest.kt",
+            "RecoveryKeyBackupBlobDto" to "RecoveryBlobJsonCodecTest.kt",
             "SessionRecord" to "SessionRecordRoundtripTest.kt",
             "StateApplied" to "StateAppliedWireFormatTest.kt",
             "VendorRecipeCatalogue" to "VendorRecipeCatalogueWireFormatTest.kt",

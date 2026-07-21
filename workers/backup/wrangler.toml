@@ -22,10 +22,11 @@ account_id = "c8f9c8c59e930e0283d713b91c01fb13"
 # Public — same Firebase project as push worker (shared identity surface).
 FIREBASE_PROJECT_ID = "launcher-old-dev"
 
-# Maximum recovery-blob wire-format schema supported by this Worker. Mirrors
-# Kotlin const RecoveryKeyBackupBlob.SCHEMA_VERSION_V1. Bump together when
-# schema rolls to v2.
-MAX_SUPPORTED_SCHEMA_VERSION = "1"
+# Highest reader version this Worker will accept on a recovery-blob write, dotted form
+# (wire-format.md §2). Compared ordinally against the blob's `minReaderVersion` — the
+# anti-lockout ceiling, twin of firestore.rules maxAcceptedReaderVersion(). Mirrors the
+# Kotlin const RecoveryBlobJsonCodec.WIRE_SCHEMA_VERSION. Bump together when schema rolls forward.
+MAX_SUPPORTED_SCHEMA_VERSION = "1.0"
 
 # Storage decision 2026-06-29: Workers KV instead of R2.
 # Blob = ~500 bytes JSON, one per identity per install. KV's 25 MiB-per-value

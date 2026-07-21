@@ -150,7 +150,11 @@ TASK-138 переводит форматы данных на новую сист
 - **A** — мёртвый media-storage удалён (988570d). AC #5.
 - **B1** `DeviceIdentity` (ab90a26), **B2** `Envelope` (b27a903), **B3** `RecoveryKeyBackupBlob` (74f684e) — крипто-типы без версии и `@Serializable`, версия в адаптере (int). AC #1/#2/#3.
 - **C** `KeyBlob` — персистентность вынесена в `FileKeyBlobStore` (:core), `SecureKeyStore` только wrap/unwrap через порт `KeyBlobStore` (195bf3c). AC #4.
-- **D** — **ещё не сделано** (AC #6). Разведка выполнена, карта ниже. НЕ начинать в конце длинной сессии — это security-rules + Worker, нужен Firebase-эмулятор для проверки.
+- **D** — **СДЕЛАНО (2026-07-21)**. Все 6 форматов переведены с int-версии на точечный 3-полевой `WireVersion`-заголовок; гейт по `minReaderVersion` в адаптерах, `versionOrder()` в firestore.rules. Серверный близнец (backup Worker) — `minReaderVersion` через versionOrder, `MAX_SUPPORTED_SCHEMA_VERSION "1"→"1.0"`. `CRYPTO_PENDING_TASK_141` allowlist **опустошён** (сигнал приземления) + 2 записи в `ROUNDTRIP_COVERAGE`. Мёртвые int-golden'ы recovery-blob удалены. server-log A-1 + Journal обновлены. AC #6.
+  - **Побочный фикс fitness**: `serializableDeclarations()` резал тело типа на use-site `@Serializable(with=…)` (byte-поля) до `: WireVersionHeader` → ложно флагал KeyBlob/DTO. Добавлен `NEXT_CLASS_LEVEL_SERIALIZABLE` (negative lookahead на `(`).
+  - **Дизайн-решение**: Worker гейтит `minReaderVersion` (не диагностический `schemaVersion`), тот же field, что `hasValidVersionHeader` в rules — близнецы не расходятся.
+  - **Верификация зелёная**: `./gradlew fitnessCheck :core:crypto:jvmTest :core:keys:jvmTest :core:testRealBackendDebugUnitTest :app:testRealBackendDebugUnitTest :app:testMockBackendDebugUnitTest` ✓; `firestore-tests` 103/103 на эмуляторе (вкл. границу 9→10) ✓; `workers/backup tsc --noEmit` ✓ (unit-тестов у Worker'а нет). `BundledPresetValidationTest` — флейк Robolectric+coroutines, зелёный на переигрывании, не связан.
+  - **Lockout-риск**: деплой `firestore.rules` + backup Worker координировать с выкаткой app в один заход (int-записи отвергаются в момент деплоя; данных пользователей нет — pre-MVP).
 
 ### Part D — ГОТОВО К ИСПОЛНЕНИЮ (разведка + карта 2026-07-21, коммит 68888f1)
 
@@ -217,11 +221,11 @@ server-log (rule 13): `docs/dev/server-log.md` — anchor `A-1 · Sealed blob st
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 [hand] Ни один модуль крипты (`:core:crypto`, `:core:keys`) не содержит разбора, сравнения или проверки версии формата; `verifyCryptoIsolation` и `verifyKeysIsolation` остались в исходном виде, без послаблений
-- [ ] #2 [hand] Проверка «можно ли читать документ» для каждого крипто-формата живёт в адаптере, по образцу `FirestoreDeviceIdentityRepository`
-- [ ] #3 [hand] Проверка незнакомого алгоритма шифрования (H-3) осталась внутри крипты и покрыта тестом — она не является проверкой версии
-- [ ] #4 [hand] По `KeyBlob` принято и записано решение: приватная версия крипты либо вынос персистентности
-- [ ] #5 [hand] Мёртвые пути проверены и удалены либо подтверждены как живые с объяснением, почему остаются
-- [ ] #6 [hand] Firestore rules для vault восстановления и devices переведены на точечную строку через `versionOrder()`; защита от отката сохранена и проверена тестом на границе 9→10
+- [x] #1 [hand] Ни один модуль крипты (`:core:crypto`, `:core:keys`) не содержит разбора, сравнения или проверки версии формата; `verifyCryptoIsolation` и `verifyKeysIsolation` остались в исходном виде, без послаблений
+- [x] #2 [hand] Проверка «можно ли читать документ» для каждого крипто-формата живёт в адаптере, по образцу `FirestoreDeviceIdentityRepository`
+- [x] #3 [hand] Проверка незнакомого алгоритма шифрования (H-3) осталась внутри крипты и покрыта тестом — она не является проверкой версии
+- [x] #4 [hand] По `KeyBlob` принято и записано решение: приватная версия крипты либо вынос персистентности
+- [x] #5 [hand] Мёртвые пути проверены и удалены либо подтверждены как живые с объяснением, почему остаются
+- [x] #6 [hand] Firestore rules для vault восстановления и devices переведены на точечную строку через `versionOrder()`; защита от отката сохранена и проверена тестом на границе 9→10
 <!-- AC:END -->
 

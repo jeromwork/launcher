@@ -8,6 +8,7 @@ import family.keys.api.Outcome
 import family.keys.api.RecipientPubKey
 import family.keys.api.internal.DirectoryError
 import family.keys.api.internal.PublicKeyDirectory
+import family.wire.WireVersion
 import kotlinx.coroutines.tasks.await
 
 /**
@@ -74,15 +75,13 @@ class FirestorePublicKeyDirectory(
             firestore.runBatch { batch ->
                 batch.set(
                     deviceDoc(myUid, myDeviceId),
-                    mapOf(
-                        FIELD_SCHEMA_VERSION to PUBKEY_SCHEMA_VERSION,
+                    versionHeader() + mapOf(
                         FIELD_CREATED_AT to com.google.firebase.firestore.FieldValue.serverTimestamp()
                     )
                 )
                 batch.set(
                     pubKeyDoc(myUid, myDeviceId),
-                    mapOf(
-                        FIELD_SCHEMA_VERSION to PUBKEY_SCHEMA_VERSION,
+                    versionHeader() + mapOf(
                         FIELD_PUB_KEY to Blob.fromBytes(pubKey),
                         FIELD_ALGORITHM to ALGORITHM_X25519,
                         FIELD_CREATED_AT to com.google.firebase.firestore.FieldValue.serverTimestamp()
@@ -166,6 +165,14 @@ class FirestorePublicKeyDirectory(
         else -> DirectoryError.Network(e)
     }
 
+    // TASK-141 Part D: the pub-key + device-marker documents carry the dotted three-field header,
+    // written as strings (`docs/architecture/wire-format.md` §3). Shared by both writes in the batch.
+    private fun versionHeader(): Map<String, String> = mapOf(
+        FIELD_SCHEMA_VERSION to PUBKEY_SCHEMA_VERSION.toString(),
+        FIELD_MIN_READER_VERSION to PUBKEY_MIN_READER_VERSION.toString(),
+        FIELD_MIN_WRITER_VERSION to PUBKEY_MIN_WRITER_VERSION.toString(),
+    )
+
     companion object {
         const val COLLECTION_USERS: String = "users"
         const val COLLECTION_DEVICES: String = "devices"
@@ -174,12 +181,16 @@ class FirestorePublicKeyDirectory(
         const val DOCUMENT_CURRENT: String = "current"
 
         const val FIELD_SCHEMA_VERSION: String = "schemaVersion"
+        const val FIELD_MIN_READER_VERSION: String = "minReaderVersion"
+        const val FIELD_MIN_WRITER_VERSION: String = "minWriterVersion"
         const val FIELD_PUB_KEY: String = "pubKey"
         const val FIELD_ALGORITHM: String = "algorithm"
         const val FIELD_CREATED_AT: String = "createdAt"
         const val FIELD_REVOKED_AT: String = "revokedAt"
 
-        const val PUBKEY_SCHEMA_VERSION: Int = 1
+        internal val PUBKEY_SCHEMA_VERSION: WireVersion = WireVersion(1, 0)
+        internal val PUBKEY_MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+        internal val PUBKEY_MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
         const val ALGORITHM_X25519: String = "x25519-raw-v1"
     }
 }

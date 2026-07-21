@@ -47,11 +47,13 @@ class FileKeyBlobStore(context: Context) : KeyBlobStore {
                 "Cannot parse KeyBlob for ${keyId.raw}", e
             )
         }
-        // Reader gate — the version decision lives here (above crypto), TASK-141.
-        if (blob.schemaVersion > KeyBlob.CURRENT_SCHEMA_VERSION) {
+        // Reader gate — the version decision lives here (above crypto), TASK-141. Compares through
+        // the dotted header: a document demanding a newer reader than this build implements is
+        // refused rather than read on a guess (wire-format.md §3).
+        if (blob.minReaderVersion > KeyBlob.SCHEMA_VERSION) {
             throw CryptoException.UnsupportedSchemaVersion(
-                found = blob.schemaVersion,
-                known = KeyBlob.CURRENT_SCHEMA_VERSION,
+                found = blob.schemaVersion.major,
+                known = KeyBlob.SCHEMA_VERSION.major,
             )
         }
         WrappedKeyMaterial(

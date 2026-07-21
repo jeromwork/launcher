@@ -53,7 +53,10 @@ function b(size: number, fill = 0): Bytes {
 /** Valid v1 RecoveryVaultBlob with native Firestore types. */
 function validVaultV1(overrides: Partial<Record<string, unknown>> = {}) {
   return {
-    schemaVersion: 1,
+    // TASK-141 Part D: dotted three-field version header (was the bare integer schemaVersion: 1).
+    schemaVersion: "1.0",
+    minReaderVersion: "1.0",
+    minWriterVersion: "1.0",
     algorithm: "argon2id-xchacha20poly1305-v1",
     kdfSalt: b(16, 0x42), // exactly 16 bytes
     kdfParams: {
@@ -152,12 +155,23 @@ describe("F-5 recovery vault: shape validation", () => {
     await assertFails(setDoc(doc(alice, `users/${ALICE_UID}/recovery-key/main`), invalid));
   });
 
-  test("schemaVersion = 0 → reject", async () => {
+  test("integer schemaVersion (pre-conversion form) → reject", async () => {
+    const alice = testEnv.authenticatedContext(ALICE_UID).firestore();
+    // hasValidVersionHeader requires `schemaVersion is string`; the retired integer form fails it.
+    await assertFails(
+      setDoc(
+        doc(alice, `users/${ALICE_UID}/recovery-key/main`),
+        validVaultV1({ schemaVersion: 1 })
+      )
+    );
+  });
+
+  test("minReaderVersion above the accepted ceiling → reject (anti-lockout)", async () => {
     const alice = testEnv.authenticatedContext(ALICE_UID).firestore();
     await assertFails(
       setDoc(
         doc(alice, `users/${ALICE_UID}/recovery-key/main`),
-        validVaultV1({ schemaVersion: 0 })
+        validVaultV1({ schemaVersion: "999.0", minReaderVersion: "999.0", minWriterVersion: "999.0" })
       )
     );
   });
@@ -221,37 +235,72 @@ describe("F-5 recovery vault: H-2 schema downgrade protection (FR-028a)", () => 
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(
         doc(ctx.firestore(), `users/${ALICE_UID}/recovery-key/main`),
-        validVaultV1({ schemaVersion: 2 })
+        validVaultV1({ schemaVersion: "2.0" })
       );
     });
   });
 
-  test("owner update with schemaVersion = current (2) → allow", async () => {
+  test("owner update with schemaVersion = current (2.0) → allow", async () => {
     const alice = testEnv.authenticatedContext(ALICE_UID).firestore();
     await assertSucceeds(
       setDoc(
         doc(alice, `users/${ALICE_UID}/recovery-key/main`),
-        validVaultV1({ schemaVersion: 2 })
+        validVaultV1({ schemaVersion: "2.0" })
       )
     );
   });
 
-  test("owner update with schemaVersion > current (3) → allow (migration)", async () => {
+  test("owner update with schemaVersion > current (3.0) → allow (migration)", async () => {
     const alice = testEnv.authenticatedContext(ALICE_UID).firestore();
     await assertSucceeds(
       setDoc(
         doc(alice, `users/${ALICE_UID}/recovery-key/main`),
-        validVaultV1({ schemaVersion: 3 })
+        validVaultV1({ schemaVersion: "3.0" })
       )
     );
   });
 
-  test("owner update with schemaVersion < current (1) → REJECT (downgrade attempt)", async () => {
+  test("owner update with schemaVersion < current (1.0) → REJECT (downgrade attempt)", async () => {
     const alice = testEnv.authenticatedContext(ALICE_UID).firestore();
     await assertFails(
       setDoc(
         doc(alice, `users/${ALICE_UID}/recovery-key/main`),
-        validVaultV1({ schemaVersion: 1 })
+        validVaultV1({ schemaVersion: "1.0" })
+      )
+    );
+  });
+
+  // AC #6: the 9→10 boundary is exactly where a raw string >= inverts — "10.0" sorts BELOW "9.0"
+  // lexicographically. versionOrder() compares numerically, so 10.0 must outrank 9.0 (upgrade allowed)
+  // and the reverse must be blocked (downgrade rejected). Both directions asserted here on the real rule.
+  test("owner update 9.0 → 10.0 → allow (versionOrder numeric, not lexicographic)", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(
+        doc(ctx.firestore(), `users/${ALICE_UID}/recovery-key/main`),
+        validVaultV1({ schemaVersion: "9.0" })
+      );
+    });
+    const alice = testEnv.authenticatedContext(ALICE_UID).firestore();
+    await assertSucceeds(
+      setDoc(
+        doc(alice, `users/${ALICE_UID}/recovery-key/main`),
+        validVaultV1({ schemaVersion: "10.0" })
+      )
+    );
+  });
+
+  test("owner update 10.0 → 9.0 → REJECT (downgrade across the 9→10 boundary)", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(
+        doc(ctx.firestore(), `users/${ALICE_UID}/recovery-key/main`),
+        validVaultV1({ schemaVersion: "10.0" })
+      );
+    });
+    const alice = testEnv.authenticatedContext(ALICE_UID).firestore();
+    await assertFails(
+      setDoc(
+        doc(alice, `users/${ALICE_UID}/recovery-key/main`),
+        validVaultV1({ schemaVersion: "9.0" })
       )
     );
   });
