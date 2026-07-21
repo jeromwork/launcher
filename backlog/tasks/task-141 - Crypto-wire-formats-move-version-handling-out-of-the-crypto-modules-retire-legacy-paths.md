@@ -3,7 +3,7 @@ id: TASK-141
 title: >-
   Crypto wire formats: move version handling out of the crypto modules + retire
   legacy paths
-status: Paused
+status: In Progress
 assignee: []
 created_date: '2026-07-20 09:37'
 updated_date: '2026-07-20 14:46'
@@ -89,6 +89,41 @@ TASK-138 переводит форматы данных на новую сист
 
 **Draft.** Выделена из TASK-138 2026-07-20 по решению владельца: «крипта ничего не знает о версиях, занимаемся сейчас не криптой». Работа в TASK-138 по этим форматам была начата и откачена (не коммитилась).
 
+
+## Implementation plan (разведка 2026-07-21, готов к исполнению)
+
+Разведка показала: это три связанные под-задачи, все в крипто-зоне. Порядок — от безопасного к тонкому.
+
+### A. Удалить мёртвый media-storage feature (spec 011) — AC #5
+
+**Подтверждено мёртвым** (grep по всему дереву):
+- `EncryptedEnvelope` конструируется только в `Spec011SmokeDebugActivity` (debug) и тестах.
+- `EncryptedMediaStorage.upload/download` в проде **не вызываются** нигде.
+- `BackgroundReconciler.reconcile()` **не вызывается** нигде (конструируется в DI `CryptokitModule:85`, но метод мёртв). `list/delete` работают, но чистят то, что никто не загружает.
+
+**Footprint (12 файлов):** `EncryptedEnvelope.kt`, `EncryptedMediaStorage.kt`, `WorkerEncryptedMediaStorage.kt`, `InMemoryEncryptedMediaStorage.kt`, `BackgroundReconciler.kt`, DI-wiring в `CryptokitModule` + `BackendInit` (mock+real), `Spec011SmokeDebugActivity`, ссылки в комментариях `IconStorage.kt`/`Link.kt`, тесты. Удаление обратимо (git), два-way door.
+
+**Выгода:** после удаления `EncryptedEnvelope` **не нужно выносить** — минус один крипто-формат из B.
+
+### B. Вынести версию из живых крипто-форматов — AC #1, #2, #3
+
+**Общая константа — ключевая деталь.** `SUPPORTED_SCHEMA_VERSION` в `CryptoEnvelopeWireFormat.kt` (крипто) делится `DeviceIdentity`, `EncryptedEnvelope` и потребителями в `:core:keys` (`BackupError`, `RecoveryBlobCodec`). Вынос не изолирован по формату — надо разнести per-format в адаптеры.
+
+Живые форматы к выносу (после A остаётся 3):
+- **`DeviceIdentity`** — версия НЕ крипто-связана (не в подписи `signedPayloadBytes`, не шифруется). Чистый вынос: убрать поле `schemaVersion`, `@Serializable`/`@SerialName` (по TASK-144 крипто-тип без сериализации; сейчас `@Serializable` юзается только тестом, прод — ручной `toMap` в `FirestoreDeviceIdentityRepository`). Конструкторы: `PairingCryptoCoordinator` (95,105), `FirestoreDeviceIdentityRepository` (153).
+- **`Envelope`** — версия В AAD (крипто-связана). По решению владельца 2026-07-21: крипта принимает AAD как **готовые непрозрачные байты**, версию подмешивает слой над криптой (`EnvelopeRemoteStorage.aadFor`). Убрать из `EnvelopeConfigCipherImpl.open` строку `if (envelope.schemaVersion > Envelope.SCHEMA_VERSION)` (гейт наверх). **H-3** (проверка `algorithm != ALGORITHM_V1`) — остаётся в крипте, это не версия (AC #3).
+- **`RecoveryKeyBackupBlob`** — `RecoveryBlobCodec` держит кодек+гейт; гейт наверх в `WorkerRecoveryKeyBackup`.
+
+### C. KeyBlob — под-развилка (AC #4), нужен владелец
+
+`KeyBlob` — локальный файл, крипта пишет сама себе, второго читателя нет, наверх никуда не уезжает. Конфликт: «крипта не знает о версиях ни в каком виде» (владелец) vs у KeyBlob **нет слоя над криптой** — это чисто внутренний файл `SecureKeyStore`. Вариант 1: приватная версия остаётся у крипты как исключение (файл не wire — не уезжает). Вариант 2: вынести персистентность KeyBlob из крипты в адаптер (перекройка ответственности `SecureKeyStore`). Требует решения владельца.
+
+### D. Firestore rules + server-log — AC #6
+
+Правила `/users/{uid}/recovery-key/{docId}`, `/links/{linkId}/devices/{deviceId}` сравнивают версию численно (int). После B (формат пишет строку) — перевести на `versionOrder()`, тест границы 9→10. Записать в `server-log.md`: сервер трактует версию как **opaque** (rule 13, per TASK-144 server note).
+
+**Почему план, а не наспех-код:** крипто-зона, ошибка дорога (rule 3). Вынос через общую константу + 12-файловое удаление feature — крупный связный рефакторинг, надёжнее свежим заходом по этой карте, чем в конце длинной сессии.
+
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -101,16 +136,3 @@ TASK-138 переводит форматы данных на новую сист
 - [ ] #6 [hand] Firestore rules для vault восстановления и devices переведены на точечную строку через `versionOrder()`; защита от отката сохранена и проверена тестом на границе 9→10
 <!-- AC:END -->
 
-<!-- SECTION:PAUSE_REASON:BEGIN -->
-
-## Пауза (2026-07-20)
-
-Владелец временно переключил работу на TASK-144 (decision domain-vs-DTO), от которого TASK-141 зависит по полному пути. Возврат — после решения TASK-144.
-
-**Где работа:** ветка `task-141-crypto-wire-formats`, два коммита:
-- `304292e` — переименование `cryptokit.*` → `family.*` (готово, зелёное).
-- `10a4066` — обновление карточки с находками.
-
-**Уточнение владельца (2026-07-20), обязательное к исполнению при возврате:** крипта не знает о версии **ни в каком виде** — «всё сверху, над криптой». Это строже варианта A, как я его сформулировал. Корректная форма для `Envelope`: крипта принимает AAD как **готовые непрозрачные байты**; число версии подмешивает в них слой **над** криптой (адаптер). Крипта не собирает AAD, не парсит, не знает, что там версия. Поле `schemaVersion` и `@Serializable` уходят из крипто-типов полностью — по образцу, который определит TASK-144.
-
-<!-- SECTION:PAUSE_REASON:END -->
