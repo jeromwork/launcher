@@ -7,10 +7,15 @@ These are inviolable rules for designing, writing, and reviewing code in this re
 Domain code — the pure-logic layer that expresses what the product does — MUST NOT import:
 
 - vendor SDKs (cloud, payment, scanning, messaging, analytics, crash-reporting, etc.),
-- transport types when used as a wire format (HTTP clients, serialization framework annotations, raw JSON containers),
+- **vendor serialization frameworks** — reflection-based or annotation-heavy mappers that pull in an external runtime: Jackson, Gson, Moshi, Firebase document mapping, JPA/`javax.persistence`. These are infrastructure; they belong in adapters.
+- transport types when used as a wire format (HTTP clients, raw JSON containers),
 - platform system types of the host OS (intents, URIs, bundles, contexts, lifecycle owners) — these belong in adapters, not in domain values.
 
-Allowed in domain: pure language standard library, coroutine and flow primitives, other domain types, plain time and identifier types.
+Allowed in domain: pure language standard library, coroutine and flow primitives, other domain types, plain time and identifier types, **and `kotlinx.serialization` annotations** (`@Serializable`, `@SerialName`, `@JsonNames`, `@EncodeDefault`, custom `KSerializer`).
+
+**Why `kotlinx.serialization` is allowed but Jackson is not** (decided in [TASK-144](backlog/tasks/task-144%20-%20Decision-are-wire-formats-domain-types-or-DTOs-—-resolve-the-rule-1-tension.md), 2026-07-21): `kotlinx.serialization` is a compile-time Kotlin language facility — the compiler generates the serializer, no runtime reflection, no vendor lock, removable without touching a single domain concept. The rule-1 ban targets *vendor coupling*; `kotlinx.serialization` creates none. Forcing a separate DTO twin for all ~17 non-crypto formats would be pure mapping-fatigue with no rewrite avoided (rule 4 MVA). Industry splits domain from serialization where coupling is expensive (Java+Jackson, extractable SDKs); it does not for compile-time, language-native serialization on a stable domain.
+
+**Crypto is the exception — no version, no serialization in the crypto type at all.** Types in `:core:crypto` / `:core:keys` (the extractable crypto SDK) MUST carry neither a version field nor serialization annotations. Version and wire live in a layer *above* crypto (adapter/DTO); the crypto primitive receives already-built opaque bytes (e.g. AAD) and never learns what is in them. This is stricter than the allowance above and it wins for crypto types. Grounding: no industry AEAD (age, JWE, Tink, libsodium) puts version inside the primitive — the version is a cleartext header assembled above it. See [TASK-141](backlog/tasks/task-141%20-%20Crypto-wire-formats-move-version-handling-out-of-the-crypto-modules-retire-legacy-paths.md).
 
 Each external surface is exposed through a port (interface declared in the domain layer) implemented by an adapter (separate module that owns the SDK or system-call). Domain talks only to ports.
 
