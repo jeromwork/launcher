@@ -90,6 +90,20 @@ Owner decision 2026-06-18: "Export my data" → plaintext ZIP with a senior-safe
 
 **Grep-discoverable**: `grep -r "TODO(pre-release-audit):" core/ app/ docs/` — the live list of open items.
 
+## Security failure modes (release hygiene — check before each major release)
+
+Timeless engineering principles; each closes with a concrete mitigation. (Moved out of architecture — this is operational review material, not architecture.)
+
+1. **Nonce reuse in AEAD** → random nonce only, never a self-managed counter. Fitness: "encrypt twice → different output".
+2. **Wrong server/Worker validation** → an attacker with a valid JWT becomes admin. Mitigation: rules tests + Worker unit tests + negative-path + 2-eye review (TASK-105).
+3. **Argon2id iterations too low** → brute-force in hours. Mitigation: hardcoded constant + `assert iterations >= MIN`.
+4. **Wire format without `schemaVersion`** → breaks all v1 readers on field add. Rule 5 + TASK-16 fitness rule (`../architecture/wire-format.md`).
+5. **`allowBackup="true"`** → root key leaks to cloud backup. Mitigation: `allowBackup="false"` + `dataExtractionRules.xml` + CI check.
+6. **KeyPackage reuse** → forward secrecy loss. Mitigation: openmls one-time enforcement + test on marked-used → refuse.
+7. **Trusting JWT for authorization instead of MLS roster** → attacker with someone else's JWT gets group access. Mitigation: Worker always verifies JWT **and** roster membership (rule 12 zero-trust).
+
+Mandatory checklists per crypto spec: `checklist-security`, `checklist-wire-format`, `checklist-domain-isolation`, `checklist-server-hardening`.
+
 ## Known risks / open TODOs (current moment)
 
 - `crypto_box_seal` / HKDF-SHA256 not in ionspin's public API — Phase 5 uses `Box.seal`/`Box.sealOpen` + hand-rolled HKDF; switch when ionspin ships first-class HKDF.

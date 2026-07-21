@@ -176,16 +176,6 @@ Machine-readable contract = the `### Decision (English)` block in each task file
 - ❌ Multi-app: `android:sharedUserId` (removed Android 13), `MODE_WORLD_READABLE`, one server master key, iCloud Keychain cross-app.
 - ❌ External paid crypto audit pre-ship — replaced by fitness tests + threat model + agent-audit (see [`../dev/crypto-prerelease.md`](../dev/crypto-prerelease.md) A4).
 
-## Timeless failure modes (engineering principles)
-
-1. Nonce reuse in AEAD → random nonce only, fitness "encrypt twice → different output".
-2. Wrong server/Worker validation → rules tests + negative-path + 2-eye review (TASK-105).
-3. Argon2id iterations too low → hardcoded constant + `assert iterations >= MIN`.
-4. Wire format without `schemaVersion` → rule 5 + TASK-16 fitness rule ([`wire-format.md`](wire-format.md)).
-5. `allowBackup="true"` → root key leaks to cloud backup → `allowBackup="false"` + `dataExtractionRules.xml` + CI.
-6. KeyPackage reuse → forward secrecy loss → openmls one-time enforcement + test.
-7. Trusting JWT for authorization instead of MLS roster → Worker verifies JWT **and** roster (rule 12).
-
 ## Terminology mapping (old → current)
 
 | Old | Current | Where |

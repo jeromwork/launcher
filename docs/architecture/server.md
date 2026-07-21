@@ -178,7 +178,7 @@ last-synced: 2026-07-08
 - **Verify**: signature, expiration, `iss`, `aud`, clock skew ≤ 60s.
 - **JWT claims used**: `identity_id` (rate limit dimension + roster check), `iat`, `exp`.
 - **Exception `[public]`** — только с явным reasoning (например, endpoint issuance самого JWT, `/health`).
-- **Anti-pattern (rejected)**: trust JWT для authorization без MLS roster check → attacker с чужим JWT получает group access. См. [crypto.md § Timeless failure modes](crypto.md) п.7.
+- **Anti-pattern (rejected)**: trust JWT для authorization без MLS roster check → attacker с чужим JWT получает group access. См. [crypto-prerelease.md § Security failure modes](../dev/crypto-prerelease.md) п.7.
 
 ### 2. Rate limiting — two tiers
 
