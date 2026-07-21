@@ -101,7 +101,15 @@ TASK-138 переводит форматы данных на новую сист
 - `EncryptedMediaStorage.upload/download` в проде **не вызываются** нигде.
 - `BackgroundReconciler.reconcile()` **не вызывается** нигде (конструируется в DI `CryptokitModule:85`, но метод мёртв). `list/delete` работают, но чистят то, что никто не загружает.
 
-**Footprint (12 файлов):** `EncryptedEnvelope.kt`, `EncryptedMediaStorage.kt`, `WorkerEncryptedMediaStorage.kt`, `InMemoryEncryptedMediaStorage.kt`, `BackgroundReconciler.kt`, DI-wiring в `CryptokitModule` + `BackendInit` (mock+real), `Spec011SmokeDebugActivity`, ссылки в комментариях `IconStorage.kt`/`Link.kt`, тесты. Удаление обратимо (git), два-way door.
+**Footprint:** (уточнено 2026-07-21 до ~19)
+
+**Изоляция подтверждена:** `PairingCryptoCoordinator` media НЕ трогает — feature изолирован от живого pairing. `CryptoEnvelopeWireFormat.kt` — только `const SUPPORTED_SCHEMA_VERSION`, удаление `EncryptedEnvelope` его не задевает.
+
+**Удалить целиком:** `EncryptedEnvelope.kt`, `EncryptedMediaStorage.kt`, `WorkerEncryptedMediaStorage.kt`, `InMemoryEncryptedMediaStorage.kt`, `FakeEncryptedMediaStorage.kt`, `BackgroundReconciler.kt`, `EncryptedEnvelopeSerializationTest.kt`, `Spec011RoundtripSmokeTest.kt`, `Spec011SmokeDebugActivity.kt` (12 media-упоминаний — весь экран). **Проверить на сиротство:** `ClearDataDetector` (используется только reconciler'ом + CryptokitModule — если reconciler уходит, проверить, жив ли он ещё где-то как clear-data sentinel).
+
+**Править (убрать ссылки/DI):** `CryptokitModule` (reconciler+storage+clearData wiring), `BackendInit` mock+real (storage single), `FirestoreLinkRegistry` (nullable `encryptedMediaStorage` param), `IconStorage.kt`/`Link.kt` (комментарии), `NoFakeCryptoInAppTest` (список fakes), `CryptoEnvelopeWireFormatTest` (если тестит EncryptedEnvelope). Старый footprint:
+
+**Старый список (12 файлов):** `EncryptedEnvelope.kt`, `EncryptedMediaStorage.kt`, `WorkerEncryptedMediaStorage.kt`, `InMemoryEncryptedMediaStorage.kt`, `BackgroundReconciler.kt`, DI-wiring в `CryptokitModule` + `BackendInit` (mock+real), `Spec011SmokeDebugActivity`, ссылки в комментариях `IconStorage.kt`/`Link.kt`, тесты. Удаление обратимо (git), два-way door.
 
 **Выгода:** после удаления `EncryptedEnvelope` **не нужно выносить** — минус один крипто-формат из B.
 
