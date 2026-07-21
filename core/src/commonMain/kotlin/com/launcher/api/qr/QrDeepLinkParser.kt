@@ -1,28 +1,42 @@
 package com.launcher.api.qr
 
 import com.launcher.api.pairing.PairingToken
+import family.wire.WireVersion
 
 /**
- * Parser for QR deep links of shape
- * `launcher://pair?token=<TOKEN>&v=<SCHEMA>`
- * (contracts/qr-deeplink.md v1).
+ * Parser and builder for QR pairing deep links of shape
+ * `launcher://pair?token=<TOKEN>&v=<MIN_READER>` (contracts/qr-deeplink.md).
  *
- * Lives in `commonMain` and is platform-free — no `android.net.Uri`. The
- * URI grammar is small enough to hand-parse, which keeps the test surface
- * platform-agnostic.
+ * **Read-once transport — a single version field.** The link is scanned exactly once and
+ * discarded; the receiver never writes it back. Per `docs/architecture/wire-format.md` §3, a
+ * format with no read-modify-write cycle carries only `minReaderVersion`: the other two fields
+ * describe states that cannot occur here — `minWriterVersion` gates a write-back that never
+ * happens, and `schemaVersion` is a diagnostic no reader acts on. Grounding: otpauth://, WiFi
+ * QR, EMV, age and CTAP all version read-once payloads with one field or none; the reader/writer
+ * split (SQLite, Matroska) exists only where a format is both read *and* written by differing
+ * versions. Keeping the field to one also keeps the QR from getting denser — it is scanned from
+ * a phone screen by hand, so every character is pixels.
  *
- * Forward-compat:
- *  - Missing `v=` defaults to `1` for legacy QRs (contract §Edge cases).
- *  - Unknown extra query params are tolerated.
- *  - `v >= 2` from the wire produces [QrParseResult.UnsupportedVersion] so
- *    the admin UI can prompt "update the app" instead of accepting a token
- *    it cannot reason about.
+ * `v` is that single field, dotted (`"1.0"`). The reader refuses a link requiring a reader newer
+ * than this build (§4, fail closed) so the admin UI can prompt "update the app" instead of
+ * accepting a token it cannot reason about. An additive future change keeps `v` unchanged (old
+ * readers still cope, unknown params are tolerated); only a breaking change raises it.
+ *
+ * Lives in `commonMain` and is platform-free — no `android.net.Uri`. The URI grammar is small
+ * enough to hand-parse, which keeps the test surface platform-agnostic.
  */
 object QrDeepLinkParser {
 
     const val SCHEME: String = "launcher"
     const val HOST: String = "pair"
-    const val SUPPORTED_VERSION: Int = 1
+
+    /**
+     * The minimum reader version the current link format requires — the single version field of
+     * this read-once format (wire-format.md §3). It is both the value [buildPairingDeepLink]
+     * stamps into `v` and the ceiling [parsePairingDeepLink] gates against, because this build
+     * reads exactly the format it writes. A breaking change raises this; an additive one does not.
+     */
+    val MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
 
     sealed interface QrParseResult {
         data class Success(val token: PairingToken) : QrParseResult
@@ -30,6 +44,13 @@ object QrDeepLinkParser {
         data object UnsupportedVersion : QrParseResult
         data object MalformedToken : QrParseResult
     }
+
+    /**
+     * Builds the deep link a fresh QR encodes. The single source of the URI grammar — the display
+     * screen calls this rather than assembling the string itself, so the format lives in one place.
+     */
+    fun buildPairingDeepLink(token: PairingToken): String =
+        "$SCHEME://$HOST?token=${token.raw}&v=$MIN_READER_VERSION"
 
     fun parsePairingDeepLink(uri: String): QrParseResult {
         val schemeSeparator = uri.indexOf("://")
@@ -55,12 +76,12 @@ object QrDeepLinkParser {
 
         val params = parseQuery(query)
 
-        // Missing `v` is treated as v=1 (legacy compat per contract §Edge cases).
-        // TODO(v2): when a v=2 ships, add a `when` branch above; do NOT remove
-        // the legacy default — old QRs still need to parse for at least one
-        // major release (CLAUDE.md §5).
-        val version = params["v"]?.toIntOrNull() ?: SUPPORTED_VERSION
-        if (version != SUPPORTED_VERSION) return QrParseResult.UnsupportedVersion
+        // `v` is the minimum reader this link requires. Refuse anything newer than we implement
+        // (§4, fail closed); an absent or unparseable version cannot clear the gate either. No
+        // legacy default — pre-MVP, so no old links exist in the field to stay compatible with.
+        val requiredReader = params["v"]?.let { WireVersion.parseOrNull(it) }
+            ?: return QrParseResult.UnsupportedVersion
+        if (requiredReader > MIN_READER_VERSION) return QrParseResult.UnsupportedVersion
 
         val rawToken = params["token"] ?: return QrParseResult.MalformedToken
         val token = try {

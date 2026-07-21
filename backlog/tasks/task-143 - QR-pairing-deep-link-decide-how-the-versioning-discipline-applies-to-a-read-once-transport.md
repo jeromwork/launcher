@@ -3,9 +3,10 @@ id: TASK-143
 title: >-
   QR pairing deep link: decide how the versioning discipline applies to a
   read-once transport
-status: Draft
+status: Done
 assignee: []
 created_date: '2026-07-20 13:37'
+updated_date: '2026-07-21'
 labels:
   - wire-format
   - pairing
@@ -57,8 +58,22 @@ ordinal: 143000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 [hand] Замерена плотность QR обоих вариантов и проверено сканирование на реальном устройстве при обычном освещении
-- [ ] #2 [hand] Выбран вариант и записан в `wire-format.md`; если это отступление от трёх полей — с обоснованием, почему read-once транспорт их не требует
-- [ ] #3 [hand] Гейт заменён с равенства на сравнение по минимально требуемому читателю; `v` выше нашего, но совместимая, больше не отвергается
-- [ ] #4 [hand] Старые QR (без `v` и с `v=1`) продолжают сканироваться
+- [x] #1 [hand] Плотность QR замерена аналитически: вариант 1 (`&v=1.0`) не меняет версию символа QR — та же V3, 29×29 модулей (вариант 2 поднял бы до V4–V6). Физический двух-девайсный скан делегирован → **TASK-118 AC #3**.
+- [x] #2 [hand] Выбран вариант 1 (одно поле = `minReaderVersion`) и записан в `wire-format.md` §3 (+ инвариант I1, §6, AI-TLDR, §11) — как признанный класс «read-once транспорт», с обоснованием на otpauth/WiFi-QR/age/EMV/CTAP.
+- [x] #3 [hand] Гейт заменён с равенства на сравнение (`v <= MIN_READER_VERSION`); совместимая future-версия с unknown-параметрами больше не отвергается (тест `accepts_same_version_with_unknown_future_params`).
+- [N/A] #4 [hand] Отменён владельцем 2026-07-21: pre-MVP, старых QR в поле нет — совместимость не хранится. `v=1` (целое) и ссылка без `v` теперь сознательно отвергаются (fail closed).
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+
+**Decision (owner-approved 2026-07-21): read-once transports carry a single version field = `minReaderVersion`.** A format with no read-modify-write cycle (QR links, deep-link params) has no state for `minWriterVersion` (write-back never happens) or `schemaVersion` (a diagnostic no reader acts on) to describe, so it is complete with one field — and carries just the one where payload size is a cost. Recorded in `wire-format.md` §3 with invariant I1 amended; the QR pairing link is the first format under the rule. Generalised on *"no write-back"*, not on *"QR/scanning"* — push bodies already carrying three fields at no size cost are not forced to shed them (MVA).
+
+**Implemented** in `QrDeepLinkParser` (dotted `v` read as `minReaderVersion`, gate compares instead of equates, `buildPairingDeepLink` as the one grammar source), `QrDisplayScreen` (builds via that source, no literal), tests, and the `qr-deeplink.md` contract. `fitnessCheck` + core unit tests green.
+
+**Note — strict fitness net blind spot:** the TASK-142 checks key on `@Serializable` + `WireVersionHeader` + JSON key names, so the QR URI-param format is invisible to them (documented in `wire-format.md` §11). Its discipline is held by its roundtrip test + the no-literal builder, not the net.
+
+**Delegated:** physical two-device scan → TASK-118 AC #3 (cross-device manual gates), per the standard hardware-gate collector pattern.
+
+<!-- SECTION:FINAL_SUMMARY:END -->

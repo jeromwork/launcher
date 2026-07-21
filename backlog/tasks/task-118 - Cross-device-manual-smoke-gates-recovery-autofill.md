@@ -4,7 +4,7 @@ title: Cross-device manual smoke gates (recovery + autofill + future)
 status: Draft
 assignee: []
 created_date: '2026-06-30 08:30'
-updated_date: '2026-07-08'
+updated_date: '2026-07-21'
 labels:
   - verification
   - cross-device
@@ -13,6 +13,7 @@ labels:
 milestone: m-0
 dependencies:
   - TASK-6
+  - TASK-143
 priority: high
 ordinal: 118000
 ---
@@ -83,6 +84,13 @@ ordinal: 118000
   2. На устройстве B — пройди wizard до Entry screen.
   3. Тапни на password field — должно появиться предложение «Автозаполнение из <account>» (GPM bottomsheet).
   4. Выбери — пароль должен подставиться сам.
+- [ ] #3 [hand] **TASK-143** — QR pairing link scans after the version format change.
+  **Контекст:** формат QR-ссылки спаривания переведён на одно точечное поле `v=1.0` (было целое `v=1`). Плотность QR по расчёту не меняется (та же версия символа V3, 29×29 модулей — прибавка `1`→`1.0` тонет в запасе ёмкости), этот прогон подтверждает вживую.
+  **Действия:**
+  1. Установи realBackend APK на устройство-Managed: `./gradlew :app:installRealBackendDebug` (USB подключён).
+  2. Включи спаривание — на экране появится QR (внутри `launcher://pair?token=…&v=1.0`).
+  3. Вторым устройством (admin) отсканируй QR при обычном комнатном освещении, с рук.
+  4. Скан должен распознаться с первого-второго раза, токен принят (не «обновите приложение», не «неверный код»).
 <!-- AC:END -->
 
 ## Implementation Notes
