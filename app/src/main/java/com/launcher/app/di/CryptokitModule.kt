@@ -1,12 +1,7 @@
 package com.launcher.app.di
 
-import com.launcher.adapters.config.AndroidSqlDriverProvider
-import com.launcher.adapters.crypto.BackgroundReconciler
-import com.launcher.adapters.crypto.ClearDataDetector
 import com.launcher.adapters.crypto.PairRecipientResolver
 import com.launcher.adapters.crypto.PairingCryptoCoordinator
-import com.launcher.adapters.crypto.SqlDelightBlobReferenceLedger
-import com.launcher.adapters.crypto.db.CryptoStore
 import family.crypto.api.AeadCipher
 import family.crypto.api.AsymmetricCrypto
 import family.crypto.api.KeyDerivation
@@ -22,7 +17,6 @@ import family.crypto.libsodium.LibsodiumRandomSource
 import family.crypto.stubs.StubKeyEscrow
 import family.crypto.stubs.StubKeyRotation
 import family.pairing.api.DeviceIdentityRepository
-import family.pairing.api.EncryptedMediaStorage
 import family.pairing.api.RecipientResolver
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -39,10 +33,12 @@ import org.koin.dsl.module
  *     - Interface-only stubs for KeyRotation / KeyEscrow (deferred per ADR-008)
  *
  *   ── pairing-side adapters (spec 011) ──
- *     - SqlDelightBlobReferenceLedger + ClearDataDetector (KMP-pure storage)
- *     - BackgroundReconciler (orphan blob reconciliation, FR-042)
  *     - PairRecipientResolver (one-on-one pair; spec 014 will introduce group resolvers)
  *     - PairingCryptoCoordinator (key lifecycle + DeviceIdentity publication)
+ *
+ * The spec-011 orphan-blob reconciler (BackgroundReconciler + ledger +
+ * clear-data sentinel) was removed in TASK-141 as dead — it was constructed in
+ * DI but never invoked.
  *
  * Flavor-specific port bindings (Firestore-backed DeviceIdentityRepository,
  * Worker-backed EncryptedMediaStorage; or their Fake equivalents) live in
@@ -74,20 +70,6 @@ val cryptokitModule = module {
     single { SecureKeyStore(context = get()) }
     single<KeyRotation> { StubKeyRotation() }
     single<KeyEscrow> { StubKeyEscrow() }
-
-    // ── SQLDelight CryptoStore + cleanup machinery (KMP-pure) ────────────
-    single<CryptoStore> { AndroidSqlDriverProvider.createCryptoStore(androidContext()) }
-    single { SqlDelightBlobReferenceLedger(db = get()) }
-    single { ClearDataDetector(db = get()) }
-
-    // ── BackgroundReconciler — wraps Storage + ledger + clear-data sentinel
-    single {
-        BackgroundReconciler(
-            storage = get<EncryptedMediaStorage>(),
-            ledger = get(),
-            clearData = get(),
-        )
-    }
 
     // ── PairRecipientResolver — depends on flavor-bound DeviceIdentityRepository
     single<RecipientResolver> {

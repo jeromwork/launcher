@@ -22,8 +22,8 @@ class NoFakeCryptoInAppTest {
     @Test
     fun productionAppCodeMustNotImportFakeCryptoAdapters() {
         // TASK-51 T076 — scope extended to include family.pairing.fake.*
-        // (FakeDeviceIdentityRepository / FakeEncryptedMediaStorage / FakeRecipientResolver
-        // added in Phase 8 alongside the family.crypto.fake.* set).
+        // (FakeDeviceIdentityRepository / FakeRecipientResolver added in Phase 8
+        // alongside the family.crypto.fake.* set).
         val forbiddenPrefixes = listOf(
             "family.crypto.fake",
             "family.pairing.fake",
