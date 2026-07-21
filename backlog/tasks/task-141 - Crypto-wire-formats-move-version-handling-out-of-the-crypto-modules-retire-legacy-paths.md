@@ -114,9 +114,13 @@ TASK-138 переводит форматы данных на новую сист
 - **`Envelope`** — версия В AAD (крипто-связана). По решению владельца 2026-07-21: крипта принимает AAD как **готовые непрозрачные байты**, версию подмешивает слой над криптой (`EnvelopeRemoteStorage.aadFor`). Убрать из `EnvelopeConfigCipherImpl.open` строку `if (envelope.schemaVersion > Envelope.SCHEMA_VERSION)` (гейт наверх). **H-3** (проверка `algorithm != ALGORITHM_V1`) — остаётся в крипте, это не версия (AC #3).
 - **`RecoveryKeyBackupBlob`** — `RecoveryBlobCodec` держит кодек+гейт; гейт наверх в `WorkerRecoveryKeyBackup`.
 
-### C. KeyBlob — под-развилка (AC #4), нужен владелец
+### C. KeyBlob — вынести персистентность из крипты (AC #4) — РЕШЕНО владельцем 2026-07-21
 
-`KeyBlob` — локальный файл, крипта пишет сама себе, второго читателя нет, наверх никуда не уезжает. Конфликт: «крипта не знает о версиях ни в каком виде» (владелец) vs у KeyBlob **нет слоя над криптой** — это чисто внутренний файл `SecureKeyStore`. Вариант 1: приватная версия остаётся у крипты как исключение (файл не wire — не уезжает). Вариант 2: вынести персистентность KeyBlob из крипты в адаптер (перекройка ответственности `SecureKeyStore`). Требует решения владельца.
+`KeyBlob` — локальный файл-сейф с обёрнутым ключом (`<filesDir>/keys/<id>.blob`), крипта (`SecureKeyStore.android`) пишет и читает его сама, наверх не уезжает. Владелец выбрал **вариант 2** (строго по букве правила): крипта не знает о версиях даже для своего локального файла.
+
+**План:** `SecureKeyStore` перестаёт сериализовать/парсить `KeyBlob` и проверять версию (убрать строку `if (blob.schemaVersion > KeyBlob.CURRENT_SCHEMA_VERSION)`). Крипта отдаёт/принимает **обёрнутые байты** (`wrappedKey`, `iv`, `wrapKeyAlias`, `algorithm`, `createdAt`) через порт; новый адаптер персистентности (androidMain :core или :app) добавляет версию, сериализует `KeyBlob` и пишет/читает `.blob`-файл. Тип `KeyBlob` (с `@Serializable` + версией) уезжает из `:core:crypto` в адаптерный слой. `CURRENT_SCHEMA_VERSION` и гейт — туда же. `ByteArrayBase64Serializer` — проверить, используется ли ещё в крипте после выноса.
+
+**Осторожно:** `SecureKeyStore.android` — это `SecureKeyStore` expect/actual. Вынос персистентности меняет его контракт (порт). Проверить всех потребителей `SecureKeyStore` и `proguard -keepnames KeyBlob` (переедет вместе с типом).
 
 ### D. Firestore rules + server-log — AC #6
 
