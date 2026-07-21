@@ -145,6 +145,35 @@ TASK-138 переводит форматы данных на новую сист
 
 Версия в AAD `Envelope`: остаётся литерал `"family-storage::v1"` в `aadFor` (это версия схемы привязки), поле `schemaVersion` документа НЕ подмешивается в AAD — **перешифровки нет** (развилка A закрыта: aadFor не читает поле версии). Существующих пользовательских данных нет — ломать нечего. Реализация — по одному формату отдельными коммитами (`DeviceIdentity` → `Envelope` → `RecoveryKeyBackupBlob`). `SUPPORTED_SCHEMA_VERSION` уезжает из `:core:crypto` (`CryptoEnvelopeWireFormat.kt`) в адаптерный слой per-format.
 
+## Прогресс (2026-07-21)
+
+- **A** — мёртвый media-storage удалён (988570d). AC #5.
+- **B1** `DeviceIdentity` (ab90a26), **B2** `Envelope` (b27a903), **B3** `RecoveryKeyBackupBlob` (74f684e) — крипто-типы без версии и `@Serializable`, версия в адаптере (int). AC #1/#2/#3.
+- **C** `KeyBlob` — персистентность вынесена в `FileKeyBlobStore` (:core), `SecureKeyStore` только wrap/unwrap через порт `KeyBlobStore` (195bf3c). AC #4.
+- **D** — **ещё не сделано** (AC #6). Разведка выполнена, карта ниже. НЕ начинать в конце длинной сессии — это security-rules + Worker, нужен Firebase-эмулятор для проверки.
+
+### Part D — карта для исполнения (разведка 2026-07-21)
+
+Перевести 6 форматов с int-версии на точечную строку + 3-полевой заголовок `family.wire.WireVersion`/`WireVersionHeader`. Эталон: `core/src/androidRealBackend/.../adapters/auth/IdentityDocumentWireFormat.kt` — `header()` строит `mapOf("schemaVersion" to sv.toString(), "minReaderVersion" to ..., "minWriterVersion" to ...)` из `WireVersion(1,0)`. Для `@Serializable`-DTO: реализовать `WireVersionHeader` + `@EncodeDefault(EncodeDefault.Mode.ALWAYS)` на трёх полях (иначе `VersionFieldsAlwaysEncoded` fitness падает).
+
+Форматы + где версия:
+1. `FirestoreDeviceIdentityRepository` (`WIRE_SCHEMA_VERSION Int=1`, toMap/fromMap). **Правило `/links/{linkId}/devices` УЖЕ строковое** (`firestore.rules:274-314`, `hasValidVersionHeader`) — адаптер сейчас пишет int и его записи **уже отвергались бы**; перевод адаптера чинит. Правило НЕ трогать.
+2. `FirestoreEnvelopeStorage` (`WIRE_SCHEMA_VERSION Int=1`, encode/decode). Правило `/users/{ns}/data/{key}` (`firestore.rules:520-525`) — сырой `>=`, нет type-check → добавить `hasValidVersionHeader` + `versionOrder`.
+3. `FirestorePublicKeyDirectory` (`PUBKEY_SCHEMA_VERSION Int=1`, 2 write-сайта 78/85, **read-гейта нет**). Правила `firestore.rules:536-543` — owner-only, версию не валидируют.
+4. `FirestoreRecoveryKeyBackup` (использует `RecoveryBlobJsonCodec.WIRE_SCHEMA_VERSION`, encode/decode). Правило `/users/{uid}/recovery-key` (`firestore.rules:431-469`) — **`is int` + сырой `>=`** (строка 465) → перевести на `hasValidVersionHeader` + `versionOrder`. **AC #6 явно про это + devices.** Осторожно: имена полей в правиле (`kdfSalt`, `wrappedRootKey`) не совпадают с адаптером (`salt`, `ciphertext`) — pre-existing, вне scope версии.
+5. `RecoveryBlobJsonCodec` + `RecoveryKeyBackupBlobDto` (`WIRE_SCHEMA_VERSION Int=1`, DTO `schemaVersion: Int` строка 101). Перевести DTO на `WireVersionHeader`, decode-гейт на `versionOrder`. **Серверный близнец** — `workers/backup/src/index.ts:166-173` проверяет `typeof number` → перевести на строку + `versionOrder`; `MAX_SUPPORTED_SCHEMA_VERSION` env (`workers/backup/src/env.ts:13`, `wrangler.toml [vars]`) `"1"` → `"1.0"`.
+6. `KeyBlob` (`core/src/commonMain/.../adapters/crypto/KeyBlob.kt`, `CURRENT_SCHEMA_VERSION Int=1`, локальный файл — НЕ Firestore). Перевести на `WireVersionHeader`, гейт в `FileKeyBlobStore.read`.
+
+Хелперы правил: `versionOrder(v)` (`firestore.rules:48-50`), `maxAcceptedReaderVersion()`→`"1.0"` (55-57, поднять перед деплоем строгих правил), `hasValidVersionHeader(d)` (67-74). Опорные versionOrder-правила для копирования: `/users/{uid}/config` (474-484), `/links/{linkId}/state`, `identity-links`.
+
+Тесты/проверка: `firestore-tests/` — `npm test` (Firebase-эмулятор + vitest). `rules.f5.recovery.test.ts` фикстура `validVaultV1()` пишет `schemaVersion: 1` int (строка 56) → перевести на строку. Golden-фикстуры: `core/keys/src/jvmTest/resources/fixtures/recovery-blob-v1/v2*.json` (int → строковые близнецы). `KeyBlobWireFormatTest` + `RecoveryBlobJsonCodecTest` — inline-фикстуры int → строка.
+
+server-log (rule 13): `docs/dev/server-log.md` — anchor `A-1 · Sealed blob storage`; добавить короткую заметку (Worker `MAX_SUPPORTED_SCHEMA_VERSION`/`typeof number` теперь строка) + строку в `## Journal` (2026-07-21).
+
+Финал: fitnessCheck (allowlist `CRYPTO_PENDING_TASK_141` в `ArchitectureFitnessTest.kt` **опустеет** — сигнал что TASK-141 приземлился) + unit + `firestore-tests npm test` + workers test.
+
+**Lockout-риск**: каждый путь, где `is int`→строка, отвергнет старые int-записи в момент деплоя. Деплой правил координировать с выкаткой app. `maxAcceptedReaderVersion()` — потолок против lockout.
+
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
