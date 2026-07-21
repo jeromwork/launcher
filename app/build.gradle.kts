@@ -4,6 +4,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
+    // TASK-141 — @Serializable DTO for the recovery-vault wire format lives in this
+    // adapter module now (RecoveryBlobJsonCodec), so the compiler plugin is needed here.
+    alias(libs.plugins.kotlin.serialization)
     // Spec 007 — Firebase google-services plugin. Per-variant mockBackend
     // disable добавляется отдельным commit'ом (e3066a9 в 007 branch).
     alias(libs.plugins.google.services)

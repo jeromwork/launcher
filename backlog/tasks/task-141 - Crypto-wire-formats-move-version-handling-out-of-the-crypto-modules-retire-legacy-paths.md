@@ -3,16 +3,15 @@ id: TASK-141
 title: >-
   Crypto wire formats: move version handling out of the crypto modules + retire
   legacy paths
-status: Draft
+status: Done
 assignee: []
 created_date: '2026-07-20 09:37'
+updated_date: '2026-07-21'
 labels:
   - wire-format
   - crypto
   - phase-2
 milestone: m-2
-decision-supersedes:
-  - TASK-56
 dependencies:
   - TASK-138
 priority: medium
@@ -29,17 +28,31 @@ TASK-138 переводит форматы данных на новую сист
 
 Причина исключения — решение владельца от 2026-07-20: **крипта не должна ничего знать о системе версий.** Её дело — шифровать и подписывать, а не решать, читаемый ли документ.
 
-**Как надо (образец уже есть в коде).** Формат `DeviceIdentity` устроен правильно уже сегодня:
-1. Крипта объявляет только сам тип — какие ключи, какая подпись.
-2. Складывание в документ и разбор обратно делает адаптер (`FirestoreDeviceIdentityRepository` в модуле `:core`).
-3. Там же, в адаптере, стоит проверка «а можем ли мы вообще это прочитать».
-4. Крипта не знает, что данные вообще куда-то сохраняются. Убрать облако — крипта не заметит.
+**Правка модели (2026-07-20, при работе):** `DeviceIdentity` названа в исходной карточке «образцом уже правильным» — **это неверно**, проверено по коду. Гейт действительно в адаптере, но:
+- поле `schemaVersion: Int` и `@SerialName` сидят **в самом крипто-типе**;
+- константа `SUPPORTED_SCHEMA_VERSION` живёт **в крипто-модуле** (`CryptoEnvelopeWireFormat.kt`), её же импортит гейт в адаптере;
+- `@Serializable` на типе используется **только тестом** — прод-путь в Firestore идёт через ручной `toMap`/`fromMap` в адаптере.
+
+То есть образца «крипта ничего не знает о версиях» в коде пока **нет ни у одного из шести форматов** — все несут `schemaVersion` внутри крипто-типа.
 
 Остальные пять форматов надо привести к тому же виду.
 
 **Отдельный вопрос — `KeyBlob`.** Это локальный файл, который крипта пишет сама себе и сама читает; он никуда не уезжает и второго читателя у него нет. Предложение: оставить ему собственную приватную версию, не подключая к общей дисциплине. Вытаскивать из `SecureKeyStore` всю запись на диск ради единообразия — перекройка ответственности модуля, а не работа с версиями.
 
 **Заодно — уборка мёртвого кода.** При инвентаризации нашлись пути, которые, судя по всему, не используются. Их надо проверить и, если подтвердится, удалить, а не конвертировать.
+
+
+## Находки при работе (2026-07-20) — две развилки для владельца
+
+**Развилка A — версия криптографически связана в `Envelope`.** У `Envelope` (`:core:keys`) `schemaVersion` **входит в AAD** — authenticated data вычисляется читателем из `(namespace, key, schemaVersion)`. Это значит: убрать версию из крипто-типа буквально = сломать AEAD-контракт = **перешифровать все существующие зашифрованные документы**. Это one-way door (CLAUDE.md rule 3), не механический перенос.
+
+Разведение, которое НЕ ломает контракт: крипта перестаёт **решать** про версию (убрать константу «текущей версии», убрать любые сравнения, гейт в адаптер), но **продолжает включать переданное ей число в AAD** — как непрозрачный вход AEAD, не зная про дисциплину версионирования. Это укладывается в AC #1 («не содержит разбора, сравнения или проверки версии») — включение в AAD не есть проверка. Но это тонкий дизайн, а не «переставить поле».
+
+**Развилка B — вынос `@Serializable` из крипто-типов = TASK-144.** Чтобы крипто-тип совсем «не знал» про wire (убрать `schemaVersion`-поле и `@Serializable`/`@SerialName`), нужен DTO-слой в адаптере. Нужен ли DTO вообще — это **ровно вопрос TASK-144** (domain vs DTO annotation, rule 1), который ещё не решён. Пока он открыт, минимальный безопасный ход: убрать из крипты **константу и сравнения** (крипта не знает «текущую» версию), но `@Serializable` и поле-переносчик оставить до решения TASK-144.
+
+**Мёртвый код требует расследования, не grep.** `EncryptedEnvelope` как формат нигде в проде не конструируется, но порт `EncryptedMediaStorage` живой и wired в DI (иконки). Прежде чем удалять — понять, создаётся ли `EncryptedEnvelope` внутри `WorkerEncryptedMediaStorage`.
+
+**Что уже сделано:** переименование `cryptokit.*` → `family.*` (первый коммит), правило `NoLegacyFamilyNamespaceTest` инвертировано, всё зелёное.
 
 ## Зачем
 
@@ -76,14 +89,162 @@ TASK-138 переводит форматы данных на новую сист
 
 **Draft.** Выделена из TASK-138 2026-07-20 по решению владельца: «крипта ничего не знает о версиях, занимаемся сейчас не криптой». Работа в TASK-138 по этим форматам была начата и откачена (не коммитилась).
 
+
+## Implementation plan (разведка 2026-07-21, готов к исполнению)
+
+Разведка показала: это три связанные под-задачи, все в крипто-зоне. Порядок — от безопасного к тонкому.
+
+### A. Удалить мёртвый media-storage feature (spec 011) — AC #5
+
+**Подтверждено мёртвым** (grep по всему дереву):
+- `EncryptedEnvelope` конструируется только в `Spec011SmokeDebugActivity` (debug) и тестах.
+- `EncryptedMediaStorage.upload/download` в проде **не вызываются** нигде.
+- `BackgroundReconciler.reconcile()` **не вызывается** нигде (конструируется в DI `CryptokitModule:85`, но метод мёртв). `list/delete` работают, но чистят то, что никто не загружает.
+
+**Footprint:** (уточнено 2026-07-21 до ~19)
+
+**Изоляция подтверждена:** `PairingCryptoCoordinator` media НЕ трогает — feature изолирован от живого pairing. `CryptoEnvelopeWireFormat.kt` — только `const SUPPORTED_SCHEMA_VERSION`, удаление `EncryptedEnvelope` его не задевает.
+
+**Удалить целиком:** `EncryptedEnvelope.kt`, `EncryptedMediaStorage.kt`, `WorkerEncryptedMediaStorage.kt`, `InMemoryEncryptedMediaStorage.kt`, `FakeEncryptedMediaStorage.kt`, `BackgroundReconciler.kt`, `EncryptedEnvelopeSerializationTest.kt`, `Spec011RoundtripSmokeTest.kt`, `Spec011SmokeDebugActivity.kt` (12 media-упоминаний — весь экран). **Проверить на сиротство:** `ClearDataDetector` (используется только reconciler'ом + CryptokitModule — если reconciler уходит, проверить, жив ли он ещё где-то как clear-data sentinel).
+
+**Править (убрать ссылки/DI):** `CryptokitModule` (reconciler+storage+clearData wiring), `BackendInit` mock+real (storage single), `FirestoreLinkRegistry` (nullable `encryptedMediaStorage` param), `IconStorage.kt`/`Link.kt` (комментарии), `NoFakeCryptoInAppTest` (список fakes), `CryptoEnvelopeWireFormatTest` (если тестит EncryptedEnvelope). Старый footprint:
+
+**Старый список (12 файлов):** `EncryptedEnvelope.kt`, `EncryptedMediaStorage.kt`, `WorkerEncryptedMediaStorage.kt`, `InMemoryEncryptedMediaStorage.kt`, `BackgroundReconciler.kt`, DI-wiring в `CryptokitModule` + `BackendInit` (mock+real), `Spec011SmokeDebugActivity`, ссылки в комментариях `IconStorage.kt`/`Link.kt`, тесты. Удаление обратимо (git), два-way door.
+
+**Выгода:** после удаления `EncryptedEnvelope` **не нужно выносить** — минус один крипто-формат из B.
+
+### B. Вынести версию из живых крипто-форматов — AC #1, #2, #3
+
+**Общая константа — ключевая деталь.** `SUPPORTED_SCHEMA_VERSION` в `CryptoEnvelopeWireFormat.kt` (крипто) делится `DeviceIdentity`, `EncryptedEnvelope` и потребителями в `:core:keys` (`BackupError`, `RecoveryBlobCodec`). Вынос не изолирован по формату — надо разнести per-format в адаптеры.
+
+Живые форматы к выносу (после A остаётся 3):
+- **`DeviceIdentity`** — версия НЕ крипто-связана (не в подписи `signedPayloadBytes`, не шифруется). Чистый вынос: убрать поле `schemaVersion`, `@Serializable`/`@SerialName` (по TASK-144 крипто-тип без сериализации; сейчас `@Serializable` юзается только тестом, прод — ручной `toMap` в `FirestoreDeviceIdentityRepository`). Конструкторы: `PairingCryptoCoordinator` (95,105), `FirestoreDeviceIdentityRepository` (153).
+- **`Envelope`** — версия В AAD (крипто-связана). По решению владельца 2026-07-21: крипта принимает AAD как **готовые непрозрачные байты**, версию подмешивает слой над криптой (`EnvelopeRemoteStorage.aadFor`). Убрать из `EnvelopeConfigCipherImpl.open` строку `if (envelope.schemaVersion > Envelope.SCHEMA_VERSION)` (гейт наверх). **H-3** (проверка `algorithm != ALGORITHM_V1`) — остаётся в крипте, это не версия (AC #3).
+- **`RecoveryKeyBackupBlob`** — `RecoveryBlobCodec` держит кодек+гейт; гейт наверх в `WorkerRecoveryKeyBackup`.
+
+### C. KeyBlob — вынести персистентность из крипты (AC #4) — РЕШЕНО владельцем 2026-07-21
+
+`KeyBlob` — локальный файл-сейф с обёрнутым ключом (`<filesDir>/keys/<id>.blob`), крипта (`SecureKeyStore.android`) пишет и читает его сама, наверх не уезжает. Владелец выбрал **вариант 2** (строго по букве правила): крипта не знает о версиях даже для своего локального файла.
+
+**План:** `SecureKeyStore` перестаёт сериализовать/парсить `KeyBlob` и проверять версию (убрать строку `if (blob.schemaVersion > KeyBlob.CURRENT_SCHEMA_VERSION)`). Крипта отдаёт/принимает **обёрнутые байты** (`wrappedKey`, `iv`, `wrapKeyAlias`, `algorithm`, `createdAt`) через порт; новый адаптер персистентности (androidMain :core или :app) добавляет версию, сериализует `KeyBlob` и пишет/читает `.blob`-файл. Тип `KeyBlob` (с `@Serializable` + версией) уезжает из `:core:crypto` в адаптерный слой. `CURRENT_SCHEMA_VERSION` и гейт — туда же. `ByteArrayBase64Serializer` — проверить, используется ли ещё в крипте после выноса.
+
+**Осторожно:** `SecureKeyStore.android` — это `SecureKeyStore` expect/actual. Вынос персистентности меняет его контракт (порт). Проверить всех потребителей `SecureKeyStore` и `proguard -keepnames KeyBlob` (переедет вместе с типом).
+
+### D. Firestore rules + server-log — AC #6
+
+Правила `/users/{uid}/recovery-key/{docId}`, `/links/{linkId}/devices/{deviceId}` сравнивают версию численно (int). После B (формат пишет строку) — перевести на `versionOrder()`, тест границы 9→10. Записать в `server-log.md`: сервер трактует версию как **opaque** (rule 13, per TASK-144 server note).
+
+**Почему план, а не наспех-код:** крипто-зона, ошибка дорога (rule 3). Вынос через общую константу + 12-файловое удаление feature — крупный связный рефакторинг, надёжнее свежим заходом по этой карте, чем в конце длинной сессии.
+
+## Decision — Part B DTO strategy (2026-07-21, подтверждено владельцем)
+
+Крипто-тип каждого из трёх живых форматов становится чистым: без поля `schemaVersion`, без `@Serializable`/`@SerialName` (rule 1 crypto-exception). Форма «слоя над криптой» выбирается по тому, как формат сериализуется в **проде** (рабочее приложение, не тест):
+
+- **`DeviceIdentity`** (`:core:crypto`) и **`Envelope`** (`:core:keys`) — в проде раскладываются вручную в `Map` (`toMap`/`fromMap` в `FirestoreDeviceIdentityRepository`, `encode`/`decode` в `FirestoreEnvelopeStorage`); `@Serializable` дёргает только юнит-тест. → ДТО-класс НЕ заводим: ручная map-функция и есть объявленный wire-контракт (список полей + проверки + гейт версии). Снимаем `@Serializable`/`@SerialName` и поле `schemaVersion` с крипто-типа; версия-константа и гейт живут в адаптере. Комментарий-пометка у map-функции: «если формат переедет на JSON-строку — стандартизованная форма = `@Serializable`-DTO класс». Для `Envelope` дополнительно: гейт версии переезжает из `EnvelopeConfigCipherImpl.open:99` в адаптер `decode`; H-3 (проверка `algorithm`) **остаётся** в крипте (AC #3).
+- **`RecoveryKeyBackupBlob`** (`:core:keys`) — в проде реально сериализуется kotlinx-JSON (`RecoveryBlobCodec`). → заводим `@Serializable`-DTO класс в адаптерном слое + маппер + гейт версии там же.
+
+Версия в AAD `Envelope`: остаётся литерал `"family-storage::v1"` в `aadFor` (это версия схемы привязки), поле `schemaVersion` документа НЕ подмешивается в AAD — **перешифровки нет** (развилка A закрыта: aadFor не читает поле версии). Существующих пользовательских данных нет — ломать нечего. Реализация — по одному формату отдельными коммитами (`DeviceIdentity` → `Envelope` → `RecoveryKeyBackupBlob`). `SUPPORTED_SCHEMA_VERSION` уезжает из `:core:crypto` (`CryptoEnvelopeWireFormat.kt`) в адаптерный слой per-format.
+
+## Прогресс (2026-07-21)
+
+- **A** — мёртвый media-storage удалён (988570d). AC #5.
+- **B1** `DeviceIdentity` (ab90a26), **B2** `Envelope` (b27a903), **B3** `RecoveryKeyBackupBlob` (74f684e) — крипто-типы без версии и `@Serializable`, версия в адаптере (int). AC #1/#2/#3.
+- **C** `KeyBlob` — персистентность вынесена в `FileKeyBlobStore` (:core), `SecureKeyStore` только wrap/unwrap через порт `KeyBlobStore` (195bf3c). AC #4.
+- **D** — **СДЕЛАНО (2026-07-21)**. Все 6 форматов переведены с int-версии на точечный 3-полевой `WireVersion`-заголовок; гейт по `minReaderVersion` в адаптерах, `versionOrder()` в firestore.rules. Серверный близнец (backup Worker) — `minReaderVersion` через versionOrder, `MAX_SUPPORTED_SCHEMA_VERSION "1"→"1.0"`. `CRYPTO_PENDING_TASK_141` allowlist **опустошён** (сигнал приземления) + 2 записи в `ROUNDTRIP_COVERAGE`. Мёртвые int-golden'ы recovery-blob удалены. server-log A-1 + Journal обновлены. AC #6.
+  - **Побочный фикс fitness**: `serializableDeclarations()` резал тело типа на use-site `@Serializable(with=…)` (byte-поля) до `: WireVersionHeader` → ложно флагал KeyBlob/DTO. Добавлен `NEXT_CLASS_LEVEL_SERIALIZABLE` (negative lookahead на `(`).
+  - **Дизайн-решение**: Worker гейтит `minReaderVersion` (не диагностический `schemaVersion`), тот же field, что `hasValidVersionHeader` в rules — близнецы не расходятся.
+  - **Верификация зелёная**: `./gradlew fitnessCheck :core:crypto:jvmTest :core:keys:jvmTest :core:testRealBackendDebugUnitTest :app:testRealBackendDebugUnitTest :app:testMockBackendDebugUnitTest` ✓; `firestore-tests` 103/103 на эмуляторе (вкл. границу 9→10) ✓; `workers/backup tsc --noEmit` ✓ (unit-тестов у Worker'а нет). `BundledPresetValidationTest` — флейк Robolectric+coroutines, зелёный на переигрывании, не связан.
+  - **Lockout-риск**: деплой `firestore.rules` + backup Worker координировать с выкаткой app в один заход (int-записи отвергаются в момент деплоя; данных пользователей нет — pre-MVP).
+  - **Деплой + on-device (2026-07-21, `launcher-old-dev` dev-окружение)**:
+    - `firebase deploy --only firestore:rules` → released; `wrangler deploy` backup Worker → `MAX_SUPPORTED_SCHEMA_VERSION="1.0"`.
+    - Instrumented crypto на **живом Xiaomi 11T (API 30)**: `:core:crypto:connectedDebugAndroidTest` (SecureKeyStorePersistence/InvalidPrefix) 4/4 — KeyBlob `.blob` со строковым заголовком через аппаратный Keystore, запись→чтение→гейт.
+    - **Cloud round-trip на живом Xiaomi** (реальный Google-аккаунт владельца): Sign-In → `envelope bootstrap published` (PublicKeyDirectory, строковый заголовок принят задеплоенными правилами) → `recovery blob uploaded to Worker` (RecoveryKeyBackupBlob, строковый заголовок принят Worker'ом с гейтом `minReaderVersion`/versionOrder). Ни одного `UNSUPPORTED_SCHEMA`/`MALFORMED`. Транзиентный `PERMISSION_DENIED` на `users/{stableId}` (F-4 identity-link race, TASK-138) — вне scope Part D, non-fatal, флоу завершился.
+
+### Part D — ГОТОВО К ИСПОЛНЕНИЮ (разведка + карта 2026-07-21, коммит 68888f1)
+
+**Следующему агенту: НЕ переразведывать — вся инфа ниже.** Ветка `task-141-crypto-wire-formats`, база — коммит 195bf3c (Part C, всё зелёное). Нужен Firebase-эмулятор для `firestore-tests npm test`.
+
+**Порядок исполнения (ordered checklist):**
+
+1. **`KeyBlob`** (`core/src/commonMain/kotlin/com/launcher/adapters/crypto/KeyBlob.kt`) → `WireVersionHeader` + 3 поля `WireVersion` c `@EncodeDefault(EncodeDefault.Mode.ALWAYS)`, companion `SCHEMA_VERSION/MIN_READER_VERSION/MIN_WRITER_VERSION = WireVersion(1,0)`. Гейт в `FileKeyBlobStore.read`: `if (blob.minReaderVersion > KeyBlob.SCHEMA_VERSION) throw CryptoException.UnsupportedSchemaVersion(found=blob.schemaVersion.major, known=KeyBlob.SCHEMA_VERSION.major)`. Тест `KeyBlobWireFormatTest` (`:core` commonTest): inline-фикстуры int→строка (`"schemaVersion":"1.0","minReaderVersion":"1.0","minWriterVersion":"1.0"`), future-фикстура `"999.0"`, helper-гейт на `WireVersion.parse`.
+2. **`RecoveryKeyBackupBlobDto`** (`app/src/main/.../data/recovery/RecoveryBlobJsonCodec.kt`) → `WireVersionHeader` + 3 `WireVersion` + `@EncodeDefault(ALWAYS)`. `RecoveryBlobJsonCodec.decode`: читать `schemaVersion` как строку, `WireVersion.parse`, гейт `minReaderVersion > WIRE_SCHEMA_VERSION`. `RecoveryBlobJsonCodecTest` фикстуры int→строка. Серверный близнец `workers/backup/src/index.ts:166-173` `typeof number`→строка+`versionOrder`; `workers/backup/src/env.ts:13` + `wrangler.toml [vars] MAX_SUPPORTED_SCHEMA_VERSION "1"→"1.0"`.
+3. **`FirestoreDeviceIdentityRepository`** (`core/src/androidRealBackend/.../adapters/crypto/`) toMap → 3-полевой строковый заголовок (эталон ниже), fromMap → читать 3 строки, `WireVersion.parse`, гейт `minReaderVersion > WIRE_SCHEMA_VERSION`. **Правило НЕ трогать** (уже строковое).
+4. **`FirestoreEnvelopeStorage`** (`app/src/realBackend/.../data/envelope/`) encode/decode → строковый заголовок. Правило `/users/{ns}/data/{key}` (`firestore.rules:520-525`): добавить `hasValidVersionHeader` в create + `versionOrder(newDoc().schemaVersion) >= versionOrder(existingDoc().schemaVersion)` в update.
+5. **`FirestorePublicKeyDirectory`** (2 write-сайта 78/85) → строковый заголовок. Read-гейта нет — добавить опционально в `fetchDevicesFor`. Правила 536-543 owner-only — версию можно не валидировать (или добавить `hasValidVersionHeader`).
+6. **`FirestoreRecoveryKeyBackup`** encode/decode → строковый заголовок. Правило `/users/{uid}/recovery-key` (`firestore.rules:431-469`): `d.schemaVersion is int`→`hasValidVersionHeader(d)`, строка 465 сырой `>=`→`versionOrder(...)`. (Имена полей `kdfSalt`/`wrappedRootKey` vs адаптерные `salt`/`ciphertext` — pre-existing mismatch, ВНЕ scope.)
+7. **firestore.rules**: поднять `maxAcceptedReaderVersion()` при необходимости (пока `"1.0"` ок). **`firestore-tests/rules.f5.recovery.test.ts` `validVaultV1()` строка 56** `schemaVersion:1`→строковый заголовок.
+8. **server-log** (`docs/dev/server-log.md`): под anchor `A-1` короткая заметка (Worker версия теперь строка) + строка в `## Journal` (дата).
+9. **fitness allowlist**: удалить все записи из `CRYPTO_PENDING_TASK_141` (`app/src/test/.../ArchitectureFitnessTest.kt`) — пустой список = сигнал что TASK-141 приземлился.
+10. **Проверка**: `./gradlew fitnessCheck :core:crypto:jvmTest :core:keys:jvmTest :core:testRealBackendDebugUnitTest :app:testRealBackendDebugUnitTest :app:testMockBackendDebugUnitTest` + компиляция androidTest + `cd firestore-tests && npm test` (эмулятор) + `cd workers/backup && npm test`.
+
+**Эталонный сниппет** (hand-built Firestore map, из `IdentityDocumentWireFormat.kt`):
+```kotlin
+import family.wire.WireVersion
+// companion:
+val SCHEMA_VERSION: WireVersion = WireVersion(1, 0)
+val MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+val MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
+// encode:
+"schemaVersion" to SCHEMA_VERSION.toString(),
+"minReaderVersion" to MIN_READER_VERSION.toString(),
+"minWriterVersion" to MIN_WRITER_VERSION.toString(),
+// decode (fromMap):
+val sv = (m["schemaVersion"] as? String)?.let { WireVersion.parseOrNull(it) } ?: return null
+val minR = (m["minReaderVersion"] as? String)?.let { WireVersion.parseOrNull(it) } ?: return null
+if (minR > SCHEMA_VERSION) return null  // reader gate: too new to read
+```
+`@Serializable`-DTO вместо map: реализовать `WireVersionHeader`, поля `WireVersion` (сериализуется как строка через `WireVersionSerializer`), обязательно `@EncodeDefault(ALWAYS)` на всех трёх.
+
+**Lockout-риск (ВАЖНО)**: каждый путь, где `is int`→строка, отвергнет старые int-записи В МОМЕНТ ДЕПЛОЯ. Данных пользователей нет (pre-MVP, владелец подтвердил «ломать нечего»), но деплой `firestore.rules` координировать с выкаткой app в один заход.
+
+---
+
+### Part D — исходная карта (разведка 2026-07-21)
+
+Перевести 6 форматов с int-версии на точечную строку + 3-полевой заголовок `family.wire.WireVersion`/`WireVersionHeader`. Эталон: `core/src/androidRealBackend/.../adapters/auth/IdentityDocumentWireFormat.kt` — `header()` строит `mapOf("schemaVersion" to sv.toString(), "minReaderVersion" to ..., "minWriterVersion" to ...)` из `WireVersion(1,0)`. Для `@Serializable`-DTO: реализовать `WireVersionHeader` + `@EncodeDefault(EncodeDefault.Mode.ALWAYS)` на трёх полях (иначе `VersionFieldsAlwaysEncoded` fitness падает).
+
+Форматы + где версия:
+1. `FirestoreDeviceIdentityRepository` (`WIRE_SCHEMA_VERSION Int=1`, toMap/fromMap). **Правило `/links/{linkId}/devices` УЖЕ строковое** (`firestore.rules:274-314`, `hasValidVersionHeader`) — адаптер сейчас пишет int и его записи **уже отвергались бы**; перевод адаптера чинит. Правило НЕ трогать.
+2. `FirestoreEnvelopeStorage` (`WIRE_SCHEMA_VERSION Int=1`, encode/decode). Правило `/users/{ns}/data/{key}` (`firestore.rules:520-525`) — сырой `>=`, нет type-check → добавить `hasValidVersionHeader` + `versionOrder`.
+3. `FirestorePublicKeyDirectory` (`PUBKEY_SCHEMA_VERSION Int=1`, 2 write-сайта 78/85, **read-гейта нет**). Правила `firestore.rules:536-543` — owner-only, версию не валидируют.
+4. `FirestoreRecoveryKeyBackup` (использует `RecoveryBlobJsonCodec.WIRE_SCHEMA_VERSION`, encode/decode). Правило `/users/{uid}/recovery-key` (`firestore.rules:431-469`) — **`is int` + сырой `>=`** (строка 465) → перевести на `hasValidVersionHeader` + `versionOrder`. **AC #6 явно про это + devices.** Осторожно: имена полей в правиле (`kdfSalt`, `wrappedRootKey`) не совпадают с адаптером (`salt`, `ciphertext`) — pre-existing, вне scope версии.
+5. `RecoveryBlobJsonCodec` + `RecoveryKeyBackupBlobDto` (`WIRE_SCHEMA_VERSION Int=1`, DTO `schemaVersion: Int` строка 101). Перевести DTO на `WireVersionHeader`, decode-гейт на `versionOrder`. **Серверный близнец** — `workers/backup/src/index.ts:166-173` проверяет `typeof number` → перевести на строку + `versionOrder`; `MAX_SUPPORTED_SCHEMA_VERSION` env (`workers/backup/src/env.ts:13`, `wrangler.toml [vars]`) `"1"` → `"1.0"`.
+6. `KeyBlob` (`core/src/commonMain/.../adapters/crypto/KeyBlob.kt`, `CURRENT_SCHEMA_VERSION Int=1`, локальный файл — НЕ Firestore). Перевести на `WireVersionHeader`, гейт в `FileKeyBlobStore.read`.
+
+Хелперы правил: `versionOrder(v)` (`firestore.rules:48-50`), `maxAcceptedReaderVersion()`→`"1.0"` (55-57, поднять перед деплоем строгих правил), `hasValidVersionHeader(d)` (67-74). Опорные versionOrder-правила для копирования: `/users/{uid}/config` (474-484), `/links/{linkId}/state`, `identity-links`.
+
+Тесты/проверка: `firestore-tests/` — `npm test` (Firebase-эмулятор + vitest). `rules.f5.recovery.test.ts` фикстура `validVaultV1()` пишет `schemaVersion: 1` int (строка 56) → перевести на строку. Golden-фикстуры: `core/keys/src/jvmTest/resources/fixtures/recovery-blob-v1/v2*.json` (int → строковые близнецы). `KeyBlobWireFormatTest` + `RecoveryBlobJsonCodecTest` — inline-фикстуры int → строка.
+
+server-log (rule 13): `docs/dev/server-log.md` — anchor `A-1 · Sealed blob storage`; добавить короткую заметку (Worker `MAX_SUPPORTED_SCHEMA_VERSION`/`typeof number` теперь строка) + строку в `## Journal` (2026-07-21).
+
+Финал: fitnessCheck (allowlist `CRYPTO_PENDING_TASK_141` в `ArchitectureFitnessTest.kt` **опустеет** — сигнал что TASK-141 приземлился) + unit + `firestore-tests npm test` + workers test.
+
+**Lockout-риск**: каждый путь, где `is int`→строка, отвергнет старые int-записи в момент деплоя. Деплой правил координировать с выкаткой app. `maxAcceptedReaderVersion()` — потолок против lockout.
+
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 [hand] Ни один модуль крипты (`:core:crypto`, `:core:keys`) не содержит разбора, сравнения или проверки версии формата; `verifyCryptoIsolation` и `verifyKeysIsolation` остались в исходном виде, без послаблений
-- [ ] #2 [hand] Проверка «можно ли читать документ» для каждого крипто-формата живёт в адаптере, по образцу `FirestoreDeviceIdentityRepository`
-- [ ] #3 [hand] Проверка незнакомого алгоритма шифрования (H-3) осталась внутри крипты и покрыта тестом — она не является проверкой версии
-- [ ] #4 [hand] По `KeyBlob` принято и записано решение: приватная версия крипты либо вынос персистентности
-- [ ] #5 [hand] Мёртвые пути проверены и удалены либо подтверждены как живые с объяснением, почему остаются
-- [ ] #6 [hand] Firestore rules для vault восстановления и devices переведены на точечную строку через `versionOrder()`; защита от отката сохранена и проверена тестом на границе 9→10
+- [x] #1 [hand] Ни один модуль крипты (`:core:crypto`, `:core:keys`) не содержит разбора, сравнения или проверки версии формата; `verifyCryptoIsolation` и `verifyKeysIsolation` остались в исходном виде, без послаблений
+- [x] #2 [hand] Проверка «можно ли читать документ» для каждого крипто-формата живёт в адаптере, по образцу `FirestoreDeviceIdentityRepository`
+- [x] #3 [hand] Проверка незнакомого алгоритма шифрования (H-3) осталась внутри крипты и покрыта тестом — она не является проверкой версии
+- [x] #4 [hand] По `KeyBlob` принято и записано решение: приватная версия крипты либо вынос персистентности
+- [x] #5 [hand] Мёртвые пути проверены и удалены либо подтверждены как живые с объяснением, почему остаются
+- [x] #6 [hand] Firestore rules для vault восстановления и devices переведены на точечную строку через `versionOrder()`; защита от отката сохранена и проверена тестом на границе 9→10
 <!-- AC:END -->
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+## Final Summary (2026-07-21)
+
+**Done — 6/6 AC зелёные, верифицировано на трёх слоях.** Все шесть крипто-форматов (`KeyBlob`, `RecoveryKeyBackupBlobDto`, `DeviceIdentity`, `Envelope`, `PublicKeyDirectory`, `RecoveryKeyBackup`) переведены с int-версии на точечный 3-полевой `WireVersion`-заголовок; гейт по `minReaderVersion` в адаптерах, `versionOrder()` в firestore.rules; серверный близнец (backup Worker) синхронизирован. `CRYPTO_PENDING_TASK_141` allowlist опустошён (сигнал приземления).
+
+**Коммиты** (ветка `task-141-crypto-wire-formats`): Part A `988570d`, Part B `ab90a26`/`b27a903`/`74f684e`, Part C `195bf3c`, Part D `0b65565` (+ verification `81d6352`).
+
+**Верификация:**
+- Авто: `fitnessCheck` + `:core:crypto/keys:jvmTest` + real/mock backend unit — зелёные; `firestore-tests` 103/103 на эмуляторе (вкл. границу отката 9→10); `workers/backup tsc --noEmit`.
+- Деплой: `firebase deploy --only firestore:rules` + `wrangler deploy` в `launcher-old-dev`.
+- On-device (Xiaomi 11T, API 30): instrumented crypto 4/4; живой cloud round-trip под реальным Google-аккаунтом — `envelope bootstrap published` (PublicKeyDirectory принят боевыми правилами) + `recovery blob uploaded to Worker` (принят Worker'ом). Ни одного `UNSUPPORTED_SCHEMA`/`MALFORMED`.
+
+**Вне scope, замечено при верификации:** транзиентный `PERMISSION_DENIED` на `users/{stableId}` (F-4 identity-link race, TASK-138); `HomeLoadingState error: flows empty` в Workspace-онбординге на свежем облачном аккаунте (композиция home-конфига, не крипта). Оба к Part D отношения не имеют — кандидаты в отдельные таски.
+<!-- SECTION:FINAL_SUMMARY:END -->
+

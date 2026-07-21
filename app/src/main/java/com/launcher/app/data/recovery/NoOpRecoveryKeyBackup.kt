@@ -1,9 +1,9 @@
 package com.launcher.app.data.recovery
 
-import cryptokit.keys.api.Outcome
-import cryptokit.keys.api.RecoveryKeyBackup
-import cryptokit.keys.api.RecoveryKeyBackupBlob
-import cryptokit.keys.api.BackupError
+import family.keys.api.Outcome
+import family.keys.api.RecoveryKeyBackup
+import family.keys.api.RecoveryKeyBackupBlob
+import family.keys.api.BackupError
 
 /**
  * [RecoveryKeyBackup] для non-GMS devices (T046, FR-028).

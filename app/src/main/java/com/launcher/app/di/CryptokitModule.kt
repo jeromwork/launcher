@@ -1,29 +1,25 @@
 package com.launcher.app.di
 
-import com.launcher.adapters.config.AndroidSqlDriverProvider
-import com.launcher.adapters.crypto.BackgroundReconciler
-import com.launcher.adapters.crypto.ClearDataDetector
+import com.launcher.adapters.crypto.FileKeyBlobStore
 import com.launcher.adapters.crypto.PairRecipientResolver
 import com.launcher.adapters.crypto.PairingCryptoCoordinator
-import com.launcher.adapters.crypto.SqlDelightBlobReferenceLedger
-import com.launcher.adapters.crypto.db.CryptoStore
-import cryptokit.crypto.api.AeadCipher
-import cryptokit.crypto.api.AsymmetricCrypto
-import cryptokit.crypto.api.KeyDerivation
-import cryptokit.crypto.api.KeyEscrow
-import cryptokit.crypto.api.KeyRotation
-import cryptokit.crypto.api.KeyStoreContext
-import cryptokit.crypto.api.RandomSource
-import cryptokit.crypto.api.SecureKeyStore
-import cryptokit.crypto.libsodium.LibsodiumAeadCipher
-import cryptokit.crypto.libsodium.LibsodiumAsymmetricCrypto
-import cryptokit.crypto.libsodium.LibsodiumKeyDerivation
-import cryptokit.crypto.libsodium.LibsodiumRandomSource
-import cryptokit.crypto.stubs.StubKeyEscrow
-import cryptokit.crypto.stubs.StubKeyRotation
-import cryptokit.pairing.api.DeviceIdentityRepository
-import cryptokit.pairing.api.EncryptedMediaStorage
-import cryptokit.pairing.api.RecipientResolver
+import family.crypto.api.AeadCipher
+import family.crypto.api.KeyBlobStore
+import family.crypto.api.AsymmetricCrypto
+import family.crypto.api.KeyDerivation
+import family.crypto.api.KeyEscrow
+import family.crypto.api.KeyRotation
+import family.crypto.api.KeyStoreContext
+import family.crypto.api.RandomSource
+import family.crypto.api.SecureKeyStore
+import family.crypto.libsodium.LibsodiumAeadCipher
+import family.crypto.libsodium.LibsodiumAsymmetricCrypto
+import family.crypto.libsodium.LibsodiumKeyDerivation
+import family.crypto.libsodium.LibsodiumRandomSource
+import family.crypto.stubs.StubKeyEscrow
+import family.crypto.stubs.StubKeyRotation
+import family.pairing.api.DeviceIdentityRepository
+import family.pairing.api.RecipientResolver
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
@@ -39,17 +35,19 @@ import org.koin.dsl.module
  *     - Interface-only stubs for KeyRotation / KeyEscrow (deferred per ADR-008)
  *
  *   ── pairing-side adapters (spec 011) ──
- *     - SqlDelightBlobReferenceLedger + ClearDataDetector (KMP-pure storage)
- *     - BackgroundReconciler (orphan blob reconciliation, FR-042)
  *     - PairRecipientResolver (one-on-one pair; spec 014 will introduce group resolvers)
  *     - PairingCryptoCoordinator (key lifecycle + DeviceIdentity publication)
+ *
+ * The spec-011 orphan-blob reconciler (BackgroundReconciler + ledger +
+ * clear-data sentinel) was removed in TASK-141 as dead — it was constructed in
+ * DI but never invoked.
  *
  * Flavor-specific port bindings (Firestore-backed DeviceIdentityRepository,
  * Worker-backed EncryptedMediaStorage; or their Fake equivalents) live in
  * `:core/androidRealBackend` and `:core/androidMockBackend` `backendModule` —
  * this module composes the orchestrator + ledger + reconciler on top.
  *
- * Fake* adapters from `cryptokit.crypto.fake` are TEST-ONLY and MUST NEVER appear in
+ * Fake* adapters from `family.crypto.fake` are TEST-ONLY and MUST NEVER appear in
  * this module. The [assertNoFakeCryptoInRelease] helper invoked by
  * `LauncherApplication.onCreate` detects accidental wiring at runtime (SC-011);
  * Detekt rule `FakeCryptoInReleaseRule` catches imports at compile time; R8
@@ -70,24 +68,13 @@ val cryptokitModule = module {
     single<AeadCipher> { LibsodiumAeadCipher(random = get()) }
     single<AsymmetricCrypto> { LibsodiumAsymmetricCrypto() }
     single<KeyDerivation> { LibsodiumKeyDerivation() }
-    single { KeyStoreContext(androidContext = androidContext()) }
+    // TASK-141 — SecureKeyStore no longer owns the on-disk KeyBlob format; it hands
+    // wrapped bytes to a KeyBlobStore. FileKeyBlobStore (:core) writes the versioned blob.
+    single<KeyBlobStore> { FileKeyBlobStore(androidContext()) }
+    single { KeyStoreContext(androidContext = androidContext(), blobStore = get()) }
     single { SecureKeyStore(context = get()) }
     single<KeyRotation> { StubKeyRotation() }
     single<KeyEscrow> { StubKeyEscrow() }
-
-    // ── SQLDelight CryptoStore + cleanup machinery (KMP-pure) ────────────
-    single<CryptoStore> { AndroidSqlDriverProvider.createCryptoStore(androidContext()) }
-    single { SqlDelightBlobReferenceLedger(db = get()) }
-    single { ClearDataDetector(db = get()) }
-
-    // ── BackgroundReconciler — wraps Storage + ledger + clear-data sentinel
-    single {
-        BackgroundReconciler(
-            storage = get<EncryptedMediaStorage>(),
-            ledger = get(),
-            clearData = get(),
-        )
-    }
 
     // ── PairRecipientResolver — depends on flavor-bound DeviceIdentityRepository
     single<RecipientResolver> {
@@ -111,7 +98,7 @@ val cryptokitModule = module {
 /**
  * Fail-fast guard for release builds (FR-018, SC-011).
  *
- * Walks the resolved ports and confirms none come from `cryptokit.crypto.fake.*`. Crashes
+ * Walks the resolved ports and confirms none come from `family.crypto.fake.*`. Crashes
  * the app with a loud message if any do — that's by design, fake crypto in production
  * is worse than a crash.
  *
@@ -127,7 +114,7 @@ fun assertNoFakeCryptoInRelease(get: (Class<*>) -> Any) {
     for (port in ports) {
         val impl = get(port)
         val pkg = impl.javaClass.`package`?.name.orEmpty()
-        check(!pkg.startsWith("cryptokit.crypto.fake")) {
+        check(!pkg.startsWith("family.crypto.fake")) {
             "FATAL: ${impl.javaClass.simpleName} from package $pkg is a Fake crypto adapter " +
                 "wired in a release build. Fake adapters MUST NOT appear in production DI. " +
                 "Check CryptokitModule.kt and build variant."

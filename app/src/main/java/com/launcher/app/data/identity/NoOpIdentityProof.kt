@@ -1,9 +1,9 @@
 package com.launcher.app.data.identity
 
-import cryptokit.keys.api.AuthIdentity
-import cryptokit.keys.api.IdentityError
-import cryptokit.keys.api.IdentityProof
-import cryptokit.keys.api.Outcome
+import family.keys.api.AuthIdentity
+import family.keys.api.IdentityError
+import family.keys.api.IdentityProof
+import family.keys.api.Outcome
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 

@@ -163,13 +163,25 @@ async function handleUpload(
     return jsonResponse(400, { error: "MALFORMED_BODY" });
   }
   const blob = body as Record<string, unknown>;
-  const schemaVersion = blob["schemaVersion"];
-  if (typeof schemaVersion !== "number") {
+  // TASK-141 Part D: the version header travels as dotted strings ("1.0"), never bare integers —
+  // and the Worker treats them as opaque (rule 13): it never parses business meaning, only compares
+  // ordinally. It gates on `minReaderVersion` (not the diagnostics-only `schemaVersion`, wire-format.md
+  // §3), the same field firestore.rules' hasValidVersionHeader gates, so the two twins guarding this
+  // blob shape never disagree. `versionOrder` mirrors the firestore.rules helper: MAJOR*100000 + MINOR.
+  const minReaderVersion = blob["minReaderVersion"];
+  if (typeof minReaderVersion !== "string") {
     return jsonResponse(400, { error: "MALFORMED_BODY" });
   }
-  const maxSupported = Number.parseInt(env.MAX_SUPPORTED_SCHEMA_VERSION, 10);
-  if (schemaVersion > maxSupported) {
-    return jsonResponse(400, { error: "UNSUPPORTED_SCHEMA", max: maxSupported });
+  const readerOrder = versionOrder(minReaderVersion);
+  const maxOrder = versionOrder(env.MAX_SUPPORTED_SCHEMA_VERSION);
+  if (readerOrder === null || maxOrder === null) {
+    return jsonResponse(400, { error: "MALFORMED_BODY" });
+  }
+  if (readerOrder > maxOrder) {
+    return jsonResponse(400, {
+      error: "UNSUPPORTED_SCHEMA",
+      max: env.MAX_SUPPORTED_SCHEMA_VERSION,
+    });
   }
   const bodyStableId = blob["stableId"];
   if (typeof bodyStableId !== "string" || bodyStableId.length === 0) {
@@ -267,6 +279,18 @@ async function handleDelete(
 
 function blobObjectKey(stableId: string): string {
   return `backup/${stableId}/v1.json`;
+}
+
+/**
+ * Ordinal for a dotted `MAJOR.MINOR` wire version — the exact twin of `versionOrder()` in
+ * firestore.rules (MAJOR*100000 + MINOR). Returns `null` on anything that is not the plain
+ * dotted form (a pre-conversion integer, a pre-release token, junk), so the caller fails closed.
+ * The Worker never interprets these numbers as business meaning (rule 13); it only orders them.
+ */
+function versionOrder(v: string): number | null {
+  const match = /^(\d+)\.(\d+)$/.exec(v.trim());
+  if (match === null) return null;
+  return Number.parseInt(match[1], 10) * 100000 + Number.parseInt(match[2], 10);
 }
 
 function jsonResponse(status: number, body: Record<string, unknown>): Response {

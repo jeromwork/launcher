@@ -2,10 +2,11 @@
 # from release dex. Detekt rule FakeCryptoInReleaseRule catches accidental imports
 # at compile time; -assumenosideeffects ensures even reflective lookup fails at runtime
 # if someone bypasses the lint check.
--assumenosideeffects class cryptokit.crypto.fake.** { *; }
+-assumenosideeffects class family.crypto.fake.** { *; }
 
 # Spec 016 — keep KeyBlob @Serializable shape stable for backward-compat reads
 # (contracts/key-blob-v1.md mandates that future minor releases parse v1 fixtures).
--keepnames class cryptokit.crypto.api.values.KeyBlob { *; }
--keepnames class cryptokit.crypto.api.values.KeyBlob$Companion { *; }
--keepnames class cryptokit.crypto.api.values.ByteArrayBase64Serializer { *; }
+# TASK-141 — KeyBlob moved out of :core:crypto into the adapter layer (:core).
+-keepnames class com.launcher.adapters.crypto.KeyBlob { *; }
+-keepnames class com.launcher.adapters.crypto.KeyBlob$Companion { *; }
+-keepnames class family.crypto.api.values.ByteArrayBase64Serializer { *; }

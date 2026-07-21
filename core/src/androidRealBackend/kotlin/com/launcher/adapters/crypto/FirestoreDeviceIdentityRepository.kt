@@ -4,18 +4,18 @@ import android.util.Base64
 import android.util.Log
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import cryptokit.crypto.api.AsymmetricCrypto
-import cryptokit.crypto.api.values.Signature
-import cryptokit.crypto.exception.CryptoException
-import cryptokit.pairing.api.DeviceId
-import cryptokit.pairing.api.DeviceIdentity
-import cryptokit.pairing.api.DeviceIdentityRepository
-import cryptokit.pairing.api.ED25519_KEY_SIZE
-import cryptokit.pairing.api.ED25519_SIGNATURE_SIZE
-import cryptokit.pairing.api.PublicKey
-import cryptokit.pairing.api.SUPPORTED_SCHEMA_VERSION
-import cryptokit.pairing.api.SigningPublicKey
-import cryptokit.pairing.api.X25519_KEY_SIZE
+import family.crypto.api.AsymmetricCrypto
+import family.crypto.api.values.Signature
+import family.crypto.exception.CryptoException
+import family.pairing.api.DeviceId
+import family.pairing.api.DeviceIdentity
+import family.pairing.api.DeviceIdentityRepository
+import family.pairing.api.ED25519_KEY_SIZE
+import family.pairing.api.ED25519_SIGNATURE_SIZE
+import family.pairing.api.PublicKey
+import family.pairing.api.SigningPublicKey
+import family.pairing.api.X25519_KEY_SIZE
+import family.wire.WireVersion
 import kotlin.uuid.ExperimentalUuidApi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.tasks.await
@@ -121,49 +121,6 @@ class FirestoreDeviceIdentityRepository(
         }
     }
 
-    private fun toMap(d: DeviceIdentity): Map<String, Any> = mapOf(
-        "schemaVersion" to d.schemaVersion,
-        "deviceId" to d.deviceId.value,
-        "publicKey" to d.publicKey.bytes.toBase64(),
-        "signingPublicKey" to d.signingPublicKey.bytes.toBase64(),
-        "signedTimestamp" to d.signedTimestamp,
-        "signature" to d.signature.toBase64(),
-        "createdAt" to FieldValue.serverTimestamp(),
-        "updatedAt" to FieldValue.serverTimestamp(),
-        "algorithm" to "x25519+ed25519",
-    )
-
-    private fun fromMap(m: Map<String, Any?>): DeviceIdentity? {
-        return try {
-            val sv = (m["schemaVersion"] as? Number)?.toInt() ?: return null
-            if (sv != SUPPORTED_SCHEMA_VERSION) return null
-            val deviceIdStr = m["deviceId"] as? String ?: return null
-            val pubBytes = (m["publicKey"] as? String)?.fromBase64() ?: return null
-            val signingPubBytes = (m["signingPublicKey"] as? String)?.fromBase64() ?: return null
-            val signedTs = (m["signedTimestamp"] as? Number)?.toLong() ?: return null
-            val sigBytes = (m["signature"] as? String)?.fromBase64() ?: return null
-            if (pubBytes.size != X25519_KEY_SIZE) return null
-            if (signingPubBytes.size != ED25519_KEY_SIZE) return null
-            if (sigBytes.size != ED25519_SIGNATURE_SIZE) return null
-            val createdAtMillis = when (val v = m["createdAt"]) {
-                is com.google.firebase.Timestamp -> v.seconds * 1000L + v.nanoseconds / 1_000_000
-                is Number -> v.toLong()
-                else -> 0L
-            }
-            DeviceIdentity(
-                schemaVersion = sv,
-                deviceId = DeviceId(deviceIdStr),
-                publicKey = PublicKey(pubBytes),
-                signingPublicKey = SigningPublicKey(signingPubBytes),
-                signedTimestamp = signedTs,
-                signature = sigBytes,
-                createdAt = createdAtMillis,
-            )
-        } catch (_: Throwable) {
-            null
-        }
-    }
-
     private suspend inline fun <T> withCryptoLogging(
         operation: String,
         block: () -> T,
@@ -187,11 +144,69 @@ class FirestoreDeviceIdentityRepository(
         throw CryptoException.SerializationException("unexpected $operation failure", e)
     }
 
-    private companion object {
+    companion object {
         private const val FRESHNESS_WINDOW_MILLIS = 7L * 24 * 60 * 60 * 1000
         private const val CLOCK_SKEW_MILLIS = 60L * 1000
 
         private const val LOG_TAG: String = "cryptokit"
+
+        // TASK-141 — DeviceIdentity carries no version of its own (rule 1); the wire version lives
+        // here, in the adapter that owns the Firestore document `/links/{linkId}/devices/{deviceId}`.
+        // Part D: the header is the dotted three-field form (`docs/architecture/wire-format.md` §3),
+        // written as strings so firestore.rules' hasValidVersionHeader accepts it. toMap stamps all
+        // three, fromMap gates on minReaderVersion. If this format ever moves to a JSON-string blob,
+        // the standardized form is a @Serializable DTO class in this package.
+        internal val WIRE_SCHEMA_VERSION: WireVersion = WireVersion(1, 0)
+        internal val WIRE_MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+        internal val WIRE_MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
+
+        internal fun toMap(d: DeviceIdentity): Map<String, Any> = mapOf(
+            "schemaVersion" to WIRE_SCHEMA_VERSION.toString(),
+            "minReaderVersion" to WIRE_MIN_READER_VERSION.toString(),
+            "minWriterVersion" to WIRE_MIN_WRITER_VERSION.toString(),
+            "deviceId" to d.deviceId.value,
+            "publicKey" to d.publicKey.bytes.toBase64(),
+            "signingPublicKey" to d.signingPublicKey.bytes.toBase64(),
+            "signedTimestamp" to d.signedTimestamp,
+            "signature" to d.signature.toBase64(),
+            "createdAt" to FieldValue.serverTimestamp(),
+            "updatedAt" to FieldValue.serverTimestamp(),
+            "algorithm" to "x25519+ed25519",
+        )
+
+        internal fun fromMap(m: Map<String, Any?>): DeviceIdentity? {
+            return try {
+                // Version header (§3): schemaVersion is diagnostics; the reader gate is minReaderVersion.
+                // A pre-conversion integer parses to null here and the document is refused (fail closed).
+                (m["schemaVersion"] as? String)?.let { WireVersion.parseOrNull(it) } ?: return null
+                val minReader = (m["minReaderVersion"] as? String)?.let { WireVersion.parseOrNull(it) }
+                    ?: return null
+                if (minReader > WIRE_SCHEMA_VERSION) return null
+                val deviceIdStr = m["deviceId"] as? String ?: return null
+                val pubBytes = (m["publicKey"] as? String)?.fromBase64() ?: return null
+                val signingPubBytes = (m["signingPublicKey"] as? String)?.fromBase64() ?: return null
+                val signedTs = (m["signedTimestamp"] as? Number)?.toLong() ?: return null
+                val sigBytes = (m["signature"] as? String)?.fromBase64() ?: return null
+                if (pubBytes.size != X25519_KEY_SIZE) return null
+                if (signingPubBytes.size != ED25519_KEY_SIZE) return null
+                if (sigBytes.size != ED25519_SIGNATURE_SIZE) return null
+                val createdAtMillis = when (val v = m["createdAt"]) {
+                    is com.google.firebase.Timestamp -> v.seconds * 1000L + v.nanoseconds / 1_000_000
+                    is Number -> v.toLong()
+                    else -> 0L
+                }
+                DeviceIdentity(
+                    deviceId = DeviceId(deviceIdStr),
+                    publicKey = PublicKey(pubBytes),
+                    signingPublicKey = SigningPublicKey(signingPubBytes),
+                    signedTimestamp = signedTs,
+                    signature = sigBytes,
+                    createdAt = createdAtMillis,
+                )
+            } catch (_: Throwable) {
+                null
+            }
+        }
 
         private fun ByteArray.toBase64(): String = Base64.encodeToString(this, Base64.NO_WRAP)
         private fun String.fromBase64(): ByteArray = Base64.decode(this, Base64.NO_WRAP)

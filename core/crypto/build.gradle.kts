@@ -1,5 +1,11 @@
 // :core:crypto — F-CRYPTO KMP crypto foundation (spec 016).
 //
+// Package root `family` = the FAMILY OF PRODUCTS (launcher, messenger, gallery), NOT the target
+// audience. The product refuses a family-only domain model — it must serve a clinic, a managed
+// fleet and a self-configuring user equally (CLAUDE.md, personas vs domain roles). Read
+// `family.crypto` as "our product family", never as "for families". Renamed from
+// cryptokit.crypto.* in TASK-141 (superseding TASK-56).
+//
 // Module rules (per spec.md FR-001..FR-005, plan.md §"Project Structure"):
 //  • commonMain — pure-Kotlin crypto domain (ports, value types, fakes).
 //  • libsodium adapters — реальные через ionspin/kotlin-multiplatform-libsodium 0.9.5
@@ -82,7 +88,7 @@ kotlin {
 }
 
 android {
-    namespace = "cryptokit.crypto"
+    namespace = "family.crypto"
     compileSdk = libs.versions.compileSdk.get().toInt()
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()

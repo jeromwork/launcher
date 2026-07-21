@@ -181,16 +181,6 @@
             android:name=".debug.HealthSnapshotDebugActivity"
             android:exported="true"
             android:label="Health Debug" />
-        <!--
-          Spec 011 FR-070 / US-6 — debug smoke screen для self-roundtrip
-          + cross-device validation (Phase A/B/C из smoke/README.md).
-          Запуск: adb shell am start -n com.launcher.app/.debug.Spec011SmokeDebugActivity
-          Получает все crypto-port'ы через Koin DI (cryptoModule, T061 wiring).
-        -->
-        <activity
-            android:name=".debug.Spec011SmokeDebugActivity"
-            android:exported="true"
-            android:label="Spec 011 Smoke" />
 
         <!--
           Spec 014 F-014.0 visual smoke — renders all 7 composables on

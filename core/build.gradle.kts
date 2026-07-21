@@ -52,15 +52,13 @@ kotlin {
 
             // kotlinx.serialization — used for Decompose Config persistence + future config files
             implementation(libs.kotlinx.serialization.json)
+            // kotlinx-datetime — Instant in the KeyBlob wire format (moved here from
+            // :core:crypto in TASK-141).
+            implementation(libs.kotlinx.datetime)
 
             // SQLDelight — KMP local persistence для spec 008 LocalConfigStore.
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines.extensions)
-
-            // Spec 011 — CBOR для EncryptedEnvelope wire format.
-            // Binary-friendly, no base64 overhead, deterministic encoding
-            // (важно для Ed25519 signature над canonical payload в DeviceIdentity).
-            implementation(libs.kotlinx.serialization.cbor)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -188,10 +186,7 @@ sqldelight {
             packageName.set("com.launcher.adapters.config.db")
             srcDirs.setFrom("src/commonMain/sqldelight-config")
         }
-        // Spec 011 — BlobReferenceLedger + SystemMeta (cleanup machinery).
-        create("CryptoStore") {
-            packageName.set("com.launcher.adapters.crypto.db")
-            srcDirs.setFrom("src/commonMain/sqldelight-crypto")
-        }
+        // TASK-141 — the CryptoStore DB (BlobReferenceLedger + SystemMeta) backed
+        // only the dead spec-011 orphan-blob reconciler; removed with it.
     }
 }

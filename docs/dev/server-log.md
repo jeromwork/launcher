@@ -41,6 +41,7 @@
 - **Applies to**: config sync, message envelope storage, photo blob storage, generic bucket storage (TASK-4, TASK-66, TASK-27, TASK-28, TASK-11).
 - **Refs**: [`server-requirements.md § Tier 0 endpoints S0`](server-requirements.md).
 - **Industry reference**: Tresorit envelope wrapping, WhatsApp E2E Encrypted Backup (assumption-level, needs deep validation before first prod implementation — см. Q-3).
+- **Update (2026-07-21, TASK-141 Part D)**: the `version` the server stores/compares is now an **opaque dotted string** (`"1.0"`), not an integer. The backup Worker (`workers/backup`) treats it as opaque per rule 13 — it never parses business meaning, only orders `minReaderVersion` against `MAX_SUPPORTED_SCHEMA_VERSION` via a `versionOrder()` twin of the firestore.rules helper (anti-lockout ceiling; it gates the reader field, not the diagnostics-only `schemaVersion`). Firestore rules gate the same field through the same ordinal. No new server touch point, no new metadata — the blob stays sealed; only the version-field encoding changed.
 
 ### A-2 · Signature-based authorization (не ACL graph)
 - **Source**: TASK-57 (initial)
@@ -313,3 +314,4 @@ _Пусто на 2026-07-08._
 | 2026-07-08 | Initial version. Part A = 6 patterns из V2 sketch + TASK-105 baseline. Part B = 8 open questions (Q-1/Q-2 из superseded TASK-59/60, Q-3..Q-8 из sketch V2 + пересечений с TASK-104/105/108). Part C пустой. | TASK-57 |
 | 2026-07-08 | Part B extended: Q-9..Q-16 добавлены после assumption-level review двух source-документов (server-requirements.md v2 open questions 1-5 → Q-9/Q-10/Q-11/Q-12; client-requirements-for-zero-knowledge-server.md open questions 1-5 → Q-13/Q-14/Q-15/Q-16). Q-3 (sealed-at-rest) already covered sketch Q-4. Q-2 (push 4KB) already covered client Q-3. Итого Part B = 16 open questions. | TASK-57 AC #3, #4 |
 | 2026-07-08 | Part A extended: A-7 Backlog audit table (2026-07-08 snapshot). 43 task'а классифицированы safe / at-risk / needs-reset. Skill автоматически перепрогонит каждый при взятии в работу. | TASK-57 AC #5 |
+| 2026-07-21 | A-1 note: recovery-blob version на сервере (backup Worker + firestore.rules) переведена с integer на opaque dotted string; Worker гейтит `minReaderVersion` ordinally (versionOrder twin), версия остаётся opaque per rule 13. Новых server touch point'ов нет. | TASK-141 Part D |

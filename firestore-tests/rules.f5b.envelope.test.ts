@@ -74,13 +74,15 @@ function b(size: number, fill = 0): Bytes {
   return Bytes.fromUint8Array(new Uint8Array(size).fill(fill));
 }
 
-/** Valid v1 Envelope shape (single recipient). */
+/** Valid v1 Envelope shape (single recipient) — dotted three-field header (TASK-141 Part D). */
 function validEnvelope(
   recipientDeviceId = "alice-phone",
   overrides: Partial<Record<string, unknown>> = {}
 ) {
   return {
-    schemaVersion: 1,
+    schemaVersion: "1.0",
+    minReaderVersion: "1.0",
+    minWriterVersion: "1.0",
     algorithm: "envelope-xchacha20poly1305-x25519-v1",
     ciphertext: b(64, 0x11),
     nonce: b(24, 0x22),
@@ -91,10 +93,12 @@ function validEnvelope(
   };
 }
 
-/** Valid v1 device pub-key shape (32-byte X25519). */
+/** Valid v1 device pub-key shape (32-byte X25519) — dotted three-field header. */
 function validPubKey(overrides: Partial<Record<string, unknown>> = {}) {
   return {
-    schemaVersion: 1,
+    schemaVersion: "1.0",
+    minReaderVersion: "1.0",
+    minWriterVersion: "1.0",
     pubKey: b(32, 0xab),
     algorithm: "x25519-raw-v1",
     ...overrides,
@@ -216,15 +220,15 @@ describe("envelope storage /users/{ownerUid}/data/{key}", () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(
         doc(ctx.firestore(), `users/${ALICE_UID}/data/cfg__default`),
-        validEnvelope("alice-phone", { schemaVersion: 2 })
+        validEnvelope("alice-phone", { schemaVersion: "2.0" })
       );
     });
     const alice = testEnv.authenticatedContext(ALICE_UID).firestore();
-    // Try to downgrade to schemaVersion=1 → denied.
+    // Try to downgrade to schemaVersion=1.0 → denied (versionOrder monotonic guard).
     await assertFails(
       setDoc(
         doc(alice, `users/${ALICE_UID}/data/cfg__default`),
-        validEnvelope("alice-phone", { schemaVersion: 1 })
+        validEnvelope("alice-phone", { schemaVersion: "1.0" })
       )
     );
   });

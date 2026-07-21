@@ -4,7 +4,6 @@ import android.content.Context
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import com.launcher.adapters.config.db.ConfigStore
-import com.launcher.adapters.crypto.db.CryptoStore
 
 /**
  * Android driver factory для [ConfigStore] SQLDelight database (spec 008
@@ -19,7 +18,6 @@ import com.launcher.adapters.crypto.db.CryptoStore
 object AndroidSqlDriverProvider {
 
     private const val DATABASE_NAME = "config_sync.db"
-    private const val CRYPTO_DB_NAME = "crypto_ledger.db"
 
     /**
      * Build a [ConfigStore] backed by Android SQLite. Caller owns lifecycle
@@ -33,17 +31,5 @@ object AndroidSqlDriverProvider {
             name = DATABASE_NAME,
         )
         return ConfigStore(driver)
-    }
-
-    // Spec 011 — отдельный database файл для cleanup machinery
-    // (BlobReferenceLedger + SystemMeta). Отдельный, чтобы schema bump одной
-    // db не двигал другую (CLAUDE.md rule 5).
-    fun createCryptoStore(context: Context): CryptoStore {
-        val driver: SqlDriver = AndroidSqliteDriver(
-            schema = CryptoStore.Schema,
-            context = context.applicationContext,
-            name = CRYPTO_DB_NAME,
-        )
-        return CryptoStore(driver)
     }
 }

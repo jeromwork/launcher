@@ -1,7 +1,11 @@
 // :core:keys — F-5 key hierarchy + ConfigCipher + Recovery (spec 018).
 //
-// Package convention: cryptokit.keys.* (consistent c cryptokit.crypto.*, готово к extract
-// в cryptokit-kmp вместе с :core:crypto). Renamed from family.keys.* in TASK-56.
+// Package root `family` = the FAMILY OF PRODUCTS (launcher, messenger, gallery), NOT the target
+// audience. The product refuses a family-only domain model — it must serve a clinic, a managed
+// fleet and a self-configuring user equally (CLAUDE.md, personas vs domain roles). Read
+// `family.keys` as "our product family", never as "for families". This package moves into the
+// shared crypto SDK alongside :core:crypto. Renamed from cryptokit.keys.* in TASK-141
+// (superseding TASK-56, which had gone the other way on an earlier reading of the word).
 //
 // Module rules (per spec 018 plan.md):
 //  • commonMain — pure-Kotlin domain (ports, wire-format, sealed errors, fakes).
@@ -79,7 +83,7 @@ kotlin {
 }
 
 android {
-    namespace = "cryptokit.keys"
+    namespace = "family.keys"
     compileSdk = libs.versions.compileSdk.get().toInt()
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()

@@ -29,11 +29,11 @@ import com.launcher.di.setupModule
 import com.launcher.app.data.identity.OurJwtProvider
 import com.launcher.ui.di.androidPlatformModule
 import com.launcher.ui.di.coreCommonModule
-import cryptokit.keys.api.AuthIdentity
-import cryptokit.keys.api.BootstrapError
-import cryptokit.keys.api.EnvelopeBootstrap
-import cryptokit.keys.api.IdentityProof
-import cryptokit.keys.api.Outcome
+import family.keys.api.AuthIdentity
+import family.keys.api.BootstrapError
+import family.keys.api.EnvelopeBootstrap
+import family.keys.api.IdentityProof
+import family.keys.api.Outcome
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

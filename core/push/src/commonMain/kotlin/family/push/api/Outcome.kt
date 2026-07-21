@@ -2,10 +2,10 @@ package family.push.api
 
 /**
  * Typed result with explicit error channel. Same shape как
- * `cryptokit.keys.api.Outcome` (которая, в свою очередь, копия из `:core` модуля).
+ * `family.keys.api.Outcome` (которая, в свою очередь, копия из `:core` модуля).
  *
  * F-5c push — **третий** consumer Outcome (после :core launcher и :core:keys).
- * Per TODO в [cryptokit.keys.api.Outcome], при появлении третьего consumer'а
+ * Per TODO в [family.keys.api.Outcome], при появлении третьего consumer'а
  * Outcome должна была быть extracted в slim `:core:common` модуль. Это
  * remains TODO outside spec 019 scope.
  *

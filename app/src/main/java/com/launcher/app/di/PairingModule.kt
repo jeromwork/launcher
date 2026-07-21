@@ -9,7 +9,7 @@ import com.launcher.api.pairing.PairingService
 import com.launcher.api.push.PushSender
 import com.launcher.api.sync.RemoteSyncBackend
 import com.launcher.app.ui.pairing.PairingViewModel
-import cryptokit.crypto.exception.CryptoException
+import family.crypto.exception.CryptoException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

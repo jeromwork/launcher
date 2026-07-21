@@ -1,10 +1,9 @@
 package com.launcher.app.data.recovery
 
-import cryptokit.keys.api.BackupError
-import cryptokit.keys.api.Outcome
-import cryptokit.keys.api.RecoveryKeyBackup
-import cryptokit.keys.api.RecoveryKeyBackupBlob
-import cryptokit.keys.impl.RecoveryBlobCodec
+import family.keys.api.BackupError
+import family.keys.api.Outcome
+import family.keys.api.RecoveryKeyBackup
+import family.keys.api.RecoveryKeyBackupBlob
 import family.push.api.IdTokenProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -71,7 +70,7 @@ class WorkerRecoveryKeyBackup(
         require(uid.isNotEmpty()) { "uid (stableId) MUST not be empty" }
         val token = idTokenProvider.currentIdToken()
             ?: return@withContext Outcome.Failure(BackupError.AuthExpired)
-        val body = RecoveryBlobCodec.encode(blob)
+        val body = RecoveryBlobJsonCodec.encode(blob)
         val idempotencyKey = UUID.randomUUID().toString()
 
         runWithRetry { attempt ->
@@ -116,7 +115,7 @@ class WorkerRecoveryKeyBackup(
                     when {
                         code in 200..299 -> {
                             val json = conn.inputStream.bufferedReader().use { it.readText() }
-                            RetryDecision.Done(RecoveryBlobCodec.decode(json))
+                            RetryDecision.Done(RecoveryBlobJsonCodec.decode(json))
                         }
                         code == 401 -> RetryDecision.Done(Outcome.Failure(BackupError.AuthExpired))
                         code == 403 -> RetryDecision.Done(Outcome.Failure(BackupError.AuthExpired))

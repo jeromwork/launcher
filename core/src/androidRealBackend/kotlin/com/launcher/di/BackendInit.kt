@@ -5,9 +5,9 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessaging
 import com.launcher.adapters.crypto.FirestoreDeviceIdentityRepository
 import com.launcher.adapters.crypto.WorkerEncryptedMediaStorage
-import cryptokit.crypto.api.AsymmetricCrypto
-import cryptokit.pairing.api.DeviceIdentityRepository
-import cryptokit.pairing.api.EncryptedMediaStorage
+import family.crypto.api.AsymmetricCrypto
+import family.pairing.api.DeviceIdentityRepository
+import family.pairing.api.EncryptedMediaStorage
 import com.launcher.adapters.apps.InstalledAppsCatalogAdapter
 import com.launcher.adapters.apps.OpenAppDispatcherAdapter
 import com.launcher.adapters.config.AndroidSqlDriverProvider

@@ -1,9 +1,9 @@
 package com.launcher.fake.crypto
 
-import cryptokit.crypto.exception.CryptoException
-import cryptokit.pairing.api.DeviceId
-import cryptokit.pairing.api.DeviceIdentity
-import cryptokit.pairing.api.DeviceIdentityRepository
+import family.crypto.exception.CryptoException
+import family.pairing.api.DeviceId
+import family.pairing.api.DeviceIdentity
+import family.pairing.api.DeviceIdentityRepository
 
 // mockBackend flavor — in-memory implementation. No signature verification
 // (signature semantic в mockBackend не нужно — нет network impersonation).

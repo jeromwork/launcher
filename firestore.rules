@@ -429,8 +429,7 @@ service cloud.firestore {
     //   • nonce: bytes        (== 24 bytes, XChaCha20)
     //   • createdAt: int      (ms epoch)
     function isValidRecoveryVaultBlob(d) {
-      return d.schemaVersion is int
-          && d.schemaVersion >= 1
+      return hasValidVersionHeader(d)
           && d.algorithm is string
           && d.algorithm.size() > 0
           && d.algorithm.size() <= 64
@@ -459,10 +458,12 @@ service cloud.firestore {
       // FR-028a (H-2 mitigation): schemaVersion can only monotonically increase.
       // Blocks downgrade attacks где attacker с stolen Google credentials
       // пытается replace v2+ vault на vulnerable v1 (per WhatsApp E2E backup pattern).
+      // TASK-141 Part D: compared through versionOrder() — the version is a dotted string now, and
+      // a raw >= would order "10.0" below "9.0", permitting exactly the rollback this guard blocks.
       allow update: if request.auth != null
                     && request.auth.uid == uid
                     && isValidRecoveryVaultBlob(newDoc())
-                    && newDoc().schemaVersion >= existingDoc().schemaVersion;
+                    && versionOrder(newDoc().schemaVersion) >= versionOrder(existingDoc().schemaVersion);
 
       allow delete: if request.auth != null
                     && request.auth.uid == uid;
@@ -519,9 +520,15 @@ service cloud.firestore {
 
     match /users/{ownerUid}/data/{key} {
       allow read, delete: if isOwnerOrGrantedHelper(ownerUid);
-      allow create: if isOwnerOrGrantedHelper(ownerUid);
+      // TASK-141 Part D: the envelope carries the dotted three-field header now. Validate its shape
+      // on create (all three strings, ordered, not demanding a reader newer than we accept) and gate
+      // the monotonic schemaVersion through versionOrder() on update — a raw >= would compare the
+      // dotted string lexicographically, ordering "10.0" below "9.0" and permitting a rollback.
+      allow create: if isOwnerOrGrantedHelper(ownerUid)
+                    && hasValidVersionHeader(newDoc());
       allow update: if isOwnerOrGrantedHelper(ownerUid)
-                    && newDoc().schemaVersion >= existingDoc().schemaVersion;
+                    && hasValidVersionHeader(newDoc())
+                    && versionOrder(newDoc().schemaVersion) >= versionOrder(existingDoc().schemaVersion);
     }
 
     // ─── Spec 018 F-5b — Public Key Directory ───────────────────────────

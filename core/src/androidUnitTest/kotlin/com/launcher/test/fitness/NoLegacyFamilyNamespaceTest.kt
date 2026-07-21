@@ -5,37 +5,45 @@ import org.junit.Test
 import java.io.File
 
 /**
- * TASK-51 T072 + TASK-56 — fitness rule: zero `family.crypto.*` /
- * `family.pairing.*` / `family.keys.*` imports anywhere. All three
- * namespaces have been renamed to `cryptokit.*`:
- *  - `family.crypto.*`  -> `cryptokit.crypto.*` (TASK-51 Phase 4)
- *  - `family.pairing.*` -> `cryptokit.pairing.*` (TASK-51 Phase 4)
- *  - `family.keys.*`    -> `cryptokit.keys.*` (TASK-56)
+ * TASK-141 — fitness rule: zero `cryptokit.*` imports anywhere. The extractable crypto family
+ * lives under one root, `family.*`:
+ *  - `family.crypto.*`  (`:core:crypto`)
+ *  - `family.pairing.*` (`:core:crypto`)
+ *  - `family.keys.*`    (`:core:keys`)
+ *  - `family.push.*`    (`:core:push`)
+ *  - `family.wire.*`    (`:core:wire`)
+ *
+ * ## Why this rule reversed direction
+ *
+ * It used to ban `family.*` and require `cryptokit.*` (TASK-51 + TASK-56, on the 2026-06-26
+ * mandate "the word family bothers me"). On 2026-07-20 the owner clarified the objection was to
+ * reading `family` as the target AUDIENCE; in the sense of a family OF PRODUCTS (launcher,
+ * messenger, gallery) the root is accepted, and `cryptokit` is rejected as an umbrella because
+ * it names one module inside the extractable set rather than the set itself. TASK-56 is
+ * superseded; this guard now points the other way so the old root cannot creep back.
  *
  * Whitelist: fitness tests + specs/ + docs/ + backlog/ (historical prose only).
  */
 class NoLegacyFamilyNamespaceTest {
 
     @Test
-    fun nothingImports_legacyFamilyNamespaces() {
+    fun nothingImports_legacyCryptokitNamespace() {
         val violations = mutableListOf<String>()
-        val forbiddenPrefixes = listOf("family.crypto", "family.pairing", "family.keys")
         scanRepo().forEach { file ->
             file.useLines { lines ->
                 lines.forEachIndexed { idx, raw ->
                     val line = raw.trim()
                     if (!line.startsWith("import ")) return@forEachIndexed
                     val target = line.removePrefix("import ").removeSuffix(";").trim()
-                    if (forbiddenPrefixes.any { target.startsWith(it) }) {
+                    if (target.startsWith("cryptokit.")) {
                         violations += "${file.path}:${idx + 1}: $line"
                     }
                 }
             }
         }
         assertTrue(
-            "Namespaces family.crypto.* / family.pairing.* / family.keys.* all " +
-                "removed (renamed to cryptokit.* in TASK-51 Phase 4 and TASK-56).\n" +
-                "Violations:\n${violations.joinToString("\n")}",
+            "The `cryptokit.*` namespace is retired — the crypto family is `family.*` " +
+                "(TASK-141, superseding TASK-56).\nViolations:\n${violations.joinToString("\n")}",
             violations.isEmpty(),
         )
     }

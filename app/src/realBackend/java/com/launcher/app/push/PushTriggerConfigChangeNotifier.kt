@@ -1,9 +1,9 @@
 package com.launcher.app.push
 
 import android.util.Log
-import cryptokit.keys.api.ConfigChangeNotifier
-import cryptokit.keys.api.ConfigSaver
-import cryptokit.keys.api.IdentityProof
+import family.keys.api.ConfigChangeNotifier
+import family.keys.api.ConfigSaver
+import family.keys.api.IdentityProof
 import family.push.api.EventType
 import family.push.api.Outcome
 import family.push.api.PushTrigger
@@ -12,7 +12,7 @@ import family.push.api.TargetScope
 /**
  * Adapter: maps `:core:keys` [ConfigChangeNotifier] → `:core:push` [PushTrigger].
  *
- * Wired в realBackend flavor only — mockBackend uses [cryptokit.keys.impl.NoOpConfigChangeNotifier].
+ * Wired в realBackend flavor only — mockBackend uses [family.keys.impl.NoOpConfigChangeNotifier].
  *
  * Invoked from F-5b EnvelopeAsyncPushWorker after successful storage.put. Determines
  * `ownerUid` для push trigger:

@@ -1,10 +1,10 @@
 package com.launcher.app.data.envelope
 
-import cryptokit.keys.api.DeviceId
-import cryptokit.keys.api.Outcome
-import cryptokit.keys.api.RecipientPubKey
-import cryptokit.keys.api.internal.DirectoryError
-import cryptokit.keys.api.internal.PublicKeyDirectory
+import family.keys.api.DeviceId
+import family.keys.api.Outcome
+import family.keys.api.RecipientPubKey
+import family.keys.api.internal.DirectoryError
+import family.keys.api.internal.PublicKeyDirectory
 import java.util.concurrent.ConcurrentHashMap
 
 /**

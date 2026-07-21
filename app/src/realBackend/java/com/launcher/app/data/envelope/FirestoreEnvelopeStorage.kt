@@ -3,10 +3,11 @@ package com.launcher.app.data.envelope
 import com.google.firebase.firestore.Blob
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
-import cryptokit.keys.api.Envelope
-import cryptokit.keys.api.Outcome
-import cryptokit.keys.api.internal.EnvelopeStorage
-import cryptokit.keys.api.internal.EnvelopeStorageError
+import family.keys.api.Envelope
+import family.keys.api.Outcome
+import family.keys.api.internal.EnvelopeStorage
+import family.keys.api.internal.EnvelopeStorageError
+import family.wire.WireVersion
 import kotlinx.coroutines.tasks.await
 
 /**
@@ -119,7 +120,9 @@ class FirestoreEnvelopeStorage(
     }
 
     private fun encode(envelope: Envelope, logicalKey: String): Map<String, Any> = mapOf(
-        FIELD_SCHEMA_VERSION to envelope.schemaVersion,
+        FIELD_SCHEMA_VERSION to WIRE_SCHEMA_VERSION.toString(),
+        FIELD_MIN_READER_VERSION to WIRE_MIN_READER_VERSION.toString(),
+        FIELD_MIN_WRITER_VERSION to WIRE_MIN_WRITER_VERSION.toString(),
         FIELD_ALGORITHM to envelope.algorithm,
         FIELD_CIPHERTEXT to Blob.fromBytes(envelope.ciphertext),
         FIELD_NONCE to Blob.fromBytes(envelope.nonce),
@@ -132,7 +135,13 @@ class FirestoreEnvelopeStorage(
     @Suppress("UNCHECKED_CAST")
     private fun decode(data: Map<String, Any>): Envelope? {
         return try {
-            val schemaVersion = (data[FIELD_SCHEMA_VERSION] as? Number)?.toInt() ?: return null
+            // Version header (§3): schemaVersion is diagnostics; the reader gate is minReaderVersion.
+            // Reader gate lives here (moved out of EnvelopeConfigCipherImpl per TASK-141 — crypto no
+            // longer decides about versions). A pre-conversion integer parses to null → refused.
+            (data[FIELD_SCHEMA_VERSION] as? String)?.let { WireVersion.parseOrNull(it) } ?: return null
+            val minReader = (data[FIELD_MIN_READER_VERSION] as? String)?.let { WireVersion.parseOrNull(it) }
+                ?: return null
+            if (minReader > WIRE_SCHEMA_VERSION) return null
             val algorithm = data[FIELD_ALGORITHM] as? String ?: return null
             val ciphertext = (data[FIELD_CIPHERTEXT] as? Blob)?.toBytes() ?: return null
             val nonce = (data[FIELD_NONCE] as? Blob)?.toBytes() ?: return null
@@ -145,7 +154,6 @@ class FirestoreEnvelopeStorage(
             }
             if (recipientKeysBuilder.isEmpty()) return null
             Envelope(
-                schemaVersion = schemaVersion,
                 algorithm = algorithm,
                 ciphertext = ciphertext,
                 nonce = nonce,
@@ -168,7 +176,18 @@ class FirestoreEnvelopeStorage(
         const val COLLECTION_USERS: String = "users"
         const val COLLECTION_DATA: String = "data"
 
+        // TASK-141 — the Envelope crypto type carries no version (rule 1); the wire version of the
+        // Firestore document lives here, in the adapter that owns it. Part D: the dotted three-field
+        // header (`docs/architecture/wire-format.md` §3), written as strings so firestore.rules'
+        // hasValidVersionHeader + versionOrder() accept and gate it. encode() stamps all three,
+        // decode() gates on minReaderVersion.
+        internal val WIRE_SCHEMA_VERSION: WireVersion = WireVersion(1, 0)
+        internal val WIRE_MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+        internal val WIRE_MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
+
         const val FIELD_SCHEMA_VERSION: String = "schemaVersion"
+        const val FIELD_MIN_READER_VERSION: String = "minReaderVersion"
+        const val FIELD_MIN_WRITER_VERSION: String = "minWriterVersion"
         const val FIELD_ALGORITHM: String = "algorithm"
         const val FIELD_CIPHERTEXT: String = "ciphertext"
         const val FIELD_NONCE: String = "nonce"
