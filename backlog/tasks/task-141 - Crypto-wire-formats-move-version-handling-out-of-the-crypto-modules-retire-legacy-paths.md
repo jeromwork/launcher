@@ -155,6 +155,10 @@ TASK-138 переводит форматы данных на новую сист
   - **Дизайн-решение**: Worker гейтит `minReaderVersion` (не диагностический `schemaVersion`), тот же field, что `hasValidVersionHeader` в rules — близнецы не расходятся.
   - **Верификация зелёная**: `./gradlew fitnessCheck :core:crypto:jvmTest :core:keys:jvmTest :core:testRealBackendDebugUnitTest :app:testRealBackendDebugUnitTest :app:testMockBackendDebugUnitTest` ✓; `firestore-tests` 103/103 на эмуляторе (вкл. границу 9→10) ✓; `workers/backup tsc --noEmit` ✓ (unit-тестов у Worker'а нет). `BundledPresetValidationTest` — флейк Robolectric+coroutines, зелёный на переигрывании, не связан.
   - **Lockout-риск**: деплой `firestore.rules` + backup Worker координировать с выкаткой app в один заход (int-записи отвергаются в момент деплоя; данных пользователей нет — pre-MVP).
+  - **Деплой + on-device (2026-07-21, `launcher-old-dev` dev-окружение)**:
+    - `firebase deploy --only firestore:rules` → released; `wrangler deploy` backup Worker → `MAX_SUPPORTED_SCHEMA_VERSION="1.0"`.
+    - Instrumented crypto на **живом Xiaomi 11T (API 30)**: `:core:crypto:connectedDebugAndroidTest` (SecureKeyStorePersistence/InvalidPrefix) 4/4 — KeyBlob `.blob` со строковым заголовком через аппаратный Keystore, запись→чтение→гейт.
+    - **Cloud round-trip на живом Xiaomi** (реальный Google-аккаунт владельца): Sign-In → `envelope bootstrap published` (PublicKeyDirectory, строковый заголовок принят задеплоенными правилами) → `recovery blob uploaded to Worker` (RecoveryKeyBackupBlob, строковый заголовок принят Worker'ом с гейтом `minReaderVersion`/versionOrder). Ни одного `UNSUPPORTED_SCHEMA`/`MALFORMED`. Транзиентный `PERMISSION_DENIED` на `users/{stableId}` (F-4 identity-link race, TASK-138) — вне scope Part D, non-fatal, флоу завершился.
 
 ### Part D — ГОТОВО К ИСПОЛНЕНИЮ (разведка + карта 2026-07-21, коммит 68888f1)
 
