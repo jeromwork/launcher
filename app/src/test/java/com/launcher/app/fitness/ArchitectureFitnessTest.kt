@@ -378,6 +378,10 @@ class ArchitectureFitnessTest {
         val TEST_PATH_MARKERS = listOf(
             "/test/", "/androidTest/", "/commonTest/", "/jvmTest/",
             "/androidUnitTest/", "/androidInstrumentedTest/", "/iosTest/",
+            // Flavor-specific unit-test source sets (`testRealBackend` / `testMockBackend`
+            // srcDirs). Omitting these scanned their test files as production and would flag
+            // a wire-shaped literal in a test (TASK-141).
+            "/androidRealBackendUnitTest/", "/androidMockBackendUnitTest/",
             "/testFixtures/", "/build/",
         )
 

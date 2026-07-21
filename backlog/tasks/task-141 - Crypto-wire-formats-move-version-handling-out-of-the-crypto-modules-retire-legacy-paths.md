@@ -136,6 +136,15 @@ TASK-138 переводит форматы данных на новую сист
 
 **Почему план, а не наспех-код:** крипто-зона, ошибка дорога (rule 3). Вынос через общую константу + 12-файловое удаление feature — крупный связный рефакторинг, надёжнее свежим заходом по этой карте, чем в конце длинной сессии.
 
+## Decision — Part B DTO strategy (2026-07-21, подтверждено владельцем)
+
+Крипто-тип каждого из трёх живых форматов становится чистым: без поля `schemaVersion`, без `@Serializable`/`@SerialName` (rule 1 crypto-exception). Форма «слоя над криптой» выбирается по тому, как формат сериализуется в **проде** (рабочее приложение, не тест):
+
+- **`DeviceIdentity`** (`:core:crypto`) и **`Envelope`** (`:core:keys`) — в проде раскладываются вручную в `Map` (`toMap`/`fromMap` в `FirestoreDeviceIdentityRepository`, `encode`/`decode` в `FirestoreEnvelopeStorage`); `@Serializable` дёргает только юнит-тест. → ДТО-класс НЕ заводим: ручная map-функция и есть объявленный wire-контракт (список полей + проверки + гейт версии). Снимаем `@Serializable`/`@SerialName` и поле `schemaVersion` с крипто-типа; версия-константа и гейт живут в адаптере. Комментарий-пометка у map-функции: «если формат переедет на JSON-строку — стандартизованная форма = `@Serializable`-DTO класс». Для `Envelope` дополнительно: гейт версии переезжает из `EnvelopeConfigCipherImpl.open:99` в адаптер `decode`; H-3 (проверка `algorithm`) **остаётся** в крипте (AC #3).
+- **`RecoveryKeyBackupBlob`** (`:core:keys`) — в проде реально сериализуется kotlinx-JSON (`RecoveryBlobCodec`). → заводим `@Serializable`-DTO класс в адаптерном слое + маппер + гейт версии там же.
+
+Версия в AAD `Envelope`: остаётся литерал `"family-storage::v1"` в `aadFor` (это версия схемы привязки), поле `schemaVersion` документа НЕ подмешивается в AAD — **перешифровки нет** (развилка A закрыта: aadFor не читает поле версии). Существующих пользовательских данных нет — ломать нечего. Реализация — по одному формату отдельными коммитами (`DeviceIdentity` → `Envelope` → `RecoveryKeyBackupBlob`). `SUPPORTED_SCHEMA_VERSION` уезжает из `:core:crypto` (`CryptoEnvelopeWireFormat.kt`) в адаптерный слой per-format.
+
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

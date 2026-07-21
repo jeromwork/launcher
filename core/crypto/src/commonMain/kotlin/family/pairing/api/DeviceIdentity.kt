@@ -1,12 +1,14 @@
 package family.pairing.api
 
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-
-@Serializable
-@SerialName("DeviceIdentity")
+/**
+ * Device identity — X25519 + Ed25519 public keys, signed by the device's own
+ * Ed25519 key. Pure crypto type (`:core:crypto`): carries no schema version and
+ * no serialization annotations (CLAUDE.md rule 1 crypto exception, TASK-141).
+ * The wire version + persistence live above crypto, in the adapter that stores
+ * this — see `FirestoreDeviceIdentityRepository` (Firestore field mapping owns
+ * `schemaVersion`).
+ */
 data class DeviceIdentity(
-    val schemaVersion: Int = SUPPORTED_SCHEMA_VERSION,
     val deviceId: DeviceId,
     val publicKey: PublicKey,
     val signingPublicKey: SigningPublicKey,
@@ -43,8 +45,7 @@ data class DeviceIdentity(
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is DeviceIdentity) return false
-        return schemaVersion == other.schemaVersion &&
-            deviceId == other.deviceId &&
+        return deviceId == other.deviceId &&
             publicKey == other.publicKey &&
             signingPublicKey == other.signingPublicKey &&
             signedTimestamp == other.signedTimestamp &&
@@ -53,8 +54,7 @@ data class DeviceIdentity(
     }
 
     override fun hashCode(): Int {
-        var result = schemaVersion
-        result = 31 * result + deviceId.hashCode()
+        var result = deviceId.hashCode()
         result = 31 * result + publicKey.hashCode()
         result = 31 * result + signingPublicKey.hashCode()
         result = 31 * result + signedTimestamp.hashCode()

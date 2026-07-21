@@ -11,7 +11,6 @@ import family.pairing.api.DeviceIdentity
 import family.pairing.api.DeviceIdentityRepository
 import family.pairing.api.ED25519_SIGNATURE_SIZE
 import family.pairing.api.PublicKey
-import family.pairing.api.SUPPORTED_SCHEMA_VERSION
 import family.pairing.api.SigningPublicKey
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
@@ -93,7 +92,6 @@ class PairingCryptoCoordinator(
 
         val now = nowMillis()
         val unsigned = DeviceIdentity(
-            schemaVersion = SUPPORTED_SCHEMA_VERSION,
             deviceId = deviceId,
             publicKey = PublicKey(keys.encryptionPublic),
             signingPublicKey = SigningPublicKey(keys.signingPublic),
@@ -103,7 +101,6 @@ class PairingCryptoCoordinator(
         )
         val sig = asymmetric.sign(unsigned.signedPayloadBytes(), keys.signingPrivate).bytes
         val signed = DeviceIdentity(
-            schemaVersion = unsigned.schemaVersion,
             deviceId = unsigned.deviceId,
             publicKey = unsigned.publicKey,
             signingPublicKey = unsigned.signingPublicKey,
