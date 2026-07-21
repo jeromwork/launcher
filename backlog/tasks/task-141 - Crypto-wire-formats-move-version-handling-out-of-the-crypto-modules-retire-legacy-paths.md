@@ -152,7 +152,46 @@ TASK-138 переводит форматы данных на новую сист
 - **C** `KeyBlob` — персистентность вынесена в `FileKeyBlobStore` (:core), `SecureKeyStore` только wrap/unwrap через порт `KeyBlobStore` (195bf3c). AC #4.
 - **D** — **ещё не сделано** (AC #6). Разведка выполнена, карта ниже. НЕ начинать в конце длинной сессии — это security-rules + Worker, нужен Firebase-эмулятор для проверки.
 
-### Part D — карта для исполнения (разведка 2026-07-21)
+### Part D — ГОТОВО К ИСПОЛНЕНИЮ (разведка + карта 2026-07-21, коммит 68888f1)
+
+**Следующему агенту: НЕ переразведывать — вся инфа ниже.** Ветка `task-141-crypto-wire-formats`, база — коммит 195bf3c (Part C, всё зелёное). Нужен Firebase-эмулятор для `firestore-tests npm test`.
+
+**Порядок исполнения (ordered checklist):**
+
+1. **`KeyBlob`** (`core/src/commonMain/kotlin/com/launcher/adapters/crypto/KeyBlob.kt`) → `WireVersionHeader` + 3 поля `WireVersion` c `@EncodeDefault(EncodeDefault.Mode.ALWAYS)`, companion `SCHEMA_VERSION/MIN_READER_VERSION/MIN_WRITER_VERSION = WireVersion(1,0)`. Гейт в `FileKeyBlobStore.read`: `if (blob.minReaderVersion > KeyBlob.SCHEMA_VERSION) throw CryptoException.UnsupportedSchemaVersion(found=blob.schemaVersion.major, known=KeyBlob.SCHEMA_VERSION.major)`. Тест `KeyBlobWireFormatTest` (`:core` commonTest): inline-фикстуры int→строка (`"schemaVersion":"1.0","minReaderVersion":"1.0","minWriterVersion":"1.0"`), future-фикстура `"999.0"`, helper-гейт на `WireVersion.parse`.
+2. **`RecoveryKeyBackupBlobDto`** (`app/src/main/.../data/recovery/RecoveryBlobJsonCodec.kt`) → `WireVersionHeader` + 3 `WireVersion` + `@EncodeDefault(ALWAYS)`. `RecoveryBlobJsonCodec.decode`: читать `schemaVersion` как строку, `WireVersion.parse`, гейт `minReaderVersion > WIRE_SCHEMA_VERSION`. `RecoveryBlobJsonCodecTest` фикстуры int→строка. Серверный близнец `workers/backup/src/index.ts:166-173` `typeof number`→строка+`versionOrder`; `workers/backup/src/env.ts:13` + `wrangler.toml [vars] MAX_SUPPORTED_SCHEMA_VERSION "1"→"1.0"`.
+3. **`FirestoreDeviceIdentityRepository`** (`core/src/androidRealBackend/.../adapters/crypto/`) toMap → 3-полевой строковый заголовок (эталон ниже), fromMap → читать 3 строки, `WireVersion.parse`, гейт `minReaderVersion > WIRE_SCHEMA_VERSION`. **Правило НЕ трогать** (уже строковое).
+4. **`FirestoreEnvelopeStorage`** (`app/src/realBackend/.../data/envelope/`) encode/decode → строковый заголовок. Правило `/users/{ns}/data/{key}` (`firestore.rules:520-525`): добавить `hasValidVersionHeader` в create + `versionOrder(newDoc().schemaVersion) >= versionOrder(existingDoc().schemaVersion)` в update.
+5. **`FirestorePublicKeyDirectory`** (2 write-сайта 78/85) → строковый заголовок. Read-гейта нет — добавить опционально в `fetchDevicesFor`. Правила 536-543 owner-only — версию можно не валидировать (или добавить `hasValidVersionHeader`).
+6. **`FirestoreRecoveryKeyBackup`** encode/decode → строковый заголовок. Правило `/users/{uid}/recovery-key` (`firestore.rules:431-469`): `d.schemaVersion is int`→`hasValidVersionHeader(d)`, строка 465 сырой `>=`→`versionOrder(...)`. (Имена полей `kdfSalt`/`wrappedRootKey` vs адаптерные `salt`/`ciphertext` — pre-existing mismatch, ВНЕ scope.)
+7. **firestore.rules**: поднять `maxAcceptedReaderVersion()` при необходимости (пока `"1.0"` ок). **`firestore-tests/rules.f5.recovery.test.ts` `validVaultV1()` строка 56** `schemaVersion:1`→строковый заголовок.
+8. **server-log** (`docs/dev/server-log.md`): под anchor `A-1` короткая заметка (Worker версия теперь строка) + строка в `## Journal` (дата).
+9. **fitness allowlist**: удалить все записи из `CRYPTO_PENDING_TASK_141` (`app/src/test/.../ArchitectureFitnessTest.kt`) — пустой список = сигнал что TASK-141 приземлился.
+10. **Проверка**: `./gradlew fitnessCheck :core:crypto:jvmTest :core:keys:jvmTest :core:testRealBackendDebugUnitTest :app:testRealBackendDebugUnitTest :app:testMockBackendDebugUnitTest` + компиляция androidTest + `cd firestore-tests && npm test` (эмулятор) + `cd workers/backup && npm test`.
+
+**Эталонный сниппет** (hand-built Firestore map, из `IdentityDocumentWireFormat.kt`):
+```kotlin
+import family.wire.WireVersion
+// companion:
+val SCHEMA_VERSION: WireVersion = WireVersion(1, 0)
+val MIN_READER_VERSION: WireVersion = WireVersion(1, 0)
+val MIN_WRITER_VERSION: WireVersion = WireVersion(1, 0)
+// encode:
+"schemaVersion" to SCHEMA_VERSION.toString(),
+"minReaderVersion" to MIN_READER_VERSION.toString(),
+"minWriterVersion" to MIN_WRITER_VERSION.toString(),
+// decode (fromMap):
+val sv = (m["schemaVersion"] as? String)?.let { WireVersion.parseOrNull(it) } ?: return null
+val minR = (m["minReaderVersion"] as? String)?.let { WireVersion.parseOrNull(it) } ?: return null
+if (minR > SCHEMA_VERSION) return null  // reader gate: too new to read
+```
+`@Serializable`-DTO вместо map: реализовать `WireVersionHeader`, поля `WireVersion` (сериализуется как строка через `WireVersionSerializer`), обязательно `@EncodeDefault(ALWAYS)` на всех трёх.
+
+**Lockout-риск (ВАЖНО)**: каждый путь, где `is int`→строка, отвергнет старые int-записи В МОМЕНТ ДЕПЛОЯ. Данных пользователей нет (pre-MVP, владелец подтвердил «ломать нечего»), но деплой `firestore.rules` координировать с выкаткой app в один заход.
+
+---
+
+### Part D — исходная карта (разведка 2026-07-21)
 
 Перевести 6 форматов с int-версии на точечную строку + 3-полевой заголовок `family.wire.WireVersion`/`WireVersionHeader`. Эталон: `core/src/androidRealBackend/.../adapters/auth/IdentityDocumentWireFormat.kt` — `header()` строит `mapOf("schemaVersion" to sv.toString(), "minReaderVersion" to ..., "minWriterVersion" to ...)` из `WireVersion(1,0)`. Для `@Serializable`-DTO: реализовать `WireVersionHeader` + `@EncodeDefault(EncodeDefault.Mode.ALWAYS)` на трёх полях (иначе `VersionFieldsAlwaysEncoded` fitness падает).
 
