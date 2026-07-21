@@ -3,10 +3,10 @@ id: TASK-141
 title: >-
   Crypto wire formats: move version handling out of the crypto modules + retire
   legacy paths
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-07-20 09:37'
-updated_date: '2026-07-20 14:46'
+updated_date: '2026-07-21'
 labels:
   - wire-format
   - crypto
@@ -232,4 +232,19 @@ server-log (rule 13): `docs/dev/server-log.md` — anchor `A-1 · Sealed blob st
 - [x] #5 [hand] Мёртвые пути проверены и удалены либо подтверждены как живые с объяснением, почему остаются
 - [x] #6 [hand] Firestore rules для vault восстановления и devices переведены на точечную строку через `versionOrder()`; защита от отката сохранена и проверена тестом на границе 9→10
 <!-- AC:END -->
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+## Final Summary (2026-07-21)
+
+**Done — 6/6 AC зелёные, верифицировано на трёх слоях.** Все шесть крипто-форматов (`KeyBlob`, `RecoveryKeyBackupBlobDto`, `DeviceIdentity`, `Envelope`, `PublicKeyDirectory`, `RecoveryKeyBackup`) переведены с int-версии на точечный 3-полевой `WireVersion`-заголовок; гейт по `minReaderVersion` в адаптерах, `versionOrder()` в firestore.rules; серверный близнец (backup Worker) синхронизирован. `CRYPTO_PENDING_TASK_141` allowlist опустошён (сигнал приземления).
+
+**Коммиты** (ветка `task-141-crypto-wire-formats`): Part A `988570d`, Part B `ab90a26`/`b27a903`/`74f684e`, Part C `195bf3c`, Part D `0b65565` (+ verification `81d6352`).
+
+**Верификация:**
+- Авто: `fitnessCheck` + `:core:crypto/keys:jvmTest` + real/mock backend unit — зелёные; `firestore-tests` 103/103 на эмуляторе (вкл. границу отката 9→10); `workers/backup tsc --noEmit`.
+- Деплой: `firebase deploy --only firestore:rules` + `wrangler deploy` в `launcher-old-dev`.
+- On-device (Xiaomi 11T, API 30): instrumented crypto 4/4; живой cloud round-trip под реальным Google-аккаунтом — `envelope bootstrap published` (PublicKeyDirectory принят боевыми правилами) + `recovery blob uploaded to Worker` (принят Worker'ом). Ни одного `UNSUPPORTED_SCHEMA`/`MALFORMED`.
+
+**Вне scope, замечено при верификации:** транзиентный `PERMISSION_DENIED` на `users/{stableId}` (F-4 identity-link race, TASK-138); `HomeLoadingState error: flows empty` в Workspace-онбординге на свежем облачном аккаунте (композиция home-конфига, не крипта). Оба к Part D отношения не имеют — кандидаты в отдельные таски.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
