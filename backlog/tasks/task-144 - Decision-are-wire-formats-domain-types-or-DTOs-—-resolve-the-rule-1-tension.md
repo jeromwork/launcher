@@ -1,7 +1,7 @@
 ---
 id: TASK-144
 title: 'Decision: are wire formats domain types or DTOs — resolve the rule-1 tension'
-status: Discussion
+status: Done
 assignee: []
 created_date: '2026-07-20 14:20'
 labels:
@@ -54,13 +54,36 @@ TASK-142 добавила строгие проверки форматов. Во
 
 ## Состояние
 
-**Discussion.** Заведено 2026-07-20 при закрытии AC #5 в TASK-142. Требует решения владельца — правка `CLAUDE.md` либо рефакторинг 17 форматов.
+**Draft.** Решено 2026-07-21 с владельцем после research по industry-стандартам (см. Decision ниже). Реализация: правка `CLAUDE.md` rule 1 + fitness-правило.
+
+<!-- SECTION:DISCUSSION:BEGIN -->
+
+### Decision (English)
+
+**Choice — differentiated by whether the type is crypto:**
+
+- **Crypto formats** (`:core:crypto`, `:core:keys` — the extractable crypto SDK): the crypto type carries **no version field and no serialization annotation**. Version and wire format live in a layer *above* crypto (adapter/DTO). The crypto primitive receives already-assembled opaque bytes (AAD, ciphertext) and never learns what is in them. Enforced by TASK-141.
+- **Non-crypto formats** (`Action`, `Preset`, `Pool`, `Health`, … ~17 types): `kotlinx.serialization` annotations (`@Serializable`, `@SerialName`, `@JsonNames`, `@EncodeDefault`, custom `KSerializer`) are **allowed in the domain type**. No DTO twin. Vendor serializers (Jackson, Gson, Moshi, Firebase mapping, JPA) remain **forbidden** in the domain.
+
+**Rationale.** `kotlinx.serialization` is a compile-time Kotlin facility — compiler-generated, no runtime reflection, no vendor runtime, removable without touching a domain concept. Rule 1 bans *vendor coupling*; this creates none. A DTO twin for every non-crypto format is pure mapping-fatigue with no rewrite avoided (rule 4 MVA). Industry (Clean Architecture, hexagonal) splits domain from serialization where coupling is expensive — Java+Jackson, extractable SDKs — and tolerates serde/`@Serializable` on the domain for compile-time, language-native serialization on a stable domain. Crypto is the expensive case (extractable SDK + security + no primitive anywhere holds its own version — age, JWE, Tink, libsodium all keep version as a cleartext header above the primitive), so crypto splits; the rest does not.
+
+**Applies to.** Rule 1 (domain isolation) wording; a new fitness rule; TASK-141 (crypto split); every future `@Serializable` domain type.
+
+**Trade-offs.** Non-crypto domain types stay coupled to `kotlinx.serialization` (accepted — it is language-native, removable). If `kotlinx.serialization` were ever abandoned, ~17 types need the annotation stripped and a DTO layer added — a well-scoped, mechanical change, not a rewrite (this is the exit ramp).
+
+**Exit ramp.** To move off the allowance: (1) introduce DTOs in the adapter layer per format, (2) strip annotations from domain types, (3) flip the fitness rule to forbid `kotlinx.serialization` in the domain too. Cost ≈ one type-pair + one mapper per format; no wire-format change, no data migration.
+
+**Server note (owner, 2026-07-21).** The meta-rule "crypto knows nothing of version" cannot be enforced by a client-side fitness rule alone — the server also sees version fields (Firestore rules compare them). Record in `server-log.md` when TASK-141 touches the crypto Firestore paths that the server treats the version as an **opaque** value it never interprets (rule 13), so the zero-knowledge posture is preserved on both sides.
+
+**Scope note.** Original card framed this as "domain types vs DTOs" broadly. The decision keeps it differentiated rather than one-size-fits-all — crypto splits, non-crypto does not.
+
+<!-- SECTION:DISCUSSION:END -->
 
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 [hand] Выбран вариант и зафиксирован в Decision-блоке
-- [ ] #2 [hand] `CLAUDE.md` правило 1 приведено в соответствие с выбором — текст и практика больше не расходятся
-- [ ] #3 [hand] Выбор подкреплён fitness-правилом: разрешённое разрешено явным списком, всё прочее падает
+- [x] #1 [hand] Выбран вариант и зафиксирован в Decision-блоке (дифференцированный: крипта разделяется, не-крипта легализует kotlinx.serialization)
+- [x] #2 [hand] `CLAUDE.md` правило 1 приведено в соответствие с выбором — kotlinx.serialization явно разрешён в домене, вендорские явно запрещены
+- [x] #3 [hand] Выбор подкреплён fitness-правилом `DomainIsolationTest.commonMain_usesOnlyKotlinxSerialization` — вендорский сериализатор в домене роняет сборку (проверено пробой)
 <!-- AC:END -->
