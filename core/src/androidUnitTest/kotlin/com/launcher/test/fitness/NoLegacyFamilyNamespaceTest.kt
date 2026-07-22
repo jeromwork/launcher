@@ -8,7 +8,7 @@ import java.io.File
  * TASK-141 — fitness rule: zero `cryptokit.*` imports anywhere. The extractable crypto family
  * lives under one root, `family.*`:
  *  - `family.crypto.*`  (`:core:crypto`)
- *  - `family.pairing.*` (`:core:crypto`)
+ *  - `family.pairing.*` (`:core:pairing`, extracted from `:core:crypto` in TASK-146)
  *  - `family.keys.*`    (`:core:keys`)
  *  - `family.push.*`    (`:core:push`)
  *  - `family.wire.*`    (`:core:wire`)

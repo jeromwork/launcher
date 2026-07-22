@@ -192,6 +192,8 @@ dependencies {
     implementation(project(":core"))
     // Spec 016 (F-CRYPTO) — KMP crypto foundation module.
     implementation(project(":core:crypto"))
+    // TASK-146 — device pairing / Authentication Service (extracted from :core:crypto).
+    implementation(project(":core:pairing"))
     // Spec 018 (F-5) — key hierarchy, ConfigCipher, recovery.
     implementation(project(":core:keys"))
     // Spec 019 (F-5c) — generic push-trigger foundation.

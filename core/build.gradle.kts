@@ -31,6 +31,11 @@ kotlin {
             // are imported by pairing-side adapters (Background reconciler, fakes)
             // and by core's androidMain Firestore/Worker adapters.
             implementation(project(":core:crypto"))
+            // family.pairing.* types (DeviceIdentityRepository, RecipientResolver,
+            // EncryptedMediaStorage, PublicKey/SigningPublicKey/DeviceId) moved out of
+            // :core:crypto into their own module (TASK-146). `api`: they appear in the
+            // public shape of core's crypto/link adapters, so consumers must see them.
+            api(project(":core:pairing"))
             // `api`, not `implementation`: WireVersion appears in the public shape of
             // every wire format here, so consumers must see the type.
             api(project(":core:wire"))

@@ -1,6 +1,6 @@
 package com.launcher.adapters.crypto
 
-import family.crypto.api.values.ByteArrayBase64Serializer
+import family.wire.ByteArrayBase64Serializer
 import family.wire.WireVersion
 import family.wire.WireVersionHeader
 import kotlinx.datetime.Instant

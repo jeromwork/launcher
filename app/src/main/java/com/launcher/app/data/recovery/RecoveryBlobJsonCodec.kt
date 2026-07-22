@@ -1,6 +1,6 @@
 package com.launcher.app.data.recovery
 
-import family.crypto.api.values.ByteArrayBase64Serializer
+import family.wire.ByteArrayBase64Serializer
 import family.keys.api.BackupError
 import family.keys.api.KdfParams
 import family.keys.api.Outcome

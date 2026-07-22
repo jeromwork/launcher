@@ -1,4 +1,4 @@
-package family.crypto.api.values
+package family.wire
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind

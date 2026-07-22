@@ -32,7 +32,10 @@
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.serialization)
+    // TASK-146: kotlin.serialization plugin removed — family.pairing.* (the only
+    // @Serializable types here) moved to :core:pairing, and ByteArrayBase64Serializer
+    // moved to :core:wire. Crypto primitives now carry ZERO serialization, restoring the
+    // crypto-SDK "no serialization" invariant (docs/architecture/extraction-policy.md).
 }
 
 kotlin {
@@ -62,7 +65,6 @@ kotlin {
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
-            implementation(libs.kotlinx.serialization.json)
             implementation(libs.libsodium.bindings)
         }
         commonTest.dependencies {
