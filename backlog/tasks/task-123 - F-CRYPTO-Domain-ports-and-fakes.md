@@ -15,6 +15,7 @@ labels:
 milestone: m-1
 dependencies:
   - TASK-112
+references: specs/task-123-crypto-domain-ports/
 priority: high
 ordinal: 123000
 ---
