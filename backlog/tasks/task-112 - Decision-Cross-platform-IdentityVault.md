@@ -1,10 +1,10 @@
 ---
 id: TASK-112
-title: 'Decision: KeyVault port boundary — operation-on-vault + narrow export'
-status: In Progress
+title: 'Decision: KeyVault port boundary — narrow derived-key export hatch'
+status: Paused
 assignee: []
 created_date: '2026-07-07'
-updated_date: '2026-07-07'
+updated_date: '2026-07-22'
 labels:
   - decision
   - crypto
@@ -127,6 +127,18 @@ internal class RootKey(internal val bytes: ByteArray)
 - [ ] #2 [hand] Сырьё root-ключа недоступно из кода вне крипто-impl-слоя — публичный `RootKey.bytes` удалён
 - [ ] #3 [hand] Порт покрывает ровно текущую потребность (export-hatch); операции без потребителя (`aeadSeal`/`mac`) не построены — добавляются аддитивно при появлении потребителя
 <!-- AC:END -->
+
+<!-- SECTION:PAUSE_REASON:BEGIN -->
+## Pause reason (2026-07-22)
+
+**Contract fixed, implementation deferred to first consumer.** The KeyVault contract is now correct and consolidated (three-boundary reconcile + narrowing to the `exportDerivedKey` hatch): it lives in the arch-pack ([`crypto-key-hierarchy.md`](../../docs/architecture/crypto-key-hierarchy.md) §Key vault) + the spec ([`specs/task-112-keyvault-port/spec.md`](../../specs/task-112-keyvault-port/spec.md)) + the Decision block below. **No code is written** — all 3 `[hand]` AC are open.
+
+**Why paused, not In Progress**: the narrowed port (`exportDerivedKey` + `Purpose{MLS_SIGNATURE, NOISE_STATIC}`) has **no live consumer today** — both downstream tasks are Draft (TASK-67 pairing `snow`, TASK-124 openmls). Per rule 4 (MVA) the production adapter must be built **with** the first consumer, not ahead of it. Owner decision (2026-07-22): stop the speckit cycle here, fix the contract, resume implementation when TASK-67 or TASK-124 is taken.
+
+**Where the partial work lives**: branch `task-112-keyvault-boundary-reconcile` (3 commits — arch-pack reconcile, spec.md, clarify-narrowing) + its PR (docs + spec only, no code). speckit stopped after `/speckit.clarify` (no `plan.md` / `tasks.md`).
+
+**Resume trigger**: take TASK-67 or TASK-124 into work → the KeyVault contract is implementation-ready; continue `/speckit.plan` → `/speckit.tasks` → `/speckit.implement` for the export hatch as part of that consumer's work.
+<!-- SECTION:PAUSE_REASON:END -->
 
 ## Discussion
 
