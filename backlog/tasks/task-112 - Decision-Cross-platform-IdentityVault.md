@@ -1,7 +1,7 @@
 ---
 id: TASK-112
 title: 'Decision: KeyVault port boundary — operation-on-vault + narrow export'
-status: Draft
+status: In Progress
 assignee: []
 created_date: '2026-07-07'
 updated_date: '2026-07-07'
@@ -195,7 +195,9 @@ Additional research delivered to owner in mentor-mode by chat covering all 5 ope
 
 Additional Session 2 finding — **existing `Outcome<T, E>` sealed class is Rust-in-Kotlin-clothing** (Kotlin stdlib grain = throw + nullable pair; JetBrains discourages `kotlin.Result` for domain modeling; UniFFI Kotlin backend emits throwing methods not sealed Outcome; every referenced Kotlin crypto lib uses exceptions). `Outcome` currently used in 143 files, 358 occurrences, three parallel `Outcome.kt` definitions in `core/keys`, `core/push`, `core/`. Migration deferred to separate task (TASK-113) — not blocking TASK-112 Decision.
 
-### Decision (English, immutable) 🔒
+### Decision (English — mutable until first implementation commit, rule 11)
+
+> **Revision note (2026-07-22)**: deep-research (adversarially verified — see [`crypto-key-hierarchy.md`](../../docs/architecture/crypto-key-hierarchy.md) §Industry grounding) confirmed the vault is **three boundaries split by operation-kind** (AWS KMS `KeyUsage`, Tink primitive interfaces, OpenMLS `OpenMlsProvider`), not one port. This Decision's `KeyVault` = **boundary 2 only (symmetric data-key operations)** and is correct as written. Two clarifications folded in: (1) **identity-key ops** (`sign`/`agree`) and **capability/security-level** are NOT part of `KeyVault` — they belong to the already-built `AsymmetricCrypto` (boundary 1) and `SecureKeyStore` (boundary 3, capability is asymmetric-only, meaningless for HKDF symmetric keys). An earlier arch-pack draft that fused these into a single `KeyVaultPort` handle-store is retired. (2) `Ciphertext` schemaVersion is a **cleartext prefix parsed by the adapter DTO** (age/JWE/Bitwarden/MLS consensus), consistent with K5/TASK-141 — not a version the crypto primitive reads. The `immutable 🔒` marker was premature (rule 11: immutable only from the first implementation commit, of which there are none — `KeyVault` is 0 code). Current architecture read-surface = arch-pack, not this block (rule 14).
 
 **Port name**: `KeyVault` — chosen over `IdentityVault` / `CryptoOperator` / `KeyBox` / `RootKeyBox`. Rationale: `Vault` conveys guarded storage (Azure KeyVault, HashiCorp Vault, 1Password Vault convention); `Key` scopes to root_key + all derived keys (not just root, not all crypto). Matches project port-naming convention (role, not type; no `Port` suffix — `RemoteStorage`, `ConfigSaver`, `KeyRegistry` precedent).
 

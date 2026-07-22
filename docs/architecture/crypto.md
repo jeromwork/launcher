@@ -101,7 +101,7 @@ For zones marked **designed, not built**: their architecture is **complete IN th
 
 **Rejected (do not re-litigate)**: SGX; own ECDH; own MLS wire format; access-grant envelope-per-recipient; unifying the two primitive stacks; `mls-kotlin` (hobby); `libsignal` (AGPL); `matrix-rust-sdk` (Apache-2.0 — NOT a license reject; the Matrix homeserver must see the membership graph → breaks rule 13, and Megolm lacks PCS while Matrix itself migrates to MLS — see [`messaging.md`](messaging.md)); `CoreCrypto`/`Kalium` (GPL). See §Rejected.
 
-**Domain ports** (rule 1): `CryptoPort`, `GroupPort`, `KeyPackagePort` (all PLANNED — 0 code, TASK-123). Built ports live in the zone files. `IdentityVault`/`KeyVault` is NOT built and NOT finally decided — TASK-112.
+**Domain ports** (rule 1): `CryptoPort`, `GroupPort`, `KeyPackagePort` (all PLANNED — 0 code, TASK-123). Built ports live in the zone files. `KeyVault` (TASK-112) = **data-key operations only** (symmetric AEAD/MAC over HKDF purpose keys) — decided, NOT built; identity-key ops (`AsymmetricCrypto`) and key-at-rest/capability (`SecureKeyStore`) are separate already-built ports, not part of `KeyVault`. The vault is three boundaries, not one — see [`crypto-key-hierarchy.md`](crypto-key-hierarchy.md) §Key vault (deep-research 2026-07-22).
 
 **Routing for the AI**:
 - Primitive / algorithm question → [`crypto-primitives.md`](crypto-primitives.md).
@@ -162,7 +162,7 @@ Machine-readable contract = the `### Decision (English)` block in each task file
 | TASK-108 | Metadata privacy | Draft (decided) | T0 MVP; opaque ports for T1 adapter swap. |
 | TASK-110 | Client-side media transformation | Draft (decided) | Compress + EXIF strip + resize before encrypt. |
 | TASK-111 | Signed upload tokens + quotas | Draft (NOT decided) | R2 presigned + DO counter. 100 MB quota. |
-| TASK-112 | KeyVault port boundary | Draft (decided) | `KeyVault` port + `Purpose` enum + sealed exceptions. NOT built. |
+| TASK-112 | KeyVault port boundary | In Progress (decided) | `KeyVault` = data-key ops only (boundary 2 of 3); `Purpose` enum + sealed exceptions. Identity-key ops + capability = separate built ports. NOT built. |
 | TASK-114 | Encrypted co-admin display directory | Draft (NOT decided) | Multi-admin display names without metadata leak. |
 | TASK-115 | Family app onboarding chain | Discussion | Symmetric trusted anchors via Install Referrer. Blocks messenger. |
 | TASK-116 | Iconic pairing challenge component | Discussion | Deterministic SVG icons, N-of-3 SAS challenge. |
