@@ -217,5 +217,5 @@ A rule no test checks is decoration. Per format:
 Links here: [`CLAUDE.md`](../../CLAUDE.md) rule 5 · [`AGENTS.md`](../../AGENTS.md) · [`agent-context.md`](../dev/agent-context.md)
 Skills: [`wire-format`](../../.claude/skills/wire-format/SKILL.md) (router) · [`checklist-wire-format`](../../.claude/skills/checklist-wire-format/SKILL.md) (spec audit)
 Constitution: Article XX (pre-MVP override), Article VII §3 (configuration schemas)
-Architecture: [`ecs.md`](ecs.md) (Preset/Profile/Pool are wire formats) · [`server.md`](server.md) · [`crypto.md`](crypto.md)
+Architecture: [`ecs.md`](ecs.md) (Preset/Profile/Pool are wire formats) · [`server.md`](server.md) · [`crypto.md`](crypto.md) · [`extraction-policy.md`](extraction-policy.md) (this versioning module `:core:wire` is the barrier that keeps crypto extractable — TASK-141)
 Backlog: TASK-16 (this discipline) · TASK-131 (lenient reader) · TASK-70 (cloud transfer unit)

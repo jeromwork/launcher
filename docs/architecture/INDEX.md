@@ -5,7 +5,20 @@ purpose: Single-page overview of the current tech stack — what we chose, where
 domains:
   - id: crypto
     file: crypto.md
-    scope: MLS library, KeyPackage management, group encryption, keystore.
+    scope: Crypto umbrella & zone map + routing. Deep architecture lives in the per-zone files below. Single source; other docs link, never restate.
+    status: umbrella/router (2026-07-21, TASK-145 SoT consolidation).
+  - id: crypto-primitives
+    file: crypto-primitives.md
+    scope: Primitive layer — libsodium AEAD/ECDH/sign/KDF/CSPRNG + keystore sibling port + validation set (KAT/Wycheproof/property/parity). Built.
+  - id: crypto-key-hierarchy
+    file: crypto-key-hierarchy.md
+    scope: Root key → HKDF purposes, envelope encryption (ConfigCipher2), recovery vault + anti-brute-force, rotation/escrow stubs. Built.
+  - id: crypto-pairing
+    file: crypto-pairing.md
+    scope: Pairing / membership = our RFC 9750 Authentication Service. Noise_XX handshake (snow), identity↔key binding, revoke policy (TASK-102). Two-world Kotlin+Rust split.
+  - id: extraction-policy
+    file: extraction-policy.md
+    scope: When/how modules extract into a shared library for the app family (rule of three). Crypto+versioning extractable; ECS explicitly excluded.
   - id: identity
     file: identity.md
     scope: Identity model (LOCAL/CLOUD), signup gate, invitation, JWT.
@@ -151,7 +164,7 @@ flowchart LR
 | Group revoke policy | Immediate hard kick via MLS Remove, 3-tier role (owner/admin/other) | [TASK-102](../../backlog/tasks/task-102%20-%20Decision-Revoke-policy.md) | Draft | Per-revoke reason enum for beta |
 | History backup | Signal-style (нет восстановления истории на MVP) | [TASK-100](../../backlog/tasks/task-100%20-%20Decision-History-backup-strategy-for-MVP.md) | Draft | HIST-BACKUP-001 (Phase-3+) |
 
-Детально — см. [crypto.md](crypto.md).
+Детально — см. **umbrella + zone map** [crypto.md](crypto.md), и per-zone SoT-файлы: [crypto-primitives.md](crypto-primitives.md) (примитивы, built), [crypto-key-hierarchy.md](crypto-key-hierarchy.md) (root key / envelope / recovery, built), [crypto-pairing.md](crypto-pairing.md) (pairing / AS / revoke). Extraction в shared-модуль — [extraction-policy.md](extraction-policy.md). Для любого крипто-вопроса — skill `crypto` (маршрутизирует в нужный файл). MLS/KeyPackage — 0 кода, контракт = Decision-блоки TASK-124/TASK-104.
 
 ### Identity
 

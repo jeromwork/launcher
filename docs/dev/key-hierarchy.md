@@ -1,45 +1,9 @@
-# Key Hierarchy (F-5 task-6)
+# Key Hierarchy — developer reference (F-5 task-6)
 
-> Developer-facing reference. For the owner-facing explanation see
-> [`recovery-flow.md`](../recovery-flow.md).
-
-## Derivation chain
-
-```
-AuthIdentity.stableId (UUID v4, set by workers/identity/ POST /init-claim)
-    │
-    │ ── used as the namespace key throughout the chain ──
-    │
-    ▼
-┌──────────────────────────────────────────────────────────────┐
-│   RootKey  (32 bytes)                                        │
-│   one of:                                                    │
-│     (a) generated locally on first Sign-In (US-1)            │
-│     (b) recovered from RecoveryKeyBackupBlob (US-2)          │
-│         passphrase → Argon2id(salt=blob.salt, params=        │
-│         blob.kdfParams) → wrapKey →                          │
-│         AEAD-unwrap(blob.ciphertext, blob.nonce) → RootKey   │
-│   stored wrapped via SecureKeyStore                          │
-│   (TEE / StrongBox on Android per :core:crypto adapter)      │
-└────────────┬─────────────────────────────────────────────────┘
-             │
-             │  HKDF-SHA256 per purpose (cryptokit.crypto.api.KeyDerivation)
-             │   ikm  = RootKey.bytes
-             │   salt = stableId.encodeToByteArray()
-             │   info = purpose.encodeToByteArray()
-             │   length = 32 bytes
-             │
-             ├──► DerivedKey("config")    — symmetric key reserved for the
-             │                              config encryption surface (today
-             │                              ConfigCipher2 uses a fresh CEK
-             │                              per envelope; this slot is here
-             │                              for a future symmetric-only path
-             │                              if one is introduced)
-             │
-             ├──► DerivedKey("contacts")  — future surface (photos slot etc.)
-             │
-             └──► DerivedKey("media")     — future surface
-```
+> **Architecture (the derivation chain, invariants, envelope, recovery) lives in
+> [`../architecture/crypto-key-hierarchy.md`](../architecture/crypto-key-hierarchy.md)** — the single source of truth.
+> This file is developer-facing only: the port→implementation mapping and the "how to add a purpose" how-to.
+> For the owner-facing explanation see [`../recovery-flow.md`](../recovery-flow.md).
 
 ## Players (ports)
 
