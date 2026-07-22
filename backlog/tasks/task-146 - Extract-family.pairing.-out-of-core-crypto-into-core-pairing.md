@@ -1,7 +1,7 @@
 ---
 id: TASK-146
 title: 'Extract family.pairing.* out of :core:crypto into :core:pairing'
-status: Draft
+status: In Progress
 assignee: []
 created_date: '2026-07-21 14:17'
 labels:
