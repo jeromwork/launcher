@@ -1,7 +1,8 @@
 ---
 id: TASK-149
 title: Skeleton-domain SoT — identity + client-android + external-services (close dangling arch-pack refs)
-status: In Progress
+status: Done
+updated_date: '2026-07-22 00:00'
 assignee: []
 created_date: '2026-07-22 13:10'
 labels:

@@ -1,7 +1,8 @@
 ---
 id: TASK-151
 title: Crypto key-vault + recovery anti-brute-force zone SoT (research-grounded)
-status: In Progress
+status: Done
+updated_date: '2026-07-22 00:00'
 assignee: []
 created_date: '2026-07-22 14:10'
 labels:

@@ -3,7 +3,8 @@ id: TASK-145
 title: >-
   Crypto architecture SoT consolidation (Track A) + crypto skill +
   extraction-policy
-status: In Progress
+status: Done
+updated_date: '2026-07-22 00:00'
 assignee: []
 created_date: '2026-07-21 14:04'
 labels:

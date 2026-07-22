@@ -1,7 +1,8 @@
 ---
 id: TASK-148
 title: Messaging architecture SoT + messaging skill + architecture-sourcing meta-process
-status: In Progress
+status: Done
+updated_date: '2026-07-22 00:00'
 assignee: []
 created_date: '2026-07-22 12:20'
 labels:

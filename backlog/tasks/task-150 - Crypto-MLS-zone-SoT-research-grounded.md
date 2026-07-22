@@ -1,7 +1,8 @@
 ---
 id: TASK-150
 title: Crypto MLS-core zone SoT (crypto-mls.md) — research-grounded, ecs-complete
-status: In Progress
+status: Done
+updated_date: '2026-07-22 00:00'
 assignee: []
 created_date: '2026-07-22 13:40'
 labels:

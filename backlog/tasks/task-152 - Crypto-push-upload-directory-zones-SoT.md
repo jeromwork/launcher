@@ -1,7 +1,8 @@
 ---
 id: TASK-152
 title: Push payload + blob upload + member directory zones SoT (research-grounded)
-status: In Progress
+status: Done
+updated_date: '2026-07-22 00:00'
 assignee: []
 created_date: '2026-07-22 14:45'
 labels:
