@@ -12,7 +12,7 @@ domains:
     scope: Primitive layer — libsodium AEAD/ECDH/sign/KDF/CSPRNG + keystore sibling port + validation set (KAT/Wycheproof/property/parity). Built.
   - id: crypto-key-hierarchy
     file: crypto-key-hierarchy.md
-    scope: Root key → HKDF purposes, envelope encryption (ConfigCipher2), recovery vault + anti-brute-force, rotation/escrow stubs. Built.
+    scope: Root key → HKDF purposes, envelope encryption (ConfigCipher2), recovery vault, rotation/escrow stubs. Built. + §Key vault (operation-on-vault, industry-standard, TASK-112 confirmed) & §Recovery anti-brute-force (SVR/OPAQUE/Argon2/SSS landscape + MVP choice, supersedes TASK-59) — architected 2026-07-22 TASK-151, not built.
   - id: crypto-pairing
     file: crypto-pairing.md
     scope: Pairing / membership = our RFC 9750 Authentication Service. Noise_XX handshake (snow), identity↔key binding, revoke policy (TASK-102). Two-world Kotlin+Rust split.
