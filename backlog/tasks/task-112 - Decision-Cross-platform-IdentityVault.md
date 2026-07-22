@@ -16,6 +16,7 @@ dependencies:
   - TASK-6
 priority: high
 ordinal: 112000
+references: specs/task-112-keyvault-port/
 decision-supersedes: []
 superseded-by: null
 ---
@@ -118,6 +119,14 @@ internal class RootKey(internal val bytes: ByteArray)
 **HarmonyOS NEXT / desktop / future platforms** — тот же port, новый adapter, ноль изменений в domain и downstream tasks. Это и есть цель.
 
 <!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+
+<!-- AC:BEGIN -->
+- [ ] #1 [hand] Настройки пользователя шифруются и расшифровываются через `KeyVault`, ранее сохранённые настройки продолжают читаться (нулевой регресс)
+- [ ] #2 [hand] Сырьё root-ключа недоступно из кода вне крипто-impl-слоя — публичный `RootKey.bytes` удалён
+- [ ] #3 [hand] Будущие платформы (iOS, Rust) и внешние крипто-либы подключаются добавлением адаптера / вызовом `exportDerivedKey`, без изменения domain и потребителей
+<!-- AC:END -->
 
 ## Discussion
 
