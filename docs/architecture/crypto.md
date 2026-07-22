@@ -99,7 +99,7 @@ For zones marked **designed, not built**: their contract is the `### Decision (E
 
 **Frozen decisions**: MLS TreeKEM > Sender Keys (post-compromise security, TASK-58). openmls `=0.8.1` > mls-rs (audit + license). UniFFI > manual JNI. SQLCipher storage provider. Primary-user device = sole MLS Commit signer (TASK-102). KeyPackage defense = cap+dedup+last-resort (TASK-104). Signal-style no-history MVP (TASK-100).
 
-**Rejected (do not re-litigate)**: SGX; own ECDH; own MLS wire format; access-grant envelope-per-recipient; unifying the two primitive stacks; `mls-kotlin` (hobby); `libsignal` (AGPL); `matrix-rust-sdk` (AGPL+Synapse); `CoreCrypto`/`Kalium` (GPL). See §Rejected.
+**Rejected (do not re-litigate)**: SGX; own ECDH; own MLS wire format; access-grant envelope-per-recipient; unifying the two primitive stacks; `mls-kotlin` (hobby); `libsignal` (AGPL); `matrix-rust-sdk` (Apache-2.0 — NOT a license reject; the Matrix homeserver must see the membership graph → breaks rule 13, and Megolm lacks PCS while Matrix itself migrates to MLS — see [`messaging.md`](messaging.md)); `CoreCrypto`/`Kalium` (GPL). See §Rejected.
 
 **Domain ports** (rule 1): `CryptoPort`, `GroupPort`, `KeyPackagePort` (all PLANNED — 0 code, TASK-123). Built ports live in the zone files. `IdentityVault`/`KeyVault` is NOT built and NOT finally decided — TASK-112.
 
@@ -172,7 +172,7 @@ Machine-readable contract = the `### Decision (English)` block in each task file
 ## Rejected alternatives (do not re-litigate)
 
 - ❌ SGX enclave; ❌ own ECDH handshake (use `snow`); ❌ own MLS wire format (RFC 9420 conformance for MIMI interop); ❌ access-grant + envelope-per-recipient (superseded by MLS membership); ❌ unifying the two primitive stacks.
-- ❌ Libraries: `mls-kotlin` (hobby), `libsignal` (AGPL), `matrix-rust-sdk` (AGPL+Synapse), `CoreCrypto`/`Kalium` (GPL).
+- ❌ Libraries: `mls-kotlin` (hobby), `libsignal` (AGPL), `matrix-rust-sdk` (Apache-2.0 — NOT a license reject; the Matrix homeserver must see the membership graph → breaks rule 13, and Megolm lacks PCS while Matrix itself migrates to MLS — see [`messaging.md`](messaging.md)), `CoreCrypto`/`Kalium` (GPL).
 - ❌ Multi-app: `android:sharedUserId` (removed Android 13), `MODE_WORLD_READABLE`, one server master key, iCloud Keychain cross-app.
 - ❌ External paid crypto audit pre-ship — replaced by fitness tests + threat model + agent-audit (see [`../dev/crypto-prerelease.md`](../dev/crypto-prerelease.md) A4).
 
@@ -190,5 +190,6 @@ Machine-readable contract = the `### Decision (English)` block in each task file
 ## Related domains
 
 - [`crypto-primitives.md`](crypto-primitives.md) · [`crypto-key-hierarchy.md`](crypto-key-hierarchy.md) · [`crypto-pairing.md`](crypto-pairing.md) · [`extraction-policy.md`](extraction-policy.md) · [`wire-format.md`](wire-format.md) · [`server.md`](server.md)
+- Messenger substrate that *consumes* this crypto (MLS group, KeyPackage, pairing): [`messaging.md`](messaging.md) — crypto is owned here, not re-decided there.
 - Operational: [`../dev/crypto-prerelease.md`](../dev/crypto-prerelease.md) · [`../dev/key-hierarchy.md`](../dev/key-hierarchy.md) · [`../dev/server-roadmap.md`](../dev/server-roadmap.md)
 - Onboarding: [`INDEX.md`](INDEX.md)
