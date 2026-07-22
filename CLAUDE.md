@@ -285,6 +285,17 @@ Every server-side component (Cloudflare Worker today, own-server microservices l
 
 **Cross-refs** — rule 8 (server-roadmap for exit ramps), rule 12 (zero-trust baseline), rule 5 (wire format versioning applies to every opaque blob shape), rule 9 (shareability-readiness applies to non-identity payloads).
 
+## 14. Architecture truth lives in the arch-packs (single source of truth)
+
+Every architectural domain has an **arch-pack** — a self-sufficient file (or set) under [`docs/architecture/`](docs/architecture/) built to the **`ecs.md` standard**: the complete, current, *researched* architecture lives IN the file (`crypto*.md`, `messaging*.md`, `gallery.md`, `safety.md`, `identity.md`, `client-android.md`, `external-services.md`, `ecs.md`, `server.md`, `wire-format.md` — mapped in [`docs/architecture/INDEX.md`](docs/architecture/INDEX.md)). The arch-pack is the **read-truth**.
+
+- **Tasks reference, never duplicate.** A backlog task LINKS to the arch-pack (`See <domain>.md`); it MUST NOT restate the architecture. Task files hold task-specific content only (description, plan, progress, AC, discussion). A Decision block (rule 11) records the *decision process* (why / alternatives / history); the *current what/how* lives in the arch-pack, not the task.
+- **Changes update the arch-pack, in the same commit.** New or changed architecture → edit the arch-pack; mark a replaced decision `> ⚠️ SUPERSEDED (YYYY-MM-DD): …` and move it to the zone's Rejected section (never silently delete, never leave a stale/dangling reference). Never scatter new truth into task files or leave the arch-pack behind.
+- **Grounding = researched prior art, not our past decisions** (skill [`procedure-architecture-sourcing`](.claude/skills/procedure-architecture-sourcing/SKILL.md)): the architecture comes from **industry standards + use cases FIRST**; our tasks are secondary validation (research wins on conflict); residual *product* policy → `mentor`.
+- **Discovery + audit:** every session reads this rule (CLAUDE.md); the router skills (`crypto` / `messaging` / `ecs` / `wire-format` …) fire on domain keywords and route the agent to the arch-pack; `INDEX.md` is the map; skill [`procedure-archpack-integrity`](.claude/skills/procedure-archpack-integrity/SKILL.md) audits for truth-in-task leaks, dangling refs, and stale supersede-markers.
+
+**Reconciliation with rule 11**: rule 11's Discussion→Decision task is the **change-control / audit trail** (the decision *process*); rule 14's arch-pack is the **read-surface** (the current *architecture*). They are complementary — the Decision block explains *why*, the arch-pack states *what/how*, and the arch-pack is what an implementer reads.
+
 ## Refuse and propose alternative if you see
 
 1. Vendor or system type embedded in a domain value.
@@ -317,6 +328,7 @@ Every server-side component (Cloudflare Worker today, own-server microservices l
 26. Push endpoint routes by content — server reads decrypted body or event type to decide fanout / priority / template — нарушает rule 13 principle 2. Alternative: encrypted opaque payload + opaque target token list + collapse key as opaque hash.
 27. Feature spec introduces new server touch point without leaving an entry in `docs/dev/server-log.md` (Part A confirmed pattern OR Part B open question) — нарушает rule 13 skill-enforcement. Downstream: cross-feature drift, future own-server repo loses accumulated context. Alternative: STOP, run skill `checklist-zero-knowledge-server`, record an entry, then proceed.
 28. Standalone server-research-task created in this repo (like the retired TASK-59 / TASK-60 pattern) instead of leaving an entry in `server-log.md` under the feature-task that surfaced it — нарушает rule 13 accumulator model. Alternative: fold the research question into `server-log.md` Part B under the source feature-task; deep investigation happens when that feature-task reaches implementation.
+29. Architecture restated inside a backlog task (or any non-arch-pack file) instead of linked to its arch-pack, OR an arch-pack left stale after an architectural change — нарушает rule 14 (truth-in-task leak / drift). Downstream: the arch-pack and the task diverge, a future agent reads the wrong truth. Alternative: move the truth INTO the arch-pack (same commit), leave a `See <domain>.md` link in the task, mark the replaced part `⚠️ SUPERSEDED`, run skill `procedure-archpack-integrity`.
 
 For each: surface the issue in one sentence, propose the corrected shape, then continue.
 
