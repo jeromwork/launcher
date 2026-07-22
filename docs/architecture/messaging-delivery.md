@@ -53,7 +53,18 @@
 - ❌ **Server-side membership/ACL graph, business-rule retention, event-type routing** — rule 13 refuse patterns 21-26. Client coordinates; server stores opaque blobs + cron-TTL.
 - ❌ **`userUid` as a routing/storage key** — opaque `nsId` only (D3).
 
+## Push payload — opaque wake-ping primary, encrypted-payload fallback (architected from industry standard)
+
+**Grounded in Signal / Matrix / Web Push (RFC 8291)** — synthesised, not re-derived. Two standard patterns; a rule-13 blind server uses **A as default, B as the iOS/offline fallback**:
+
+- **Pattern A — opaque wake-ping + client fetches** (default, maximally content-minimizing). The push is a **data-only, high-priority** message carrying **only an opaque wake token** (or nothing) — no title/body/roomId/eventType; the client wakes, `LIST`+`GET`s its opaque mailbox, decrypts on-device. Content never touches FCM. This is Signal ("push contains no message content") and Matrix `event_id_only`, but **stricter** — even room/event IDs are opaque tokens (rule 13). On Android the wake **must be high-priority** (only high-priority wakes a Doze/killed app; tolerate fetch failure → generic "new message" fallback).
+- **Pattern B — encrypted payload + on-device decrypt** (iOS render path + offline). Ciphertext rides inside the 4 KB FCM/APNs data message; iOS `UNNotificationServiceExtension` (`mutable-content:1`) or Android `onMessageReceived` decrypts before display. Used on **iOS** because silent-push (pure A) is throttled (~2-3/h, undocumented). Payload encrypted with **our existing AEAD** (RFC 8291 `aes128gcm` is the standard if a lib is wanted); padded to a fixed size bucket.
+
+**Hard constraints (rule 13)**: **data-only messages only** (a "notification message" auto-displays plaintext title/body the provider reads — forbidden); **collapse key must be an opaque hash** (a `chat-<roomId>` key leaks grouping); 4 KB cap forces A for long messages regardless. `PushPort.wake(target: OpaqueDeviceToken, collapse: OpaqueCollapseKey, payload: OpaqueBlob?)` — all opaque; adapters `FcmPushAdapter` / `ApnsPushAdapter` / `FakePushAdapter` (rule 6). The server routes by opaque target token, verifies signature (not ACL), never computes priority/collapse from content.
+
+**Build-vs-buy**: 🟢 `firebase-admin` (Apache-2.0, wrap behind `PushPort`), APNs HTTP/2 libs; RFC 8291 libs `web-push`/`pywebpush` (MPL-2.0) only if not reusing our AEAD. This resolves TASK-60 (push payload); our existing "FCM data-only wake-ping" choice = Pattern A, confirmed industry-standard. Sources: RFC 8291 https://www.rfc-editor.org/rfc/rfc8291 ; Matrix push-gateway (event_id_only) https://spec.matrix.org/unstable/push-gateway-api/ ; Signal delivery https://signal.miraheze.org/wiki/Message_delivery ; FCM priority https://firebase.google.com/docs/cloud-messaging/android-message-priority .
+
 ## Related
 
-- Umbrella + cutting: [`messaging.md`](messaging.md). Client pipe: [`messaging-substrate.md`](messaging-substrate.md). Endpoint baseline (rules 12/13) + `server-log.md`: [`server.md`](server.md). Crypto/epoch: [`crypto.md`](crypto.md). Migration destination: [`../dev/server-roadmap.md`](../dev/server-roadmap.md).
-- Owning feature task: TASK-27 (messenger). KeyPackage defense decision: TASK-104. Zero-knowledge posture: TASK-57.
+- Umbrella + cutting: [`messaging.md`](messaging.md). Client pipe: [`messaging-substrate.md`](messaging-substrate.md). Endpoint baseline (rules 12/13) + `server-log.md`: [`server.md`](server.md). Crypto/epoch: [`crypto.md`](crypto.md). KeyPackage architecture: [`crypto-mls.md`](crypto-mls.md). Media blob upload: [`gallery.md`](gallery.md). Migration destination: [`../dev/server-roadmap.md`](../dev/server-roadmap.md).
+- Owning feature task: TASK-27 (messenger). KeyPackage defense: TASK-104. Push payload: TASK-60. Upload tokens: TASK-111. Zero-knowledge posture: TASK-57.

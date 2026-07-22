@@ -64,7 +64,18 @@
 - ❌ **Server-side or "encrypted search" service** — server is blind (F4/rule 13); search is on-device.
 - ❌ **In-place mutation for edit/delete** — breaks the append-only typed-message model (F2) and forward-secrecy assumptions.
 
+## Member directory / display names — encrypted roster, NO server directory (architected from industry standard)
+
+**Grounded in Signal (encrypted profiles + Private Group System) + MLS (RFC 9420 group state)** — synthesised. This resolves the "encrypted co-admin display directory" question: **there is no server-side identity/admin directory.** The problem splits into two encrypted blobs the server stores opaquely and cannot read:
+
+- **Per-user profile (name + avatar)** — encrypted under a per-user **profile key** distributed over the E2E channel (Signal pattern); the server holds an opaque ciphertext profile blob per user and forwards a key it never sees.
+- **The roster (who is in the group + roles)** — an **encrypted roster blob inside the group state** (`member → displayName + role`), encrypted to the current members and **re-keyed on every membership change**. In MLS this rides the group's per-epoch secret: add/remove is a Commit → new epoch secret a removed member cannot derive → the re-encrypted roster is unreadable to them (TreeKEM, intrinsic). Sent as an MLS `PrivateMessage`, the server sees only ciphertext.
+
+**Server posture (rule 13)**: stores opaque profile ciphertext + opaque roster/group-state ciphertext + a namespace signing pubkey; authorization = **signature/credential verification, not an ACL graph** (Signal KVAC or MLS membership proof). It never learns names, avatars, roles, or the membership graph. Roles (owner/admin/caregiver) are **app-level, inside the encrypted roster**, never a server field (F3/rule 13 principle 2). Counter-example to avoid: Matrix (roster + room metadata plaintext on the homeserver — a hard retrofit, the cautionary tale for rule 13).
+
+**Build-vs-buy**: 🟢 **openmls** (MIT) provides the re-keying group substrate (epochs, credentials, ratchet tree — see [`crypto-mls.md`](crypto-mls.md)); Signal `zkgroup` is **AGPL** → take the *profile-key encryption pattern* but **reimplement** it on our AEAD, don't link. 🟡 you write the versioned profile-blob + roster-blob wire formats (rule 5), the profile-key distribution policy, and role semantics — all opaque-to-server. Resolves TASK-114. Sources: Signal profiles https://signal.org/blog/signal-profiles-beta/ ; Signal Private Group System https://signal.org/blog/signal-private-group-system/ (ePrint 2019/1416) ; RFC 9420 https://www.rfc-editor.org/rfc/rfc9420.html ; RFC 9750 https://datatracker.ietf.org/doc/html/rfc9750 .
+
 ## Related
 
-- Umbrella + cutting: [`messaging.md`](messaging.md). Transport pipe: [`messaging-substrate.md`](messaging-substrate.md). Server: [`messaging-delivery.md`](messaging-delivery.md). Crypto group + eviction mechanics: [`crypto.md`](crypto.md) / [`crypto-pairing.md`](crypto-pairing.md). Versioning: [`wire-format.md`](wire-format.md).
+- Umbrella + cutting: [`messaging.md`](messaging.md). Transport pipe: [`messaging-substrate.md`](messaging-substrate.md). Server: [`messaging-delivery.md`](messaging-delivery.md). Crypto group + eviction mechanics: [`crypto.md`](crypto.md) / [`crypto-pairing.md`](crypto-pairing.md) / [`crypto-mls.md`](crypto-mls.md). Versioning: [`wire-format.md`](wire-format.md).
 - Owning feature task: TASK-27 (messenger).

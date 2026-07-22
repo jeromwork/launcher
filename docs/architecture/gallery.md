@@ -86,6 +86,21 @@ last-synced: 2026-07-22
 - ❌ Server understanding which conversation/album a blob belongs to — blind store (G4/rule 13).
 - ❌ Making the gallery/album depend on the messenger — sibling domains, shared mechanism only (G5).
 
+## Blob upload authorization + quota (architected from industry standard)
+
+**Grounded in Signal / Matrix attachment upload + Cloudflare R2 / S3 presigned URLs** — synthesised. The bytes **never flow through our server**; only an opaque pointer does (G1). The canonical **allocate → upload → confirm** flow (Signal's *allocate → PUT → AttachmentPointer*, Matrix `/media/v3/upload`):
+
+1. **Allocate** — `POST /v1/blob/upload-token {sizeBytes, kind}`: server JWT-verifies, **reserves** quota in a Durable Object counter, rate-checks, returns a **presigned PUT URL** (R2, TTL ≤ 5 min; via `aws4fetch` MIT SigV4, no round-trip) + opaque `blobId`.
+2. **Upload** — client `PUT`s the content-key-encrypted ciphertext **direct to R2** (server never sees bytes; rule 13 / G4).
+3. **Confirm** — `POST /v1/blob/upload-complete {blobId}`: server `HEAD`s the blob, **verifies size**, `commit`s or `rollback`s quota, marks it referenceable.
+4. **Reference** — the pointer `{blobId, wrappedContentKey, meta}` rides `MessagingPort` (G1); blob and message are never correlated server-side.
+
+**⚠ Correction (researched — do NOT repeat the wrong assumption)**: a **presigned PUT does NOT enforce size** server-side, and **R2 does not support presigned POST** `content-length-range`. So the authoritative size gate is **quota-reserve + post-upload `HEAD`-verify** (step 1+3), NOT the presigned URL's `maxSize` (advisory only). This corrects TASK-111's "R2 native max_size, bypass impossible" premise.
+
+**Quota / abuse (bytes, never meaning — rule 13)**: per-namespace quota via **Durable Object** (reserve/commit/rollback, TASK-105 pattern); per-upload size cap enforced at confirm; rate limit at allocate; **TTL = R2 lifecycle cron-delete** + abort-incomplete-multipart (rule 24, not business retention — business retention is client `LIST`+`DELETE`); orphan blobs (confirmed-but-unreferenced) swept by short-TTL tag; abuse = reactive **`SHA-256(ciphertext)` blocklist** (no pre-encrypt scan, no server content inspection, no dedup — dedup leaks that two users hold the same file).
+
+**Build-vs-buy**: 🟢 R2 + presigned (SaaS), `aws4fetch` (MIT), Durable Objects (SaaS), **tus** (MIT) for resumable large video/backup. 🟡 ~500-750 LoC glue (3 Worker routes + 1 DO + a zod contract), reusing TASK-105 middleware. **Exit ramp (rule 8)**: R2→S3-compat (⚠ MinIO server is **AGPL** — avoid vendoring; prefer SeaweedFS Apache or managed), `aws4fetch`→`rusty-s3`, DO→Postgres, Worker→`workers/blob-store/` Rust behind `MediaPort`. Signal CDN3 (tus-server on Workers+R2, **AGPL**) = design-reference only. Resolves TASK-111 (with the size-enforcement correction). Sources: R2 presigned https://developers.cloudflare.com/r2/api/s3/presigned-urls/ ; R2 lifecycles https://developers.cloudflare.com/r2/buckets/object-lifecycles/ ; PUT-vs-POST signed URLs https://advancedweb.hu/differences-between-put-and-post-s3-signed-urls/ ; Signal attachment protocol https://github.com/signalapp/Signal-Server/wiki/API-Protocol ; tus https://tus.io/ .
+
 ## Related domains
 
 - Transport (carries the pointer): [`messaging-substrate.md`](messaging-substrate.md). Content-key crypto: [`crypto.md`](crypto.md). Versioning: [`wire-format.md`](wire-format.md). Blob-store endpoint: [`messaging-delivery.md`](messaging-delivery.md) / [`server.md`](server.md).

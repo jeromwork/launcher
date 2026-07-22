@@ -33,11 +33,11 @@ domains:
     status: designed, not built (TASK-148).
   - id: messaging-features
     file: messaging-features.md
-    scope: Message-feature taxonomy (reactions/replies/edits/deletes/mentions/receipts/typing/pin) + group governance — all domain typed-messages, copied from Matrix/MIMI, no per-feature lib.
+    scope: Message-feature taxonomy (reactions/replies/edits/deletes/mentions/receipts/typing/pin/disappearing/view-once/location/contact) + group governance + §Member directory (encrypted profile+roster blob, no server directory, resolves TASK-114) — all domain typed-messages, copied from Matrix/MIMI/Signal, no per-feature lib.
     status: designed (TASK-148).
   - id: messaging-delivery
     file: messaging-delivery.md
-    scope: Blind-courier server (DeliveryServicePort) — commit serialization, mailbox, KeyPackage directory, push routing; Cloudflare stopgap → own Rust (axum/tokio/sqlx/Postgres/openmls).
+    scope: Blind-courier server (DeliveryServicePort) — commit serialization, mailbox, KeyPackage directory, push routing (§Push payload: opaque wake-ping A / encrypted-payload B, resolves TASK-60); Cloudflare stopgap → own Rust (axum/tokio/sqlx/Postgres/openmls).
     status: designed (TASK-148).
   - id: messaging-calls
     file: messaging-calls.md
@@ -45,7 +45,7 @@ domains:
     status: designed (TASK-148).
   - id: gallery
     file: gallery.md
-    scope: Rich-media & gallery domain (MediaPort) — SIBLING to messaging, not a zone inside it. Blob + pointer (never through the ratchet), transform-before-encrypt (TASK-110), permissive codecs (Opus/VP8/VP9, avoid GPL x264/x265). Consumed by both the album product and chat attachments. Also: view-once, stickers/GIF/emoji (packs = shareable config, rule 9).
+    scope: Rich-media & gallery domain (MediaPort) — SIBLING to messaging, not a zone inside it. Blob + pointer (never through the ratchet), transform-before-encrypt (TASK-110), permissive codecs (Opus/VP8/VP9, avoid GPL x264/x265). Consumed by both the album product and chat attachments. Also: view-once, stickers/GIF/emoji (packs = shareable config, rule 9); §Blob upload (allocate→upload→confirm, R2 presigned + quota/HEAD-verify, resolves TASK-111).
     status: designed (TASK-148).
   - id: safety
     file: safety.md
