@@ -12,29 +12,61 @@ domains:
     scope: Primitive layer — libsodium AEAD/ECDH/sign/KDF/CSPRNG + keystore sibling port + validation set (KAT/Wycheproof/property/parity). Built.
   - id: crypto-key-hierarchy
     file: crypto-key-hierarchy.md
-    scope: Root key → HKDF purposes, envelope encryption (ConfigCipher2), recovery vault + anti-brute-force, rotation/escrow stubs. Built.
+    scope: Root key → HKDF purposes, envelope encryption (ConfigCipher2), recovery vault, rotation/escrow stubs. Built. + §Key vault (operation-on-vault, industry-standard, TASK-112 confirmed) & §Recovery anti-brute-force (SVR/OPAQUE/Argon2/SSS landscape + MVP choice, supersedes TASK-59) — architected 2026-07-22 TASK-151, not built.
   - id: crypto-pairing
     file: crypto-pairing.md
     scope: Pairing / membership = our RFC 9750 Authentication Service. Noise_XX handshake (snow), identity↔key binding, revoke policy (TASK-102). Two-world Kotlin+Rust split.
+  - id: crypto-mls
+    file: crypto-mls.md
+    scope: MLS core + KeyPackage + FFI + encrypted keystore. Grounded in researched prior art (openmls MIT import + Wire core-crypto structure copy + RFC 9750/Signal KeyPackage server), NOT internal decisions. Import-vs-copy-vs-write layer map. Designed, not built.
+    status: v1 self-sufficient (2026-07-22, TASK-150) — research-grounded (not TASK-104/58 recitation).
   - id: extraction-policy
     file: extraction-policy.md
     scope: When/how modules extract into a shared library for the app family (rule of three). Crypto+versioning extractable; ECS explicitly excluded.
+  - id: messaging
+    file: messaging.md
+    scope: Messenger umbrella — the messenger domain (chat/calls/features) on the MLS transport substrate, the port cutting (volatile↔stable), build-vs-buy, blind-courier server. Config-sync (ecs.md) and gallery (gallery.md) are SEPARATE sibling domains. Consumes crypto, never re-decides it.
+    status: umbrella/router (2026-07-22, TASK-148). Designed, not built — messenger = TASK-42 (m-4).
+  - id: messaging-substrate
+    file: messaging-substrate.md
+    scope: The stable seam — MessagingPort contract, envelope, ordering (app loose / Commit serialized), offline mailbox, "feature taxonomy in domain not adapter" invariant.
+    status: designed, not built (TASK-148).
+  - id: messaging-features
+    file: messaging-features.md
+    scope: Message-feature taxonomy (reactions/replies/edits/deletes/mentions/receipts/typing/pin/disappearing/view-once/location/contact) + group governance + §Member directory (encrypted profile+roster blob, no server directory, resolves TASK-114) — all domain typed-messages, copied from Matrix/MIMI/Signal, no per-feature lib.
+    status: designed (TASK-148).
+  - id: messaging-delivery
+    file: messaging-delivery.md
+    scope: Blind-courier server (DeliveryServicePort) — commit serialization, mailbox, KeyPackage directory, push routing (§Push payload: opaque wake-ping A / encrypted-payload B, resolves TASK-60); Cloudflare stopgap → own Rust (axum/tokio/sqlx/Postgres/openmls).
+    status: designed (TASK-148).
+  - id: messaging-calls
+    file: messaging-calls.md
+    scope: Voice/video (CallPort) — adopt Jitsi SFU (Apache-2.0) + SFrame/MLS media keys (design from Discord DAVE); honest call-metadata caveat.
+    status: designed (TASK-148).
+  - id: gallery
+    file: gallery.md
+    scope: Rich-media & gallery domain (MediaPort) — SIBLING to messaging, not a zone inside it. Blob + pointer (never through the ratchet), transform-before-encrypt (TASK-110), permissive codecs (Opus/VP8/VP9, avoid GPL x264/x265). Consumed by both the album product and chat attachments. Also: view-once, stickers/GIF/emoji (packs = shareable config, rule 9); §Blob upload (allocate→upload→confirm, R2 presigned + quota/HEAD-verify, resolves TASK-111).
+    status: designed (TASK-148).
+  - id: safety
+    file: safety.md
+    scope: Safety & location domain (LocationPort) — SIBLING to messaging. Location sharing (static/live, Matrix MSC3488/3489) + SOS/emergency; sensor behind LocationPort (FLP/AOSP/microG), FGS, opaque push (rule 13), SOS = rule-10 push. Message shapes live in messaging-features.
+    status: designed (TASK-148).
   - id: identity
     file: identity.md
-    scope: Identity model (LOCAL/CLOUD), signup gate, invitation, JWT.
-    status: skeleton — full content pending TASK-106 Decision.
+    scope: Identity model (LOCAL-first/CLOUD-lazy), Firebase Auth, AS=QR pairing (crypto-pairing), profile/contacts; signup gate OPEN (TASK-106). Consumed by messaging, not re-decided there.
+    status: v1 self-sufficient (2026-07-22, TASK-149) — signup gate stated as §Open (TASK-106).
   - id: server
     file: server.md
     scope: Cloudflare Worker runtime, zero-trust baseline (TASK-105), crypto-relevant endpoints, storage tiers, migration to Go microservices.
     status: v1 snapshot (2026-07-08) — consolidated from TASK-105 baseline + crypto-relevant endpoint decisions.
   - id: client-android
     file: client-android.md
-    scope: core/ domain layer, adapter modules, Compose UI structure.
-    status: skeleton — full content pending.
+    scope: Three-layer client cutting — UI (Compose) → domain (core/ KMP, zero Android) → adapters (one ACL per vendor); ports-only UI, manual DI, fitness rules. Owns the layering shape, not domain content.
+    status: v1 self-sufficient (2026-07-22, TASK-149) — current-state.
   - id: external-services
     file: external-services.md
-    scope: Firebase Auth, FCM, future third-party integrations.
-    status: skeleton — full content pending.
+    scope: External SDKs (FCM/Firebase Auth/Firestore) each behind an adapter (rule 2) with a tracked exit ramp to the own Rust server (rule 8); opaque data only (rule 13); lazy cloud (rule ID2).
+    status: v1 self-sufficient (2026-07-22, TASK-149) — current-state.
   - id: wire-format
     file: wire-format.md
     scope: Versioning and evolution discipline for every format that leaves the device or survives an app upgrade — version fields, reader/writer gating, change discipline, enforcement. Single source; other docs link, never restate.
@@ -165,6 +197,18 @@ flowchart LR
 | History backup | Signal-style (нет восстановления истории на MVP) | [TASK-100](../../backlog/tasks/task-100%20-%20Decision-History-backup-strategy-for-MVP.md) | Draft | HIST-BACKUP-001 (Phase-3+) |
 
 Детально — см. **umbrella + zone map** [crypto.md](crypto.md), и per-zone SoT-файлы: [crypto-primitives.md](crypto-primitives.md) (примитивы, built), [crypto-key-hierarchy.md](crypto-key-hierarchy.md) (root key / envelope / recovery, built), [crypto-pairing.md](crypto-pairing.md) (pairing / AS / revoke). Extraction в shared-модуль — [extraction-policy.md](extraction-policy.md). Для любого крипто-вопроса — skill `crypto` (маршрутизирует в нужный файл). MLS/KeyPackage — 0 кода, контракт = Decision-блоки TASK-124/TASK-104.
+
+### Messaging
+
+| Компонент | Выбор | Task-решение | Статус | Exit ramp |
+|---|---|---|---|---|
+| Субстрат | MLS-транспорт → opaque payload набору получателей; только МЕССЕНДЖЕР (chat+calls+features). Config-sync и галерея — отдельные домены | [TASK-148](../../backlog/tasks/task-148%20-%20Messaging-architecture-SoT-plus-skill.md) | **Designed, not built** | — |
+| Транспорт | Facade `MessagingPort`; MVP maybe Matrix (Apache-2.0) → target MLS (openmls) | [TASK-27](../../backlog/tasks/task-27%20-%20Elderly-Friendly-Messenger-Jitsi-based.md) | **Not decided** (facade делает swappable) | Второй адаптер Matrix→MLS (данные НЕ мигрируют авто) |
+| Сервер доставки | Blind courier: opaque id + epoch + mailbox tokens | [TASK-27](../../backlog/tasks/task-27%20-%20Elderly-Friendly-Messenger-Jitsi-based.md) | **Designed, not built** | Cloudflare stopgap → свой Rust (rule 8) |
+| Таксономия фич | Reactions/replies/edits/roles/blocks = доменные типы; адаптер маршалит | [TASK-148](../../backlog/tasks/task-148%20-%20Messaging-architecture-SoT-plus-skill.md) | **Designed** | Копируется из Matrix events / MIMI |
+| Звонки | Adopt SFU — Jitsi (Apache-2.0) + SFrame/MLS | [TASK-27](../../backlog/tasks/task-27%20-%20Elderly-Friendly-Messenger-Jitsi-based.md) | **Designed, not built** | Jitsi→LiveKit (адаптер) |
+
+Детально — см. **umbrella** [messaging.md](messaging.md) (разрез volatile↔stable, build-vs-buy, copyable blueprints) + [messaging-substrate.md](messaging-substrate.md) (стабильный шов). Для любого messenger-вопроса — skill `messaging`. Крипта (MLS/keys) — НЕ здесь, а в `crypto.md`.
 
 ### Identity
 

@@ -2,6 +2,7 @@
 id: TASK-60
 title: 'Research: Push payload encryption + FCM 4KB constraint'
 status: Draft
+superseded-by: TASK-152
 assignee: []
 created_date: '2026-06-26 13:57'
 labels:

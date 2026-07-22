@@ -21,8 +21,8 @@ Crypto is **layers, each knowing only what it may**: primitives (bytes math, `fa
 5. **FFI bridges are dumb** — no crypto logic, no policy (libsignal/Wire). Two primitive stacks stay separate; do NOT write a custom `OpenMlsCrypto` backend on libsodium to "unify" them (Rejected).
 6. **Do NOT conflate the two MLS groups**: device-management group (TASK-102) ≠ future messenger group (TASK-42).
 
-## Not-built zones — STOP, do not improvise
-For **MLS core** and **KeyPackage lifecycle** (0 code): the contract is the `### Decision (English)` block of the owning task (**TASK-124**, **TASK-104**), not any prose. Read that block. If asked to design/implement, surface the owning Decision task — do not invent an answer. `KeyVault`/`IdentityVault` is not built either (TASK-112).
+## Not-built zones — the architecture is IN the file, do not improvise
+For **MLS core** and **KeyPackage lifecycle** (0 code): the complete architecture lives in [`crypto-mls.md`](../../../docs/architecture/crypto-mls.md) — grounded in researched prior art (openmls/Wire/RFC 9750/Signal), not our internal decisions. Read the file, not a task. `KeyVault`/`IdentityVault` is not built (TASK-112, still not consolidated).
 
 ## Hard sync rule
 If you change the model, an invariant, or a zone boundary, **update the relevant `crypto*.md` in the same commit**. Never leave the SoT behind — it is what the whole ecosystem reads.
@@ -32,7 +32,7 @@ If you change the model, an invariant, or a zone boundary, **update the relevant
 - Primitive / algorithm / validation → [`crypto-primitives.md`](../../../docs/architecture/crypto-primitives.md).
 - Root key / HKDF / envelope / recovery vault → [`crypto-key-hierarchy.md`](../../../docs/architecture/crypto-key-hierarchy.md).
 - Pairing / handshake / identity binding / revoke → [`crypto-pairing.md`](../../../docs/architecture/crypto-pairing.md) (+ TASK-102 Decision block).
-- MLS / KeyPackage → `crypto.md` zone map → STOP → TASK-124 / TASK-104 Decision block.
+- MLS / KeyPackage / FFI / keystore → [`crypto-mls.md`](../../../docs/architecture/crypto-mls.md) (self-sufficient — import openmls MIT, copy Wire structure clean-room).
 - Versioning / schemaVersion → [`wire-format.md`](../../../docs/architecture/wire-format.md) (skill `wire-format`).
 - Extraction to a shared module → [`extraction-policy.md`](../../../docs/architecture/extraction-policy.md).
 - Server endpoints → [`server.md`](../../../docs/architecture/server.md). Pre-release / roadmap → [`crypto-prerelease.md`](../../../docs/dev/crypto-prerelease.md).

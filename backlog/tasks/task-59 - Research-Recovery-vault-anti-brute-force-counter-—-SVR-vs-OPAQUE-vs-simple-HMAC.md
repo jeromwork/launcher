@@ -4,6 +4,7 @@ title: >-
   Research: Recovery vault anti-brute-force counter — SVR vs OPAQUE vs simple
   HMAC
 status: Draft
+superseded-by: TASK-151
 assignee: []
 created_date: '2026-06-26 13:57'
 labels:
