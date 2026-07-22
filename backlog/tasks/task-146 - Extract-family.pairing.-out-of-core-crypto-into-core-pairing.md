@@ -1,7 +1,8 @@
 ---
 id: TASK-146
 title: 'Extract family.pairing.* out of :core:crypto into :core:pairing'
-status: Draft
+status: Done
+updated_date: '2026-07-22 00:00'
 assignee: []
 created_date: '2026-07-21 14:17'
 labels:
@@ -44,9 +45,21 @@ ordinal: 146000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 [hand] Модуль `:core:pairing` создан, `family.pairing.*` перенесён из `:core:crypto`
-- [ ] #2 [hand] В `:core:crypto` не осталось `@Serializable` / `KSerializer`; kotlinx.serialization plugin убран если больше не нужен
-- [ ] #3 [hand] Fitness `verifyCryptoIsolation` + `NoLegacyFamilyNamespaceTest` зелёные
-- [ ] #4 [hand] Все импортёры (`:core`, `:app`) переведены на `:core:pairing`, сборка зелёная
-- [ ] #5 [hand] Known-debt пометка снята в `docs/architecture/crypto-pairing.md`
+- [x] #1 [hand] Модуль `:core:pairing` создан, `family.pairing.*` перенесён из `:core:crypto`
+- [x] #2 [hand] В `:core:crypto` не осталось `@Serializable` / `KSerializer`; kotlinx.serialization plugin убран
+- [x] #3 [hand] Fitness `verifyCryptoIsolation` + `verifyWireIsolation` + `NoLegacyFamilyNamespaceTest` зелёные
+- [x] #4 [hand] Все импортёры (`:core`, `:app`) переведены на `:core:pairing`, сборка обоих флейворов зелёная
+- [x] #5 [hand] Known-debt пометка снята в `docs/architecture/crypto-pairing.md` (+ SUPERSEDED-пометка про :core:wire, rule 14)
 <!-- AC:END -->
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+## Final Summary
+
+Вынесено в новый модуль `:core:pairing` (зависит от `:core:crypto` + `:core:wire`). `:core:crypto` теперь несёт ноль сериализации — plugin и `serialization.json` убраны.
+
+**Коррекция спеки по ходу (rule 14):** `ByteArrayBase64Serializer` ушёл НЕ в `:core:pairing` (как говорил исходный план), а в `:core:wire` — потому что это общий wire-примитив (его используют `KeyBlob` в `:core` и recovery-codec в `:app`, не только pairing). `:core:wire` — leaf-барьер извлекаемости (extraction-policy.md, wire-format.md, TASK-141). Serial descriptor `family.ByteArrayBase64` не менялся — wire-формат не сдвинут. Исходный план помечен `⚠️ SUPERSEDED` в `crypto-pairing.md`.
+
+**Находка вне scope (не трогал):** `PublicKey` — `@Serializable` с полем `ByteArray` без применённого Base64-сериализатора → kotlinx сериализует его числовым массивом, не base64-строкой. Пред-существующее (проверено `git show HEAD`), потенциальный wire-format вопрос (rule 5). Кандидат на follow-up.
+
+Verified: `verifyCryptoIsolation` + `verifyWireIsolation` + `NoLegacyFamilyNamespaceTest` зелёные; оба флейвора `:core`/`:app` компилятся; jvmTest `:core:pairing`/`:core:crypto`/`:core:wire` зелёные.
+<!-- SECTION:FINAL_SUMMARY:END -->
