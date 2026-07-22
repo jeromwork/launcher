@@ -85,13 +85,13 @@ last-synced: 2026-07-21
 | **Primitives** (`family.crypto`) | [`crypto-primitives.md`](crypto-primitives.md) | **built** | the file |
 | **Key hierarchy** (`family.keys`) — root key, HKDF, envelope, recovery vault | [`crypto-key-hierarchy.md`](crypto-key-hierarchy.md) | **built** | the file |
 | **Pairing / membership = AS** (`family.pairing`) — binding + revoke policy | [`crypto-pairing.md`](crypto-pairing.md) | **built** (Kotlin); handshake `snow` planned | the file + TASK-102 Decision block |
-| **MLS core** — TreeKEM, epochs, KeyPackage *format* | *no file yet* | **designed, not built** (0 code) | **TASK-124** + TASK-104 Decision block |
-| **KeyPackage lifecycle = DS** — pool/claim/last-resort/drain | *no file yet* | **designed, not built** | **TASK-104** Decision block |
+| **MLS core** — TreeKEM, epochs, KeyPackage format, FFI, keystore | [`crypto-mls.md`](crypto-mls.md) | **designed, not built** (0 code) | the file |
+| **KeyPackage lifecycle** — pool/claim/last-resort/drain | [`crypto-mls.md`](crypto-mls.md) | **designed, not built** | the file |
 | **FFI** (`:crypto-ffi`, `libcrypto_ffi.so`) — dumb bridge | *summary below* | **foundation done** (TASK-122) | this file |
 | **Wire / versioning** (`:core:wire`) | [`wire-format.md`](wire-format.md) | **built** | wire-format.md |
 | **Extraction** (crypto → shared module) | [`extraction-policy.md`](extraction-policy.md) | policy | extraction-policy.md |
 
-For zones marked **designed, not built**: their contract is the `### Decision (English)` block of the owning task — read it. The mermaid/prose that predated this consolidation is secondary and may be stale.
+For zones marked **designed, not built**: their architecture is **complete IN the zone file** (grounded in researched prior art — openmls/Wire/RFC, not our internal decisions). Owning tasks are named only as history/owner.
 
 **Two primitive stacks (do NOT unify)**: Kotlin libsodium primitives serve key hierarchy / envelope / recovery / pairing. **MLS does NOT use them** — openmls carries its own Rust crypto backend (`OpenMlsCrypto` provider) below the FFI bridge. Wire core-crypto ships exactly this shape.
 
@@ -107,7 +107,7 @@ For zones marked **designed, not built**: their contract is the `### Decision (E
 - Primitive / algorithm question → [`crypto-primitives.md`](crypto-primitives.md).
 - Key / envelope / recovery → [`crypto-key-hierarchy.md`](crypto-key-hierarchy.md).
 - Pairing / binding / revoke → [`crypto-pairing.md`](crypto-pairing.md) (+ TASK-102 Decision block).
-- MLS / KeyPackage → **STOP**, read the owning Decision task (TASK-124 / TASK-104) — do not improvise; zone is not built.
+- MLS / KeyPackage / FFI / keystore → [`crypto-mls.md`](crypto-mls.md) (self-sufficient; import openmls + copy Wire structure).
 - Versioning → [`wire-format.md`](wire-format.md). Server endpoints → [`server.md`](server.md). Extraction → [`extraction-policy.md`](extraction-policy.md).
 - Implementation order → `backlog sequence list --plain` (NOT this file — rule 11).
 - Pre-release / roadmap → [`../dev/crypto-prerelease.md`](../dev/crypto-prerelease.md).
@@ -189,7 +189,7 @@ Machine-readable contract = the `### Decision (English)` block in each task file
 
 ## Related domains
 
-- [`crypto-primitives.md`](crypto-primitives.md) · [`crypto-key-hierarchy.md`](crypto-key-hierarchy.md) · [`crypto-pairing.md`](crypto-pairing.md) · [`extraction-policy.md`](extraction-policy.md) · [`wire-format.md`](wire-format.md) · [`server.md`](server.md)
+- [`crypto-primitives.md`](crypto-primitives.md) · [`crypto-key-hierarchy.md`](crypto-key-hierarchy.md) · [`crypto-pairing.md`](crypto-pairing.md) · [`crypto-mls.md`](crypto-mls.md) · [`extraction-policy.md`](extraction-policy.md) · [`wire-format.md`](wire-format.md) · [`server.md`](server.md)
 - Messenger substrate that *consumes* this crypto (MLS group, KeyPackage, pairing): [`messaging.md`](messaging.md) — crypto is owned here, not re-decided there.
 - Operational: [`../dev/crypto-prerelease.md`](../dev/crypto-prerelease.md) · [`../dev/key-hierarchy.md`](../dev/key-hierarchy.md) · [`../dev/server-roadmap.md`](../dev/server-roadmap.md)
 - Onboarding: [`INDEX.md`](INDEX.md)

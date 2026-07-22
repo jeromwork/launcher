@@ -18,7 +18,7 @@
 | MLS engine (server-side validation if any) | 🟢 import | openmls (MIT) — but the DS needs almost no crypto |
 | Commit serialization (one per epoch) | 🟡 thin glue | integer epoch compare per group |
 | Mailbox / store-and-forward | 🟡 thin glue | opaque blob store keyed by opaque token |
-| KeyPackage directory (one-time fetch + last-resort) | 🟡 thin glue | atomic fetch-and-decrement |
+| KeyPackage directory (one-time fetch + last-resort) | 🟡 thin glue | atomic fetch-and-decrement — architecture owned by [`crypto-mls.md`](crypto-mls.md) (RFC 9750 + Signal drain-defense) |
 | Push routing | 🟡 thin glue | FCM data-only wake-ping (opaque) |
 | The DS as a whole | 🔴 own build | assemble the above from **Phoenix design** — no turnkey |
 

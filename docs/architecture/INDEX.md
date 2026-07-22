@@ -16,6 +16,10 @@ domains:
   - id: crypto-pairing
     file: crypto-pairing.md
     scope: Pairing / membership = our RFC 9750 Authentication Service. Noise_XX handshake (snow), identity↔key binding, revoke policy (TASK-102). Two-world Kotlin+Rust split.
+  - id: crypto-mls
+    file: crypto-mls.md
+    scope: MLS core + KeyPackage + FFI + encrypted keystore. Grounded in researched prior art (openmls MIT import + Wire core-crypto structure copy + RFC 9750/Signal KeyPackage server), NOT internal decisions. Import-vs-copy-vs-write layer map. Designed, not built.
+    status: v1 self-sufficient (2026-07-22, TASK-150) — research-grounded (not TASK-104/58 recitation).
   - id: extraction-policy
     file: extraction-policy.md
     scope: When/how modules extract into a shared library for the app family (rule of three). Crypto+versioning extractable; ECS explicitly excluded.
