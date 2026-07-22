@@ -49,20 +49,20 @@ domains:
     status: designed (TASK-148).
   - id: identity
     file: identity.md
-    scope: Identity model (LOCAL/CLOUD), signup gate, invitation, JWT.
-    status: skeleton — full content pending TASK-106 Decision.
+    scope: Identity model (LOCAL-first/CLOUD-lazy), Firebase Auth, AS=QR pairing (crypto-pairing), profile/contacts; signup gate OPEN (TASK-106). Consumed by messaging, not re-decided there.
+    status: v1 self-sufficient (2026-07-22, TASK-149) — signup gate stated as §Open (TASK-106).
   - id: server
     file: server.md
     scope: Cloudflare Worker runtime, zero-trust baseline (TASK-105), crypto-relevant endpoints, storage tiers, migration to Go microservices.
     status: v1 snapshot (2026-07-08) — consolidated from TASK-105 baseline + crypto-relevant endpoint decisions.
   - id: client-android
     file: client-android.md
-    scope: core/ domain layer, adapter modules, Compose UI structure.
-    status: skeleton — full content pending.
+    scope: Three-layer client cutting — UI (Compose) → domain (core/ KMP, zero Android) → adapters (one ACL per vendor); ports-only UI, manual DI, fitness rules. Owns the layering shape, not domain content.
+    status: v1 self-sufficient (2026-07-22, TASK-149) — current-state.
   - id: external-services
     file: external-services.md
-    scope: Firebase Auth, FCM, future third-party integrations.
-    status: skeleton — full content pending.
+    scope: External SDKs (FCM/Firebase Auth/Firestore) each behind an adapter (rule 2) with a tracked exit ramp to the own Rust server (rule 8); opaque data only (rule 13); lazy cloud (rule ID2).
+    status: v1 self-sufficient (2026-07-22, TASK-149) — current-state.
   - id: wire-format
     file: wire-format.md
     scope: Versioning and evolution discipline for every format that leaves the device or survives an app upgrade — version fields, reader/writer gating, change discipline, enforcement. Single source; other docs link, never restate.
