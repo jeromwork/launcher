@@ -1,10 +1,10 @@
 ---
 id: TASK-112
-title: 'Decision: KeyVault port boundary — operation-on-vault + narrow export'
-status: Draft
+title: 'Decision: KeyVault port boundary — narrow derived-key export hatch'
+status: Paused
 assignee: []
 created_date: '2026-07-07'
-updated_date: '2026-07-07'
+updated_date: '2026-07-22'
 labels:
   - decision
   - crypto
@@ -16,6 +16,7 @@ dependencies:
   - TASK-6
 priority: high
 ordinal: 112000
+references: specs/task-112-keyvault-port/
 decision-supersedes: []
 superseded-by: null
 ---
@@ -119,6 +120,26 @@ internal class RootKey(internal val bytes: ByteArray)
 
 <!-- SECTION:DESCRIPTION:END -->
 
+## Acceptance Criteria
+
+<!-- AC:BEGIN -->
+- [ ] #1 [hand] Внешние крипто-либы (pairing `snow`, openmls) получают детерминированный derived-ключ через одну узкую аудируемую форточку `exportDerivedKey`, не касаясь `RootKey` напрямую
+- [ ] #2 [hand] Сырьё root-ключа недоступно из кода вне крипто-impl-слоя — публичный `RootKey.bytes` удалён
+- [ ] #3 [hand] Порт покрывает ровно текущую потребность (export-hatch); операции без потребителя (`aeadSeal`/`mac`) не построены — добавляются аддитивно при появлении потребителя
+<!-- AC:END -->
+
+<!-- SECTION:PAUSE_REASON:BEGIN -->
+## Pause reason (2026-07-22)
+
+**Contract fixed, implementation deferred to first consumer.** The KeyVault contract is now correct and consolidated (three-boundary reconcile + narrowing to the `exportDerivedKey` hatch): it lives in the arch-pack ([`crypto-key-hierarchy.md`](../../docs/architecture/crypto-key-hierarchy.md) §Key vault) + the spec ([`specs/task-112-keyvault-port/spec.md`](../../specs/task-112-keyvault-port/spec.md)) + the Decision block below. **No code is written** — all 3 `[hand]` AC are open.
+
+**Why paused, not In Progress**: the narrowed port (`exportDerivedKey` + `Purpose{MLS_SIGNATURE, NOISE_STATIC}`) has **no live consumer today** — both downstream tasks are Draft (TASK-67 pairing `snow`, TASK-124 openmls). Per rule 4 (MVA) the production adapter must be built **with** the first consumer, not ahead of it. Owner decision (2026-07-22): stop the speckit cycle here, fix the contract, resume implementation when TASK-67 or TASK-124 is taken.
+
+**Where the partial work lives**: branch `task-112-keyvault-boundary-reconcile` (3 commits — arch-pack reconcile, spec.md, clarify-narrowing) + its PR (docs + spec only, no code). speckit stopped after `/speckit.clarify` (no `plan.md` / `tasks.md`).
+
+**Resume trigger**: take TASK-67 or TASK-124 into work → the KeyVault contract is implementation-ready; continue `/speckit.plan` → `/speckit.tasks` → `/speckit.implement` for the export hatch as part of that consumer's work.
+<!-- SECTION:PAUSE_REASON:END -->
+
 ## Discussion
 
 <!-- SECTION:DISCUSSION:BEGIN -->
@@ -195,7 +216,11 @@ Additional research delivered to owner in mentor-mode by chat covering all 5 ope
 
 Additional Session 2 finding — **existing `Outcome<T, E>` sealed class is Rust-in-Kotlin-clothing** (Kotlin stdlib grain = throw + nullable pair; JetBrains discourages `kotlin.Result` for domain modeling; UniFFI Kotlin backend emits throwing methods not sealed Outcome; every referenced Kotlin crypto lib uses exceptions). `Outcome` currently used in 143 files, 358 occurrences, three parallel `Outcome.kt` definitions in `core/keys`, `core/push`, `core/`. Migration deferred to separate task (TASK-113) — not blocking TASK-112 Decision.
 
-### Decision (English, immutable) 🔒
+### Decision (English — mutable until first implementation commit, rule 11)
+
+> **Revision note (2026-07-22, a — three-boundary)**: deep-research (adversarially verified — see [`crypto-key-hierarchy.md`](../../docs/architecture/crypto-key-hierarchy.md) §Industry grounding) confirmed the vault is **three boundaries split by operation-kind** (AWS KMS `KeyUsage`, Tink primitive interfaces, OpenMLS `OpenMlsProvider`), not one port. `KeyVault` = **boundary 2 only (symmetric data-key operations)**. Identity-key ops (`sign`/`agree`) + capability/security-level are NOT part of `KeyVault` — they belong to the already-built `AsymmetricCrypto` (boundary 1) and `SecureKeyStore` (boundary 3). An earlier arch-pack draft fusing these into a `KeyVaultPort` handle-store is retired. The `immutable 🔒` marker was premature (rule 11: immutable only from the first implementation commit — `KeyVault` is 0 code). Read-surface = arch-pack, not this block (rule 14).
+>
+> **Revision note (2026-07-22, b — narrowed to export hatch)**: `/speckit.clarify` verified consumers **against code** and found the boundary-2 AEAD/MAC operations have **no consumer**: config is a random-CEK hybrid envelope (`ConfigCipher2`/`EnvelopeConfigCipherImpl`, not purpose-derived), recovery is Argon2-from-passphrase (`RecoveryFlow`, not RootKey-HKDF). `DerivedKey(config)` was a phantom. **MVP scope narrowed to the single `exportDerivedKey` hatch + `enum Purpose { MLS_SIGNATURE, NOISE_STATIC }`** (the only real, if downstream, consumers — TASK-67 `snow`, TASK-124 openmls). `aeadSeal`/`aeadOpen`/`mac` + `Ciphertext`/`Mac` types are **deferred additively** (rule 4 MVA — no consumer today; dropping `Ciphertext` also avoids colliding with the built `family.crypto.api.values.Ciphertext`). Production adapter is built **with the first consumer** (TASK-67 or TASK-124), not ahead of one. Full narrowed spec: [`specs/task-112-keyvault-port/spec.md`](../../specs/task-112-keyvault-port/spec.md). **The sections below are the ORIGINAL (wide) Decision — superseded by this narrowing; kept as history. Current what/how = the arch-pack + spec.**
 
 **Port name**: `KeyVault` — chosen over `IdentityVault` / `CryptoOperator` / `KeyBox` / `RootKeyBox`. Rationale: `Vault` conveys guarded storage (Azure KeyVault, HashiCorp Vault, 1Password Vault convention); `Key` scopes to root_key + all derived keys (not just root, not all crypto). Matches project port-naming convention (role, not type; no `Port` suffix — `RemoteStorage`, `ConfigSaver`, `KeyRegistry` precedent).
 
