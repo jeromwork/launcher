@@ -1,10 +1,10 @@
 ---
 id: TASK-123
 title: 'F-CRYPTO Domain ports + fakes (CryptoPort / GroupPort / KeyPackagePort, mock-first)'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-07-10 16:40'
-updated_date: '2026-07-22'
+updated_date: '2026-07-23'
 labels:
   - phase-2
   - F-feature
@@ -185,10 +185,24 @@ EFFORT: ~3-5 дней (12-20 часов).
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 [hand] CryptoPort / GroupPort / KeyPackagePort interfaces определены в `core/crypto/src/commonMain/kotlin/family/crypto/ports/`
-- [ ] #2 [hand] Fakes для каждого порта компилируются в commonTest и satisfy contract tests
-- [ ] #3 [hand] Contract tests: 5-7 инвариантов на порт, все зелёные — `./gradlew :core:crypto:commonTest`
-- [ ] #4 [hand] Fitness function падает при добавлении import okhttp / firebase / openmls / uniffi / android / `cryptokit` в commonMain
-- [ ] #5 [hand] Пример consumer usage snippet в `core/crypto/README.md` — как feature-код зовёт порты
-- [ ] #6 [hand] Доменные порты KeyVault не импортируют; `Ciphertext` переиспользован из `family.crypto.api.values`, `GroupState` не возвращается наружу — signatures спроектированы от Wire CoreCrypto shape (crypto-mls.md)
+- [x] #1 [hand] CryptoPort / GroupPort / KeyPackagePort interfaces определены в `core/crypto/src/commonMain/kotlin/family/crypto/ports/`
+- [x] #2 [hand] Fakes для каждого порта компилируются в commonTest и satisfy contract tests
+- [x] #3 [hand] Contract tests: 5-7 инвариантов на порт, все зелёные — `./gradlew :core:crypto:jvmTest` (commonTest прогоняется на JVM; чистого таска `commonTest` в KMP нет)
+- [x] #4 [hand] Fitness function падает при добавлении import okhttp / firebase / openmls / uniffi / android / `cryptokit` в ports (PortsNoVendorImportTest, обе стороны)
+- [x] #5 [hand] Пример consumer usage snippet в `core/crypto/README.md` — как feature-код зовёт порты
+- [x] #6 [hand] Доменные порты KeyVault не импортируют; `Ciphertext` переиспользован из `family.crypto.api.values`, `GroupState` не возвращается наружу — signatures спроектированы от Wire CoreCrypto shape (crypto-mls.md)
 <!-- AC:END -->
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+## Final Summary
+
+Реализовано в PR (ветка `task-123-crypto-domain-ports`, impl-commit `f559f05`). 15/15 tasks (T001–T015) закрыты, tick-sync в том же diff.
+
+- **Ports** (`family.crypto.ports`, commonMain): `GroupPort` / `CryptoPort` / `KeyPackagePort` + opaque value-типы + `sealed`-результаты. `Ciphertext` reused (FR-006), без `@Serializable` / `GroupState` / `KeyVault` (FR-002/7/8).
+- **Fakes** (`family.crypto.fake`, commonTest): `FakeGroupPort` (two-phase merge, epoch-ratchet), `FakeCryptoPort` (insecure xor+nonce, forward-secrecy on merge), `FakeKeyPackagePort` (one-time pool + last-resort).
+- **Contract tests** (`family.crypto.contracts`, commonTest): 3 abstract + factory, bound to fakes, переиспользуются реальным адаптером TASK-124 (SC-005). 18 инвариантов, все зелёные.
+- **Fitness**: `PortsNoVendorImportTest` (jvmTest) — vendor/platform import-ban, обе стороны.
+- **Gate**: `./gradlew :core:crypto:jvmTest :core:crypto:verifyCryptoIsolation` — BUILD SUCCESSFUL.
+
+Нет deferred-гейтов (всё закрывается в чистом JVM без устройства/сети) → сразу Done. Hands off to TASK-124 (real openmls adapter расширяет те же контракты).
+<!-- SECTION:FINAL_SUMMARY:END -->
