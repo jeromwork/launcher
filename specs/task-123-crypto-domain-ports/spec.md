@@ -8,6 +8,19 @@
 
 > **Что это простыми словами.** Мы пишем «контракт водителя» для крипто: три интерфейса (`CryptoPort` — шифруй/расшифруй сообщение группы; `GroupPort` — создай группу / добавь / убери участника / прими изменение; `KeyPackagePort` — опубликуй пачку своих ключей-приглашений / забери один чужой) плюс их **поддельные (fake) реализации** на обычных структурах в памяти. Никакого Rust, никакого openmls, никакого сервера. Это разблокирует фичи-потребители (мессенджер, pairing) — они смогут писаться и тестироваться уже сейчас, а «настоящий двигатель» (openmls) подключится позже как альтернативная реализация того же контракта.
 
+## Clarifications
+
+### 2026-07-22 — Pre-plan clarification pass (research-resolved, no owner decision needed)
+
+Все 4 серые зоны имели **индустриальный ответ** в арх-паке [`crypto-mls.md`](../../docs/architecture/crypto-mls.md) (сам сорслен на openmls / Wire `core-crypto` / RFC 9750 / Signal) — разрешены исследованием, не вынесены владельцу как бизнес-выбор.
+
+| # | Вопрос | Разрешение | Источник |
+|---|--------|-----------|----------|
+| 1 | FR-009: форма портов — зеркалить двухфазный commit MLS или схлопнуть на fake? | **Зеркалить Wire `CoreCrypto`/`Conversation`.** `GroupPort`: `createGroup`, `addMembers`→`CommitBundle`, `removeMembers`→`CommitBundle`, `selfUpdate`→`CommitBundle`, `commitToPendingProposals`→`CommitBundle`, `mergePendingCommit`, `processMessage`→sealed `ProcessedMessage {ApplicationMessage \| StagedCommit \| Proposal}`. `CryptoPort`: `encryptMessage`/`decryptMessage` над группой. Fake моделирует epoch монотонным counter'ом + pending/merge. Без зеркалирования SC-005 (переиспользование контракт-тестов real-адаптером без переписывания) не держится. | crypto-mls.md строка 24 + беакон (copy-design Wire shape) |
+| 2 | `IdentityKey` — новый тип или reuse? | **Новый opaque `value class IdentityKey(val bytes: ByteArray)` в `family.crypto.ports`.** Reuse невозможен: `PublicKey`/`SigningPublicKey` после TASK-146 живут в `:core:pairing`, а порты в `:core:crypto` на него зависеть не могут (обратное направление). Это НЕ дубль pairing-`PublicKey` — другой слой (участник MLS-группы vs устройство pairing). Typed-key ради misuse-resistance (P4 CryptoKit-урок). | crypto-mls.md «no MLS types leak up» + crypto-primitives P4 + ground-truth кода |
+| 3 | FR-011: last-resort в доменный порт сейчас или деталь TASK-124? | **В порт сейчас.** Арх-пак моделирует last-resort как first-class доменную поверхность (`LastResortKeyManager` / opaque `LastResortKey`); RFC 9750 §5.1 — first-class концепт. `publish(isLastResort)`, `claim`→результат с флагом `isLastResort`. Добавить позже = изменение контракта для caller'ов (нарушает rule 4 MVA-тест «дописывание, не переписывание»). | crypto-mls.md строки 53, 57 + RFC 9750 §5.1 |
+| 4 | Противоречие FR-002 ↔ арх-пак: @Serializable на типах портов? | **Порты БЕЗ сериализации.** После TASK-146 `:core:crypto` несёт ноль сериализации (plugin удалён). Value-типы (`IdentityKey`, `KeyPackage`, `Commit`, `CommitBundle`) — plain classes с opaque bytes; wire-кодирование = работа адаптера TASK-124 (DTO). FR-002 исправлен: разрешение kotlinx.serialization для этих портов снято. | Инварианты P3 (primitives) / K5 (key hierarchy) / TASK-146 |
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Потребитель кодит и тестирует против портов без реального крипто (Priority: P1)
@@ -69,25 +82,33 @@
 ### Functional Requirements
 
 - **FR-001**: Три доменных порта `CryptoPort`, `GroupPort`, `KeyPackagePort` определены в модуле `:core:crypto`, `commonMain`, namespace `family.crypto.ports` (НЕ `cryptokit.*` — забанен fitness-тестом `NoLegacyFamilyNamespaceTest`, TASK-141).
-- **FR-002**: Порты — чистый Kotlin: только stdlib + coroutines + `kotlinx.serialization`-аннотации (при необходимости) + другие доменные типы. Никаких вендор/платформенных/транспортных типов в сигнатурах (rule 1).
+- **FR-002**: Порты — чистый Kotlin: только stdlib + coroutines + другие доменные типы. **Никакой `kotlinx.serialization` в типах портов** (разрешено 2026-07-22 — снято): после TASK-146 `:core:crypto` несёт ноль сериализации (plugin удалён), инварианты P3/K5 запрещают сериализацию в крипто-SDK; wire-кодирование value-типов = работа адаптера TASK-124 (DTO). Никаких вендор/платформенных/транспортных типов в сигнатурах (rule 1).
 - **FR-003**: Для каждого порта существует fake in-memory адаптер в `commonTest` (`family.crypto.fakes`), работающий без Rust/openmls/сервера.
 - **FR-004**: Для каждого порта существует контракт-тест (`family.crypto.contracts`) на 5–7 инвариантов, зелёный на fake; структура пригодна для переиспользования real-адаптером (TASK-124).
 - **FR-005**: Fitness-проверка падает, если `commonMain` пакета портов импортирует любое из: `okhttp`, `firebase.*`, `openmls`, `uniffi`, `android.*`, `cryptokit.*`.
 - **FR-006**: `Ciphertext` **переиспользуется** из существующего `family.crypto.api.values.Ciphertext` — второй тип не заводится (арх-пак запрещает дубль, [crypto-key-hierarchy.md](../../docs/architecture/crypto-key-hierarchy.md) §Key vault).
 - **FR-007**: `GroupState` **не** является возвращаемым доменным value-типом. Состояние группы opaque и в реальном адаптере персистится целиком openmls `StorageProvider` (TASK-124/125). На fake состояние скрыто за реализацией и наружу как «снимок» не отдаётся.
 - **FR-008**: Доменные порты **не импортируют** `KeyVault` (`family.keys.api`, `:core:keys`). Signing-материал поступает в openmls через `KeyVault.exportDerivedKey(MLS_SIGNATURE, …)` внутри real-адаптера (TASK-124), а не параметром доменного порта.
-- **FR-009**: Сигнатуры методов портов спроектированы **от формы Wire `CoreCrypto`/`Conversation` API** ([crypto-mls.md](../../docs/architecture/crypto-mls.md): `add_members` / `remove_members` / `self_update` / `commit_to_pending_proposals` / `merge_pending_commit` / `process_message → ProcessedMessage/StagedCommit`; `KeyPackageBuilder…last_resort()`), а не из произвольной формы. [NEEDS CLARIFICATION: финальный перечень методов и их точные сигнатуры — фиксируется в /speckit.clarify.]
+- **FR-009**: Сигнатуры методов портов спроектированы **от формы Wire `CoreCrypto`/`Conversation` API** ([crypto-mls.md](../../docs/architecture/crypto-mls.md) строка 24), зеркаля двухфазный commit MLS (propose → commit → merge), чтобы real-адаптер TASK-124 лёг тонкой обёрткой и контракт-тесты не переписывались (SC-005). Финальный перечень (разрешено 2026-07-22):
+  - `GroupPort`: `createGroup(id)`, `addMembers(id, keyPackages) → CommitBundle`, `removeMembers(id, members) → CommitBundle`, `selfUpdate(id) → CommitBundle`, `commitToPendingProposals(id) → CommitBundle?`, `mergePendingCommit(id)`, `processMessage(id, message) → ProcessedMessage`.
+  - `ProcessedMessage` — sealed: `ApplicationMessage(plaintext)` | `StagedCommit(...)` | `Proposal(...)`.
+  - `CommitBundle` — opaque `{commit, welcome?}` bytes (не `GroupState`, см. FR-007).
+  - `CryptoPort`: `encryptMessage(id, plaintext) → Ciphertext`, `decryptMessage(id, ciphertext) → ByteArray` (decrypt — через `processMessage` в openmls; на доменном уровне допускается тонкий метод-обёртка, финализируется в plan).
+  - На fake: `addMembers`/`removeMembers`/`selfUpdate` **стейджат** pending commit; эффект применяется на `mergePendingCommit`; epoch — монотонный counter.
 - **FR-010**: В `core/crypto/README.md` присутствует consumer-usage snippet — минимальный Kotlin-пример, как фича-код зовёт порты и подставляет fakes.
-- **FR-011**: `KeyPackagePort` поддерживает жизненный цикл пула: публикация пачки, атомарный one-time `claim`, клиентский refill при снижении пула ниже порога, семантика last-resort. [NEEDS CLARIFICATION: нужен ли на этом этапе last-resort в доменном порту или он остаётся деталью TASK-124 адаптера.]
+- **FR-011**: `KeyPackagePort` поддерживает жизненный цикл пула: `publish(batch, isLastResort)`, атомарный one-time `claim(targetIdentity) → ClaimResult` (sealed: `Claimed(keyPackage, isLastResort)` | `Empty`), клиентский refill при снижении пула ниже порога. **Last-resort — в доменном порту сейчас** (разрешено 2026-07-22): арх-пак моделирует его как first-class доменную поверхность (`LastResortKeyManager`, opaque `LastResortKey` — [crypto-mls.md](../../docs/architecture/crypto-mls.md) строки 53/57), RFC 9750 §5.1 — first-class концепт; добавить позже = изменение контракта для caller'ов (rule 4). Серверное принуждение one-time-use / rate-limit / поведение при пустом пуле на реальном сервере — деталь TASK-124/messaging-delivery, здесь fake моделирует семантику.
 
 ### Key Entities *(include if feature involves data)*
 
 - **CryptoPort**: encrypt/decrypt сообщения в контексте группы. Форма — от Wire CoreCrypto `encrypt`/`decrypt` над `Conversation`.
 - **GroupPort**: жизненный цикл MLS-группы (создание, add/remove участника, приём коммита). Обёртка над openmls `add_members`/`remove_members`/`process_message`; **не** решает авторизацию.
 - **KeyPackagePort**: пул одноразовых ключей-приглашений (publish / claim / refill). Ниже уровнем в реальном адаптере опираются на opaque `KeyPackageId` и last-resort ключ.
-- **IdentityKey**: Ed25519 pubkey (opaque bytes). [NEEDS CLARIFICATION: заводим как отдельный value-тип или переиспользуем существующий из `:core:crypto` primitives.]
+- **IdentityKey**: новый opaque `value class IdentityKey(val bytes: ByteArray)` в `family.crypto.ports` (разрешено 2026-07-22). Reuse невозможен — `PublicKey`/`SigningPublicKey` после TASK-146 в `:core:pairing`, порты `:core:crypto` на него зависеть не могут; это НЕ дубль (другой слой: участник MLS-группы vs устройство pairing). Typed-key ради misuse-resistance (P4).
 - **KeyPackage**: opaque MLS KeyPackage payload + `expiresAt`.
 - **Commit**: opaque MLS Commit message (bytes).
+- **CommitBundle**: opaque `{commit, welcome?}` bytes — результат `addMembers`/`removeMembers`/`selfUpdate`/`commitToPendingProposals`. НЕ `GroupState`.
+- **ProcessedMessage**: sealed результат `processMessage` — `ApplicationMessage(plaintext)` | `StagedCommit(...)` | `Proposal(...)` (форма openmls `process_message`).
+- **ClaimResult**: sealed результат `claim` — `Claimed(keyPackage, isLastResort)` | `Empty`.
 - **Ciphertext**: **переиспользуемый** `family.crypto.api.values.Ciphertext` — не новый тип.
 - **GroupState**: **не** доменный тип — opaque state, живёт в openmls `StorageProvider` (TASK-124/125).
 
@@ -133,5 +154,5 @@
 - **Строим**: три доменных крипто-порта (`CryptoPort`/`GroupPort`/`KeyPackagePort`) в `:core:crypto` `commonMain` (namespace `family.crypto.ports`) + fake in-memory адаптеры + контракт-тесты + fitness-проверка запрещённых импортов. Pure Kotlin, ноль Rust/openmls/сети.
 - **Зачем**: разблокировать потребителей (мессенджер TASK-42, pairing TASK-67) до готовности openmls (TASK-124) — rule 6 mock-first; закрепить изоляцию домена машиной — rule 1 + 7.
 - **Ключевые границы (reconcile 2026-07-22)**: `KeyVault` НЕ в сигнатурах (его дергает openmls-адаптер TASK-124 через `exportDerivedKey`); `Ciphertext` — reuse существующего; `GroupState` не возвращается наружу; сигнатуры проектируются от Wire `CoreCrypto`/`Conversation` shape.
-- **Открытые вопросы (для /speckit.clarify)**: точный перечень методов/сигнатур портов (FR-009); `IdentityKey` как новый тип или reuse (Key Entities); нужен ли last-resort в доменном `KeyPackagePort` или это деталь TASK-124 (FR-011).
+- **Открытые вопросы — РАЗРЕШЕНЫ 2026-07-22** (research по crypto-mls.md, не бизнес-выбор, см. §Clarifications): методы/сигнатуры портов = зеркало Wire CoreCrypto двухфазного commit (FR-009); `IdentityKey` = новый opaque value class (reuse невозможен после TASK-146); last-resort = в порт сейчас (FR-011); @Serializable в портах = снято, `:core:crypto` без сериализации (FR-002).
 - **Вне scope**: real openmls-адаптер (TASK-124), persistence SQLCipher (TASK-125), Rust FFI (TASK-122, Done).
