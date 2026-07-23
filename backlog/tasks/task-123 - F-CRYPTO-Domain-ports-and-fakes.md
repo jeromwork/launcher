@@ -117,7 +117,16 @@ ordinal: 123000
 
 ## Состояние
 
-**In Progress (2026-07-22).** TASK-112 KeyVault-контракт заморожен, TASK-122 (Rust FFI) Done. Промт сверен с крипто-арх-паками и приведён к текущей истине (reconcile 2026-07-22): namespace `cryptokit`→`family.crypto`, `IdentityVaultPort`→`KeyVault` вне сигнатур, `Ciphertext` reuse, `GroupState` не возвращается, сигнатуры — design-from Wire CoreCrypto. Готова к `/speckit.specify`.
+**In Progress (2026-07-22) — speckit-набор готов, verdict READY.** Пройден полный цикл specify → clarify → plan → tasks → analyze (сценарии пропущены: headless-контракт без UI). Артефакты: `spec.md` (11 FR, 3 US, 6 SC), `plan.md` (Constitution 4 PASS/4 N/A/0 FAIL), `data-model.md`, `tasks.md` (T001–T015, trace чистый), `analyze-report.md` (READY).
+
+Финальный контракт (разрешено в clarify через research по crypto-mls.md, не бизнес-выбор):
+- Форма портов = зеркало Wire CoreCrypto двухфазного commit: `GroupPort` (`createGroup`/`addMembers`→`CommitBundle`/`removeMembers`/`selfUpdate`/`commitToPendingProposals`/`mergePendingCommit`/`processMessage`→sealed `ProcessedMessage`), `CryptoPort` (`encryptMessage`/`decryptMessage`), `KeyPackagePort` (`publish(isLastResort)`/`claim`→`ClaimResult`/`localCount`). Все `suspend`.
+- `IdentityKey` = новый opaque `value class` (reuse невозможен — `PublicKey` в `:core:pairing` после TASK-146).
+- Last-resort — first-class в доменном порту (RFC 9750 §5.1).
+- Порты БЕЗ `@Serializable` (`:core:crypto` без сериализации, TASK-146); wire-кодирование = адаптер TASK-124.
+- Fitness FR-005 = konsist import-ban; контракт-тесты abstract+factory (переиспользуемы real-адаптером TASK-124, SC-005).
+
+Scope: pure-Kotlin, verification `./gradlew :core:crypto:commonTest`, без device/сети, ноль deferred-гейтов. Вне scope: real openmls-адаптер (TASK-124), persistence (TASK-125). Следующий шаг — `/speckit.implement`.
 
 ---
 
