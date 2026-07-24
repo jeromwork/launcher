@@ -44,9 +44,9 @@
 
 ## Phase 6 — Emulator smoke
 
-> **[deferred-physical-device]** T022 needs an **arm64** Android device: `:crypto-ffi` cross-compiles arm64-v8a only (TASK-122 Clarification Q5) and every local AVD is x86_64, so the emulator route is not runnable as written. Owner decision 2026-07-24: run it on the Xiaomi 11T instead. Test is written and compiles; only the on-device run is outstanding.
+> **[deferred-physical-device]** T022 needs an **arm64** Android device: `:crypto-ffi` cross-compiles arm64-v8a only (TASK-122 Clarification Q5) and every local AVD is x86_64, so the emulator route is not runnable as written. Owner decision 2026-07-24: run it on the Xiaomi 11T instead. Run 2026-07-24 on Xiaomi 11T (2109119DG, Android 11, arm64): 1 test, 0 failures, 0.165 s.
 
-- [ ] **T022** [deferred-physical-device] Smoke: create 3-member group, encrypt+decrypt 10 messages, all decrypt correctly on an arm64 device (Xiaomi 11T). Test: `MlsSmokeInstrumentedTest`; run `./gradlew :core:crypto:connectedAndroidTest --tests "*MlsSmokeInstrumentedTest*"`. (SC-005, requires: T011, T012)
+- [x] **T022** [deferred-physical-device] Smoke: create 3-member group, encrypt+decrypt 10 messages, all decrypt correctly on an arm64 device (Xiaomi 11T). Test: `MlsSmokeInstrumentedTest`; run `./gradlew :core:crypto:connectedAndroidTest --tests "*MlsSmokeInstrumentedTest*"`. (SC-005, requires: T011, T012)
 
 ## Phase 7 — Docs
 
