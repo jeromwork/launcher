@@ -50,7 +50,7 @@
 
 ## Phase 7 — Docs
 
-- [ ] **T023** Update [crypto-mls.md](../../docs/architecture/crypto-mls.md) frontmatter status (group wrapper: implemented YYYY-MM-DD) + add MLS section with examples to `core/crypto/README.md`. Verify no impl↔arch-pack drift (rule 14). (FR-016, SC-009, requires: T014-T019)
+- [x] **T023** Update [crypto-mls.md](../../docs/architecture/crypto-mls.md) frontmatter status (group wrapper: implemented YYYY-MM-DD) + add MLS section with examples to `core/crypto/README.md`. Verify no impl↔arch-pack drift (rule 14). (FR-016, SC-009, requires: T014-T019)
 
 ---
 
