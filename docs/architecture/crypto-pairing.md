@@ -12,6 +12,8 @@
 - **Kotlin side (BUILT)**: identity↔key binding + revoke policy — ports `DeviceIdentityRepository`, `RecipientResolver`, `EncryptedMediaStorage` (`family.pairing.api`). Uses libsodium primitives ([`crypto-primitives.md`](crypto-primitives.md)).
 - **Rust side (PLANNED, TASK-67)**: the Noise_XX handshake itself via the `snow` crate, through `:crypto-ffi`. A hand-rolled ECDH handshake was **Rejected** ([`crypto-primitives.md`](crypto-primitives.md) §Rejected).
 
+**Pairing vs group-join** — "become trusted via QR/link" is ONE thing at the UX/transport layer, TWO at the protocol layer: share the QR/scanner + trust store, keep Noise_XX pairing and openmls group-join as separate engines. Protocol unification is a rejected trap (privilege escalation + sync/async mismatch). See §Trust-bootstrap reuse boundary.
+
 **Zone charter**
 
 | Owns | Must NOT own |
@@ -45,6 +47,15 @@
 - **RFC 9750 (MLS architecture)** — separates the Authentication Service (identity↔key binding, trusted-for-authentication) from the protocol and the Delivery Service. Access control is explicitly application-layer (§3.5). https://www.rfc-editor.org/rfc/rfc9750.html
 - **Signal** — publishes the handshake (X3DH/PQXDH), the ratchet, and session/device management (Sesame) as three separate specs; device linking is even a separate crate. Handshake ≠ ratchet ≠ membership. https://signal.org/docs/
 - **Noise Protocol Framework / `snow`** — Noise_XX is a standard mutually-authenticated handshake pattern; `snow` is a vetted Rust implementation.
+
+## Trust-bootstrap reuse boundary (researched — share the UX, do NOT unify the protocols)
+
+**Verified (2026-07-24, 7-system survey + RFC 9750): "become trusted via QR/link" is ONE thing at the UX/transport layer, TWO things at the protocol layer.** The reuse boundary — **share** the OOB-ingestion pipeline (QR scanner + URI/deep-link parser) and the client-side identity↔key trust store across device-pairing and group-join; **keep separate** the crypto engines:
+
+- **device-pairing** = synchronous **Noise_XX** (`snow`, 1:1, both devices online, live handshake) → writes the identity↔key binding, adds to the **device-management group** (TASK-102).
+- **group-join** = asynchronous **openmls KeyPackage + Welcome** (directory-mediated, invited member may be offline, **no live handshake**) → adds to the **messenger group** (TASK-42).
+
+Unifying the *protocols* is a **rejected trap**: (a) privilege-escalation — device-link grants account authority, group-join grants one-chat access; a single branching `TrustBootstrapService` risks routing a group-join through a device-pairing authorization path; (b) sync (Noise) vs async (MLS) state machines don't compose cleanly; (c) it fights the RFC 9750 AS/MLS split we adopted (PR1). **No production system unifies the protocols** — Signal (provisioning vs zkgroup invite), Matrix (cross-signing SAS/QR vs Megolm room-join), WhatsApp (Noise companion-pairing vs group-invite token), Wire, Apple CKV, Threema, Session are all separate; many share only the QR UX (e.g. Matrix Element's one scanner screen). **Scope: future** (pairing TASK-67 ↔ messenger TASK-42); the shared OOB layer is **additive**, no wire-format break. Grounding: [RFC 9750 §4.1](https://www.rfc-editor.org/rfc/rfc9750.html#section-4.1) (AS decoupled), [Signal Private Group System](https://signal.org/blog/signal-private-group-system/), [Matrix Key Verification](https://spec.matrix.org/latest/client-server-api/#cross-signing), [WhatsApp Security Whitepaper](https://www.whatsapp.com/security/WhatsApp-Security-Whitepaper.pdf).
 
 ## Exit ramps
 
