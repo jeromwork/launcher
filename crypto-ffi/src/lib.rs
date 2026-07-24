@@ -1,5 +1,9 @@
 uniffi::setup_scaffolding!();
 
+// TASK-124 — real MLS (RFC 9420) engine over openmls 0.8.1.
+pub mod mls;
+mod storage;
+
 /// Trivial smoke test that the Kotlin ↔ Rust FFI round-trip works.
 ///
 /// Called from androidTest `HelloFfiTest.hello_returnsGreeting`.

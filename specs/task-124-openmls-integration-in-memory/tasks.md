@@ -8,18 +8,18 @@
 
 ## Phase 1 — Foundation
 
-- [ ] **T001** Add `openmls =0.8.1`, `openmls_traits 0.5.0`, `openmls_rust_crypto 0.5.1` to `crypto-ffi/Cargo.toml`; `cargo build --release` green; `Cargo.lock` committed. (FR-001, §Dependency impact)
-- [ ] **T002** [P] Link `:core:crypto` androidMain → `:crypto-ffi` in `core/crypto/build.gradle.kts`; confirm `verifyCryptoIsolation` still green (crypto-ffi is not a launcher module). (§Architecture)
+- [x] **T001** Add `openmls =0.8.1`, `openmls_traits 0.5.0`, `openmls_rust_crypto 0.5.1` to `crypto-ffi/Cargo.toml`; `cargo build --release` green; `Cargo.lock` committed. (FR-001, §Dependency impact)
+- [x] **T002** [P] Link `:core:crypto` androidMain → `:crypto-ffi` in `core/crypto/build.gradle.kts`; confirm `verifyCryptoIsolation` still green (crypto-ffi is not a launcher module). (§Architecture)
 
 ## Phase 2 — Rust FFI MLS surface (`crypto-ffi/src/`)
 
-- [ ] **T003** `storage.rs`: `InMemoryStorageProvider` implementing openmls `StorageProvider<VERSION>` over `HashMap<Vec<u8>, Vec<u8>>`; serialize/deserialize the whole map (serde+bincode) for the snapshot. Unit-test snapshot roundtrip in Rust. (FR-002, FR-003, requires: T001)
-- [ ] **T004** `mls.rs`: `create_group` verb (`new_with_group_id`, ephemeral `SignatureKeyPair` + `CredentialWithKey` built in-Rust) → returns snapshot. Stateless pattern: load-or-create → op → serialize storage. (FR-003, FR-004, FR-010-signer, requires: T003)
-- [ ] **T005** `mls.rs`: `add_members` (→ commit+welcome) and `remove_members` (resolve `IdentityKey → LeafNodeIndex` from roster in-Rust; unknown member → error). (FR-004, FR-007, requires: T004)
-- [ ] **T006** `mls.rs`: `self_update`, `commit_to_pending_proposals`, `merge_pending_commit`, `merge_staged_commit`, `process_message` (→ Application/StagedCommit/Proposal kind). (FR-004, requires: T004)
-- [ ] **T007** `mls.rs`: `encrypt` (`create_message`, guard: error if pending proposals) and `decrypt` (via `process_message` → Application payload). (FR-004, FR-009, requires: T004)
-- [ ] **T008** [P] `mls.rs`: `generate_key_package` verb with `last_resort: bool` (`KeyPackage::builder().mark_as_last_resort()`). (FR-004, requires: T004)
-- [ ] **T009** Run skill `crypto-ffi-panic-check` on every new `#[uniffi::export]` verb — all non-throwing-to-abort signatures, panics map to Kotlin exceptions. (§Test strategy, requires: T005-T008)
+- [x] **T003** `storage.rs`: `InMemoryStorageProvider` implementing openmls `StorageProvider<VERSION>` over `HashMap<Vec<u8>, Vec<u8>>`; serialize/deserialize the whole map (serde+bincode) for the snapshot. Unit-test snapshot roundtrip in Rust. (FR-002, FR-003, requires: T001)
+- [x] **T004** `mls.rs`: `create_group` verb (`new_with_group_id`, ephemeral `SignatureKeyPair` + `CredentialWithKey` built in-Rust) → returns snapshot. Stateless pattern: load-or-create → op → serialize storage. (FR-003, FR-004, FR-010-signer, requires: T003)
+- [x] **T005** `mls.rs`: `add_members` (→ commit+welcome) and `remove_members` (resolve `IdentityKey → LeafNodeIndex` from roster in-Rust; unknown member → error). (FR-004, FR-007, requires: T004)
+- [x] **T006** `mls.rs`: `self_update`, `commit_to_pending_proposals`, `merge_pending_commit`, `merge_staged_commit`, `process_message` (→ Application/StagedCommit/Proposal kind). (FR-004, requires: T004)
+- [x] **T007** `mls.rs`: `encrypt` (`create_message`, guard: error if pending proposals) and `decrypt` (via `process_message` → Application payload). (FR-004, FR-009, requires: T004)
+- [x] **T008** [P] `mls.rs`: `generate_key_package` verb with `last_resort: bool` (`KeyPackage::builder().mark_as_last_resort()`). (FR-004, requires: T004)
+- [x] **T009** Run skill `crypto-ffi-panic-check` on every new `#[uniffi::export]` verb — all non-throwing-to-abort signatures, panics map to Kotlin exceptions. (§Test strategy, requires: T005-T008)
 
 ## Phase 3 — Kotlin adapters (`family.crypto.mls`, androidMain)
 
