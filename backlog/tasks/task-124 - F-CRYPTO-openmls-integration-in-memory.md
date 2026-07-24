@@ -1,10 +1,10 @@
 ---
 id: TASK-124
-title: 'F-CRYPTO openmls integration (Rust adapter + UniFFI + in-memory storage)'
-status: Draft
+title: F-CRYPTO openmls integration (Rust adapter + UniFFI + in-memory storage)
+status: Done
 assignee: []
 created_date: '2026-07-10 16:40'
-updated_date: '2026-07-10 16:40'
+updated_date: '2026-07-24 13:10'
 labels:
   - phase-2
   - F-feature
@@ -18,6 +18,8 @@ dependencies:
   - TASK-123
 priority: high
 ordinal: 124000
+references:
+  - specs/task-124-openmls-integration-in-memory/
 ---
 
 ## Description
@@ -100,7 +102,18 @@ ordinal: 124000
 
 ## Состояние
 
-**Draft.** Ждём TASK-122 (Rust FFI foundation) + TASK-123 (порты определены) → готова к `/speckit.specify`.
+**In Progress — speckit-набор готов (spec → clarify → plan → tasks → analyze), вердикт READY-WITH-CAVEATS, код ещё не написан.** Спека: `specs/task-124-openmls-integration-in-memory/`.
+
+**Уточнения scope за цикл (важно для читателя — модель сдвинулась vs исходный промт):**
+- **UniFFI — proc-macro режим, `.udl` НЕТ** (не как в исходном промте): MLS-типы добавляются Rust-аннотациями `#[uniffi::export]`.
+- **Форма FFI = снапшот `StorageProvider`, не group-state**: `MlsGroup` в openmls 0.8.1 не сериализуется (verified из первоисточника); состояние восстанавливается через `MlsGroup::load`, по мостику гоняем снимок хранилища.
+- **`remove_members` по `LeafNodeIndex`** → адаптер резолвит `IdentityKey → LeafNodeIndex`.
+- **Подписной ключ — эфемерный** в этой таске (генерится в адаптере); привязка к key-hierarchy через KeyVault (TASK-112) отложена до persistence (TASK-125). TASK-124 не зависит от Paused TASK-112.
+- **Адаптеры в пакете `family.crypto.mls`** (`:core:crypto` androidMain), без нового модуля (rule 4). Ciphertext/commit/welcome — сырые RFC 9420 байты, без своей envelope.
+- **KeyPackagePort — local-only** (серверная публикация = TASK-104).
+- Пины: openmls 0.8.1 / traits 0.5.0 / rust_crypto 0.5.1 / uniffi 0.28.3.
+
+Verified read-truth занесён в арх-пак [`crypto-mls.md`](../../docs/architecture/crypto-mls.md) (rule 14). 23 задачи, 7 фаз; T022 (emulator smoke) — `deferred-local-emulator`. Открытый caveat: SC-006 (KeyPackage) без парного `[hand]` AC — решается сейчас или на pre-PR sync.
 
 ---
 
@@ -167,11 +180,31 @@ EFFORT: ~1-2 недели (30-50 часов).
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 [hand] Contract tests из TASK-123 зелёные на OpenMlsGroupPort + OpenMlsCryptoPort
-- [ ] #2 [hand] Wire format roundtrip тесты зелёные (MLS message + group state)
-- [ ] #3 [hand] Property-based тест: 100 random sequences (create + add/remove/encrypt/processCommit) — no exception, members consistent
-- [ ] #4 [hand] Forward secrecy assertion: два `encrypt(msg)` подряд → разные ciphertext'ы (ratchet)
-- [ ] #5 [hand] Emulator smoke test: 3-member group, 10 messages encrypt+decrypt на pixel_5_api_34 — все зелёные
-- [ ] #6 [hand] Fitness function падает если commonMain импортирует openmls / uniffi
-- [ ] #7 [hand] `docs/architecture/crypto.md` frontmatter обновлён: `mls-library.decision-status: implemented (YYYY-MM-DD)`
+- [x] #1 [hand] Contract tests из TASK-123 зелёные на OpenMlsGroupPort + OpenMlsCryptoPort (9 + 4 теста, 0 падений)
+- [x] #2 [hand] Wire format roundtrip тесты зелёные (MLS message + group state) — MlsMessageRoundtripTest 3/3, GroupStateRoundtripTest 1/1
+- [x] #3 [hand] Property-based тест: 100 random sequences (create + add/remove/encrypt/processCommit) — no exception, members consistent
+- [x] #4 [hand] Forward secrecy assertion: два `encrypt(msg)` подряд → разные ciphertext'ы (ratchet); плюс prior-epoch и removed-member проверки
+- [x] #5 [hand] On-device smoke: 3-member group, 10 messages encrypt+decrypt на arm64-устройстве (Xiaomi 11T, 2109119DG, Android 11) — зелёный, commit f05c844. Переписан 2026-07-24 с «эмулятор pixel_5_api_34»: библиотека собирается только под arm64-v8a (TASK-122 Q5), локальные AVD — x86_64, т.е. прежняя формулировка была невыполнима (pseudo-gate, rule 15).
+- [x] #6 [hand] Fitness function падает если commonMain импортирует openmls / uniffi — PortsNoVendorImportTest.commonMain_hasNoVendorEngineImports
+- [x] #7 [hand] `docs/architecture/crypto.md` frontmatter обновлён: `mls-library.implementation-status: in-memory group wrapper implemented (2026-07-24, TASK-124)`. Уточнено с `decision-status` — решение о выборе openmls было принято ещё в TASK-104 (confirmed 2026-07-07); менялся именно статус реализации.
+- [x] #8 [hand] KeyPackage pool работает локально: publish → claim (one-time consumed once, last-resort reusable, пустой пул → Empty без исключения) — OpenMlsKeyPackagePortContractTest 5/5. Добавлен 2026-07-24 по caveat #1 из analyze-report (SC-006 / US-3 не были покрыты ни одним AC).
 <!-- AC:END -->
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+## Final Summary
+
+Реальная MLS-крипта (openmls 0.8.1) подключена и работает. 23/23 задач spec-kit закрыты, 8/8 AC зелёные.
+
+**Что получилось:**
+- Rust (`:crypto-ffi`): 12 UniFFI-глаголов поверх openmls + кодек снимка состояния (in-memory). 11 Rust-тестов.
+- Kotlin (`family.crypto.mls`, androidMain): три порта TASK-123 реализованы на настоящем движке, объединены `OpenMlsStack` (один снимок на устройство). DI — в `cryptokitModule`, не в `backendModule`: MLS локален и одинаков в обоих флаворах.
+- Тесты: 64 unit-теста на host-библиотеке (контракты + roundtrip + property 100 прогонов + forward secrecy) и on-device smoke на Xiaomi 11T.
+- Fitness: `commonMain` не видит openmls/uniffi; `assertNoFakeCryptoInRelease` теперь покрывает и MLS-порты.
+
+**Что осталось за рамками (по замыслу):**
+- Состояние живёт только в памяти — persistence в TASK-125 (SQLCipher).
+- Ключ подписи временный, генерируется в Rust — привязка к `KeyVault` помечена `TODO(task-112)`. Поэтому эта задача сама по себе не релизная.
+- KeyPackage-пул локальный, без сервера — TASK-104.
+
+**Полезное знание для следующих задач** (записано в `docs/architecture/crypto-mls.md` §Implemented shape): в MLS нельзя расшифровать собственное сообщение и нельзя обработать собственный коммит; обработка чужого коммита не должна сохранять состояние, иначе повторное применение падает на «секрет удалён ради forward secrecy».
+<!-- SECTION:FINAL_SUMMARY:END -->

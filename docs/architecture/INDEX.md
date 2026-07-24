@@ -196,7 +196,7 @@ flowchart LR
 | Group revoke policy | Immediate hard kick via MLS Remove, 3-tier role (owner/admin/other) | [TASK-102](../../backlog/tasks/task-102%20-%20Decision-Revoke-policy.md) | Draft | Per-revoke reason enum for beta |
 | History backup | Signal-style (нет восстановления истории на MVP) | [TASK-100](../../backlog/tasks/task-100%20-%20Decision-History-backup-strategy-for-MVP.md) | Draft | HIST-BACKUP-001 (Phase-3+) |
 
-Детально — см. **umbrella + zone map** [crypto.md](crypto.md), и per-zone SoT-файлы: [crypto-primitives.md](crypto-primitives.md) (примитивы, built), [crypto-key-hierarchy.md](crypto-key-hierarchy.md) (root key / envelope / recovery, built), [crypto-pairing.md](crypto-pairing.md) (pairing / AS / revoke). Extraction в shared-модуль — [extraction-policy.md](extraction-policy.md). Для любого крипто-вопроса — skill `crypto` (маршрутизирует в нужный файл). MLS/KeyPackage — 0 кода, контракт = Decision-блоки TASK-124/TASK-104.
+Детально — см. **umbrella + zone map** [crypto.md](crypto.md), и per-zone SoT-файлы: [crypto-primitives.md](crypto-primitives.md) (примитивы, built), [crypto-key-hierarchy.md](crypto-key-hierarchy.md) (root key / envelope / recovery, built), [crypto-pairing.md](crypto-pairing.md) (pairing / AS / revoke). Extraction в shared-модуль — [extraction-policy.md](extraction-policy.md). Для любого крипто-вопроса — skill `crypto` (маршрутизирует в нужный файл). MLS group wrapper — реализован (TASK-124, 2026-07-24, in-memory); KeyPackage-сервер и persistence — 0 кода (TASK-104 / TASK-125).
 
 ### Messaging
 

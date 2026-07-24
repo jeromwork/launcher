@@ -13,10 +13,10 @@ components:
     decision-task: TASK-104
     decision-status: confirmed (2026-07-07)
     implementation-task: TASK-124   # created 2026-07-10; TASK-58 closure originally назначила TASK-2, но TASK-2 закрыт narrow scope (libsodium only)
-    implementation-status: draft (2026-07-10)
-    ports: [CryptoPort, GroupPort, KeyPackagePort]   # PLANNED — 0 code, see zone map
+    implementation-status: in-memory group wrapper implemented (2026-07-24, TASK-124); persistence = TASK-125
+    ports: [CryptoPort, GroupPort, KeyPackagePort]   # implemented by family.crypto.mls (TASK-124)
     ports-task: TASK-123
-    adapter-location: core/crypto/src/androidMain/kotlin/family/crypto/adapters/openmls/   # planned; namespace family.* (renamed from cryptokit.* per TASK-141)
+    adapter-location: core/crypto/src/androidMain/kotlin/family/crypto/mls/   # namespace family.* (renamed from cryptokit.* per TASK-141)
     native-lib-location: app/src/main/jniLibs/*/libcrypto_ffi.so
     crypto-backend: openmls OpenMlsCrypto provider (own Rust primitives — NOT our libsodium; backend choice = TASK-124)
     exit-ramp: swap with mls-rs (Apache-2.0/MIT, AWS Labs, same RFC 9420 wire format, ~1-2 weeks adapter rewrite)
@@ -33,7 +33,7 @@ components:
     decision-task: TASK-104
     decision-status: confirmed (2026-07-07)
     implementation-task: TASK-122   # created 2026-07-10 — Rust FFI foundation (toolchain-only, no crypto)
-    implementation-status: foundation done (hello/panics smoke); MLS bindings = TASK-124
+    implementation-status: MLS bindings generated (12 verbs, TASK-124, 2026-07-24)
     build-tool: cargo-ndk + uniffi-bindgen (proc-macro)
     exit-ramp: manual JNI (2-3 weeks rewrite)
   - id: encrypted-keystore

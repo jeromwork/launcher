@@ -23,13 +23,15 @@
 
 **openmls contract (the ready code)**: `OpenMlsProvider` composes `CryptoProvider` + `RandProvider` + **`StorageProvider`** (trait, `const VERSION`, persists the *whole* group state — tree/secrets/keys/proposals). `MlsGroup`: `new`/builder, `add_members`, `remove_members`, `self_update`, `commit_to_pending_proposals`, `merge_pending_commit`, `process_message`→`ProcessedMessage`/`StagedCommit`. `KeyPackageBuilder…build()` with a **`.last_resort()`** flag (RFC 9750 first-class). Cipher suite (MTI) = `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519` (also ChaCha20 variant; PQ X25519+ML-KEM via libcrux).
 
+**Verified FFI shape (openmls-v0.8.1 source, 2026-07-23 — do NOT re-derive)** — three facts that fix the wrapper form: **(1)** `MlsGroup` is **NOT serializable** (serde/`tls_codec` removed from it in 0.8.x, PR #1637) — state lives only in the `StorageProvider`; a group is reconstructed via `MlsGroup::load(provider, group_id) -> Option<MlsGroup>`. The stateless FFI boundary therefore passes a **serialized `StorageProvider` snapshot** (the entity HashMap) in/out per call, **not** a serialized group. **(2)** `remove_members` takes **`&[LeafNodeIndex]`**, not member keys — the Kotlin adapter resolves `IdentityKey → LeafNodeIndex` internally. **(3)** Returns: `add_members → (commit, welcome, Option<GroupInfo>)` (welcome always present); `remove_members`/`self_update → (commit, Option<welcome=None>, …)`; `create_message` errors when pending proposals exist. **Version pins**: `openmls =0.8.1`, `openmls_traits 0.5.0`, `openmls_rust_crypto 0.5.1`, `uniffi 0.28.3` (lockstep-checked by `verifyUniffiVersions`). In-memory `StorageProvider` snapshot is internal (not a wire format) at TASK-124; it becomes the versioned at-rest format when SQLCipher lands (TASK-125), behind the same trait.
+
 **OUR product constraints laid on top (marked as ours, NOT universal)**:
 - **Zero-knowledge KeyPackage server (rule 13)** — the directory stores each KeyPackage as an **opaque blob keyed by an opaque ID**; the server never parses MLS internals (Tier-1 minimal-directory, the one elevation RFC-MLS forces). Deployment: [`messaging-delivery.md`](messaging-delivery.md).
 - **SQLCipher key from OUR key hierarchy** — hand SQLCipher a raw 32-byte key derived in our audited key layer (Argon2id/HKDF from the root key, [`crypto-key-hierarchy.md`](crypto-key-hierarchy.md)), bypassing SQLCipher's own PBKDF2 — DB-key derivation stays inside our layer.
 - **Family preset fields** (our policy, differ per segment — rule 11): `poolCap` (100), `claimDedupTTLSeconds` (600), `lastResortRotationDays` (7), `refillThreshold` (20). Clinic/B2B override at Phase-3+. The *mechanism* (pool + one-time claim + last-resort + coarse rate limit) is researched (RFC 9750 + Signal); these *numbers* are ours.
 - **Who-may-add/remove** is application policy in [`crypto-pairing.md`](crypto-pairing.md) (RFC 9750 §3.5), NOT the MLS core.
 
-**Invariants** (ML1–ML6, see §Invariants). **Status**: designed, not built. FFI foundation (hello/panics smoke) done (TASK-122); the group wrapper + storage + KeyPackage server are 0 code.
+**Invariants** (ML1–ML6, see §Invariants). **Status**: FFI foundation done (TASK-122); **group wrapper implemented 2026-07-24 (TASK-124)** — openmls 0.8.1 engine + 12 FFI verbs + `family.crypto.mls` adapters, in-memory storage, 64 unit tests green (§Implemented shape). SQLCipher persistence (TASK-125) and the KeyPackage directory server (TASK-104) are still 0 code.
 
 **Routing**: MLS group / KeyPackage / FFI / keystore → stay here. Primitives (libsodium) → [`crypto-primitives.md`](crypto-primitives.md). Root key / SQLCipher-key derivation → [`crypto-key-hierarchy.md`](crypto-key-hierarchy.md). Who-may-add / revoke → [`crypto-pairing.md`](crypto-pairing.md). KeyPackage server deployment / endpoints → [`messaging-delivery.md`](messaging-delivery.md). Versioning → [`wire-format.md`](wire-format.md).
 
@@ -55,6 +57,25 @@
 5. **Client-driven refill** — device publishes a new batch when local count < `refillThreshold` (no server-push scheduling).
 
 Ports (domain, Kotlin, no MLS types leak): `KeyPackagePool` (opaque `KeyPackageId`), `LastResortKeyManager` (opaque `LastResortKey`); result types are sealed classes, HTTP codes never leak into domain.
+
+## Implemented shape (TASK-124, 2026-07-24) — in-memory group wrapper
+
+What exists in code today. Everything below was settled against the openmls 0.8.1 source and is verified by tests; do not re-derive it.
+
+**FFI verbs** (`crypto-ffi/src/mls.rs`, all `#[uniffi::export]`, all throwing `MlsError`): `mls_create_group`, `mls_add_members`, `mls_remove_members`, `mls_self_update`, `mls_commit_to_pending_proposals`, `mls_merge_pending_commit`, `mls_merge_staged_commit`, `mls_process_message`, `mls_encrypt`, `mls_decrypt`, `mls_generate_key_package`, `mls_join_from_welcome`.
+
+**Snapshot convention** — one **device-scoped** snapshot, not one per group (the FFI-shape decision above says "StorageProvider snapshot"; the *scope* is settled here): openmls storage also holds signature key pairs and KeyPackage bundles, and a KeyPackage must be openable by the same storage that later joins the group its Welcome names. Cross-group isolation comes from MLS itself. Storage is `openmls_rust_crypto::MemoryStorage` (we do NOT hand-write the `StorageProvider` trait — ML1); what we own is the snapshot codec (`crypto-ffi/src/storage.rs`, length-prefixed, unversioned by design until TASK-125).
+
+**Three MLS rules the adapter must respect** (each cost a test cycle to discover):
+1. **A member cannot unprotect its own message** — neither its own application ciphertext nor its own commit ("Cannot decrypt own messages"). Own commits are applied via `merge_pending_commit`; only a peer's commit goes through `process_message`. The TASK-123 port contracts therefore carry two hooks (`canDecryptOwnMessage` / `canProcessOwnCommit`) that the real adapter answers `false`.
+2. **`process_message` on a commit must not persist its state change** — unprotecting consumes the message's ratchet secret, so replaying it in `merge_staged_commit` would fail with "secret was deleted to preserve forward secrecy". The verb reports the commit and returns the INPUT snapshot; the caller keeps the bytes and replays them at merge time (the openmls `StagedCommit` is not serializable, so it cannot cross the boundary). A standalone proposal DOES persist (it is queued).
+3. **`merge_pending_commit` with nothing staged is a no-op in openmls** — the domain contract requires a deterministic error, so the verb checks `pending_commit()` first.
+
+**Identity** — a member's `IdentityKey` IS its Ed25519 signature public key, and the BasicCredential carries the same bytes; `remove_members` resolves identity → `LeafNodeIndex` off the roster. The signing key is currently **ephemeral, generated in Rust per group/KeyPackage** — `TODO(task-112)`: derive it from `KeyVault.exportDerivedKey(MLS_SIGNATURE, …)` ([`crypto-key-hierarchy.md`](crypto-key-hierarchy.md)). Until then TASK-124 alone is not release-shippable.
+
+**Kotlin surface** — `family.crypto.mls` (androidMain, the only package allowed to import `openmls`/`uniffi`): `OpenMlsGroupPort`, `OpenMlsCryptoPort`, `OpenMlsKeyPackagePort`, composed by `OpenMlsStack` (one shared snapshot store per device; DI binds one per process in `cryptokitModule`). `KeyPackagePort` is **local-only** until the directory server lands (TASK-104). Two methods sit outside the ports because the domain has no verb for them yet: `OpenMlsGroupPort.joinFromWelcome` (pairing owns joining — TASK-67) and `OpenMlsKeyPackagePort.generateWithIdentity` (generation needs the storage).
+
+**Ciphersuite** — `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`, groups created with `use_ratchet_tree_extension(true)` so a Welcome is self-sufficient.
 
 ## Industry grounding (the researched prior art this file is built on)
 

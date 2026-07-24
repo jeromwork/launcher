@@ -78,6 +78,24 @@ kotlin {
                 implementation(libs.kotest.runner.junit5)
             }
         }
+        // TASK-124 — the real openmls adapters (family.crypto.mls) live in androidMain and call
+        // the UniFFI-generated `uniffi.crypto_ffi` API from the :crypto-ffi Rust module.
+        // commonMain stays vendor-free (fitness-gated by PortsNoVendorImportTest).
+        val androidMain by getting {
+            dependencies {
+                api(project(":crypto-ffi"))
+            }
+        }
+        val androidUnitTest by getting {
+            dependencies {
+                implementation(libs.kotlinx.coroutines.test)
+                implementation(libs.kotest.property)
+                implementation(libs.kotest.assertions.core)
+                // :crypto-ffi ships JNA as `@aar` (Android-only). Host JVM unit tests need the
+                // plain jar, which carries the desktop native JNA library.
+                implementation("net.java.dev.jna:jna:5.14.0")
+            }
+        }
         // Spec 016 Phase B — Android Keystore instrumentation tests run on a device/emulator.
         val androidInstrumentedTest by getting {
             dependencies {
@@ -102,15 +120,31 @@ android {
     }
 }
 
+// JVM unit tests (androidUnitTest) exercise the real openmls adapters, which call into the
+// UniFFI binding via JNA. On the host that means the *host-native* cdylib built by
+// :crypto-ffi:buildRustHostLibrary (crypto_ffi.dll / libcrypto_ffi.so / .dylib) — the Android
+// `.so` is not loadable here. Point JNA at it and make sure it exists before the tests run.
+tasks.withType<Test>().configureEach {
+    dependsOn(":crypto-ffi:buildRustHostLibrary")
+    systemProperty(
+        "jna.library.path",
+        rootProject.file("crypto-ffi/target/release").absolutePath
+    )
+}
+
 // Fitness function: :core:crypto MUST NOT depend on launcher modules.
 // Per FR-005 + SC-006. Тест: ./gradlew :core:crypto:verifyCryptoIsolation.
+//
+// TASK-124: `:crypto-ffi` is allowed — it is the Rust/UniFFI crypto engine module, part of the
+// extractable crypto SDK (docs/architecture/extraction-policy.md), NOT a launcher module.
 tasks.register("verifyCryptoIsolation") {
     doLast {
+        val allowed = setOf(":core:crypto", ":crypto-ffi")
         val forbidden = configurations
             .flatMap { it.dependencies }
             .filterIsInstance<ProjectDependency>()
             .map { it.dependencyProject.path }
-            .filter { it != ":core:crypto" }
+            .filter { it !in allowed }
         check(forbidden.isEmpty()) {
             ":core:crypto MUST NOT depend on launcher modules (FR-005). " +
                 "Found project deps: $forbidden"

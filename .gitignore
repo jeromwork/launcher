@@ -82,3 +82,4 @@ specs/**/checklists/
 /crypto-ffi/build/
 /crypto-ffi/**/*.so
 /crypto-ffi/src/main/jniLibs/
+openmls_repo/

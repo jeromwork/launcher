@@ -101,7 +101,9 @@ val buildRustLibraries by tasks.registering {
 
     inputs.file(File(rustCrateDir, "Cargo.toml"))
     inputs.file(File(rustCrateDir, "Cargo.lock"))
-    inputs.file(File(rustCrateDir, "src/lib.rs"))
+    // Whole source tree, not just lib.rs: TASK-124 added mls.rs / storage.rs, and an input list
+    // naming a single file makes Gradle call the task UP-TO-DATE after any other file changes.
+    inputs.dir(File(rustCrateDir, "src"))
     inputs.file(File(rustCrateDir, "rust-toolchain.toml"))
     cargoNdkAbiToTarget.values.forEach { triple ->
         outputs.file(File(rustCrateDir, "target/$triple/release/libcrypto_ffi.so"))
@@ -156,7 +158,7 @@ val buildRustHostLibrary by tasks.registering(Exec::class) {
 
     inputs.file(File(rustCrateDir, "Cargo.toml"))
     inputs.file(File(rustCrateDir, "Cargo.lock"))
-    inputs.file(File(rustCrateDir, "src/lib.rs"))
+    inputs.dir(File(rustCrateDir, "src"))
     inputs.file(File(rustCrateDir, "rust-toolchain.toml"))
     // We don't declare a specific output path (varies by OS — dll/so/dylib);
     // this task is fast (cargo caches) and the downstream bindgen task will
@@ -178,7 +180,7 @@ val generateUniffiBindings by tasks.registering(Exec::class) {
     val hostReleaseDir = File(rustCrateDir, "target/release")
     val outDir = layout.buildDirectory.dir("generated/kotlin/uniffi").get().asFile
 
-    inputs.file(File(rustCrateDir, "src/lib.rs"))
+    inputs.dir(File(rustCrateDir, "src"))
     inputs.file(File(rustCrateDir, "Cargo.toml"))
     outputs.dir(outDir)
 

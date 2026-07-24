@@ -33,7 +33,23 @@ abstract class GroupPortContract {
     /** Impl-specific sample bytes decoded as a proposal; `null` skips that check. */
     open fun proposalBytes(): ByteArray? = null
 
-    private fun kp(tag: String) = KeyPackage(tag.encodeToByteArray())
+    /**
+     * A KeyPackage this implementation accepts in [GroupPort.addMembers]. The fake takes any bytes;
+     * a real MLS engine needs a genuine RFC 9420 KeyPackage, so the real adapter generates one
+     * (TASK-124).
+     */
+    protected open suspend fun keyPackageFor(tag: String): KeyPackage =
+        KeyPackage(tag.encodeToByteArray())
+
+    /**
+     * Whether the implementation can feed its OWN commit back through [GroupPort.processMessage].
+     *
+     * The fake can. Real MLS cannot: RFC 9420 forbids a member from unprotecting its own message
+     * ("Cannot decrypt own messages") — an own commit is applied via [GroupPort.mergePendingCommit],
+     * and only a PEER's commit is ever processed. When `false`, the contract asserts the
+     * deterministic error instead (TASK-124).
+     */
+    protected open fun canProcessOwnCommit(): Boolean = true
 
     @Test
     fun createGroup_succeeds() = runTest {
@@ -53,7 +69,7 @@ abstract class GroupPortContract {
         val port = createGroupPort()
         val g = GroupId("g1")
         port.createGroup(g)
-        val bundle = port.addMembers(g, listOf(kp("alice"), kp("bob")))
+        val bundle = port.addMembers(g, listOf(keyPackageFor("alice"), keyPackageFor("bob")))
         assertTrue(bundle.commit.bytes.isNotEmpty(), "commit must be non-empty")
         assertNotNull(bundle.welcome, "adding members must produce a Welcome")
     }
@@ -73,8 +89,12 @@ abstract class GroupPortContract {
         val port = createGroupPort()
         val g = GroupId("g1")
         port.createGroup(g)
-        val bundle = port.addMembers(g, listOf(kp("carol")))
-        assertIs<ProcessedMessage.StagedCommit>(port.processMessage(g, bundle.commit.bytes))
+        val bundle = port.addMembers(g, listOf(keyPackageFor("carol")))
+        if (canProcessOwnCommit()) {
+            assertIs<ProcessedMessage.StagedCommit>(port.processMessage(g, bundle.commit.bytes))
+        } else {
+            assertFailsWith<Exception> { port.processMessage(g, bundle.commit.bytes) }
+        }
     }
 
     @Test
@@ -97,7 +117,9 @@ abstract class GroupPortContract {
 
     @Test
     fun unknownGroup_isDeterministicError() = runTest {
-        assertFailsWith<Exception> { createGroupPort().addMembers(GroupId("nope"), listOf(kp("x"))) }
+        assertFailsWith<Exception> {
+            createGroupPort().addMembers(GroupId("nope"), listOf(keyPackageFor("x")))
+        }
     }
 
     @Test

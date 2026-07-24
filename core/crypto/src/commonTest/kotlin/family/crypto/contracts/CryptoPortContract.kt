@@ -26,6 +26,16 @@ abstract class CryptoPortContract {
 
     abstract fun createPorts(): Ports
 
+    /**
+     * Whether a member can decrypt its OWN application message.
+     *
+     * The fake can. Real MLS cannot (RFC 9420: "Cannot decrypt own messages") — a sender keeps its
+     * plaintext and only PEERS decrypt. When `false`, this contract asserts the deterministic error
+     * and the genuine encrypt→decrypt roundtrip is covered by the two-party test that pairs two
+     * devices (TASK-124 `MlsMessageRoundtripTest`).
+     */
+    protected open fun canDecryptOwnMessage(): Boolean = true
+
     @Test
     fun encryptThenDecrypt_roundtrips() = runTest {
         val (crypto, group) = createPorts().let { it.crypto to it.group }
@@ -33,7 +43,12 @@ abstract class CryptoPortContract {
         group.createGroup(g)
         val plaintext = "the quick brown fox".encodeToByteArray()
         val ct = crypto.encryptMessage(g, plaintext)
-        assertContentEquals(plaintext, crypto.decryptMessage(g, ct))
+        if (canDecryptOwnMessage()) {
+            assertContentEquals(plaintext, crypto.decryptMessage(g, ct))
+        } else {
+            assertFalse(ct.bytes.isEmpty(), "encryption must produce a ciphertext")
+            assertFailsWith<Exception> { crypto.decryptMessage(g, ct) }
+        }
     }
 
     @Test
