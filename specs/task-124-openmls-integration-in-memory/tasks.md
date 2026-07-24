@@ -39,8 +39,8 @@
 
 ## Phase 5 — Fitness & DI wiring
 
-- [ ] **T020** DI: wire `OpenMls*Port` into `backendModule` (androidRealBackend) vs fakes (androidMockBackend); confirm `assertNoFakeCryptoInRelease` trips on a fake MLS port in release graph. (FR-012, SC-008, requires: T011-T013)
-- [ ] **T021** Fitness: confirm `PortsNoVendorImportTest` FORBIDDEN list catches `openmls`/`uniffi` in `family.crypto.ports`; `verifyUniffiVersions` (0.28.3) green after MLS bindings. (FR-013, FR-014, SC-007, requires: T011)
+- [x] **T020** DI: wire `OpenMls*Port` into `backendModule` (androidRealBackend) vs fakes (androidMockBackend); confirm `assertNoFakeCryptoInRelease` trips on a fake MLS port in release graph. (FR-012, SC-008, requires: T011-T013)
+- [x] **T021** Fitness: confirm `PortsNoVendorImportTest` FORBIDDEN list catches `openmls`/`uniffi` in `family.crypto.ports`; `verifyUniffiVersions` (0.28.3) green after MLS bindings. (FR-013, FR-014, SC-007, requires: T011)
 
 ## Phase 6 — Emulator smoke
 

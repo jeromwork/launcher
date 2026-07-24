@@ -16,6 +16,10 @@ import family.crypto.libsodium.LibsodiumAeadCipher
 import family.crypto.libsodium.LibsodiumAsymmetricCrypto
 import family.crypto.libsodium.LibsodiumKeyDerivation
 import family.crypto.libsodium.LibsodiumRandomSource
+import family.crypto.mls.OpenMlsStack
+import family.crypto.ports.CryptoPort
+import family.crypto.ports.GroupPort
+import family.crypto.ports.KeyPackagePort
 import family.crypto.stubs.StubKeyEscrow
 import family.crypto.stubs.StubKeyRotation
 import family.pairing.api.DeviceIdentityRepository
@@ -84,6 +88,21 @@ val cryptokitModule = module {
         )
     }
 
+    // ── MLS ports (TASK-124) ─────────────────────────────────────────────
+    // One OpenMlsStack per process: the three ports are facets of one device's MLS state and MUST
+    // share a snapshot store. In-memory only — state is lost on process death until TASK-125 adds
+    // SQLCipher persistence, and the signing key is still ephemeral (TODO(task-112)).
+    //
+    // Bound here rather than in `backendModule` (as tasks.md T020 sketched): MLS is crypto, not
+    // backend — the engine is local and identical in both the real and mock flavors, so a
+    // flavor-specific binding would be a fake with no purpose. The fakes stay test-only
+    // (`family.crypto.fake`, TASK-123) and [assertNoFakeCryptoInRelease] below now covers the MLS
+    // ports so an accidental production wiring fails loudly.
+    single { OpenMlsStack() }
+    single<GroupPort> { get<OpenMlsStack>().group }
+    single<CryptoPort> { get<OpenMlsStack>().crypto }
+    single<KeyPackagePort> { get<OpenMlsStack>().keyPackages }
+
     // ── PairingCryptoCoordinator — key lifecycle + DeviceIdentity publish ─
     single {
         PairingCryptoCoordinator(
@@ -110,6 +129,11 @@ fun assertNoFakeCryptoInRelease(get: (Class<*>) -> Any) {
         AsymmetricCrypto::class.java,
         KeyDerivation::class.java,
         RandomSource::class.java,
+        // TASK-124 — the MLS ports have fakes too (family.crypto.fake, TASK-123); a fake group /
+        // message / KeyPackage engine in production would be silent plaintext.
+        GroupPort::class.java,
+        CryptoPort::class.java,
+        KeyPackagePort::class.java,
     )
     for (port in ports) {
         val impl = get(port)
