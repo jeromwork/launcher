@@ -1,10 +1,10 @@
 ---
 id: TASK-124
-title: 'F-CRYPTO openmls integration (Rust adapter + UniFFI + in-memory storage)'
-status: Draft
+title: F-CRYPTO openmls integration (Rust adapter + UniFFI + in-memory storage)
+status: In Progress
 assignee: []
 created_date: '2026-07-10 16:40'
-updated_date: '2026-07-10 16:40'
+updated_date: '2026-07-23 17:08'
 labels:
   - phase-2
   - F-feature
@@ -18,6 +18,8 @@ dependencies:
   - TASK-123
 priority: high
 ordinal: 124000
+references:
+  - specs/task-124-openmls-integration-in-memory/
 ---
 
 ## Description
