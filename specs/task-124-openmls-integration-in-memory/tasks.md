@@ -23,19 +23,19 @@
 
 ## Phase 3 — Kotlin adapters (`family.crypto.mls`, androidMain)
 
-- [ ] **T010** Internal plumbing: `SnapshotStore` (`MutableMap<GroupId, ByteArray>`), result→domain mappers, `withContext(Dispatchers.IO)` wrapping. (FR-005, FR-007, FR-011, requires: T009)
-- [ ] **T011** `OpenMlsGroupPort` implements `GroupPort` via `uniffi.crypto_ffi`: createGroup/addMembers/removeMembers/selfUpdate/commitToPendingProposals/mergePendingCommit/processMessage; map to `CommitBundle`/`ProcessedMessage`. (FR-005, FR-006, FR-008, US-1, requires: T010)
-- [ ] **T012** `OpenMlsCryptoPort` implements `CryptoPort` (encryptMessage/decryptMessage) sharing epoch state with `OpenMlsGroupPort` (same SnapshotStore). (FR-005, FR-006, US-1, US-2, requires: T010)
-- [ ] **T013** `OpenMlsKeyPackagePort` implements `KeyPackagePort` local-only: publish/claim(one-time→last-resort→Empty, never throws)/localCount; ephemeral in-adapter signer + `// TODO(task-112)` + `// TODO(server-roadmap)`. (FR-010, US-3, requires: T010)
+- [x] **T010** Internal plumbing: `SnapshotStore` (`MutableMap<GroupId, ByteArray>`), result→domain mappers, `withContext(Dispatchers.IO)` wrapping. (FR-005, FR-007, FR-011, requires: T009)
+- [x] **T011** `OpenMlsGroupPort` implements `GroupPort` via `uniffi.crypto_ffi`: createGroup/addMembers/removeMembers/selfUpdate/commitToPendingProposals/mergePendingCommit/processMessage; map to `CommitBundle`/`ProcessedMessage`. (FR-005, FR-006, FR-008, US-1, requires: T010)
+- [x] **T012** `OpenMlsCryptoPort` implements `CryptoPort` (encryptMessage/decryptMessage) sharing epoch state with `OpenMlsGroupPort` (same SnapshotStore). (FR-005, FR-006, US-1, US-2, requires: T010)
+- [x] **T013** `OpenMlsKeyPackagePort` implements `KeyPackagePort` local-only: publish/claim(one-time→last-resort→Empty, never throws)/localCount; ephemeral in-adapter signer + `// TODO(task-112)` + `// TODO(server-roadmap)`. (FR-010, US-3, requires: T010)
 
 ## Phase 4 — Tests (contract + roundtrip + property + forward secrecy)
 
-- [ ] **T014** Subclass `GroupPortContract` (androidUnitTest) with `createGroupPort() = OpenMlsGroupPort`; all inherited assertions green, no test code moved. (SC-001, US-1, requires: T011)
-- [ ] **T015** Subclass `CryptoPortContract` returning shared `OpenMlsCryptoPort`+`OpenMlsGroupPort`; roundtrip + cross-group + prior-epoch assertions green. (SC-001, US-1, US-2, requires: T011, T012)
-- [ ] **T016** Subclass `KeyPackagePortContract` on `OpenMlsKeyPackagePort`; one-time-once + last-resort-reuse + empty-no-throw. (SC-006, US-3, requires: T013)
-- [ ] **T017** `MlsMessageRoundtripTest` (encrypt→serialize→deserialize→decrypt == original) + `GroupStateRoundtripTest` (snapshot serialize→deserialize→op equivalence). Contract: [mls-ffi-surface.md](contracts/mls-ffi-surface.md). (FR-015, SC-002, requires: T011, T012)
-- [ ] **T018** [P] Property-based (kotest-property Arb): 100 random sequences create+add+encrypt+remove+processCommit → no exception, member set consistent. (SC-004, requires: T014)
-- [ ] **T019** [P] Forward-secrecy assertions: double `encrypt(m)` → different ciphertexts; prior-epoch ciphertext undecryptable after `selfUpdate+mergePendingCommit`. (SC-003, requires: T015)
+- [x] **T014** Subclass `GroupPortContract` (androidUnitTest) with `createGroupPort() = OpenMlsGroupPort`; all inherited assertions green, no test code moved. (SC-001, US-1, requires: T011)
+- [x] **T015** Subclass `CryptoPortContract` returning shared `OpenMlsCryptoPort`+`OpenMlsGroupPort`; roundtrip + cross-group + prior-epoch assertions green. (SC-001, US-1, US-2, requires: T011, T012)
+- [x] **T016** Subclass `KeyPackagePortContract` on `OpenMlsKeyPackagePort`; one-time-once + last-resort-reuse + empty-no-throw. (SC-006, US-3, requires: T013)
+- [x] **T017** `MlsMessageRoundtripTest` (encrypt→serialize→deserialize→decrypt == original) + `GroupStateRoundtripTest` (snapshot serialize→deserialize→op equivalence). Contract: [mls-ffi-surface.md](contracts/mls-ffi-surface.md). (FR-015, SC-002, requires: T011, T012)
+- [x] **T018** [P] Property-based (kotest-property Arb): 100 random sequences create+add+encrypt+remove+processCommit → no exception, member set consistent. (SC-004, requires: T014)
+- [x] **T019** [P] Forward-secrecy assertions: double `encrypt(m)` → different ciphertexts; prior-epoch ciphertext undecryptable after `selfUpdate+mergePendingCommit`. (SC-003, requires: T015)
 
 ## Phase 5 — Fitness & DI wiring
 

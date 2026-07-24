@@ -465,24 +465,44 @@ pub fn mls_process_message(
         .process_message(&provider, protocol_message)
         .map_err(op)?;
 
-    let (kind, payload) = match processed.into_content() {
-        ProcessedMessageContent::ApplicationMessage(app) => {
-            (ProcessedKind::Application, app.into_bytes())
-        }
-        // The staged commit / queued proposal objects cannot cross the FFI boundary; the caller
-        // keeps the original bytes and hands them back to `mls_merge_staged_commit`.
-        ProcessedMessageContent::StagedCommitMessage(_) => (ProcessedKind::StagedCommit, message),
-        ProcessedMessageContent::ProposalMessage(_)
-        | ProcessedMessageContent::ExternalJoinProposalMessage(_) => {
-            (ProcessedKind::Proposal, message)
-        }
-    };
+    match processed.into_content() {
+        ProcessedMessageContent::ApplicationMessage(app) => Ok(ProcessResult {
+            state: snapshot_from_provider(&provider)?,
+            kind: ProcessedKind::Application,
+            payload: app.into_bytes(),
+        }),
 
-    Ok(ProcessResult {
-        state: snapshot_from_provider(&provider)?,
-        kind,
-        payload,
-    })
+        // A commit is REPORTED here but not applied, and the state change is deliberately
+        // discarded: the openmls `StagedCommit` cannot cross the FFI boundary, so the caller keeps
+        // the original bytes and replays them through `mls_merge_staged_commit`. Returning the
+        // INPUT state (not the mutated one) is what makes that replay legal — unprotecting a
+        // message consumes its ratchet secret, so a second pass over an already-advanced state
+        // would fail with "secret was deleted to preserve forward secrecy".
+        ProcessedMessageContent::StagedCommitMessage(_) => Ok(ProcessResult {
+            state,
+            kind: ProcessedKind::StagedCommit,
+            payload: message,
+        }),
+
+        // A standalone proposal IS applied (queued), so the state advances: the caller surfaces it
+        // to the group's commit policy and later calls `commit_to_pending_proposals`.
+        ProcessedMessageContent::ProposalMessage(proposal) => {
+            group
+                .store_pending_proposal(provider.storage(), *proposal)
+                .map_err(|e| MlsError::Storage { msg: e.to_string() })?;
+            Ok(ProcessResult {
+                state: snapshot_from_provider(&provider)?,
+                kind: ProcessedKind::Proposal,
+                payload: message,
+            })
+        }
+
+        ProcessedMessageContent::ExternalJoinProposalMessage(_) => Ok(ProcessResult {
+            state,
+            kind: ProcessedKind::Proposal,
+            payload: message,
+        }),
+    }
 }
 
 /// Encrypt an application message in the group's current epoch (FR-004).
@@ -668,4 +688,28 @@ mod tests {
             Err(MlsError::UnknownMember)
         ));
     }
+
+    /// MLS forbids a member from decrypting its own application message (RFC 9420 framing).
+    /// The Kotlin contract tests rely on this being a deterministic error, not a panic.
+    #[test]
+    fn own_application_message_is_not_self_decryptable() {
+        let alice = mls_create_group(Vec::new(), b"g1".to_vec()).expect("create");
+        let encrypted = mls_encrypt(alice.state, b"g1".to_vec(), b"hi".to_vec()).expect("encrypt");
+        assert!(matches!(
+            mls_decrypt(encrypted.state, b"g1".to_vec(), encrypted.ciphertext),
+            Err(MlsError::Operation { .. })
+        ));
+    }
+
+    /// Same rule for one's own commit: it is merged via `merge_pending_commit`, never processed.
+    #[test]
+    fn own_commit_is_not_self_processable() {
+        let alice = mls_create_group(Vec::new(), b"g1".to_vec()).expect("create");
+        let updated = mls_self_update(alice.state, b"g1".to_vec()).expect("self update");
+        assert!(matches!(
+            mls_process_message(updated.state, b"g1".to_vec(), updated.commit),
+            Err(MlsError::Operation { .. })
+        ));
+    }
 }
+

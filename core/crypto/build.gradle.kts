@@ -91,6 +91,9 @@ kotlin {
                 implementation(libs.kotlinx.coroutines.test)
                 implementation(libs.kotest.property)
                 implementation(libs.kotest.assertions.core)
+                // :crypto-ffi ships JNA as `@aar` (Android-only). Host JVM unit tests need the
+                // plain jar, which carries the desktop native JNA library.
+                implementation("net.java.dev.jna:jna:5.14.0")
             }
         }
         // Spec 016 Phase B — Android Keystore instrumentation tests run on a device/emulator.
