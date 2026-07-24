@@ -44,9 +44,9 @@
 
 ## Phase 6 — Emulator smoke
 
-> **[deferred-local-emulator]** T022 requires a running AVD the AI session can't reliably verify; owner runs via skill `android-emulator` on `pixel_5_api_34`.
+> **[deferred-physical-device]** T022 needs an **arm64** Android device: `:crypto-ffi` cross-compiles arm64-v8a only (TASK-122 Clarification Q5) and every local AVD is x86_64, so the emulator route is not runnable as written. Owner decision 2026-07-24: run it on the Xiaomi 11T instead. Test is written and compiles; only the on-device run is outstanding.
 
-- [ ] **T022** [deferred-local-emulator] Smoke: create 3-member group, encrypt+decrypt 10 messages, all decrypt correctly on `pixel_5_api_34`. (SC-005, requires: T011, T012)
+- [ ] **T022** [deferred-physical-device] Smoke: create 3-member group, encrypt+decrypt 10 messages, all decrypt correctly on an arm64 device (Xiaomi 11T). Test: `MlsSmokeInstrumentedTest`; run `./gradlew :core:crypto:connectedAndroidTest --tests "*MlsSmokeInstrumentedTest*"`. (SC-005, requires: T011, T012)
 
 ## Phase 7 — Docs
 
@@ -59,7 +59,7 @@
 - **Contracts gate**: [mls-ffi-surface.md](contracts/mls-ffi-surface.md) → roundtrip = T017. **Backward-compat corpus N/A** (documented in contract): MLS bytes are RFC-9420-versioned externally, exact openmls 0.8.1 pin; our cross-version at-rest compat is TASK-125's concern.
 - **Ports/fakes gate**: `OpenMls*Port` are the REAL adapters; fakes already exist (TASK-123) — no new fake task.
 - **New-module gate**: none (reuse `:core:crypto` + `:crypto-ffi`) — no Konsist boundary task beyond existing T021 fitness.
-- **Deferred**: only T022 (`[deferred-local-emulator]`). Everything else closeable in-session.
+- **Deferred**: only T022 (`[deferred-physical-device]` — arm64 device, the local AVDs are x86_64). Everything else closeable in-session.
 
 ---
 
@@ -71,7 +71,7 @@
 3. **Kotlin-адаптеры** — три «переходника», которые втыкают Rust-крипту в готовые розетки.
 4. **Тесты** — старые контракты из прошлой задачи гоняем на новом настоящем адаптере + forward-secrecy + 100 случайных сценариев.
 5. **Проверки-предохранители** — DI (настоящий/игрушечный) + фитнес-правила (чтобы vendor-типы не протекли).
-6. **Дымовой тест на эмуляторе** — 3 участника, 10 сообщений (владелец запускает сам — помечено `deferred-local-emulator`).
+6. **Дымовой тест на телефоне** — 3 участника, 10 сообщений (владелец запускает сам на Xiaomi 11T — помечено `deferred-physical-device`; эмуляторы x86_64 не подходят, крипто-библиотека собрана под arm64).
 7. **Документация** — отметить в арх-паке, что MLS-движок реализован.
 
-Почти всё закрывается в сессии; на железе/эмуляторе — только один пункт (T022).
+Почти всё закрывается в сессии; на железе — только один пункт (T022).
