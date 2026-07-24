@@ -102,7 +102,18 @@ references:
 
 ## Состояние
 
-**Draft.** Ждём TASK-122 (Rust FFI foundation) + TASK-123 (порты определены) → готова к `/speckit.specify`.
+**In Progress — speckit-набор готов (spec → clarify → plan → tasks → analyze), вердикт READY-WITH-CAVEATS, код ещё не написан.** Спека: `specs/task-124-openmls-integration-in-memory/`.
+
+**Уточнения scope за цикл (важно для читателя — модель сдвинулась vs исходный промт):**
+- **UniFFI — proc-macro режим, `.udl` НЕТ** (не как в исходном промте): MLS-типы добавляются Rust-аннотациями `#[uniffi::export]`.
+- **Форма FFI = снапшот `StorageProvider`, не group-state**: `MlsGroup` в openmls 0.8.1 не сериализуется (verified из первоисточника); состояние восстанавливается через `MlsGroup::load`, по мостику гоняем снимок хранилища.
+- **`remove_members` по `LeafNodeIndex`** → адаптер резолвит `IdentityKey → LeafNodeIndex`.
+- **Подписной ключ — эфемерный** в этой таске (генерится в адаптере); привязка к key-hierarchy через KeyVault (TASK-112) отложена до persistence (TASK-125). TASK-124 не зависит от Paused TASK-112.
+- **Адаптеры в пакете `family.crypto.mls`** (`:core:crypto` androidMain), без нового модуля (rule 4). Ciphertext/commit/welcome — сырые RFC 9420 байты, без своей envelope.
+- **KeyPackagePort — local-only** (серверная публикация = TASK-104).
+- Пины: openmls 0.8.1 / traits 0.5.0 / rust_crypto 0.5.1 / uniffi 0.28.3.
+
+Verified read-truth занесён в арх-пак [`crypto-mls.md`](../../docs/architecture/crypto-mls.md) (rule 14). 23 задачи, 7 фаз; T022 (emulator smoke) — `deferred-local-emulator`. Открытый caveat: SC-006 (KeyPackage) без парного `[hand]` AC — решается сейчас или на pre-PR sync.
 
 ---
 
